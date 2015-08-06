@@ -3052,15 +3052,17 @@ ostd::String CsState::run_str(ostd::ConstCharRange code) {
     return ret;
 }
 
-char *executestr(Ident *id, TaggedValue *args, int numargs) {
+ostd::String CsState::run_str(Ident *id, ostd::PointerRange<TaggedValue> args) {
     TaggedValue result;
-    executeret(id, args, numargs, result);
+    executeret(id, args.data(), int(args.size()), result);
     if (result.type == VAL_NULL) return nullptr;
     result.force_str();
-    return result.s;
+    ostd::String ret(result.s);
+    delete[] result.s;
+    return ret;
 }
 
-int execute(const ostd::uint *code) {
+int CsState::run_int(const ostd::uint *code) {
     TaggedValue result;
     runcode(code, result);
     int i = result.get_int();
@@ -3068,10 +3070,10 @@ int execute(const ostd::uint *code) {
     return i;
 }
 
-int execute(const char *p) {
+int CsState::run_int(ostd::ConstCharRange p) {
     ostd::Vector<ostd::uint> code;
     code.reserve(64);
-    compilemain(code, p, VAL_INT);
+    compilemain(code, p.data(), VAL_INT);
     TaggedValue result;
     runcode(code.data() + 1, result);
     if (int(code[0]) >= 0x100) code.disown();
@@ -3080,15 +3082,15 @@ int execute(const char *p) {
     return i;
 }
 
-int execute(Ident *id, TaggedValue *args, int numargs) {
+int CsState::run_int(Ident *id, ostd::PointerRange<TaggedValue> args) {
     TaggedValue result;
-    executeret(id, args, numargs, result);
+    executeret(id, args.data(), int(args.size()), result);
     int i = result.get_int();
     result.cleanup();
     return i;
 }
 
-float executefloat(const ostd::uint *code) {
+float CsState::run_float(const ostd::uint *code) {
     TaggedValue result;
     runcode(code, result);
     float f = result.get_float();
@@ -3096,23 +3098,23 @@ float executefloat(const ostd::uint *code) {
     return f;
 }
 
-float executefloat(const char *p) {
+float CsState::run_float(ostd::ConstCharRange code) {
     TaggedValue result;
-    executeret(p, result);
+    executeret(code.data(), result);
     float f = result.get_float();
     result.cleanup();
     return f;
 }
 
-float executefloat(Ident *id, TaggedValue *args, int numargs) {
+float CsState::run_float(Ident *id, ostd::PointerRange<TaggedValue> args) {
     TaggedValue result;
-    executeret(id, args, numargs, result);
+    executeret(id, args.data(), int(args.size()), result);
     float f = result.get_float();
     result.cleanup();
     return f;
 }
 
-bool executebool(const ostd::uint *code) {
+bool CsState::run_bool(const ostd::uint *code) {
     TaggedValue result;
     runcode(code, result);
     bool b = getbool(result);
@@ -3120,17 +3122,17 @@ bool executebool(const ostd::uint *code) {
     return b;
 }
 
-bool executebool(const char *p) {
+bool CsState::run_bool(ostd::ConstCharRange code) {
     TaggedValue result;
-    executeret(p, result);
+    executeret(code.data(), result);
     bool b = getbool(result);
     result.cleanup();
     return b;
 }
 
-bool executebool(Ident *id, TaggedValue *args, int numargs) {
+bool CsState::run_bool(Ident *id, ostd::PointerRange<TaggedValue> args) {
     TaggedValue result;
-    executeret(id, args, numargs, result);
+    executeret(id, args.data(), int(args.size()), result);
     bool b = getbool(result);
     result.cleanup();
     return b;
@@ -3154,7 +3156,7 @@ bool execfile(const char *cfgfile, bool msg) {
 
     sourcefile = cfgfile;
     sourcestr = buf;
-    execute(buf);
+    cstate.run_int(buf);
     sourcefile = oldsourcefile;
     sourcestr = oldsourcestr;
     delete[] buf;
@@ -3323,36 +3325,36 @@ static inline void setiter(Ident &id, int i, IdentStack &stack) {
     }
 }
 
-static inline void doloop(Ident &id, int offset, int n, int step, ostd::uint *body) {
+static inline void doloop(CsState &cs, Ident &id, int offset, int n, int step, ostd::uint *body) {
     if (n <= 0 || id.type != ID_ALIAS) return;
     IdentStack stack;
     for (int i = 0; i < n; ++i) {
         setiter(id, offset + i * step, stack);
-        execute(body);
+        cs.run_int(body);
     }
     poparg(id);
 }
-ICOMMAND(loop, "rie", (CsState &, Ident *id, int *n, ostd::uint *body), doloop(*id, 0, *n, 1, body));
-ICOMMAND(loop+, "riie", (CsState &, Ident *id, int *offset, int *n, ostd::uint *body), doloop(*id, *offset, *n, 1, body));
-ICOMMAND(loop*, "riie", (CsState &, Ident *id, int *step, int *n, ostd::uint *body), doloop(*id, 0, *n, *step, body));
-ICOMMAND(loop+*, "riiie", (CsState &, Ident *id, int *offset, int *step, int *n, ostd::uint *body), doloop(*id, *offset, *n, *step, body));
+ICOMMAND(loop, "rie", (CsState &cs, Ident *id, int *n, ostd::uint *body), doloop(cs, *id, 0, *n, 1, body));
+ICOMMAND(loop+, "riie", (CsState &cs, Ident *id, int *offset, int *n, ostd::uint *body), doloop(cs, *id, *offset, *n, 1, body));
+ICOMMAND(loop*, "riie", (CsState &cs, Ident *id, int *step, int *n, ostd::uint *body), doloop(cs, *id, 0, *n, *step, body));
+ICOMMAND(loop+*, "riiie", (CsState &cs, Ident *id, int *offset, int *step, int *n, ostd::uint *body), doloop(cs, *id, *offset, *n, *step, body));
 
-static inline void loopwhile(Ident &id, int offset, int n, int step, ostd::uint *cond, ostd::uint *body) {
+static inline void loopwhile(CsState &cs, Ident &id, int offset, int n, int step, ostd::uint *cond, ostd::uint *body) {
     if (n <= 0 || id.type != ID_ALIAS) return;
     IdentStack stack;
     for (int i = 0; i < n; ++i) {
         setiter(id, offset + i * step, stack);
-        if (!executebool(cond)) break;
-        execute(body);
+        if (!cs.run_bool(cond)) break;
+        cs.run_int(body);
     }
     poparg(id);
 }
-ICOMMAND(loopwhile, "riee", (CsState &, Ident *id, int *n, ostd::uint *cond, ostd::uint *body), loopwhile(*id, 0, *n, 1, cond, body));
-ICOMMAND(loopwhile+, "riiee", (CsState &, Ident *id, int *offset, int *n, ostd::uint *cond, ostd::uint *body), loopwhile(*id, *offset, *n, 1, cond, body));
-ICOMMAND(loopwhile*, "riiee", (CsState &, Ident *id, int *step, int *n, ostd::uint *cond, ostd::uint *body), loopwhile(*id, 0, *n, *step, cond, body));
-ICOMMAND(loopwhile+*, "riiiee", (CsState &, Ident *id, int *offset, int *step, int *n, ostd::uint *cond, ostd::uint *body), loopwhile(*id, *offset, *n, *step, cond, body));
+ICOMMAND(loopwhile, "riee", (CsState &cs, Ident *id, int *n, ostd::uint *cond, ostd::uint *body), loopwhile(cs, *id, 0, *n, 1, cond, body));
+ICOMMAND(loopwhile+, "riiee", (CsState &cs, Ident *id, int *offset, int *n, ostd::uint *cond, ostd::uint *body), loopwhile(cs, *id, *offset, *n, 1, cond, body));
+ICOMMAND(loopwhile*, "riiee", (CsState &cs, Ident *id, int *step, int *n, ostd::uint *cond, ostd::uint *body), loopwhile(cs, *id, 0, *n, *step, cond, body));
+ICOMMAND(loopwhile+*, "riiiee", (CsState &cs, Ident *id, int *offset, int *step, int *n, ostd::uint *cond, ostd::uint *body), loopwhile(cs, *id, *offset, *n, *step, cond, body));
 
-ICOMMAND(while, "ee", (CsState &, ostd::uint *cond, ostd::uint *body), while (executebool(cond)) execute(body));
+ICOMMAND(while, "ee", (CsState &cs, ostd::uint *cond, ostd::uint *body), while (cs.run_bool(cond)) cs.run_int(body));
 
 static inline void loopconc(Ident &id, int offset, int n, int step, ostd::uint *body, bool space) {
     if (n <= 0 || id.type != ID_ALIAS) return;
@@ -3589,7 +3591,7 @@ void listfind(CsState &cs, Ident *id, const char *list, const ostd::uint *body) 
     for (const char *s = list, *start, *end; parselist(s, start, end);) {
         ++n;
         setiter(*id, dup_ostr(ostd::ConstCharRange(start, end - start)), stack);
-        if (executebool(body)) {
+        if (cs.run_bool(body)) {
             cs.result->set_int(n);
             goto found;
         }
@@ -3600,14 +3602,14 @@ found:
 }
 COMMAND(listfind, "rse");
 
-void listassoc(CsState &, Ident *id, const char *list, const ostd::uint *body) {
+void listassoc(CsState &cs, Ident *id, const char *list, const ostd::uint *body) {
     if (id->type != ID_ALIAS) return;
     IdentStack stack;
     int n = -1;
     for (const char *s = list, *start, *end, *qstart; parselist(s, start, end);) {
         ++n;
         setiter(*id, dup_ostr(ostd::ConstCharRange(start, end - start)), stack);
-        if (executebool(body)) {
+        if (cs.run_bool(body)) {
             if (parselist(s, start, end, qstart)) stringret(listelem(start, end, qstart));
             break;
         }
@@ -3648,26 +3650,26 @@ LISTASSOC(listassoc=, "i", int, , parseint(start) == *val);
 LISTASSOC(listassoc=f, "f", float, , parsefloat(start) == *val);
 LISTASSOC(listassoc=s, "s", char, int len = (int)strlen(val), int(end - start) == len && !memcmp(start, val, len));
 
-void looplist(CsState &, Ident *id, const char *list, const ostd::uint *body) {
+void looplist(CsState &cs, Ident *id, const char *list, const ostd::uint *body) {
     if (id->type != ID_ALIAS) return;
     IdentStack stack;
     int n = 0;
     for (const char *s = list, *start, *end, *qstart; parselist(s, start, end, qstart); n++) {
         setiter(*id, listelem(start, end, qstart), stack);
-        execute(body);
+        cs.run_int(body);
     }
     if (n) poparg(*id);
 }
 COMMAND(looplist, "rse");
 
-void looplist2(CsState &, Ident *id, Ident *id2, const char *list, const ostd::uint *body) {
+void looplist2(CsState &cs, Ident *id, Ident *id2, const char *list, const ostd::uint *body) {
     if (id->type != ID_ALIAS || id2->type != ID_ALIAS) return;
     IdentStack stack, stack2;
     int n = 0;
     for (const char *s = list, *start, *end, *qstart; parselist(s, start, end, qstart); n += 2) {
         setiter(*id, listelem(start, end, qstart), stack);
         setiter(*id2, parselist(s, start, end, qstart) ? listelem(start, end, qstart) : dup_ostr(""), stack2);
-        execute(body);
+        cs.run_int(body);
     }
     if (n) {
         poparg(*id);
@@ -3676,7 +3678,7 @@ void looplist2(CsState &, Ident *id, Ident *id2, const char *list, const ostd::u
 }
 COMMAND(looplist2, "rrse");
 
-void looplist3(CsState &, Ident *id, Ident *id2, Ident *id3, const char *list, const ostd::uint *body) {
+void looplist3(CsState &cs, Ident *id, Ident *id2, Ident *id3, const char *list, const ostd::uint *body) {
     if (id->type != ID_ALIAS || id2->type != ID_ALIAS || id3->type != ID_ALIAS) return;
     IdentStack stack, stack2, stack3;
     int n = 0;
@@ -3684,7 +3686,7 @@ void looplist3(CsState &, Ident *id, Ident *id2, Ident *id3, const char *list, c
         setiter(*id, listelem(start, end, qstart), stack);
         setiter(*id2, parselist(s, start, end, qstart) ? listelem(start, end, qstart) : dup_ostr(""), stack2);
         setiter(*id3, parselist(s, start, end, qstart) ? listelem(start, end, qstart) : dup_ostr(""), stack3);
-        execute(body);
+        cs.run_int(body);
     }
     if (n) {
         poparg(*id);
@@ -3728,7 +3730,7 @@ void listfilter(CsState &cs, Ident *id, const char *list, const ostd::uint *body
         char *val = dup_ostr(ostd::ConstCharRange(start, end - start));
         setiter(*id, val, stack);
 
-        if (executebool(body)) {
+        if (cs.run_bool(body)) {
             if (r.size()) r.push(' ');
             r.push_n(qstart, qend - qstart);
         }
@@ -3746,7 +3748,7 @@ void listcount(CsState &cs, Ident *id, const char *list, const ostd::uint *body)
     for (const char *s = list, *start, *end; parselist(s, start, end); n++) {
         char *val = dup_ostr(ostd::ConstCharRange(start, end - start));
         setiter(*id, val, stack);
-        if (executebool(body)) r++;
+        if (cs.run_bool(body)) r++;
     }
     if (n) poparg(*id);
     cs.result->set_int(r);
@@ -3844,6 +3846,7 @@ struct sortitem {
 };
 
 struct sortfun {
+    CsState &cs;
     Ident *x, *y;
     ostd::uint *body;
 
@@ -3854,7 +3857,7 @@ struct sortfun {
         if (y->valtype != VAL_CSTR) y->valtype = VAL_CSTR;
         y->clean_code();
         y->val.code = (const ostd::uint *)yval.str;
-        return executebool(body);
+        return cs.run_bool(body);
     }
 };
 
@@ -3885,7 +3888,7 @@ void sortlist(CsState &cs, char *list, Ident *x, Ident *y, ostd::uint *body, ost
 
     int totalunique = total, numunique = items.size();
     if (body) {
-        sortfun f = { x, y, body };
+        sortfun f = { cs, x, y, body };
         ostd::sort(items.iter(), f);
         if ((*unique & CODE_OP_MASK) != CODE_EXIT) {
             f.body = unique;
@@ -3901,7 +3904,7 @@ void sortlist(CsState &cs, char *list, Ident *x, Ident *y, ostd::uint *body, ost
             }
         }
     } else {
-        sortfun f = { x, y, unique };
+        sortfun f = { cs, x, y, unique };
         totalunique = items[0].quotelength();
         numunique = 1;
         for (ostd::Size i = 1; i < items.size(); i++) {
@@ -4127,7 +4130,7 @@ ICOMMAND(round, "ff", (CsState &cs, float *n, float *k), {
 ICOMMAND(cond, "ee2V", (CsState &cs, TaggedValue *args, int numargs), {
     for (int i = 0; i < numargs; i += 2) {
         if (i + 1 < numargs) {
-            if (executebool(args[i].code)) {
+            if (cs.run_bool(args[i].code)) {
                 executeret(args[i + 1].code, *cs.result);
                 break;
             }

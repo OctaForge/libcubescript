@@ -322,6 +322,19 @@ struct CsState {
 
     ostd::String run_str(const ostd::uint *code);
     ostd::String run_str(ostd::ConstCharRange code);
+    ostd::String run_str(Ident *id, ostd::PointerRange<TaggedValue> args);
+
+    int run_int(const ostd::uint *code);
+    int run_int(ostd::ConstCharRange code);
+    int run_int(Ident *id, ostd::PointerRange<TaggedValue> args);
+
+    float run_float(const ostd::uint *code);
+    float run_float(ostd::ConstCharRange code);
+    float run_float(Ident *id, ostd::PointerRange<TaggedValue> args);
+
+    bool run_bool(const ostd::uint *code);
+    bool run_bool(ostd::ConstCharRange code);
+    bool run_bool(Ident *id, ostd::PointerRange<TaggedValue> args);
 };
 
 extern CsState cstate;
@@ -478,18 +491,6 @@ extern void freecode(ostd::uint *p);
 extern void executeret(const ostd::uint *code, TaggedValue &result = *cstate.result);
 extern void executeret(const char *p, TaggedValue &result = *cstate.result);
 extern void executeret(Ident *id, TaggedValue *args, int numargs, TaggedValue &result = *cstate.result);
-extern char *executestr(const ostd::uint *code);
-extern char *executestr(const char *p);
-extern char *executestr(Ident *id, TaggedValue *args, int numargs);
-extern int execute(const ostd::uint *code);
-extern int execute(const char *p);
-extern int execute(Ident *id, TaggedValue *args, int numargs);
-extern float executefloat(const ostd::uint *code);
-extern float executefloat(const char *p);
-extern float executefloat(Ident *id, TaggedValue *args, int numargs);
-extern bool executebool(const ostd::uint *code);
-extern bool executebool(const char *p);
-extern bool executebool(Ident *id, TaggedValue *args, int numargs);
 extern bool execfile(const char *cfgfile, bool msg = true);
 extern void alias(const char *name, const char *action);
 extern void alias(const char *name, TaggedValue &v);
