@@ -2982,7 +2982,7 @@ void executeret(const char *p, TaggedValue &result) {
     if (int(code[0]) >= 0x100) code.disown();
 }
 
-void executeret(Ident *id, TaggedValue *args, int numargs, bool lookup, TaggedValue &result) {
+void executeret(Ident *id, TaggedValue *args, int numargs, TaggedValue &result) {
     result.set_null();
     ++rundepth;
     TaggedValue *prevret = cstate.result;
@@ -2996,8 +2996,8 @@ void executeret(Ident *id, TaggedValue *args, int numargs, bool lookup, TaggedVa
             if (numargs < id->numargs) {
                 TaggedValue buf[MAX_ARGUMENTS];
                 memcpy(buf, args, numargs * sizeof(TaggedValue));
-                callcommand(id, buf, numargs, lookup);
-            } else callcommand(id, args, numargs, lookup);
+                callcommand(id, buf, numargs, false);
+            } else callcommand(id, args, numargs, false);
             numargs = 0;
             break;
         case ID_VAR:
@@ -3031,33 +3031,33 @@ void executeret(Ident *id, TaggedValue *args, int numargs, bool lookup, TaggedVa
     --rundepth;
 }
 
-char *executestr(const ostd::uint *code) {
+ostd::String CsState::run_str(const ostd::uint *code) {
     TaggedValue result;
     runcode(code, result);
-    if (result.type == VAL_NULL) return nullptr;
+    if (result.type == VAL_NULL) return ostd::String();
     result.force_str();
-    return result.s;
+    ostd::String ret(result.s);
+    delete[] result.s;
+    return ret;
 }
 
-char *executestr(const char *p) {
+ostd::String CsState::run_str(ostd::ConstCharRange code) {
     TaggedValue result;
-    executeret(p, result);
-    if (result.type == VAL_NULL) return nullptr;
+    /* FIXME range */
+    executeret(code.data(), result);
+    if (result.type == VAL_NULL) return ostd::String();
     result.force_str();
-    return result.s;
+    ostd::String ret(result.s);
+    delete[] result.s;
+    return ret;
 }
 
-char *executestr(Ident *id, TaggedValue *args, int numargs, bool lookup) {
+char *executestr(Ident *id, TaggedValue *args, int numargs) {
     TaggedValue result;
-    executeret(id, args, numargs, lookup, result);
+    executeret(id, args, numargs, result);
     if (result.type == VAL_NULL) return nullptr;
     result.force_str();
     return result.s;
-}
-
-char *execidentstr(const char *name, bool lookup) {
-    Ident *id = cstate.idents.at(name);
-    return id ? executestr(id, nullptr, 0, lookup) : nullptr;
 }
 
 int execute(const ostd::uint *code) {
@@ -3080,17 +3080,12 @@ int execute(const char *p) {
     return i;
 }
 
-int execute(Ident *id, TaggedValue *args, int numargs, bool lookup) {
+int execute(Ident *id, TaggedValue *args, int numargs) {
     TaggedValue result;
-    executeret(id, args, numargs, lookup, result);
+    executeret(id, args, numargs, result);
     int i = result.get_int();
     result.cleanup();
     return i;
-}
-
-int execident(const char *name, int noid, bool lookup) {
-    Ident *id = cstate.idents.at(name);
-    return id ? execute(id, nullptr, 0, lookup) : noid;
 }
 
 float executefloat(const ostd::uint *code) {
@@ -3109,17 +3104,12 @@ float executefloat(const char *p) {
     return f;
 }
 
-float executefloat(Ident *id, TaggedValue *args, int numargs, bool lookup) {
+float executefloat(Ident *id, TaggedValue *args, int numargs) {
     TaggedValue result;
-    executeret(id, args, numargs, lookup, result);
+    executeret(id, args, numargs, result);
     float f = result.get_float();
     result.cleanup();
     return f;
-}
-
-float execidentfloat(const char *name, float noid, bool lookup) {
-    Ident *id = cstate.idents.at(name);
-    return id ? executefloat(id, nullptr, 0, lookup) : noid;
 }
 
 bool executebool(const ostd::uint *code) {
@@ -3138,17 +3128,12 @@ bool executebool(const char *p) {
     return b;
 }
 
-bool executebool(Ident *id, TaggedValue *args, int numargs, bool lookup) {
+bool executebool(Ident *id, TaggedValue *args, int numargs) {
     TaggedValue result;
-    executeret(id, args, numargs, lookup, result);
+    executeret(id, args, numargs, result);
     bool b = getbool(result);
     result.cleanup();
     return b;
-}
-
-bool execidentbool(const char *name, bool noid, bool lookup) {
-    Ident *id = cstate.idents.at(name);
-    return id ? executebool(id, nullptr, 0, lookup) : noid;
 }
 
 bool execfile(const char *cfgfile, bool msg) {
@@ -3645,9 +3630,9 @@ COMMAND(listassoc, "rse");
     notfound: \
         cs.result->set_int(-1); \
     });
-LISTFIND(listfind =, "i", int, , parseint(start) == *val);
-LISTFIND(listfind = f, "f", float, , parsefloat(start) == *val);
-LISTFIND(listfind = s, "s", char, int len = (int)strlen(val), int(end - start) == len && !memcmp(start, val, len));
+LISTFIND(listfind=, "i", int, , parseint(start) == *val);
+LISTFIND(listfind=f, "f", float, , parsefloat(start) == *val);
+LISTFIND(listfind=s, "s", char, int len = (int)strlen(val), int(end - start) == len && !memcmp(start, val, len));
 
 #define LISTASSOC(name, fmt, type, init, cmp) \
     ICOMMAND(name, "s" fmt, (CsState &, char *list, type *val), \
@@ -3659,9 +3644,9 @@ LISTFIND(listfind = s, "s", char, int len = (int)strlen(val), int(end - start) =
             if(!parselist(s)) break; \
         } \
     });
-LISTASSOC(listassoc =, "i", int, , parseint(start) == *val);
-LISTASSOC(listassoc = f, "f", float, , parsefloat(start) == *val);
-LISTASSOC(listassoc = s, "s", char, int len = (int)strlen(val), int(end - start) == len && !memcmp(start, val, len));
+LISTASSOC(listassoc=, "i", int, , parseint(start) == *val);
+LISTASSOC(listassoc=f, "f", float, , parsefloat(start) == *val);
+LISTASSOC(listassoc=s, "s", char, int len = (int)strlen(val), int(end - start) == len && !memcmp(start, val, len));
 
 void looplist(CsState &, Ident *id, const char *list, const ostd::uint *body) {
     if (id->type != ID_ALIAS) return;

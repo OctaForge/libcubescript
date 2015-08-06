@@ -319,6 +319,9 @@ struct CsState {
 
     bool add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
                      IdentFunc func, int type = ID_COMMAND);
+
+    ostd::String run_str(const ostd::uint *code);
+    ostd::String run_str(ostd::ConstCharRange code);
 };
 
 extern CsState cstate;
@@ -474,23 +477,19 @@ extern void keepcode(ostd::uint *p);
 extern void freecode(ostd::uint *p);
 extern void executeret(const ostd::uint *code, TaggedValue &result = *cstate.result);
 extern void executeret(const char *p, TaggedValue &result = *cstate.result);
-extern void executeret(Ident *id, TaggedValue *args, int numargs, bool lookup = false, TaggedValue &result = *cstate.result);
+extern void executeret(Ident *id, TaggedValue *args, int numargs, TaggedValue &result = *cstate.result);
 extern char *executestr(const ostd::uint *code);
 extern char *executestr(const char *p);
-extern char *executestr(Ident *id, TaggedValue *args, int numargs, bool lookup = false);
-extern char *execidentstr(const char *name, bool lookup = false);
+extern char *executestr(Ident *id, TaggedValue *args, int numargs);
 extern int execute(const ostd::uint *code);
 extern int execute(const char *p);
-extern int execute(Ident *id, TaggedValue *args, int numargs, bool lookup = false);
-extern int execident(const char *name, int noid = 0, bool lookup = false);
+extern int execute(Ident *id, TaggedValue *args, int numargs);
 extern float executefloat(const ostd::uint *code);
 extern float executefloat(const char *p);
-extern float executefloat(Ident *id, TaggedValue *args, int numargs, bool lookup = false);
-extern float execidentfloat(const char *name, float noid = 0, bool lookup = false);
+extern float executefloat(Ident *id, TaggedValue *args, int numargs);
 extern bool executebool(const ostd::uint *code);
 extern bool executebool(const char *p);
-extern bool executebool(Ident *id, TaggedValue *args, int numargs, bool lookup = false);
-extern bool execidentbool(const char *name, bool noid = false, bool lookup = false);
+extern bool executebool(Ident *id, TaggedValue *args, int numargs);
 extern bool execfile(const char *cfgfile, bool msg = true);
 extern void alias(const char *name, const char *action);
 extern void alias(const char *name, TaggedValue &v);
