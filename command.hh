@@ -286,8 +286,8 @@ struct IdentLink {
     IdentStack *argstack;
 };
 
-void debugalias(CsState &cs);
-ostd::ConstCharRange debugline(CsState &cs, ostd::ConstCharRange p,
+void debug_alias(CsState &cs);
+ostd::ConstCharRange debug_line(CsState &cs, ostd::ConstCharRange p,
                                ostd::ConstCharRange fmt,
                                ostd::CharRange buf);
 
@@ -368,7 +368,7 @@ struct CsState {
     void debug_code(ostd::ConstCharRange fmt, A &&...args) {
         if (nodebug) return;
         ostd::err.writefln(fmt, ostd::forward<A>(args)...);
-        debugalias(*this);
+        debug_alias(*this);
     }
 
     template<typename ...A>
@@ -376,11 +376,11 @@ struct CsState {
                          ostd::ConstCharRange fmt, A &&...args) {
         if (nodebug) return;
         ostd::Array<char, 256> buf;
-        ostd::err.writefln(debugline(*this, p, fmt,
-                                     ostd::CharRange(buf.data(),
-                                                     buf.size())),
+        ostd::err.writefln(debug_line(*this, p, fmt,
+                                      ostd::CharRange(buf.data(),
+                                                      buf.size())),
                            ostd::forward<A>(args)...);
-        debugalias(*this);
+        debug_alias(*this);
     }
 };
 
@@ -597,6 +597,7 @@ void poparg(Ident &id);
 #define ICOMMAND(name, nargs, proto, b) ICOMMANDN(name, ICOMMANDNAME(name), nargs, proto, b)
 #define ICOMMANDS(name, nargs, proto, b) ICOMMANDNS(name, ICOMMANDSNAME, nargs, proto, b)
 
+void init_lib_base(CsState &cs);
 void init_lib_io(CsState &cs);
 void init_lib_math(CsState &cs);
 void init_lib_shell(CsState &cs);

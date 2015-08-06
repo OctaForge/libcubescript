@@ -170,9 +170,9 @@ void Ident::clean_code() {
     }
 }
 
-ostd::ConstCharRange debugline(CsState &cs, ostd::ConstCharRange p,
-                               ostd::ConstCharRange fmt,
-                               ostd::CharRange buf) {
+ostd::ConstCharRange debug_line(CsState &cs, ostd::ConstCharRange p,
+                                ostd::ConstCharRange fmt,
+                                ostd::CharRange buf) {
     if (cs.src_str.empty()) return fmt;
     ostd::Size num = 1;
     ostd::ConstCharRange line(cs.src_str);
@@ -199,19 +199,29 @@ ostd::ConstCharRange debugline(CsState &cs, ostd::ConstCharRange p,
 
 int dbgalias = variable("dbgalias", 0, 4, 1000, &dbgalias, nullptr, 0);
 
-void debugalias(CsState &cs) {
+void debug_alias(CsState &cs) {
     if (!dbgalias) return;
     int total = 0, depth = 0;
     for (IdentLink *l = cs.stack; l != &cs.noalias; l = l->next) total++;
     for (IdentLink *l = cs.stack; l != &cs.noalias; l = l->next) {
         Ident *id = l->id;
         ++depth;
-        if (depth < dbgalias) fprintf(stderr, "  %d) %s\n", total - depth + 1, id->name.data());
-        else if (l->next == &cs.noalias) fprintf(stderr, depth == dbgalias ? "  %d) %s\n" : "  ..%d) %s\n", total - depth + 1, id->name.data());
+        if (depth < dbgalias)
+            ostd::err.writefln("  %d) %s", total - depth + 1, id->name);
+        else if (l->next == &cs.noalias)
+            ostd::err.writefln(depth == dbgalias ? "  %d) %s"
+                                                 : "  ..%d) %s",
+                               total - depth + 1, id->name);
     }
 }
 
-ICOMMAND(nodebug, "e", (CsState &cs, ostd::uint *body), { cs.nodebug++; executeret(body, *cs.result); cs.nodebug--; });
+void init_lib_base(CsState &cs) {
+    cs.add_command("nodebug", "e", [](CsState &cs, ostd::uint *body) {
+        ++cs.nodebug;
+        executeret(body, *cs.result);
+        --cs.nodebug;
+    });
+}
 
 void pusharg(Ident &id, const TaggedValue &v, IdentStack &stack) {
     stack.val = id.val;
