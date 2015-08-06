@@ -285,6 +285,9 @@ struct Ident {
 
     void push_alias(IdentStack &st);
     void pop_alias();
+
+    void set_arg(CsState &cs, TaggedValue &v);
+    void set_alias(CsState &cs, TaggedValue &v);
 };
 
 struct IdentLink {
@@ -390,6 +393,8 @@ struct CsState {
                            ostd::forward<A>(args)...);
         debug_alias(*this);
     }
+
+    void set_alias(ostd::ConstCharRange name, TaggedValue &v);
 };
 
 extern CsState cstate;
@@ -528,8 +533,6 @@ inline void Ident::getcval(TaggedValue &v) const {
 }
 
 extern int variable(const char *name, int min, int cur, int max, int *storage, IdentFunc fun, int flags);
-extern float fvariable(const char *name, float min, float cur, float max, float *storage, IdentFunc fun, int flags);
-extern char *svariable(const char *name, const char *cur, char **storage, IdentFunc fun, int flags);
 extern void setvar(const char *name, int i, bool dofunc = true, bool doclamp = true);
 extern void setfvar(const char *name, float f, bool dofunc = true, bool doclamp = true);
 extern void setsvar(const char *name, const char *str, bool dofunc = true);
@@ -546,8 +549,6 @@ extern void freecode(ostd::uint *p);
 extern void executeret(const ostd::uint *code, TaggedValue &result = *cstate.result);
 extern void executeret(const char *p, TaggedValue &result = *cstate.result);
 extern void executeret(Ident *id, TaggedValue *args, int numargs, TaggedValue &result = *cstate.result);
-extern void alias(const char *name, const char *action);
-extern void alias(const char *name, TaggedValue &v);
 extern const char *getalias(const char *name);
 extern const char *escapestring(const char *s);
 extern const char *escapeid(const char *s);

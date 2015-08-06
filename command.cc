@@ -83,7 +83,7 @@ Ident *CsState::new_ident(ostd::ConstCharRange name, int flags) {
     Ident *id = idents.at(name);
     if (!id) {
         if (check_num(name.data())) {
-            debug_code("number %.*s is not a valid identifier name", int(name.size()), name.data());
+            debug_code("number %s is not a valid identifier name", name);
             return dummy;
         }
         id = add_ident(ID_ALIAS, name, flags);
@@ -117,7 +117,7 @@ bool CsState::reset_var(ostd::ConstCharRange name) {
     Ident *id = idents.at(name);
     if (!id) return false;
     if (id->flags & IDF_READONLY) {
-        debug_code("variable %s is read only", id->name.data());
+        debug_code("variable %s is read only", id->name);
         return false;
     }
     clear_override(*id);
@@ -132,6 +132,36 @@ void CsState::touch_var(ostd::ConstCharRange name) {
     case ID_SVAR:
         id->changed(*this);
         break;
+    }
+}
+
+void CsState::set_alias(ostd::ConstCharRange name, TaggedValue &v) {
+    Ident *id = cstate.idents.at(name);
+    if (id) {
+        switch (id->type) {
+        case ID_ALIAS:
+            if (id->index < MAX_ARGUMENTS) id->set_arg(cstate, v);
+            else id->set_alias(cstate, v);
+            return;
+        case ID_VAR:
+            setvarchecked(id, v.get_int());
+            break;
+        case ID_FVAR:
+            setfvarchecked(id, v.get_float());
+            break;
+        case ID_SVAR:
+            setsvarchecked(id, v.get_str());
+            break;
+        default:
+            cstate.debug_code("cannot redefine builtin %s with an alias", id->name);
+            break;
+        }
+        v.cleanup();
+    } else if (check_num(name.data())) {
+        cstate.debug_code("cannot alias number %s", name);
+        v.cleanup();
+    } else {
+        cstate.add_ident(ID_ALIAS, name, v, cstate.identflags);
     }
 }
 
@@ -333,6 +363,24 @@ void Ident::pop_alias() {
     if (type == ID_ALIAS && index >= MAX_ARGUMENTS) pop_arg();
 }
 
+void Ident::set_arg(CsState &cs, TaggedValue &v) {
+    if (cs.stack->usedargs & (1 << index)) {
+        if (valtype == VAL_STR) delete[] val.s;
+        setval(v);
+        clean_code();
+    } else {
+        push_arg(v, cs.stack->argstack[index]);
+        cs.stack->usedargs |= 1 << index;
+    }
+}
+
+void Ident::set_alias(CsState &cs, TaggedValue &v) {
+    if (valtype == VAL_STR) delete[] val.s;
+    setval(v);
+    clean_code();
+    flags = (flags & cs.identflags) | cs.identflags;
+}
+
 template<typename F>
 static void cs_do_args(CsState &cs, F body) {
     IdentStack argstack[MAX_ARGUMENTS];
@@ -377,82 +425,14 @@ void init_lib_base(CsState &cs) {
     });
 }
 
-static inline void setarg(Ident &id, TaggedValue &v) {
-    if (cstate.stack->usedargs & (1 << id.index)) {
-        if (id.valtype == VAL_STR) delete[] id.val.s;
-        id.setval(v);
-        id.clean_code();
-    } else {
-        id.push_arg(v, cstate.stack->argstack[id.index]);
-        cstate.stack->usedargs |= 1 << id.index;
-    }
-}
-
-static inline void setalias(Ident &id, TaggedValue &v) {
-    if (id.valtype == VAL_STR) delete[] id.val.s;
-    id.setval(v);
-    id.clean_code();
-    id.flags = (id.flags & cstate.identflags) | cstate.identflags;
-}
-
-static void setalias(const char *name, TaggedValue &v) {
-    Ident *id = cstate.idents.at(name);
-    if (id) {
-        switch (id->type) {
-        case ID_ALIAS:
-            if (id->index < MAX_ARGUMENTS) setarg(*id, v);
-            else setalias(*id, v);
-            return;
-        case ID_VAR:
-            setvarchecked(id, v.get_int());
-            break;
-        case ID_FVAR:
-            setfvarchecked(id, v.get_float());
-            break;
-        case ID_SVAR:
-            setsvarchecked(id, v.get_str());
-            break;
-        default:
-            cstate.debug_code("cannot redefine builtin %s with an alias", id->name.data());
-            break;
-        }
-        v.cleanup();
-    } else if (check_num(name)) {
-        cstate.debug_code("cannot alias number %s", name);
-        v.cleanup();
-    } else {
-        cstate.add_ident(ID_ALIAS, name, v, cstate.identflags);
-    }
-}
-
-void alias(const char *name, const char *str) {
-    TaggedValue v;
-    v.set_str(dup_ostr(str));
-    setalias(name, v);
-}
-
-void alias(const char *name, TaggedValue &v) {
-    setalias(name, v);
-}
-
-ICOMMAND(alias, "sT", (CsState &, const char *name, TaggedValue *v), {
-    setalias(name, *v);
+ICOMMAND(alias, "sT", (CsState &cs, const char *name, TaggedValue *v), {
+    cs.set_alias(name, *v);
     v->type = VAL_NULL;
 });
 
 int variable(const char *name, int min, int cur, int max, int *storage, IdentFunc fun, int flags) {
     cstate.add_ident(ID_VAR, name, min, max, storage, fun, flags);
     return cur;
-}
-
-float fvariable(const char *name, float min, float cur, float max, float *storage, IdentFunc fun, int flags) {
-    cstate.add_ident(ID_FVAR, name, min, max, storage, fun, flags);
-    return cur;
-}
-
-char *svariable(const char *name, const char *cur, char **storage, IdentFunc fun, int flags) {
-    cstate.add_ident(ID_SVAR, name, storage, fun, flags);
-    return dup_ostr(cur);
 }
 
 #define _GETVAR(id, vartype, name, retval) \
@@ -464,7 +444,7 @@ char *svariable(const char *name, const char *cur, char **storage, IdentFunc fun
     { \
         if(id->flags&IDF_PERSIST) \
         { \
-            cstate.debug_code("cannot override persistent variable %s", id->name.data()); \
+            cstate.debug_code("cannot override persistent variable %s", id->name); \
             errorval; \
         } \
         if(!(id->flags&IDF_OVERRIDDEN)) { saveval; id->flags |= IDF_OVERRIDDEN; } \
@@ -538,12 +518,12 @@ int clampvar(Ident *id, int val, int minval, int maxval) {
     cstate.debug_code(id->flags & IDF_HEX ?
               (minval <= 255 ? "valid range for %s is %d..0x%X" : "valid range for %s is 0x%X..0x%X") :
               "valid range for %s is %d..%d",
-              id->name.data(), minval, maxval);
+              id->name, minval, maxval);
     return val;
 }
 
 void setvarchecked(Ident *id, int val) {
-    if (id->flags & IDF_READONLY) cstate.debug_code("variable %s is read-only", id->name.data());
+    if (id->flags & IDF_READONLY) cstate.debug_code("variable %s is read-only", id->name);
     else {
         OVERRIDEVAR(return, id->overrideval.i = *id->storage.i, , )
         if (val < id->minval || val > id->maxval) val = clampvar(id, val, id->minval, id->maxval);
@@ -565,12 +545,12 @@ float clampfvar(Ident *id, float val, float minval, float maxval) {
     if (val < minval) val = minval;
     else if (val > maxval) val = maxval;
     else return val;
-    cstate.debug_code("valid range for %s is %s..%s", id->name.data(), floatstr(minval), floatstr(maxval));
+    cstate.debug_code("valid range for %s is %s..%s", id->name, floatstr(minval), floatstr(maxval));
     return val;
 }
 
 void setfvarchecked(Ident *id, float val) {
-    if (id->flags & IDF_READONLY) cstate.debug_code("variable %s is read-only", id->name.data());
+    if (id->flags & IDF_READONLY) cstate.debug_code("variable %s is read-only", id->name);
     else {
         OVERRIDEVAR(return, id->overrideval.f = *id->storage.f, , );
         if (val < id->minvalf || val > id->maxvalf) val = clampfvar(id, val, id->minvalf, id->maxvalf);
@@ -580,7 +560,7 @@ void setfvarchecked(Ident *id, float val) {
 }
 
 void setsvarchecked(Ident *id, const char *val) {
-    if (id->flags & IDF_READONLY) cstate.debug_code("variable %s is read-only", id->name.data());
+    if (id->flags & IDF_READONLY) cstate.debug_code("variable %s is read-only", id->name);
     else {
         OVERRIDEVAR(return, id->overrideval.s = *id->storage.s, delete[] id->overrideval.s, delete[] * id->storage.s);
         *id->storage.s = dup_ostr(val);
@@ -2621,7 +2601,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         case CODE_LOOKUP|RET_STR:
 #define LOOKUP(aval) { \
                     Ident *id = cstate.identmap[op>>8]; \
-                    if(id->flags&IDF_UNKNOWN) cstate.debug_code("unknown alias lookup: %s", id->name.data()); \
+                    if(id->flags&IDF_UNKNOWN) cstate.debug_code("unknown alias lookup: %s", id->name); \
                     aval; \
                     continue; \
                 }
@@ -2814,14 +2794,14 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         }
 
         case CODE_ALIAS:
-            setalias(*cstate.identmap[op >> 8], args[--numargs]);
+            cstate.identmap[op >> 8]->set_alias(cstate, args[--numargs]);
             continue;
         case CODE_ALIASARG:
-            setarg(*cstate.identmap[op >> 8], args[--numargs]);
+            cstate.identmap[op >> 8]->set_arg(cstate, args[--numargs]);
             continue;
         case CODE_ALIASU:
             numargs -= 2;
-            setalias(args[numargs].get_str(), args[numargs + 1]);
+            cstate.set_alias(args[numargs].get_str(), args[numargs + 1]);
             args[numargs].cleanup();
             continue;
 
@@ -2865,7 +2845,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
             Ident *id = cstate.identmap[op >> 13];
             int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
             if (id->flags & IDF_UNKNOWN) {
-                cstate.debug_code("unknown command: %s", id->name.data());
+                cstate.debug_code("unknown command: %s", id->name);
                 FORCERESULT;
             }
             CALLALIAS;
