@@ -138,12 +138,12 @@ void CsState::touch_var(ostd::ConstCharRange name) {
 }
 
 void CsState::set_alias(ostd::ConstCharRange name, TaggedValue &v) {
-    Ident *id = cstate.idents.at(name);
+    Ident *id = idents.at(name);
     if (id) {
         switch (id->type) {
         case ID_ALIAS:
-            if (id->index < MAX_ARGUMENTS) id->set_arg(cstate, v);
-            else id->set_alias(cstate, v);
+            if (id->index < MAX_ARGUMENTS) id->set_arg(*this, v);
+            else id->set_alias(*this, v);
             return;
         case ID_VAR:
             setvarchecked(id, v.get_int());
@@ -155,15 +155,15 @@ void CsState::set_alias(ostd::ConstCharRange name, TaggedValue &v) {
             setsvarchecked(id, v.get_str());
             break;
         default:
-            cstate.debug_code("cannot redefine builtin %s with an alias", id->name);
+            debug_code("cannot redefine builtin %s with an alias", id->name);
             break;
         }
         v.cleanup();
     } else if (check_num(name.data())) {
-        cstate.debug_code("cannot alias number %s", name);
+        debug_code("cannot alias number %s", name);
         v.cleanup();
     } else {
-        cstate.add_ident(ID_ALIAS, name, v, cstate.identflags);
+        add_ident(ID_ALIAS, name, v, identflags);
     }
 }
 
@@ -613,52 +613,12 @@ bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
                            name, nargs);
         return false;
     }
-    add_ident(type, name, args.data(), argmask, nargs, func);
+    add_ident(type, name, args, argmask, nargs, func);
     return true;
 }
 
 bool addcommand(const char *name, IdentFunc fun, const char *args, int type) {
-    ostd::uint argmask = 0;
-    int numargs = 0;
-    bool limit = true;
-    if (args) for (const char *fmt = args; *fmt; fmt++) switch (*fmt) {
-            case 'i':
-            case 'b':
-            case 'f':
-            case 'F':
-            case 't':
-            case 'T':
-            case 'E':
-            case 'N':
-            case 'D':
-                if (numargs < MAX_ARGUMENTS) numargs++;
-                break;
-            case 'S':
-            case 's':
-            case 'e':
-            case 'r':
-            case '$':
-                if (numargs < MAX_ARGUMENTS) {
-                    argmask |= 1 << numargs;
-                    numargs++;
-                }
-                break;
-            case '1':
-            case '2':
-            case '3':
-            case '4':
-                if (numargs < MAX_ARGUMENTS) fmt -= *fmt - '0' + 1;
-                break;
-            case 'C':
-            case 'V':
-                limit = false;
-                break;
-            default:
-                break; fatal("builtin %s declared with illegal type: %s", name, args); break;
-            }
-    if(limit && numargs > MAX_COMARGS) fatal("builtin %s declared with too many args: %d", name, numargs);
-    cstate.add_ident(type, name, args, argmask, numargs, fun);
-    return false;
+    return cstate.add_command(name, args, fun, type);
 }
 
 const char *parsestring(const char *p) {

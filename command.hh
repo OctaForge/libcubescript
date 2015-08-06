@@ -242,8 +242,8 @@ struct Ident {
         val = v;
     }
     /* ID_COMMAND */
-    Ident(int t, ostd::ConstCharRange n, const char *args, ostd::uint argmask, int numargs, IdentFunc f = nullptr, int flags = 0)
-        : type(t), numargs(numargs), flags(flags), name(n), args(args ? dup_ostr(ostd::ConstCharRange(args)) : nullptr), argmask(argmask), fun(f) {
+    Ident(int t, ostd::ConstCharRange n, ostd::ConstCharRange args, ostd::uint argmask, int numargs, IdentFunc f = nullptr, int flags = 0)
+        : type(t), numargs(numargs), flags(flags), name(n), args(!args.empty() ? dup_ostr(args) : nullptr), argmask(argmask), fun(f) {
     }
 
     void changed(CsState &cs) {
