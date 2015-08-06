@@ -31,6 +31,8 @@ CsState::CsState(): result(&no_ret) {
         new_ident((const char *)buf, IDF_ARG);
     }
     dummy = new_ident("//dummy", IDF_UNKNOWN);
+    add_ident(ID_VAR, "numargs", MAX_ARGUMENTS, 0, &numargs);
+    add_ident(ID_VAR, "dbgalias", 0, 1000, &dbgalias); 
 }
 
 CsState::~CsState() {
@@ -165,8 +167,6 @@ void CsState::set_alias(ostd::ConstCharRange name, TaggedValue &v) {
     }
 }
 
-int _numargs = variable("numargs", MAX_ARGUMENTS, 0, 0, &_numargs, nullptr, 0);
-
 void TaggedValue::cleanup() {
     switch (type) {
     case VAL_STR:
@@ -297,20 +297,18 @@ ostd::ConstCharRange debug_line(CsState &cs, ostd::ConstCharRange p,
     return fmt;
 }
 
-int dbgalias = variable("dbgalias", 0, 4, 1000, &dbgalias, nullptr, 0);
-
 void debug_alias(CsState &cs) {
-    if (!dbgalias) return;
+    if (!cs.dbgalias) return;
     int total = 0, depth = 0;
     for (IdentLink *l = cs.stack; l != &cs.noalias; l = l->next) total++;
     for (IdentLink *l = cs.stack; l != &cs.noalias; l = l->next) {
         Ident *id = l->id;
         ++depth;
-        if (depth < dbgalias)
+        if (depth < cs.dbgalias)
             ostd::err.writefln("  %d) %s", total - depth + 1, id->name);
         else if (l->next == &cs.noalias)
-            ostd::err.writefln(depth == dbgalias ? "  %d) %s"
-                                                 : "  ..%d) %s",
+            ostd::err.writefln(depth == cs.dbgalias ? "  %d) %s"
+                                                    : "  ..%d) %s",
                                total - depth + 1, id->name);
     }
 }
@@ -423,16 +421,12 @@ void init_lib_base(CsState &cs) {
     cs.add_command("resetvar", "s", [](CsState &cs, char *name) {
         cs.result->set_int(cs.reset_var(name));
     });
-}
 
-ICOMMAND(alias, "sT", (CsState &cs, const char *name, TaggedValue *v), {
-    cs.set_alias(name, *v);
-    v->type = VAL_NULL;
-});
-
-int variable(const char *name, int min, int cur, int max, int *storage, IdentFunc fun, int flags) {
-    cstate.add_ident(ID_VAR, name, min, max, storage, fun, flags);
-    return cur;
+    cs.add_command("alias", "sT", [](CsState &cs, const char *name,
+                                     TaggedValue *v) {
+        cs.set_alias(name, *v);
+        v->type = VAL_NULL;
+    });
 }
 
 #define _GETVAR(id, vartype, name, retval) \
@@ -2819,8 +2813,8 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
                 IdentStack argstack[MAX_ARGUMENTS]; \
                 for(int i = 0; i < callargs; i++) \
                     cstate.identmap[i]->push_arg(args[offset + i], argstack[i]); \
-                int oldargs = _numargs; \
-                _numargs = callargs; \
+                int oldargs = cstate.numargs; \
+                cstate.numargs = callargs; \
                 int oldflags = cstate.identflags; \
                 cstate.identflags |= id->flags&IDF_OVERRIDDEN; \
                 IdentLink aliaslink = { id, cstate.stack, (1<<callargs)-1, argstack }; \
@@ -2838,7 +2832,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
                 for(int argmask = aliaslink.usedargs&(~0<<callargs), i = callargs; argmask; i++) \
                     if(argmask&(1<<i)) { cstate.identmap[i]->pop_arg(); argmask &= ~(1<<i); } \
                 result.force(op&CODE_RET_MASK); \
-                _numargs = oldargs; \
+                cstate.numargs = oldargs; \
                 numargs = SKIPARGS(offset); \
             }
             result.force_null();
@@ -3248,7 +3242,7 @@ static void doargs(CsState &cs, ostd::uint *body) {
 COMMANDK(doargs, ID_DOARGS, "e");
 
 ICOMMANDK(if, ID_IF, "tee", (CsState &cs, TaggedValue *cond, ostd::uint *t, ostd::uint *f), executeret(getbool(*cond) ? t : f, *cs.result));
-ICOMMAND( ?, "tTT", (CsState &, TaggedValue *cond, TaggedValue *t, TaggedValue *f), result(*(getbool(*cond) ? t : f)));
+ICOMMAND(?, "tTT", (CsState &, TaggedValue *cond, TaggedValue *t, TaggedValue *f), result(*(getbool(*cond) ? t : f)));
 
 ICOMMAND(pushif, "rTe", (CsState &cs, Ident *id, TaggedValue *v, ostd::uint *code), {
     if (id->type != ID_ALIAS || id->index < MAX_ARGUMENTS) return;

@@ -319,6 +319,8 @@ struct CsState {
 
     int identflags = 0;
     int nodebug = 0;
+    int numargs = 0;
+    int dbgalias = 4;
 
     CsState();
     ~CsState();
@@ -532,7 +534,6 @@ inline void Ident::getcval(TaggedValue &v) const {
     }
 }
 
-extern int variable(const char *name, int min, int cur, int max, int *storage, IdentFunc fun, int flags);
 extern void setvar(const char *name, int i, bool dofunc = true, bool doclamp = true);
 extern void setfvar(const char *name, float f, bool dofunc = true, bool doclamp = true);
 extern void setsvar(const char *name, const char *str, bool dofunc = true);
