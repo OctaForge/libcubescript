@@ -8,6 +8,7 @@
 #include <math.h>
 
 #include <ostd/algorithm.hh>
+#include <ostd/array.hh>
 #include <ostd/vector.hh>
 #include <ostd/string.hh>
 #include <ostd/keyset.hh>
@@ -22,6 +23,10 @@ inline char *dup_ostr(ostd::ConstCharRange s) {
     r[s.size()] = 0;
     return r;
 }
+
+static constexpr int MAX_ARGUMENTS = 25;
+static constexpr int MAX_RESULTS = 7;
+static constexpr int MAX_COMARGS = 12;
 
 enum {
     VAL_NULL = 0, VAL_INT, VAL_FLOAT, VAL_STR,
@@ -274,6 +279,18 @@ struct Ident {
     void clean_code();
 };
 
+struct IdentLink {
+    Ident *id;
+    IdentLink *next;
+    int usedargs;
+    IdentStack *argstack;
+};
+
+void debugalias(CsState &cs);
+ostd::ConstCharRange debugline(CsState &cs, ostd::ConstCharRange p,
+                               ostd::ConstCharRange fmt,
+                               ostd::CharRange buf);
+
 struct CsState {
     ostd::Keyset<Ident> idents;
     ostd::Vector<Ident *> identmap;
@@ -281,7 +298,16 @@ struct CsState {
     Ident *dummy = nullptr;
     TaggedValue *result = nullptr;
 
+    IdentLink noalias = {
+        nullptr, nullptr, (1 << MAX_ARGUMENTS) - 1, nullptr
+    };
+    IdentLink *stack = &noalias;
+
+    ostd::ConstCharRange src_file;
+    ostd::ConstCharRange src_str;
+
     int identflags = 0;
+    int nodebug = 0;
 
     CsState();
     ~CsState();
@@ -337,6 +363,25 @@ struct CsState {
     bool run_bool(Ident *id, ostd::PointerRange<TaggedValue> args);
 
     bool run_file(ostd::ConstCharRange fname, bool msg = true);
+
+    template<typename ...A>
+    void debug_code(ostd::ConstCharRange fmt, A &&...args) {
+        if (nodebug) return;
+        ostd::err.writefln(fmt, ostd::forward<A>(args)...);
+        debugalias(*this);
+    }
+
+    template<typename ...A>
+    void debug_code_line(ostd::ConstCharRange p,
+                         ostd::ConstCharRange fmt, A &&...args) {
+        if (nodebug) return;
+        ostd::Array<char, 256> buf;
+        ostd::err.writefln(debugline(*this, p, fmt,
+                                     ostd::CharRange(buf.data(),
+                                                     buf.size())),
+                           ostd::forward<A>(args)...);
+        debugalias(*this);
+    }
 };
 
 extern CsState cstate;
@@ -552,5 +597,6 @@ void poparg(Ident &id);
 #define ICOMMAND(name, nargs, proto, b) ICOMMANDN(name, ICOMMANDNAME(name), nargs, proto, b)
 #define ICOMMANDS(name, nargs, proto, b) ICOMMANDNS(name, ICOMMANDSNAME, nargs, proto, b)
 
+void init_lib_io(CsState &cs);
 void init_lib_math(CsState &cs);
 void init_lib_shell(CsState &cs);

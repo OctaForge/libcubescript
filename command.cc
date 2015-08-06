@@ -4,10 +4,6 @@
 
 CsState cstate;
 
-static constexpr int MAX_ARGUMENTS = 25;
-static constexpr int MAX_RESULTS = 7;
-static constexpr int MAX_COMARGS = 12;
-
 const struct NullValue: TaggedValue {
     NullValue() { set_null(); }
 } null_value;
@@ -174,78 +170,48 @@ void Ident::clean_code() {
     }
 }
 
-static const char *sourcefile = nullptr, *sourcestr = nullptr;
-
-static const char *debugline(const char *p, const char *fmt) {
-    if (!sourcestr) return fmt;
-    int num = 1;
-    const char *line = sourcestr;
+ostd::ConstCharRange debugline(CsState &cs, ostd::ConstCharRange p,
+                               ostd::ConstCharRange fmt,
+                               ostd::CharRange buf) {
+    if (cs.src_str.empty()) return fmt;
+    ostd::Size num = 1;
+    ostd::ConstCharRange line(cs.src_str);
     for (;;) {
-        const char *end = strchr(line, '\n');
-        if (!end) end = line + strlen(line);
-        if (p >= line && p <= end) {
-            static char buf[256];
-            auto r = ostd::iter(buf);
-            if (sourcefile) ostd::format(r, "%s:%d: %s", sourcefile, num, fmt);
-            else ostd::format(r, "%d: %s", num, fmt);
+        ostd::ConstCharRange end = ostd::find(line, '\n');
+        if (!end.empty())
+            line = line.slice(0, line.distance_front(end));
+        if (&p[0] >= &line[0] && &p[0] <= &line[line.size()]) {
+            ostd::CharRange r(buf);
+            if (!cs.src_file.empty())
+                ostd::format(r, "%s:%d: %s", cs.src_file, num, fmt);
+            else
+                ostd::format(r, "%d: %s", num, fmt);
             r.put('\0');
             return buf;
         }
-        if (!*end) break;
-        line = end + 1;
-        num++;
+        if (end.empty()) break;
+        line = end;
+        line.pop_front();
+        ++num;
     }
     return fmt;
 }
 
-static struct IdentLink {
-    Ident *id;
-    IdentLink *next;
-    int usedargs;
-    IdentStack *argstack;
-} noalias = { nullptr, nullptr, (1 << MAX_ARGUMENTS) - 1, nullptr }, *aliasstack = &noalias;
-
 int dbgalias = variable("dbgalias", 0, 4, 1000, &dbgalias, nullptr, 0);
 
-static void debugalias() {
+void debugalias(CsState &cs) {
     if (!dbgalias) return;
     int total = 0, depth = 0;
-    for (IdentLink *l = aliasstack; l != &noalias; l = l->next) total++;
-    for (IdentLink *l = aliasstack; l != &noalias; l = l->next) {
+    for (IdentLink *l = cs.stack; l != &cs.noalias; l = l->next) total++;
+    for (IdentLink *l = cs.stack; l != &cs.noalias; l = l->next) {
         Ident *id = l->id;
         ++depth;
         if (depth < dbgalias) fprintf(stderr, "  %d) %s\n", total - depth + 1, id->name.data());
-        else if (l->next == &noalias) fprintf(stderr, depth == dbgalias ? "  %d) %s\n" : "  ..%d) %s\n", total - depth + 1, id->name.data());
+        else if (l->next == &cs.noalias) fprintf(stderr, depth == dbgalias ? "  %d) %s\n" : "  ..%d) %s\n", total - depth + 1, id->name.data());
     }
 }
 
-static int nodebug = 0;
-
-static void debugcode(const char *fmt, ...) {
-    if (nodebug) return;
-
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(stderr, fmt, args);
-    fputc('\n', stderr);
-    va_end(args);
-
-    debugalias();
-}
-
-static void debugcodeline(const char *p, const char *fmt, ...) {
-    if (nodebug) return;
-
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(stderr, debugline(p, fmt), args);
-    fputc('\n', stderr);
-    va_end(args);
-
-    debugalias();
-}
-
-ICOMMAND(nodebug, "e", (CsState &cs, ostd::uint *body), { nodebug++; executeret(body, *cs.result); nodebug--; });
+ICOMMAND(nodebug, "e", (CsState &cs, ostd::uint *body), { cs.nodebug++; executeret(body, *cs.result); cs.nodebug--; });
 
 void pusharg(Ident &id, const TaggedValue &v, IdentStack &stack) {
     stack.val = id.val;
@@ -277,11 +243,11 @@ static inline void undoarg(Ident &id, IdentStack &stack) {
 
 #define UNDOARGS \
     IdentStack argstack[MAX_ARGUMENTS]; \
-    for(int argmask = aliasstack->usedargs, i = 0; argmask; argmask >>= 1, i++) if(argmask&1) \
+    for(int argmask = cstate.stack->usedargs, i = 0; argmask; argmask >>= 1, i++) if(argmask&1) \
         undoarg(*cstate.identmap[i], argstack[i]); \
-    IdentLink *prevstack = aliasstack->next; \
-    IdentLink aliaslink = { aliasstack->id, aliasstack, prevstack->usedargs, prevstack->argstack }; \
-    aliasstack = &aliaslink;
+    IdentLink *prevstack = cstate.stack->next; \
+    IdentLink aliaslink = { cstate.stack->id, cstate.stack, prevstack->usedargs, prevstack->argstack }; \
+    cstate.stack = &aliaslink;
 
 static inline void redoarg(Ident &id, const IdentStack &stack) {
     IdentStack *prev = stack.next;
@@ -294,8 +260,8 @@ static inline void redoarg(Ident &id, const IdentStack &stack) {
 
 #define REDOARGS \
     prevstack->usedargs = aliaslink.usedargs; \
-    aliasstack = aliaslink.next; \
-    for(int argmask = aliasstack->usedargs, i = 0; argmask; argmask >>= 1, i++) if(argmask&1) \
+    cstate.stack = aliaslink.next; \
+    for(int argmask = cstate.stack->usedargs, i = 0; argmask; argmask >>= 1, i++) if(argmask&1) \
         redoarg(*cstate.identmap[i], argstack[i]);
 
 ICOMMAND(push, "rTe", (CsState &cs, Ident *id, TaggedValue *v, ostd::uint *code), {
@@ -338,7 +304,7 @@ Ident *CsState::new_ident(ostd::ConstCharRange name, int flags) {
     Ident *id = idents.at(name);
     if (!id) {
         if (checknumber(name.data())) {
-            debugcode("number %.*s is not a valid identifier name", int(name.size()), name.data());
+            debug_code("number %.*s is not a valid identifier name", int(name.size()), name.data());
             return dummy;
         }
         id = add_ident(ID_ALIAS, name, flags);
@@ -372,7 +338,7 @@ bool CsState::reset_var(ostd::ConstCharRange name) {
     Ident *id = idents.at(name);
     if (!id) return false;
     if (id->flags & IDF_READONLY) {
-        debugcode("variable %s is read only", id->name.data());
+        debug_code("variable %s is read only", id->name.data());
         return false;
     }
     clear_override(*id);
@@ -393,13 +359,13 @@ void CsState::touch_var(ostd::ConstCharRange name) {
 }
 
 static inline void setarg(Ident &id, TaggedValue &v) {
-    if (aliasstack->usedargs & (1 << id.index)) {
+    if (cstate.stack->usedargs & (1 << id.index)) {
         if (id.valtype == VAL_STR) delete[] id.val.s;
         id.setval(v);
         id.clean_code();
     } else {
-        pusharg(id, v, aliasstack->argstack[id.index]);
-        aliasstack->usedargs |= 1 << id.index;
+        pusharg(id, v, cstate.stack->argstack[id.index]);
+        cstate.stack->usedargs |= 1 << id.index;
     }
 }
 
@@ -428,12 +394,12 @@ static void setalias(const char *name, TaggedValue &v) {
             setsvarchecked(id, v.get_str());
             break;
         default:
-            debugcode("cannot redefine builtin %s with an alias", id->name.data());
+            cstate.debug_code("cannot redefine builtin %s with an alias", id->name.data());
             break;
         }
         v.cleanup();
     } else if (checknumber(name)) {
-        debugcode("cannot alias number %s", name);
+        cstate.debug_code("cannot alias number %s", name);
         v.cleanup();
     } else {
         cstate.add_ident(ID_ALIAS, name, v, cstate.identflags);
@@ -479,7 +445,7 @@ char *svariable(const char *name, const char *cur, char **storage, IdentFunc fun
     { \
         if(id->flags&IDF_PERSIST) \
         { \
-            debugcode("cannot override persistent variable %s", id->name.data()); \
+            cstate.debug_code("cannot override persistent variable %s", id->name.data()); \
             errorval; \
         } \
         if(!(id->flags&IDF_OVERRIDDEN)) { saveval; id->flags |= IDF_OVERRIDDEN; } \
@@ -541,7 +507,7 @@ ICOMMAND(identexists, "s", (CsState &cs, char *s), cs.result->set_int(cstate.hav
 
 const char *getalias(const char *name) {
     Ident *i = cstate.idents.at(name);
-    return i && i->type == ID_ALIAS && (i->index >= MAX_ARGUMENTS || aliasstack->usedargs & (1 << i->index)) ? i->get_str() : "";
+    return i && i->type == ID_ALIAS && (i->index >= MAX_ARGUMENTS || cstate.stack->usedargs & (1 << i->index)) ? i->get_str() : "";
 }
 
 ICOMMAND(getalias, "s", (CsState &, char *s), result(getalias(s)));
@@ -550,7 +516,7 @@ int clampvar(Ident *id, int val, int minval, int maxval) {
     if (val < minval) val = minval;
     else if (val > maxval) val = maxval;
     else return val;
-    debugcode(id->flags & IDF_HEX ?
+    cstate.debug_code(id->flags & IDF_HEX ?
               (minval <= 255 ? "valid range for %s is %d..0x%X" : "valid range for %s is 0x%X..0x%X") :
               "valid range for %s is %d..%d",
               id->name.data(), minval, maxval);
@@ -558,7 +524,7 @@ int clampvar(Ident *id, int val, int minval, int maxval) {
 }
 
 void setvarchecked(Ident *id, int val) {
-    if (id->flags & IDF_READONLY) debugcode("variable %s is read-only", id->name.data());
+    if (id->flags & IDF_READONLY) cstate.debug_code("variable %s is read-only", id->name.data());
     else {
         OVERRIDEVAR(return, id->overrideval.i = *id->storage.i, , )
         if (val < id->minval || val > id->maxval) val = clampvar(id, val, id->minval, id->maxval);
@@ -580,12 +546,12 @@ float clampfvar(Ident *id, float val, float minval, float maxval) {
     if (val < minval) val = minval;
     else if (val > maxval) val = maxval;
     else return val;
-    debugcode("valid range for %s is %s..%s", id->name.data(), floatstr(minval), floatstr(maxval));
+    cstate.debug_code("valid range for %s is %s..%s", id->name.data(), floatstr(minval), floatstr(maxval));
     return val;
 }
 
 void setfvarchecked(Ident *id, float val) {
-    if (id->flags & IDF_READONLY) debugcode("variable %s is read-only", id->name.data());
+    if (id->flags & IDF_READONLY) cstate.debug_code("variable %s is read-only", id->name.data());
     else {
         OVERRIDEVAR(return, id->overrideval.f = *id->storage.f, , );
         if (val < id->minvalf || val > id->maxvalf) val = clampfvar(id, val, id->minvalf, id->maxvalf);
@@ -595,7 +561,7 @@ void setfvarchecked(Ident *id, float val) {
 }
 
 void setsvarchecked(Ident *id, const char *val) {
-    if (id->flags & IDF_READONLY) debugcode("variable %s is read-only", id->name.data());
+    if (id->flags & IDF_READONLY) cstate.debug_code("variable %s is read-only", id->name.data());
     else {
         OVERRIDEVAR(return, id->overrideval.s = *id->storage.s, delete[] id->overrideval.s, delete[] * id->storage.s);
         *id->storage.s = dup_ostr(val);
@@ -1421,7 +1387,7 @@ static void compileblockmain(ostd::Vector<ostd::uint> &code, const char *&p, int
         int c = *p++;
         switch (c) {
         case '\0':
-            debugcodeline(line, "missing \"]\"");
+            cstate.debug_code_line(line, "missing \"]\"");
             p--;
             goto done;
         case '\"':
@@ -1442,7 +1408,7 @@ static void compileblockmain(ostd::Vector<ostd::uint> &code, const char *&p, int
             while (*p == '@') p++;
             int level = p - (esc - 1);
             if (brak > level) continue;
-            else if (brak < level) debugcodeline(line, "too many @s");
+            else if (brak < level) cstate.debug_code_line(line, "too many @s");
             if (!concs && prevargs >= MAX_RESULTS) code.push(CODE_ENTER);
             if (concs + 2 > MAX_ARGUMENTS) {
                 code.push(CODE_CONCW | RET_STR | (concs << 8));
@@ -1963,14 +1929,14 @@ endstatement:
         int c = *p++;
         switch (c) {
         case '\0':
-            if (c != brak) debugcodeline(line, "missing \"%c\"", brak);
+            if (c != brak) cstate.debug_code_line(line, "missing \"%c\"", brak);
             p--;
             return;
 
         case ')':
         case ']':
             if (c == brak) return;
-            debugcodeline(line, "unexpected \"%c\"", c);
+            cstate.debug_code_line(line, "unexpected \"%c\"", c);
             break;
 
         case '/':
@@ -2277,7 +2243,7 @@ static int rundepth = 0;
 static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
     result.set_null();
     if (rundepth >= MAXRUNDEPTH) {
-        debugcode("exceeded recursion limit");
+        cstate.debug_code("exceeded recursion limit");
         return skipcode(code, result);
     }
     ++rundepth;
@@ -2364,7 +2330,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         case CODE_DOARGS|RET_STR:
         case CODE_DOARGS|RET_INT:
         case CODE_DOARGS|RET_FLOAT:
-            if (aliasstack != &noalias) {
+            if (cstate.stack != &cstate.noalias) {
                 UNDOARGS
                 result.cleanup();
                 runcode(args[--numargs].code, result);
@@ -2575,9 +2541,9 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
             continue;
         case CODE_IDENTARG: {
             Ident *id = cstate.identmap[op >> 8];
-            if (!(aliasstack->usedargs & (1 << id->index))) {
-                pusharg(*id, null_value, aliasstack->argstack[id->index]);
-                aliasstack->usedargs |= 1 << id->index;
+            if (!(cstate.stack->usedargs & (1 << id->index))) {
+                pusharg(*id, null_value, cstate.stack->argstack[id->index]);
+                cstate.stack->usedargs |= 1 << id->index;
             }
             args[numargs++].set_ident(id);
             continue;
@@ -2585,9 +2551,9 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         case CODE_IDENTU: {
             TaggedValue &arg = args[numargs - 1];
             Ident *id = arg.type == VAL_STR || arg.type == VAL_MACRO || arg.type == VAL_CSTR ? cstate.new_ident(arg.cstr, IDF_UNKNOWN) : cstate.dummy;
-            if (id->index < MAX_ARGUMENTS && !(aliasstack->usedargs & (1 << id->index))) {
-                pusharg(*id, null_value, aliasstack->argstack[id->index]);
-                aliasstack->usedargs |= 1 << id->index;
+            if (id->index < MAX_ARGUMENTS && !(cstate.stack->usedargs & (1 << id->index))) {
+                pusharg(*id, null_value, cstate.stack->argstack[id->index]);
+                cstate.stack->usedargs |= 1 << id->index;
             }
             arg.cleanup();
             arg.set_ident(id);
@@ -2604,7 +2570,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
                         case ID_ALIAS: \
                             if(id->flags&IDF_UNKNOWN) break; \
                             arg.cleanup(); \
-                            if(id->index < MAX_ARGUMENTS && !(aliasstack->usedargs&(1<<id->index))) { nval; continue; } \
+                            if(id->index < MAX_ARGUMENTS && !(cstate.stack->usedargs&(1<<id->index))) { nval; continue; } \
                             aval; \
                             continue; \
                         case ID_SVAR: arg.cleanup(); sval; continue; \
@@ -2623,7 +2589,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
                         } \
                         default: arg.cleanup(); nval; continue; \
                     } \
-                    debugcode("unknown alias lookup: %s", arg.s); \
+                    cstate.debug_code("unknown alias lookup: %s", arg.s); \
                     arg.cleanup(); \
                     nval; \
                     continue; \
@@ -2636,7 +2602,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         case CODE_LOOKUP|RET_STR:
 #define LOOKUP(aval) { \
                     Ident *id = cstate.identmap[op>>8]; \
-                    if(id->flags&IDF_UNKNOWN) debugcode("unknown alias lookup: %s", id->name.data()); \
+                    if(id->flags&IDF_UNKNOWN) cstate.debug_code("unknown alias lookup: %s", id->name.data()); \
                     aval; \
                     continue; \
                 }
@@ -2644,7 +2610,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         case CODE_LOOKUPARG|RET_STR:
 #define LOOKUPARG(aval, nval) { \
                     Ident *id = cstate.identmap[op>>8]; \
-                    if(!(aliasstack->usedargs&(1<<id->index))) { nval; continue; } \
+                    if(!(cstate.stack->usedargs&(1<<id->index))) { nval; continue; } \
                     aval; \
                     continue; \
                 }
@@ -2858,15 +2824,15 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
                 _numargs = callargs; \
                 int oldflags = cstate.identflags; \
                 cstate.identflags |= id->flags&IDF_OVERRIDDEN; \
-                IdentLink aliaslink = { id, aliasstack, (1<<callargs)-1, argstack }; \
-                aliasstack = &aliaslink; \
+                IdentLink aliaslink = { id, cstate.stack, (1<<callargs)-1, argstack }; \
+                cstate.stack = &aliaslink; \
                 if(!id->code) id->code = compilecode(id->get_str()); \
                 ostd::uint *code = id->code; \
                 code[0] += 0x100; \
                 runcode(code+1, result); \
                 code[0] -= 0x100; \
                 if(int(code[0]) < 0x100) delete[] code; \
-                aliasstack = aliaslink.next; \
+                cstate.stack = aliaslink.next; \
                 cstate.identflags = oldflags; \
                 for(int i = 0; i < callargs; i++) \
                     poparg(*cstate.identmap[i]); \
@@ -2880,7 +2846,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
             Ident *id = cstate.identmap[op >> 13];
             int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
             if (id->flags & IDF_UNKNOWN) {
-                debugcode("unknown command: %s", id->name.data());
+                cstate.debug_code("unknown command: %s", id->name.data());
                 FORCERESULT;
             }
             CALLALIAS;
@@ -2893,7 +2859,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
             result.force_null();
             Ident *id = cstate.identmap[op >> 13];
             int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
-            if (!(aliasstack->usedargs & (1 << id->index))) FORCERESULT;
+            if (!(cstate.stack->usedargs & (1 << id->index))) FORCERESULT;
             CALLALIAS;
             continue;
         }
@@ -2918,7 +2884,7 @@ litval:
             if (!id) {
 noid:
                 if (checknumber(idarg.s)) goto litval;
-                debugcode("unknown command: %s", idarg.s);
+                cstate.debug_code("unknown command: %s", idarg.s);
                 result.force_null();
                 FORCERESULT;
             }
@@ -2954,7 +2920,7 @@ noid:
                 else setsvarchecked(id, args[offset].force_str());
                 FORCERESULT;
             case ID_ALIAS:
-                if (id->index < MAX_ARGUMENTS && !(aliasstack->usedargs & (1 << id->index))) FORCERESULT;
+                if (id->index < MAX_ARGUMENTS && !(cstate.stack->usedargs & (1 << id->index))) FORCERESULT;
                 if (id->valtype == VAL_NULL) goto noid;
                 idarg.cleanup();
                 CALLALIAS;
@@ -2987,7 +2953,7 @@ void executeret(Ident *id, TaggedValue *args, int numargs, TaggedValue &result) 
     ++rundepth;
     TaggedValue *prevret = cstate.result;
     cstate.result = &result;
-    if (rundepth > MAXRUNDEPTH) debugcode("exceeded recursion limit");
+    if (rundepth > MAXRUNDEPTH) cstate.debug_code("exceeded recursion limit");
     else if (id) switch (id->type) {
         default:
             if (!id->fun) break;
@@ -3013,7 +2979,7 @@ void executeret(Ident *id, TaggedValue *args, int numargs, TaggedValue &result) 
             else setsvarchecked(id, args[0].force_str());
             break;
         case ID_ALIAS:
-            if (id->index < MAX_ARGUMENTS && !(aliasstack->usedargs & (1 << id->index))) break;
+            if (id->index < MAX_ARGUMENTS && !(cstate.stack->usedargs & (1 << id->index))) break;
             if (id->valtype == VAL_NULL) break;
 #define callargs numargs
 #define offset 0
@@ -3139,7 +3105,7 @@ bool CsState::run_bool(Ident *id, ostd::PointerRange<TaggedValue> args) {
 }
 
 bool CsState::run_file(ostd::ConstCharRange fname, bool msg) {
-    const char *oldsourcefile = sourcefile, *oldsourcestr = sourcestr;
+    ostd::ConstCharRange oldsrcfile = cstate.src_file, oldsrcstr = cstate.src_str;
     char *buf = nullptr;
     ostd::Size len;
 
@@ -3154,11 +3120,11 @@ bool CsState::run_file(ostd::ConstCharRange fname, bool msg) {
     }
     buf[len] = '\0';
 
-    sourcefile = fname.data();
-    sourcestr = buf;
+    cstate.src_file = fname;
+    cstate.src_str = ostd::ConstCharRange(buf, len);
     cstate.run_int(buf);
-    sourcefile = oldsourcefile;
-    sourcestr = oldsourcestr;
+    cstate.src_file = oldsrcfile;
+    cstate.src_str = oldsrcstr;
     delete[] buf;
     return true;
 
@@ -3167,7 +3133,11 @@ error:
     return false;
 }
 
-ICOMMAND(exec, "sb", (CsState &cs, char *file, int *msg), cs.result->set_int(cs.run_file(file, *msg != 0) ? 1 : 0));
+void init_lib_io(CsState &cs) {
+    cs.add_command("exec", "sb", [](CsState &cs, char *file, int *msg) {
+        cs.result->set_int(cs.run_file(file, *msg != 0) ? 1 : 0);
+    });
+}
 
 const char *escapestring(const char *s) {
     stridx = (stridx + 1) % 4;
@@ -3272,7 +3242,7 @@ const char *floatstr(float v) {
 ICOMMANDK(do, ID_DO, "e", (CsState &cs, ostd::uint *body), executeret(body, *cs.result));
 
 static void doargs(CsState &cs, ostd::uint *body) {
-    if (aliasstack != &noalias) {
+    if (cstate.stack != &cstate.noalias) {
         UNDOARGS
         executeret(body, *cs.result);
         REDOARGS
