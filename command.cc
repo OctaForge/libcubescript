@@ -215,84 +215,90 @@ void debug_alias(CsState &cs) {
     }
 }
 
+void Ident::push_arg(const TaggedValue &v, IdentStack &st) {
+    st.val = val;
+    st.valtype = valtype;
+    st.next = stack;
+    stack = &st;
+    setval(v);
+    clean_code();
+}
+
+void Ident::pop_arg() {
+    if (!stack) return;
+    IdentStack *st = stack;
+    if (valtype == VAL_STR) delete[] val.s;
+    setval(*stack);
+    clean_code();
+    stack = st->next;
+}
+
+void Ident::undo_arg(IdentStack &st) {
+    IdentStack *prev = stack;
+    st.val = val;
+    st.valtype = valtype;
+    st.next = prev;
+    stack = prev->next;
+    setval(*prev);
+    clean_code();
+}
+
+void Ident::redo_arg(const IdentStack &st) {
+    IdentStack *prev = st.next;
+    prev->val = val;
+    prev->valtype = valtype;
+    stack = prev;
+    setval(st);
+    clean_code();
+}
+
+template<typename F>
+static void cs_do_args(CsState &cs, F body) {
+    IdentStack argstack[MAX_ARGUMENTS];
+    int argmask1 = cs.stack->usedargs;
+    for (int i = 0; argmask1; argmask1 >>= 1, ++i) if(argmask1 & 1)
+        cs.identmap[i]->undo_arg(argstack[i]);
+    IdentLink *prevstack = cs.stack->next;
+    IdentLink aliaslink = {
+        cs.stack->id, cs.stack, prevstack->usedargs, prevstack->argstack
+    };
+    cs.stack = &aliaslink;
+    body();
+    prevstack->usedargs = aliaslink.usedargs;
+    cs.stack = aliaslink.next;
+    int argmask2 = cs.stack->usedargs;
+    for(int i = 0; argmask2; argmask2 >>= 1, ++i) if(argmask2 & 1)
+        cs.identmap[i]->redo_arg(argstack[i]);
+}
+
 void init_lib_base(CsState &cs) {
     cs.add_command("nodebug", "e", [](CsState &cs, ostd::uint *body) {
         ++cs.nodebug;
         executeret(body, *cs.result);
         --cs.nodebug;
     });
+
+    cs.add_command("push", "rTe", [](CsState &cs, Ident *id,
+                                     TaggedValue *v, ostd::uint *code) {
+        if (id->type != ID_ALIAS || id->index < MAX_ARGUMENTS) return;
+        IdentStack stack;
+        id->push_arg(*v, stack);
+        v->type = VAL_NULL;
+        id->flags &= ~IDF_UNKNOWN;
+        executeret(code, *cs.result);
+        id->pop_arg();
+    });
 }
-
-void pusharg(Ident &id, const TaggedValue &v, IdentStack &stack) {
-    stack.val = id.val;
-    stack.valtype = id.valtype;
-    stack.next = id.stack;
-    id.stack = &stack;
-    id.setval(v);
-    id.clean_code();
-}
-
-void poparg(Ident &id) {
-    if (!id.stack) return;
-    IdentStack *stack = id.stack;
-    if (id.valtype == VAL_STR) delete[] id.val.s;
-    id.setval(*stack);
-    id.clean_code();
-    id.stack = stack->next;
-}
-
-static inline void undoarg(Ident &id, IdentStack &stack) {
-    IdentStack *prev = id.stack;
-    stack.val = id.val;
-    stack.valtype = id.valtype;
-    stack.next = prev;
-    id.stack = prev->next;
-    id.setval(*prev);
-    id.clean_code();
-}
-
-#define UNDOARGS \
-    IdentStack argstack[MAX_ARGUMENTS]; \
-    for(int argmask = cstate.stack->usedargs, i = 0; argmask; argmask >>= 1, i++) if(argmask&1) \
-        undoarg(*cstate.identmap[i], argstack[i]); \
-    IdentLink *prevstack = cstate.stack->next; \
-    IdentLink aliaslink = { cstate.stack->id, cstate.stack, prevstack->usedargs, prevstack->argstack }; \
-    cstate.stack = &aliaslink;
-
-static inline void redoarg(Ident &id, const IdentStack &stack) {
-    IdentStack *prev = stack.next;
-    prev->val = id.val;
-    prev->valtype = id.valtype;
-    id.stack = prev;
-    id.setval(stack);
-    id.clean_code();
-}
-
-#define REDOARGS \
-    prevstack->usedargs = aliaslink.usedargs; \
-    cstate.stack = aliaslink.next; \
-    for(int argmask = cstate.stack->usedargs, i = 0; argmask; argmask >>= 1, i++) if(argmask&1) \
-        redoarg(*cstate.identmap[i], argstack[i]);
-
-ICOMMAND(push, "rTe", (CsState &cs, Ident *id, TaggedValue *v, ostd::uint *code), {
-    if (id->type != ID_ALIAS || id->index < MAX_ARGUMENTS) return;
-    IdentStack stack;
-    pusharg(*id, *v, stack);
-    v->type = VAL_NULL;
-    id->flags &= ~IDF_UNKNOWN;
-    executeret(code, *cs.result);
-    poparg(*id);
-});
 
 static inline void pushalias(Ident &id, IdentStack &stack) {
     if (id.type == ID_ALIAS && id.index >= MAX_ARGUMENTS) {
-        pusharg(id, null_value, stack);
+        id.push_arg(null_value, stack);
         id.flags &= ~IDF_UNKNOWN;
     }
 }
 
 static inline void popalias(Ident &id) {
-    if (id.type == ID_ALIAS && id.index >= MAX_ARGUMENTS) poparg(id);
+    if (id.type == ID_ALIAS && id.index >= MAX_ARGUMENTS) id.pop_arg();
 }
 
 KEYWORD(local, ID_LOCAL);
@@ -374,7 +380,7 @@ static inline void setarg(Ident &id, TaggedValue &v) {
         id.setval(v);
         id.clean_code();
     } else {
-        pusharg(id, v, cstate.stack->argstack[id.index]);
+        id.push_arg(v, cstate.stack->argstack[id.index]);
         cstate.stack->usedargs |= 1 << id.index;
     }
 }
@@ -2341,12 +2347,12 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         case CODE_DOARGS|RET_INT:
         case CODE_DOARGS|RET_FLOAT:
             if (cstate.stack != &cstate.noalias) {
-                UNDOARGS
-                result.cleanup();
-                runcode(args[--numargs].code, result);
-                args[numargs].cleanup();
-                result.force(op & CODE_RET_MASK);
-                REDOARGS
+                cs_do_args(cstate, [&]() {
+                    result.cleanup();
+                    runcode(args[--numargs].code, result);
+                    args[numargs].cleanup();
+                    result.force(op & CODE_RET_MASK);
+                });
                 continue;
             }
         /* fallthrough */
@@ -2552,7 +2558,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         case CODE_IDENTARG: {
             Ident *id = cstate.identmap[op >> 8];
             if (!(cstate.stack->usedargs & (1 << id->index))) {
-                pusharg(*id, null_value, cstate.stack->argstack[id->index]);
+                id->push_arg(null_value, cstate.stack->argstack[id->index]);
                 cstate.stack->usedargs |= 1 << id->index;
             }
             args[numargs++].set_ident(id);
@@ -2562,7 +2568,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
             TaggedValue &arg = args[numargs - 1];
             Ident *id = arg.type == VAL_STR || arg.type == VAL_MACRO || arg.type == VAL_CSTR ? cstate.new_ident(arg.cstr, IDF_UNKNOWN) : cstate.dummy;
             if (id->index < MAX_ARGUMENTS && !(cstate.stack->usedargs & (1 << id->index))) {
-                pusharg(*id, null_value, cstate.stack->argstack[id->index]);
+                id->push_arg(null_value, cstate.stack->argstack[id->index]);
                 cstate.stack->usedargs |= 1 << id->index;
             }
             arg.cleanup();
@@ -2829,7 +2835,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
 #define CALLALIAS { \
                 IdentStack argstack[MAX_ARGUMENTS]; \
                 for(int i = 0; i < callargs; i++) \
-                    pusharg(*cstate.identmap[i], args[offset + i], argstack[i]); \
+                    cstate.identmap[i]->push_arg(args[offset + i], argstack[i]); \
                 int oldargs = _numargs; \
                 _numargs = callargs; \
                 int oldflags = cstate.identflags; \
@@ -2845,9 +2851,9 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
                 cstate.stack = aliaslink.next; \
                 cstate.identflags = oldflags; \
                 for(int i = 0; i < callargs; i++) \
-                    poparg(*cstate.identmap[i]); \
+                    cstate.identmap[i]->pop_arg(); \
                 for(int argmask = aliaslink.usedargs&(~0<<callargs), i = callargs; argmask; i++) \
-                    if(argmask&(1<<i)) { poparg(*cstate.identmap[i]); argmask &= ~(1<<i); } \
+                    if(argmask&(1<<i)) { cstate.identmap[i]->pop_arg(); argmask &= ~(1<<i); } \
                 result.force(op&CODE_RET_MASK); \
                 _numargs = oldargs; \
                 numargs = SKIPARGS(offset); \
@@ -3253,9 +3259,7 @@ ICOMMANDK(do, ID_DO, "e", (CsState &cs, ostd::uint *body), executeret(body, *cs.
 
 static void doargs(CsState &cs, ostd::uint *body) {
     if (cstate.stack != &cstate.noalias) {
-        UNDOARGS
-        executeret(body, *cs.result);
-        REDOARGS
+        cs_do_args(cs, [&]() { executeret(body, *cs.result); });
     } else executeret(body, *cs.result);
 }
 COMMANDK(doargs, ID_DOARGS, "e");
@@ -3267,17 +3271,17 @@ ICOMMAND(pushif, "rTe", (CsState &cs, Ident *id, TaggedValue *v, ostd::uint *cod
     if (id->type != ID_ALIAS || id->index < MAX_ARGUMENTS) return;
     if (getbool(*v)) {
         IdentStack stack;
-        pusharg(*id, *v, stack);
+        id->push_arg(*v, stack);
         v->type = VAL_NULL;
         id->flags &= ~IDF_UNKNOWN;
         executeret(code, *cs.result);
-        poparg(*id);
+        id->pop_arg();
     }
 });
 
 void loopiter(Ident *id, IdentStack &stack, const TaggedValue &v) {
     if (id->stack != &stack) {
-        pusharg(*id, v, stack);
+        id->push_arg(v, stack);
         id->flags &= ~IDF_UNKNOWN;
     } else {
         if (id->valtype == VAL_STR) delete[] id->val.s;
@@ -3287,7 +3291,7 @@ void loopiter(Ident *id, IdentStack &stack, const TaggedValue &v) {
 }
 
 void loopend(Ident *id, IdentStack &stack) {
-    if (id->stack == &stack) poparg(*id);
+    if (id->stack == &stack) id->pop_arg();
 }
 
 static inline void setiter(Ident &id, int i, IdentStack &stack) {
@@ -3301,7 +3305,7 @@ static inline void setiter(Ident &id, int i, IdentStack &stack) {
     } else {
         TaggedValue t;
         t.set_int(i);
-        pusharg(id, t, stack);
+        id.push_arg(t, stack);
         id.flags &= ~IDF_UNKNOWN;
     }
 }
@@ -3313,7 +3317,7 @@ static inline void doloop(CsState &cs, Ident &id, int offset, int n, int step, o
         setiter(id, offset + i * step, stack);
         cs.run_int(body);
     }
-    poparg(id);
+    id.pop_arg();
 }
 ICOMMAND(loop, "rie", (CsState &cs, Ident *id, int *n, ostd::uint *body), doloop(cs, *id, 0, *n, 1, body));
 ICOMMAND(loop+, "riie", (CsState &cs, Ident *id, int *offset, int *n, ostd::uint *body), doloop(cs, *id, *offset, *n, 1, body));
@@ -3328,7 +3332,7 @@ static inline void loopwhile(CsState &cs, Ident &id, int offset, int n, int step
         if (!cs.run_bool(cond)) break;
         cs.run_int(body);
     }
-    poparg(id);
+    id.pop_arg();
 }
 ICOMMAND(loopwhile, "riee", (CsState &cs, Ident *id, int *n, ostd::uint *cond, ostd::uint *body), loopwhile(cs, *id, 0, *n, 1, cond, body));
 ICOMMAND(loopwhile+, "riiee", (CsState &cs, Ident *id, int *offset, int *n, ostd::uint *cond, ostd::uint *body), loopwhile(cs, *id, *offset, *n, 1, cond, body));
@@ -3351,7 +3355,7 @@ static inline void loopconc(Ident &id, int offset, int n, int step, ostd::uint *
         s.push_n(vstr, len);
         v.cleanup();
     }
-    if (n > 0) poparg(id);
+    if (n > 0) id.pop_arg();
     s.push('\0');
     cstate.result->set_str(s.disown());
 }
@@ -3557,7 +3561,7 @@ static inline void setiter(Ident &id, char *val, IdentStack &stack) {
     } else {
         TaggedValue t;
         t.set_str(val);
-        pusharg(id, t, stack);
+        id.push_arg(t, stack);
         id.flags &= ~IDF_UNKNOWN;
     }
 }
@@ -3579,7 +3583,7 @@ void listfind(CsState &cs, Ident *id, const char *list, const ostd::uint *body) 
     }
     cs.result->set_int(-1);
 found:
-    if (n >= 0) poparg(*id);
+    if (n >= 0) id->pop_arg();
 }
 COMMAND(listfind, "rse");
 
@@ -3596,7 +3600,7 @@ void listassoc(CsState &cs, Ident *id, const char *list, const ostd::uint *body)
         }
         if (!parselist(s)) break;
     }
-    if (n >= 0) poparg(*id);
+    if (n >= 0) id->pop_arg();
 }
 COMMAND(listassoc, "rse");
 
@@ -3639,7 +3643,7 @@ void looplist(CsState &cs, Ident *id, const char *list, const ostd::uint *body) 
         setiter(*id, listelem(start, end, qstart), stack);
         cs.run_int(body);
     }
-    if (n) poparg(*id);
+    if (n) id->pop_arg();
 }
 COMMAND(looplist, "rse");
 
@@ -3653,8 +3657,8 @@ void looplist2(CsState &cs, Ident *id, Ident *id2, const char *list, const ostd:
         cs.run_int(body);
     }
     if (n) {
-        poparg(*id);
-        poparg(*id2);
+        id->pop_arg();
+        id2->pop_arg();
     }
 }
 COMMAND(looplist2, "rrse");
@@ -3670,9 +3674,9 @@ void looplist3(CsState &cs, Ident *id, Ident *id2, Ident *id3, const char *list,
         cs.run_int(body);
     }
     if (n) {
-        poparg(*id);
-        poparg(*id2);
-        poparg(*id3);
+        id->pop_arg();
+        id2->pop_arg();
+        id3->pop_arg();
     }
 }
 COMMAND(looplist3, "rrrse");
@@ -3695,7 +3699,7 @@ void looplistconc(CsState &cs, Ident *id, const char *list, const ostd::uint *bo
         r.push_n(vstr, len);
         v.cleanup();
     }
-    if (n) poparg(*id);
+    if (n) id->pop_arg();
     r.push('\0');
     cs.result->set_str(r.disown());
 }
@@ -3716,7 +3720,7 @@ void listfilter(CsState &cs, Ident *id, const char *list, const ostd::uint *body
             r.push_n(qstart, qend - qstart);
         }
     }
-    if (n) poparg(*id);
+    if (n) id->pop_arg();
     r.push('\0');
     cs.result->set_str(r.disown());
 }
@@ -3731,7 +3735,7 @@ void listcount(CsState &cs, Ident *id, const char *list, const ostd::uint *body)
         setiter(*id, val, stack);
         if (cs.run_bool(body)) r++;
     }
-    if (n) poparg(*id);
+    if (n) id->pop_arg();
     cs.result->set_int(r);
 }
 COMMAND(listcount, "rse");
@@ -3862,9 +3866,9 @@ void sortlist(CsState &cs, char *list, Ident *x, Ident *y, ostd::uint *body, ost
     }
 
     IdentStack xstack, ystack;
-    pusharg(*x, null_value, xstack);
+    x->push_arg(null_value, xstack);
     x->flags &= ~IDF_UNKNOWN;
-    pusharg(*y, null_value, ystack);
+    y->push_arg(null_value, ystack);
     y->flags &= ~IDF_UNKNOWN;
 
     int totalunique = total, numunique = items.size();
@@ -3904,8 +3908,8 @@ void sortlist(CsState &cs, char *list, Ident *x, Ident *y, ostd::uint *body, ost
         }
     }
 
-    poparg(*x);
-    poparg(*y);
+    x->pop_arg();
+    y->pop_arg();
 
     char *sorted = cstr;
     int sortedlen = totalunique + ostd::max(numunique - 1, 0);
