@@ -2,6 +2,20 @@
 
 #define fatal printf
 
+static inline bool check_num(const char *s) {
+    if (isdigit(s[0]))
+        return true;
+    switch (s[0]) {
+    case '+':
+    case '-':
+        return isdigit(s[1]) || (s[1] == '.' && isdigit(s[2]));
+    case '.':
+        return isdigit(s[1]) != 0;
+    default:
+        return false;
+    }
+}
+
 CsState cstate;
 
 const struct NullValue: TaggedValue {
@@ -63,6 +77,62 @@ void CsState::clear_override(Ident &id) {
 void CsState::clear_overrides() {
     for (Ident &id: idents.iter())
         clear_override(id);
+}
+
+Ident *CsState::new_ident(ostd::ConstCharRange name, int flags) {
+    Ident *id = idents.at(name);
+    if (!id) {
+        if (check_num(name.data())) {
+            debug_code("number %.*s is not a valid identifier name", int(name.size()), name.data());
+            return dummy;
+        }
+        id = add_ident(ID_ALIAS, name, flags);
+    }
+    return id;
+}
+
+Ident *CsState::force_ident(TaggedValue &v) {
+    switch (v.type) {
+    case VAL_IDENT:
+        return v.id;
+    case VAL_MACRO:
+    case VAL_CSTR: {
+        Ident *id = new_ident(v.s, IDF_UNKNOWN);
+        v.set_ident(id);
+        return id;
+    }
+    case VAL_STR: {
+        Ident *id = new_ident(v.s, IDF_UNKNOWN);
+        delete[] v.s;
+        v.set_ident(id);
+        return id;
+    }
+    }
+    v.cleanup();
+    v.set_ident(dummy);
+    return dummy;
+}
+
+bool CsState::reset_var(ostd::ConstCharRange name) {
+    Ident *id = idents.at(name);
+    if (!id) return false;
+    if (id->flags & IDF_READONLY) {
+        debug_code("variable %s is read only", id->name.data());
+        return false;
+    }
+    clear_override(*id);
+    return true;
+}
+
+void CsState::touch_var(ostd::ConstCharRange name) {
+    Ident *id = idents.at(name);
+    if (id) switch (id->type) {
+    case ID_VAR:
+    case ID_FVAR:
+    case ID_SVAR:
+        id->changed(*this);
+        break;
+    }
 }
 
 int _numargs = variable("numargs", MAX_ARGUMENTS, 0, 0, &_numargs, nullptr, 0);
@@ -252,6 +322,17 @@ void Ident::redo_arg(const IdentStack &st) {
     clean_code();
 }
 
+void Ident::push_alias(IdentStack &stack) {
+    if (type == ID_ALIAS && index >= MAX_ARGUMENTS) {
+        push_arg(null_value, stack);
+        flags &= ~IDF_UNKNOWN;
+    }
+}
+
+void Ident::pop_alias() {
+    if (type == ID_ALIAS && index >= MAX_ARGUMENTS) pop_arg();
+}
+
 template<typename F>
 static void cs_do_args(CsState &cs, F body) {
     IdentStack argstack[MAX_ARGUMENTS];
@@ -288,90 +369,12 @@ void init_lib_base(CsState &cs) {
         executeret(code, *cs.result);
         id->pop_arg();
     });
-}
 
-static inline void pushalias(Ident &id, IdentStack &stack) {
-    if (id.type == ID_ALIAS && id.index >= MAX_ARGUMENTS) {
-        id.push_arg(null_value, stack);
-        id.flags &= ~IDF_UNKNOWN;
-    }
-}
+    cs.add_command("local", ostd::ConstCharRange(), nullptr, ID_LOCAL);
 
-static inline void popalias(Ident &id) {
-    if (id.type == ID_ALIAS && id.index >= MAX_ARGUMENTS) id.pop_arg();
-}
-
-KEYWORD(local, ID_LOCAL);
-
-static inline bool checknumber(const char *s) {
-    if (isdigit(s[0])) return true;
-    else switch (s[0]) {
-        case '+':
-        case '-':
-            return isdigit(s[1]) || (s[1] == '.' && isdigit(s[2]));
-        case '.':
-            return isdigit(s[1]) != 0;
-        default:
-            return false;
-        }
-}
-
-Ident *CsState::new_ident(ostd::ConstCharRange name, int flags) {
-    Ident *id = idents.at(name);
-    if (!id) {
-        if (checknumber(name.data())) {
-            debug_code("number %.*s is not a valid identifier name", int(name.size()), name.data());
-            return dummy;
-        }
-        id = add_ident(ID_ALIAS, name, flags);
-    }
-    return id;
-}
-
-Ident *CsState::force_ident(TaggedValue &v) {
-    switch (v.type) {
-    case VAL_IDENT:
-        return v.id;
-    case VAL_MACRO:
-    case VAL_CSTR: {
-        Ident *id = new_ident(v.s, IDF_UNKNOWN);
-        v.set_ident(id);
-        return id;
-    }
-    case VAL_STR: {
-        Ident *id = new_ident(v.s, IDF_UNKNOWN);
-        delete[] v.s;
-        v.set_ident(id);
-        return id;
-    }
-    }
-    v.cleanup();
-    v.set_ident(dummy);
-    return dummy;
-}
-
-bool CsState::reset_var(ostd::ConstCharRange name) {
-    Ident *id = idents.at(name);
-    if (!id) return false;
-    if (id->flags & IDF_READONLY) {
-        debug_code("variable %s is read only", id->name.data());
-        return false;
-    }
-    clear_override(*id);
-    return true;
-}
-
-ICOMMAND(resetvar, "s", (CsState &cs, char *name), cs.result->set_int(cs.reset_var(name)););
-
-void CsState::touch_var(ostd::ConstCharRange name) {
-    Ident *id = idents.at(name);
-    if (id) switch (id->type) {
-    case ID_VAR:
-    case ID_FVAR:
-    case ID_SVAR:
-        id->changed(*this);
-        break;
-    }
+    cs.add_command("resetvar", "s", [](CsState &cs, char *name) {
+        cs.result->set_int(cs.reset_var(name));
+    });
 }
 
 static inline void setarg(Ident &id, TaggedValue &v) {
@@ -414,7 +417,7 @@ static void setalias(const char *name, TaggedValue &v) {
             break;
         }
         v.cleanup();
-    } else if (checknumber(name)) {
+    } else if (check_num(name)) {
         cstate.debug_code("cannot alias number %s", name);
         v.cleanup();
     } else {
@@ -1673,7 +1676,7 @@ noid:
         } else {
             Ident *id = cstate.idents.at(idname);
             if (!id) {
-                if (!checknumber(idname.data())) {
+                if (!check_num(idname.data())) {
                     compilestr(code, idname, true);
                     goto noid;
                 }
@@ -2336,9 +2339,9 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
             result.cleanup();
             int numlocals = op >> 8, offset = numargs - numlocals;
             IdentStack locals[MAX_ARGUMENTS];
-            for (int i = 0; i < numlocals; ++i) pushalias(*args[offset + i].id, locals[i]);
+            for (int i = 0; i < numlocals; ++i) args[offset + i].id->push_alias(locals[i]);
             code = runcode(code, result);
-            for (int i = offset; i < numargs; i++) popalias(*args[i].id);
+            for (int i = offset; i < numargs; i++) args[i].id->pop_alias();
             goto exit;
         }
 
@@ -2899,7 +2902,7 @@ litval:
             Ident *id = cstate.idents.at(idarg.s);
             if (!id) {
 noid:
-                if (checknumber(idarg.s)) goto litval;
+                if (check_num(idarg.s)) goto litval;
                 cstate.debug_code("unknown command: %s", idarg.s);
                 result.force_null();
                 FORCERESULT;
@@ -2918,9 +2921,9 @@ noid:
             case ID_LOCAL: {
                 IdentStack locals[MAX_ARGUMENTS];
                 idarg.cleanup();
-                for (ostd::Size j = 0; j < ostd::Size(callargs); ++j) pushalias(*cstate.force_ident(args[offset + j]), locals[j]);
+                for (ostd::Size j = 0; j < ostd::Size(callargs); ++j) cstate.force_ident(args[offset + j])->push_alias(locals[j]);
                 code = runcode(code, result);
-                for (ostd::Size j = 0; j < ostd::Size(callargs); ++j) popalias(*args[offset + j].id);
+                for (ostd::Size j = 0; j < ostd::Size(callargs); ++j) args[offset + j].id->pop_alias();
                 goto exit;
             }
             case ID_VAR:

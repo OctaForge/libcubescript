@@ -282,6 +282,9 @@ struct Ident {
     void pop_arg();
     void undo_arg(IdentStack &st);
     void redo_arg(const IdentStack &st);
+
+    void push_alias(IdentStack &st);
+    void pop_alias();
 };
 
 struct IdentLink {
@@ -581,7 +584,6 @@ static inline void loopiter(Ident *id, IdentStack &stack, const char *s) {
     loopiter(id, stack, v);
 }
 
-#define KEYWORD(name, type) static bool __dummy_##type = addcommand(#name, (IdentFunc)nullptr, nullptr, type)
 #define COMMANDKN(name, type, fun, nargs) static bool __dummy_##fun = addcommand(#name, (IdentFunc)fun, nargs, type)
 #define COMMANDK(name, type, nargs) COMMANDKN(name, type, name, nargs)
 #define COMMANDN(name, fun, nargs) COMMANDKN(name, ID_COMMAND, fun, nargs)
