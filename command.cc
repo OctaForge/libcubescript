@@ -3138,12 +3138,12 @@ bool CsState::run_bool(Ident *id, ostd::PointerRange<TaggedValue> args) {
     return b;
 }
 
-bool execfile(const char *cfgfile, bool msg) {
+bool CsState::run_file(ostd::ConstCharRange fname, bool msg) {
     const char *oldsourcefile = sourcefile, *oldsourcestr = sourcestr;
     char *buf = nullptr;
     ostd::Size len;
 
-    ostd::FileStream f(cfgfile, ostd::StreamMode::read);
+    ostd::FileStream f(fname, ostd::StreamMode::read);
     if (!f.is_open()) goto error;
 
     len = f.size();
@@ -3154,7 +3154,7 @@ bool execfile(const char *cfgfile, bool msg) {
     }
     buf[len] = '\0';
 
-    sourcefile = cfgfile;
+    sourcefile = fname.data();
     sourcestr = buf;
     cstate.run_int(buf);
     sourcefile = oldsourcefile;
@@ -3163,10 +3163,11 @@ bool execfile(const char *cfgfile, bool msg) {
     return true;
 
 error:
-    if (msg) fprintf(stderr, "could not read file \"%s\"\n", cfgfile);
+    if (msg) ostd::err.writefln("could not read file \"%s\"", fname);
     return false;
 }
-ICOMMAND(exec, "sb", (CsState &cs, char *file, int *msg), cs.result->set_int(execfile(file, *msg != 0) ? 1 : 0));
+
+ICOMMAND(exec, "sb", (CsState &cs, char *file, int *msg), cs.result->set_int(cs.run_file(file, *msg != 0) ? 1 : 0));
 
 const char *escapestring(const char *s) {
     stridx = (stridx + 1) % 4;

@@ -335,6 +335,8 @@ struct CsState {
     bool run_bool(const ostd::uint *code);
     bool run_bool(ostd::ConstCharRange code);
     bool run_bool(Ident *id, ostd::PointerRange<TaggedValue> args);
+
+    bool run_file(ostd::ConstCharRange fname, bool msg = true);
 };
 
 extern CsState cstate;
@@ -491,7 +493,6 @@ extern void freecode(ostd::uint *p);
 extern void executeret(const ostd::uint *code, TaggedValue &result = *cstate.result);
 extern void executeret(const char *p, TaggedValue &result = *cstate.result);
 extern void executeret(Ident *id, TaggedValue *args, int numargs, TaggedValue &result = *cstate.result);
-extern bool execfile(const char *cfgfile, bool msg = true);
 extern void alias(const char *name, const char *action);
 extern void alias(const char *name, TaggedValue &v);
 extern const char *getalias(const char *name);
