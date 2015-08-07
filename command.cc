@@ -949,7 +949,7 @@ struct GenState {
 
     void gen_str(ostd::ConstCharRange word, bool macro = false) {
         if (word.size() <= 3 && !macro) {
-            ostd::uint op = CODE_VALI | RET_STR;
+            ostd::uint op = CODE_VALI | RET_STR;                                
             for (ostd::Size i = 0; i < word.size(); ++i)
                 op |= ostd::uint(ostd::byte(word[i])) << ((i + 1) * 8);
             code.push(op);
@@ -971,6 +971,55 @@ struct GenState {
         code.push(CODE_VALI | RET_STR);
     }
 
+    void gen_null() {
+        code.push(CODE_VALI | RET_NULL);
+    }
+
+    void gen_int(int i = 0) {
+        if (i >= -0x800000 && i <= 0x7FFFFF)
+            code.push(CODE_VALI | RET_INT | (i << 8));
+        else {
+            code.push(CODE_VAL | RET_INT);
+            code.push(i);
+        }
+    }
+
+    void gen_int(ostd::ConstCharRange word) {
+        gen_int(!word.empty() ? parseint(word.data()) : 0);
+    }
+
+    void gen_float(float f = 0.0f) {
+        if (int(f) == f && f >= -0x800000 && f <= 0x7FFFFF)
+            code.push(CODE_VALI | RET_FLOAT | (int(f) << 8));
+        else {
+            union {
+                float f;
+                ostd::uint u;
+            } c;
+            c.f = f;
+            code.push(CODE_VAL | RET_FLOAT);
+            code.push(c.u);
+        }
+    }
+
+    void gen_float(ostd::ConstCharRange word) {
+        gen_float(!word.empty() ? parsefloat(word.data()) : 0.0f);
+    }
+
+    void gen_ident(Ident *id) {
+        code.push(((id->index < MAX_ARGUMENTS) ? CODE_IDENTARG
+                                               : CODE_IDENT) |
+                  (id->index << 8));
+    }
+
+    void gen_ident() {
+        gen_ident(cs.dummy);
+    }
+
+    void gen_ident(ostd::ConstCharRange word) {
+        gen_ident(cs.new_ident(word, IDF_UNKNOWN));
+    }
+
     void gen_main(const char *p, int ret_type = VAL_ANY);
 };
 
@@ -986,19 +1035,6 @@ static inline void compileunescapestring(GenState &gs, const char *&p, bool macr
     gs.code.advance(len / sizeof(ostd::uint) + 1);
     p = end;
     if (*p == '\"') p++;
-}
-
-static inline void compileint(GenState &gs, int i = 0) {
-    if (i >= -0x800000 && i <= 0x7FFFFF)
-        gs.code.push(CODE_VALI | RET_INT | (i << 8));
-    else {
-        gs.code.push(CODE_VAL | RET_INT);
-        gs.code.push(i);
-    }
-}
-
-static inline void compilenull(GenState &gs) {
-    gs.code.push(CODE_VALI | RET_NULL);
 }
 
 static ostd::uint emptyblock[VAL_ANY][2] = {
@@ -1027,40 +1063,6 @@ static inline const char *compileblock(GenState &gs, const char *p, int rettype 
         gs.code.push(CODE_EMPTY | rettype);
     }
     return p;
-}
-
-static inline void compileident(GenState &gs, Ident *id) {
-    gs.code.push((id->index < MAX_ARGUMENTS ? CODE_IDENTARG : CODE_IDENT) | (id->index << 8));
-}
-
-static inline void compileident(GenState &gs) {
-    compileident(gs, gs.cs.dummy);
-}
-
-static inline void compileident(GenState &gs, ostd::ConstCharRange word) {
-    compileident(gs, gs.cs.new_ident(word, IDF_UNKNOWN));
-}
-
-static inline void compileint(GenState &gs, ostd::ConstCharRange word) {
-    compileint(gs, word.size() ? parseint(word.data()) : 0);
-}
-
-static inline void compilefloat(GenState &gs, float f = 0.0f) {
-    if (int(f) == f && f >= -0x800000 && f <= 0x7FFFFF)
-        gs.code.push(CODE_VALI | RET_FLOAT | (int(f) << 8));
-    else {
-        union {
-            float f;
-            ostd::uint u;
-        } conv;
-        conv.f = f;
-        gs.code.push(CODE_VAL | RET_FLOAT);
-        gs.code.push(conv.u);
-    }
-}
-
-static inline void compilefloat(GenState &gs, ostd::ConstCharRange &word) {
-    compilefloat(gs, word.size() ? parsefloat(word.data()) : 0.0f);
 }
 
 static inline bool getbool(const char *s) {
@@ -1116,33 +1118,33 @@ static inline void compileval(GenState &gs, int wordtype, ostd::ConstCharRange w
     switch (wordtype) {
     case VAL_CANY:
         if (word.size()) gs.gen_str(word, true);
-        else compilenull(gs);
+        else gs.gen_null();
         break;
     case VAL_CSTR:
         gs.gen_str(word, true);
         break;
     case VAL_ANY:
         if (word.size()) gs.gen_str(word);
-        else compilenull(gs);
+        else gs.gen_null();
         break;
     case VAL_STR:
         gs.gen_str(word);
         break;
     case VAL_FLOAT:
-        compilefloat(gs, word);
+        gs.gen_float(word);
         break;
     case VAL_INT:
-        compileint(gs, word);
+        gs.gen_int(word);
         break;
     case VAL_COND:
         if (word.size()) compileblock(gs, word.data());
-        else compilenull(gs);
+        else gs.gen_null();
         break;
     case VAL_CODE:
         compileblock(gs, word.data());
         break;
     case VAL_IDENT:
-        compileident(gs, word);
+        gs.gen_ident(word);
         break;
     default:
         break;
@@ -1246,15 +1248,15 @@ lookupid:
                         numargs++;
                         break;
                     case 'i':
-                        compileint(gs);
+                        gs.gen_int();
                         numargs++;
                         break;
                     case 'b':
-                        compileint(gs, INT_MIN);
+                        gs.gen_int(INT_MIN);
                         numargs++;
                         break;
                     case 'f':
-                        compilefloat(gs);
+                        gs.gen_float();
                         numargs++;
                         break;
                     case 'F':
@@ -1264,7 +1266,7 @@ lookupid:
                     case 'E':
                     case 'T':
                     case 't':
-                        compilenull(gs);
+                        gs.gen_null();
                         numargs++;
                         break;
                     case 'e':
@@ -1272,15 +1274,15 @@ lookupid:
                         numargs++;
                         break;
                     case 'r':
-                        compileident(gs);
+                        gs.gen_ident();
                         numargs++;
                         break;
                     case '$':
-                        compileident(gs, id);
+                        gs.gen_ident(id);
                         numargs++;
                         break;
                     case 'N':
-                        compileint(gs, -1);
+                        gs.gen_int(-1);
                         numargs++;
                         break;
                     case 'C':
@@ -1349,7 +1351,7 @@ invalid:
     case VAL_CANY:
     case VAL_WORD:
     case VAL_COND:
-        compilenull(gs);
+        gs.gen_null();
         break;
     default:
         compileval(gs, ltype);
@@ -1498,7 +1500,7 @@ done:
                 p = compileblock(gs, start, RET_NULL, ']');
                 return;
             case VAL_IDENT:
-                compileident(gs, ostd::ConstCharRange(start, p - 1));
+                gs.gen_ident(ostd::ConstCharRange(start, p - 1));
                 return;
             }
         switch (wordtype) {
@@ -1526,7 +1528,7 @@ done:
         if (concs || p - 1 > start) gs.code.push(CODE_POP);
         break;
     case VAL_COND:
-        if (!concs && p - 1 <= start) compilenull(gs);
+        if (!concs && p - 1 <= start) gs.gen_null();
         else gs.code.push(CODE_COND);
         break;
     case VAL_CODE:
@@ -1534,7 +1536,7 @@ done:
         else gs.code.push(CODE_COMPILE);
         break;
     case VAL_IDENT:
-        if (!concs && p - 1 <= start) compileident(gs);
+        if (!concs && p - 1 <= start) gs.gen_ident();
         else gs.code.push(CODE_IDENTU);
         break;
     case VAL_CSTR:
@@ -1568,7 +1570,7 @@ static bool compilearg(GenState &gs, const char *&p, int wordtype, int prevargs,
         case VAL_COND: {
             char *s = cutstring(p);
             if (s[0]) compileblock(gs, s);
-            else compilenull(gs);
+            else gs.gen_null();
             delete[] s;
             break;
         }
@@ -1697,11 +1699,11 @@ static void compilestatements(GenState &gs, const char *&p, int rettype, int bra
                             gs.code.push((id->index < MAX_ARGUMENTS ? CODE_ALIASARG : CODE_ALIAS) | (id->index << 8));
                             goto endstatement;
                         case ID_VAR:
-                            if (!(more = compilearg(gs, p, VAL_INT, prevargs))) compileint(gs);
+                            if (!(more = compilearg(gs, p, VAL_INT, prevargs))) gs.gen_int();
                             gs.code.push(CODE_IVAR1 | (id->index << 8));
                             goto endstatement;
                         case ID_FVAR:
-                            if (!(more = compilearg(gs, p, VAL_FLOAT, prevargs))) compilefloat(gs);
+                            if (!(more = compilearg(gs, p, VAL_FLOAT, prevargs))) gs.gen_float();
                             gs.code.push(CODE_FVAR1 | (id->index << 8));
                             goto endstatement;
                         case ID_SVAR:
@@ -1733,7 +1735,7 @@ noid:
                     char *end = (char *)idname.data();
                     int val = int(strtoul(idname.data(), &end, 0));
                     if (end < &idname[idname.size()]) gs.gen_str(idname, rettype == VAL_CANY);
-                    else compileint(gs, val);
+                    else gs.gen_int(val);
                     break;
                 }
                 default:
@@ -1768,7 +1770,7 @@ noid:
                             if (more) more = compilearg(gs, p, VAL_INT, prevargs + numargs);
                             if (!more) {
                                 if (rep) break;
-                                compileint(gs);
+                                gs.gen_int();
                                 fakeargs++;
                             }
                             numargs++;
@@ -1777,7 +1779,7 @@ noid:
                             if (more) more = compilearg(gs, p, VAL_INT, prevargs + numargs);
                             if (!more) {
                                 if (rep) break;
-                                compileint(gs, INT_MIN);
+                                gs.gen_int(INT_MIN);
                                 fakeargs++;
                             }
                             numargs++;
@@ -1786,7 +1788,7 @@ noid:
                             if (more) more = compilearg(gs, p, VAL_FLOAT, prevargs + numargs);
                             if (!more) {
                                 if (rep) break;
-                                compilefloat(gs);
+                                gs.gen_float();
                                 fakeargs++;
                             }
                             numargs++;
@@ -1805,7 +1807,7 @@ noid:
                             if (more) more = compilearg(gs, p, *fmt == 't' ? VAL_CANY : VAL_ANY, prevargs + numargs);
                             if (!more) {
                                 if (rep) break;
-                                compilenull(gs);
+                                gs.gen_null();
                                 fakeargs++;
                             }
                             numargs++;
@@ -1814,7 +1816,7 @@ noid:
                             if (more) more = compilearg(gs, p, VAL_COND, prevargs + numargs);
                             if (!more) {
                                 if (rep) break;
-                                compilenull(gs);
+                                gs.gen_null();
                                 fakeargs++;
                             }
                             numargs++;
@@ -1832,17 +1834,17 @@ noid:
                             if (more) more = compilearg(gs, p, VAL_IDENT, prevargs + numargs);
                             if (!more) {
                                 if (rep) break;
-                                compileident(gs);
+                                gs.gen_ident();
                                 fakeargs++;
                             }
                             numargs++;
                             break;
                         case '$':
-                            compileident(gs, id);
+                            gs.gen_ident(id);
                             numargs++;
                             break;
                         case 'N':
-                            compileint(gs, numargs - fakeargs);
+                            gs.gen_int(numargs - fakeargs);
                             numargs++;
                             break;
                         case 'C':
@@ -2555,14 +2557,14 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
             case VAL_INT:
                 gs.code.reserve(8);
                 gs.code.push(CODE_START);
-                compileint(gs, arg.i);
+                gs.gen_int(arg.i);
                 gs.code.push(CODE_RESULT);
                 gs.code.push(CODE_EXIT);
                 break;
             case VAL_FLOAT:
                 gs.code.reserve(8);
                 gs.code.push(CODE_START);
-                compilefloat(gs, arg.f);
+                gs.gen_float(arg.f);
                 gs.code.push(CODE_RESULT);
                 gs.code.push(CODE_EXIT);
                 break;
@@ -2576,7 +2578,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
             default:
                 gs.code.reserve(8);
                 gs.code.push(CODE_START);
-                compilenull(gs);
+                gs.gen_null();
                 gs.code.push(CODE_RESULT);
                 gs.code.push(CODE_EXIT);
                 break;
