@@ -398,6 +398,139 @@ static void cs_do_args(CsState &cs, F body) {
         cs.identmap[i]->redo_arg(argstack[i]);
 }
 
+template<typename SF, typename RF, typename CF>
+bool cs_override_var(CsState &cs, Ident *id, SF sf, RF rf, CF cf) {
+    if ((cs.identflags & IDF_OVERRIDDEN) || (id->flags & IDF_OVERRIDE)) {
+        if (id->flags & IDF_PERSIST) {
+            cs.debug_code("cannot override persistent variable '%s'",
+                          id->name);
+            return false;
+        }
+        if (!(id->flags & IDF_OVERRIDDEN)) {
+            sf();
+            id->flags |= IDF_OVERRIDDEN;
+        } else cf();
+    } else {
+        if (id->flags & IDF_OVERRIDDEN) {
+            rf();
+            id->flags &= ~IDF_OVERRIDDEN;
+        }
+        cf();
+    }
+    return true;
+}
+
+void CsState::set_var_int(ostd::ConstCharRange name, int v,
+                          bool dofunc, bool doclamp) {
+    Ident *id = idents.at(name);
+    if (!id || id->type != ID_VAR)
+        return;
+    bool success = cs_override_var(*this, id,
+        [&id]() { id->overrideval.i = *id->storage.i; },
+        []() {}, []() {});
+    if (!success)
+        return;
+    if (doclamp)
+        *id->storage.i = ostd::clamp(v, id->minval, id->maxval);
+    else
+        *id->storage.i = v;
+    if (dofunc)
+        id->changed(*this);
+}
+
+void CsState::set_var_float(ostd::ConstCharRange name, float v,
+                            bool dofunc, bool doclamp) {
+    Ident *id = idents.at(name);
+    if (!id || id->type != ID_FVAR)
+        return;
+    bool success = cs_override_var(*this, id,
+        [&id]() { id->overrideval.f = *id->storage.f; },
+        []() {}, []() {});
+    if (!success)
+        return;
+    if (doclamp)
+        *id->storage.f = ostd::clamp(v, id->minvalf, id->maxvalf);
+    else
+        *id->storage.f = v;
+    if (dofunc)
+        id->changed(*this);
+}
+
+void CsState::set_var_str(ostd::ConstCharRange name, ostd::ConstCharRange v,
+                          bool dofunc) {
+    Ident *id = idents.at(name);
+    if (!id || id->type != ID_SVAR)
+        return;
+    bool success = cs_override_var(*this, id,
+        [&id]() { id->overrideval.s = *id->storage.s; },
+        [&id]() { delete[] id->overrideval.s; },
+        [&id]() { delete[] *id->storage.s; });
+    if (!success)
+        return;
+    *id->storage.s = dup_ostr(v);
+    if (dofunc)
+        id->changed(*this);
+}
+
+ostd::Maybe<int> CsState::get_var_int(ostd::ConstCharRange name) {
+    Ident *id = idents.at(name);
+    if (!id || id->type != ID_VAR)
+        return ostd::nothing;
+    return *id->storage.i;
+}
+
+ostd::Maybe<float> CsState::get_var_float(ostd::ConstCharRange name) {
+    Ident *id = idents.at(name);
+    if (!id || id->type != ID_FVAR)
+        return ostd::nothing;
+    return *id->storage.f;
+}
+
+ostd::Maybe<ostd::String> CsState::get_var_str(ostd::ConstCharRange name) {
+    Ident *id = idents.at(name);
+    if (!id || id->type != ID_SVAR)
+        return ostd::nothing;
+    return ostd::String(*id->storage.s);
+}
+
+ostd::Maybe<int> CsState::get_var_min_int(ostd::ConstCharRange name) {
+    Ident *id = idents.at(name);
+    if (!id || id->type != ID_VAR)
+        return ostd::nothing;
+    return id->minval;
+}
+
+ostd::Maybe<int> CsState::get_var_max_int(ostd::ConstCharRange name) {
+    Ident *id = idents.at(name);
+    if (!id || id->type != ID_VAR)
+        return ostd::nothing;
+    return id->maxval;
+}
+
+ostd::Maybe<float> CsState::get_var_min_float(ostd::ConstCharRange name) {
+    Ident *id = idents.at(name);
+    if (!id || id->type != ID_FVAR)
+        return ostd::nothing;
+    return id->minvalf;
+}
+
+ostd::Maybe<float> CsState::get_var_max_float(ostd::ConstCharRange name) {
+    Ident *id = idents.at(name);
+    if (!id || id->type != ID_FVAR)
+        return ostd::nothing;
+    return id->maxvalf;
+}
+
+ostd::Maybe<ostd::ConstCharRange>
+CsState::get_alias(ostd::ConstCharRange name) {
+    Ident *id = idents.at(name);
+    if (!id || id->type != ID_ALIAS)
+        return ostd::nothing;
+    if ((id->index < MAX_ARGUMENTS) && !(stack->usedargs & (1 << id->index)))
+        return ostd::nothing;
+    return ostd::ConstCharRange(id->get_str());
+}
+
 void init_lib_base(CsState &cs) {
     cs.add_command("nodebug", "e", [](CsState &cs, ostd::uint *body) {
         ++cs.nodebug;
@@ -427,100 +560,48 @@ void init_lib_base(CsState &cs) {
         cs.set_alias(name, *v);
         v->type = VAL_NULL;
     });
+
+    cs.add_command("getvarmin", "s", [](CsState &cs, const char *name) {
+        cs.result->set_int(cs.get_var_min_int(name).value_or(0));
+    });
+    cs.add_command("getvarmax", "s", [](CsState &cs, const char *name) {
+        cs.result->set_int(cs.get_var_max_int(name).value_or(0));
+    });
+    cs.add_command("getfvarmin", "s", [](CsState &cs, const char *name) {
+        cs.result->set_float(cs.get_var_min_float(name).value_or(0.0f));
+    });
+    cs.add_command("getfvarmax", "s", [](CsState &cs, const char *name) {
+        cs.result->set_float(cs.get_var_max_float(name).value_or(0.0f));
+    });
+
+    cs.add_command("identexists", "s", [](CsState &cs, const char *name) {
+        cs.result->set_int(cs.have_ident(name));
+    });
+
+    cs.add_command("getalias", "s", [](CsState &cs, const char *name) {
+        result(cs.get_alias(name).value_or("").data());
+    });
 }
 
-#define _GETVAR(id, vartype, name, retval) \
-    Ident *id = cstate.idents.at(name); \
-    if(!id || id->type!=vartype) return retval;
-#define GETVAR(id, name, retval) _GETVAR(id, ID_VAR, name, retval)
-#define OVERRIDEVAR(errorval, saveval, resetval, clearval) \
-    if(cstate.identflags&IDF_OVERRIDDEN || id->flags&IDF_OVERRIDE) \
-    { \
-        if(id->flags&IDF_PERSIST) \
-        { \
-            cstate.debug_code("cannot override persistent variable %s", id->name); \
-            errorval; \
-        } \
-        if(!(id->flags&IDF_OVERRIDDEN)) { saveval; id->flags |= IDF_OVERRIDDEN; } \
-        else { clearval; } \
-    } \
-    else \
-    { \
-        if(id->flags&IDF_OVERRIDDEN) { resetval; id->flags &= ~IDF_OVERRIDDEN; } \
-        clearval; \
-    }
-
-void setvar(const char *name, int i, bool dofunc, bool doclamp) {
-    GETVAR(id, name, );
-    OVERRIDEVAR(return, id->overrideval.i = *id->storage.i, , )
-    if (doclamp) * id->storage.i = ostd::clamp(i, id->minval, id->maxval);
-    else *id->storage.i = i;
-    if (dofunc) id->changed(cstate);
-}
-void setfvar(const char *name, float f, bool dofunc, bool doclamp) {
-    _GETVAR(id, ID_FVAR, name, );
-    OVERRIDEVAR(return, id->overrideval.f = *id->storage.f, , );
-    if (doclamp) *id->storage.f = ostd::clamp(f, id->minvalf, id->maxvalf);
-    else *id->storage.f = f;
-    if (dofunc) id->changed(cstate);
-}
-void setsvar(const char *name, const char *str, bool dofunc) {
-    _GETVAR(id, ID_SVAR, name, );
-    OVERRIDEVAR(return, id->overrideval.s = *id->storage.s, delete[] id->overrideval.s, delete[] * id->storage.s);
-    *id->storage.s = dup_ostr(str);
-    if (dofunc) id->changed(cstate);
-}
-int getvar(const char *name) {
-    GETVAR(id, name, 0);
-    return *id->storage.i;
-}
-int getvarmin(const char *name) {
-    GETVAR(id, name, 0);
-    return id->minval;
-}
-int getvarmax(const char *name) {
-    GETVAR(id, name, 0);
-    return id->maxval;
-}
-float getfvarmin(const char *name) {
-    _GETVAR(id, ID_FVAR, name, 0);
-    return id->minvalf;
-}
-float getfvarmax(const char *name) {
-    _GETVAR(id, ID_FVAR, name, 0);
-    return id->maxvalf;
-}
-
-ICOMMAND(getvarmin, "s", (CsState &cs, char *s), cs.result->set_int(getvarmin(s)));
-ICOMMAND(getvarmax, "s", (CsState &cs, char *s), cs.result->set_int(getvarmax(s)));
-ICOMMAND(getfvarmin, "s", (CsState &cs, char *s), cs.result->set_float(getfvarmin(s)));
-ICOMMAND(getfvarmax, "s", (CsState &cs, char *s), cs.result->set_float(getfvarmax(s)));
-
-ICOMMAND(identexists, "s", (CsState &cs, char *s), cs.result->set_int(cstate.have_ident(s) ? 1 : 0));
-
-const char *getalias(const char *name) {
-    Ident *i = cstate.idents.at(name);
-    return i && i->type == ID_ALIAS && (i->index >= MAX_ARGUMENTS || cstate.stack->usedargs & (1 << i->index)) ? i->get_str() : "";
-}
-
-ICOMMAND(getalias, "s", (CsState &, char *s), result(getalias(s)));
-
-int clampvar(Ident *id, int val, int minval, int maxval) {
-    if (val < minval) val = minval;
-    else if (val > maxval) val = maxval;
+int clampvar(Ident *id, int val) {
+    if (val < id->minval) val = id->minval;
+    else if (val > id->maxval) val = id->maxval;
     else return val;
     cstate.debug_code(id->flags & IDF_HEX ?
-              (minval <= 255 ? "valid range for %s is %d..0x%X" : "valid range for %s is 0x%X..0x%X") :
+              (id->minval <= 255 ? "valid range for %s is %d..0x%X" : "valid range for %s is 0x%X..0x%X") :
               "valid range for %s is %d..%d",
-              id->name, minval, maxval);
+              id->name, id->minval, id->maxval);
     return val;
 }
 
 void setvarchecked(Ident *id, int val) {
     if (id->flags & IDF_READONLY) cstate.debug_code("variable %s is read-only", id->name);
     else {
-        OVERRIDEVAR(return, id->overrideval.i = *id->storage.i, , )
-        if (val < id->minval || val > id->maxval) val = clampvar(id, val, id->minval, id->maxval);
+        bool success = cs_override_var(cstate, id,
+            [&id]() { id->overrideval.i = *id->storage.i; },
+            []() {}, []() {});
+        if (!success) return;
+        if (val < id->minval || val > id->maxval) val = clampvar(id, val);
         *id->storage.i = val;
         id->changed(cstate);
     }
@@ -535,19 +616,22 @@ static inline void setvarchecked(Ident *id, TaggedValue *args, int numargs) {
     setvarchecked(id, val);
 }
 
-float clampfvar(Ident *id, float val, float minval, float maxval) {
-    if (val < minval) val = minval;
-    else if (val > maxval) val = maxval;
+float clampfvar(Ident *id, float val) {
+    if (val < id->minvalf) val = id->minvalf;
+    else if (val > id->maxvalf) val = id->maxvalf;
     else return val;
-    cstate.debug_code("valid range for %s is %s..%s", id->name, floatstr(minval), floatstr(maxval));
+    cstate.debug_code("valid range for %s is %s..%s", id->name, floatstr(id->minvalf), floatstr(id->maxvalf));
     return val;
 }
 
 void setfvarchecked(Ident *id, float val) {
     if (id->flags & IDF_READONLY) cstate.debug_code("variable %s is read-only", id->name);
     else {
-        OVERRIDEVAR(return, id->overrideval.f = *id->storage.f, , );
-        if (val < id->minvalf || val > id->maxvalf) val = clampfvar(id, val, id->minvalf, id->maxvalf);
+        bool success = cs_override_var(cstate, id,
+            [&id]() { id->overrideval.f = *id->storage.f; },
+            []() {}, []() {});
+        if (!success) return;
+        if (val < id->minvalf || val > id->maxvalf) val = clampfvar(id, val);
         *id->storage.f = val;
         id->changed(cstate);
     }
@@ -556,7 +640,11 @@ void setfvarchecked(Ident *id, float val) {
 void setsvarchecked(Ident *id, const char *val) {
     if (id->flags & IDF_READONLY) cstate.debug_code("variable %s is read-only", id->name);
     else {
-        OVERRIDEVAR(return, id->overrideval.s = *id->storage.s, delete[] id->overrideval.s, delete[] * id->storage.s);
+        bool success = cs_override_var(cstate, id,
+            [&id]() { id->overrideval.s = *id->storage.s; },
+            [&id]() { delete[] id->overrideval.s; },
+            [&id]() { delete[] *id->storage.s; });
+        if (!success) return;
         *id->storage.s = dup_ostr(val);
         id->changed(cstate);
     }

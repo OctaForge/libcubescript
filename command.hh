@@ -16,6 +16,7 @@
 #include <ostd/functional.hh>
 #include <ostd/map.hh>
 #include <ostd/io.hh>
+#include <ostd/maybe.hh>
 
 inline char *dup_ostr(ostd::ConstCharRange s) {
     char *r = new char[s.size() + 1];
@@ -397,6 +398,25 @@ struct CsState {
     }
 
     void set_alias(ostd::ConstCharRange name, TaggedValue &v);
+
+    void set_var_int(ostd::ConstCharRange name, int v,
+                     bool dofunc = true, bool doclamp = true);
+    void set_var_float(ostd::ConstCharRange name, float v,
+                       bool dofunc = true, bool doclamp = true);
+    void set_var_str(ostd::ConstCharRange name, ostd::ConstCharRange v,
+                     bool dofunc = true);
+
+    ostd::Maybe<int> get_var_int(ostd::ConstCharRange name);
+    ostd::Maybe<float> get_var_float(ostd::ConstCharRange name);
+    ostd::Maybe<ostd::String> get_var_str(ostd::ConstCharRange name);
+
+    ostd::Maybe<int> get_var_min_int(ostd::ConstCharRange name);
+    ostd::Maybe<int> get_var_max_int(ostd::ConstCharRange name);
+
+    ostd::Maybe<float> get_var_min_float(ostd::ConstCharRange name);
+    ostd::Maybe<float> get_var_max_float(ostd::ConstCharRange name);
+
+    ostd::Maybe<ostd::ConstCharRange> get_alias(ostd::ConstCharRange name);
 };
 
 extern CsState cstate;
@@ -534,15 +554,9 @@ inline void Ident::getcval(TaggedValue &v) const {
     }
 }
 
-extern void setvar(const char *name, int i, bool dofunc = true, bool doclamp = true);
-extern void setfvar(const char *name, float f, bool dofunc = true, bool doclamp = true);
-extern void setsvar(const char *name, const char *str, bool dofunc = true);
 extern void setvarchecked(Ident *id, int val);
 extern void setfvarchecked(Ident *id, float val);
 extern void setsvarchecked(Ident *id, const char *val);
-extern int getvar(const char *name);
-extern int getvarmin(const char *name);
-extern int getvarmax(const char *name);
 extern bool addcommand(const char *name, IdentFunc fun, const char *narg, int type = ID_COMMAND);
 extern ostd::uint *compilecode(const char *p);
 extern void keepcode(ostd::uint *p);
