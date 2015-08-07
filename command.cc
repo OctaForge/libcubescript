@@ -935,21 +935,30 @@ static inline char *cutword(const char *&p) {
     return p != word ? dup_ostr(ostd::ConstCharRange(word, p - word)) : nullptr;
 }
 
-#define retcode(type, defaultret) ((type) >= VAL_ANY ? ((type) == VAL_CSTR ? RET_STR : (defaultret)) : (type) << CODE_RET)
-#define retcodeint(type) retcode(type, RET_INT)
-#define retcodefloat(type) retcode(type, RET_FLOAT)
-#define retcodeany(type) retcode(type, 0)
-#define retcodestr(type) ((type) >= VAL_ANY ? RET_STR : (type) << CODE_RET)
+static inline int retcode(int type, int def = 0) {
+    return (type >= VAL_ANY) ? ((type == VAL_CSTR) ? RET_STR : def)
+                             : (type << CODE_RET);
+}
 
-static inline void compilestr(ostd::Vector<ostd::uint> &code, const char *word, int len, bool macro = false) {
+struct GenState {
+    CsState &cs;
+    ostd::Vector<ostd::uint> code;
+
+    GenState() = delete;
+    GenState(CsState &cs): cs(cs), code() {}
+
+    void gen_main(const char *p, int ret_type = VAL_ANY);
+};
+
+static inline void compilestr(GenState &gs, const char *word, int len, bool macro = false) {
     if (len <= 3 && !macro) {
         ostd::uint op = CODE_VALI | RET_STR;
         for (int i = 0; i < len; ++i) op |= ostd::uint(ostd::byte(word[i])) << ((i + 1) * 8);
-        code.push(op);
+        gs.code.push(op);
         return;
     }
-    code.push((macro ? CODE_MACRO : CODE_VAL | RET_STR) | (len << 8));
-    code.push_n((const ostd::uint *)word, len / sizeof(ostd::uint));
+    gs.code.push((macro ? CODE_MACRO : CODE_VAL | RET_STR) | (len << 8));
+    gs.code.push_n((const ostd::uint *)word, len / sizeof(ostd::uint));
     ostd::Size endlen = len % sizeof(ostd::uint);
     union {
         char c[sizeof(ostd::uint)];
@@ -957,41 +966,41 @@ static inline void compilestr(ostd::Vector<ostd::uint> &code, const char *word, 
     } end;
     end.u = 0;
     memcpy(end.c, word + len - endlen, endlen);
-    code.push(end.u);
+    gs.code.push(end.u);
 }
 
-static inline void compilestr(ostd::Vector<ostd::uint> &code) {
-    code.push(CODE_VALI | RET_STR);
+static inline void compilestr(GenState &gs) {
+    gs.code.push(CODE_VALI | RET_STR);
 }
-static inline void compilestr(ostd::Vector<ostd::uint> &code, ostd::ConstCharRange word, bool macro = false) {
-    compilestr(code, word.data(), word.size(), macro);
+static inline void compilestr(GenState &gs, ostd::ConstCharRange word, bool macro = false) {
+    compilestr(gs, word.data(), word.size(), macro);
 }
 
-static inline void compileunescapestring(ostd::Vector<ostd::uint> &code, const char *&p, bool macro = false) {
+static inline void compileunescapestring(GenState &gs, const char *&p, bool macro = false) {
     p++;
     const char *end = parsestring(p);
-    code.push(macro ? CODE_MACRO : CODE_VAL | RET_STR);
-    code.reserve(code.size() + (end - p) / sizeof(ostd::uint) + 1);
-    char *buf = (char *)&code[code.size()];
+    gs.code.push(macro ? CODE_MACRO : CODE_VAL | RET_STR);
+    gs.code.reserve(gs.code.size() + (end - p) / sizeof(ostd::uint) + 1);
+    char *buf = (char *)&gs.code[gs.code.size()];
     int len = unescapestring(buf, p, end);
     memset(&buf[len], 0, sizeof(ostd::uint) - len % sizeof(ostd::uint));
-    code.back() |= len << 8;
-    code.advance(len / sizeof(ostd::uint) + 1);
+    gs.code.back() |= len << 8;
+    gs.code.advance(len / sizeof(ostd::uint) + 1);
     p = end;
     if (*p == '\"') p++;
 }
 
-static inline void compileint(ostd::Vector<ostd::uint> &code, int i = 0) {
+static inline void compileint(GenState &gs, int i = 0) {
     if (i >= -0x800000 && i <= 0x7FFFFF)
-        code.push(CODE_VALI | RET_INT | (i << 8));
+        gs.code.push(CODE_VALI | RET_INT | (i << 8));
     else {
-        code.push(CODE_VAL | RET_INT);
-        code.push(i);
+        gs.code.push(CODE_VAL | RET_INT);
+        gs.code.push(i);
     }
 }
 
-static inline void compilenull(ostd::Vector<ostd::uint> &code) {
-    code.push(CODE_VALI | RET_NULL);
+static inline void compilenull(GenState &gs) {
+    gs.code.push(CODE_VALI | RET_NULL);
 }
 
 static ostd::uint emptyblock[VAL_ANY][2] = {
@@ -1001,55 +1010,59 @@ static ostd::uint emptyblock[VAL_ANY][2] = {
     { CODE_START + 0x100, CODE_EXIT | RET_STR }
 };
 
-static inline void compileblock(ostd::Vector<ostd::uint> &code) {
-    code.push(CODE_EMPTY);
+static inline void compileblock(GenState &gs) {
+    gs.code.push(CODE_EMPTY);
 }
 
-static void compilestatements(ostd::Vector<ostd::uint> &code, const char *&p, int rettype, int brak = '\0', int prevargs = 0);
+static void compilestatements(GenState &gs, const char *&p, int rettype, int brak = '\0', int prevargs = 0);
 
-static inline const char *compileblock(ostd::Vector<ostd::uint> &code, const char *p, int rettype = RET_NULL, int brak = '\0') {
-    ostd::Size start = code.size();
-    code.push(CODE_BLOCK);
-    code.push(CODE_OFFSET | ((start + 2) << 8));
-    if (p) compilestatements(code, p, VAL_ANY, brak);
-    if (code.size() > start + 2) {
-        code.push(CODE_EXIT | rettype);
-        code[start] |= ostd::uint(code.size() - (start + 1)) << 8;
+static inline const char *compileblock(GenState &gs, const char *p, int rettype = RET_NULL, int brak = '\0') {
+    ostd::Size start = gs.code.size();
+    gs.code.push(CODE_BLOCK);
+    gs.code.push(CODE_OFFSET | ((start + 2) << 8));
+    if (p) compilestatements(gs, p, VAL_ANY, brak);
+    if (gs.code.size() > start + 2) {
+        gs.code.push(CODE_EXIT | rettype);
+        gs.code[start] |= ostd::uint(gs.code.size() - (start + 1)) << 8;
     } else {
-        code.resize(start);
-        code.push(CODE_EMPTY | rettype);
+        gs.code.resize(start);
+        gs.code.push(CODE_EMPTY | rettype);
     }
     return p;
 }
 
-static inline void compileident(ostd::Vector<ostd::uint> &code, Ident *id = cstate.dummy) {
-    code.push((id->index < MAX_ARGUMENTS ? CODE_IDENTARG : CODE_IDENT) | (id->index << 8));
+static inline void compileident(GenState &gs, Ident *id) {
+    gs.code.push((id->index < MAX_ARGUMENTS ? CODE_IDENTARG : CODE_IDENT) | (id->index << 8));
 }
 
-static inline void compileident(ostd::Vector<ostd::uint> &code, ostd::ConstCharRange word) {
-    compileident(code, cstate.new_ident(word, IDF_UNKNOWN));
+static inline void compileident(GenState &gs) {
+    compileident(gs, gs.cs.dummy);
 }
 
-static inline void compileint(ostd::Vector<ostd::uint> &code, ostd::ConstCharRange word) {
-    compileint(code, word.size() ? parseint(word.data()) : 0);
+static inline void compileident(GenState &gs, ostd::ConstCharRange word) {
+    compileident(gs, gs.cs.new_ident(word, IDF_UNKNOWN));
 }
 
-static inline void compilefloat(ostd::Vector<ostd::uint> &code, float f = 0.0f) {
+static inline void compileint(GenState &gs, ostd::ConstCharRange word) {
+    compileint(gs, word.size() ? parseint(word.data()) : 0);
+}
+
+static inline void compilefloat(GenState &gs, float f = 0.0f) {
     if (int(f) == f && f >= -0x800000 && f <= 0x7FFFFF)
-        code.push(CODE_VALI | RET_FLOAT | (int(f) << 8));
+        gs.code.push(CODE_VALI | RET_FLOAT | (int(f) << 8));
     else {
         union {
             float f;
             ostd::uint u;
         } conv;
         conv.f = f;
-        code.push(CODE_VAL | RET_FLOAT);
-        code.push(conv.u);
+        gs.code.push(CODE_VAL | RET_FLOAT);
+        gs.code.push(conv.u);
     }
 }
 
-static inline void compilefloat(ostd::Vector<ostd::uint> &code, ostd::ConstCharRange &word) {
-    compilefloat(code, word.size() ? parsefloat(word.data()) : 0.0f);
+static inline void compilefloat(GenState &gs, ostd::ConstCharRange &word) {
+    compilefloat(gs, word.size() ? parsefloat(word.data()) : 0.0f);
 }
 
 static inline bool getbool(const char *s) {
@@ -1101,37 +1114,37 @@ static inline bool getbool(const TaggedValue &v) {
     }
 }
 
-static inline void compileval(ostd::Vector<ostd::uint> &code, int wordtype, ostd::ConstCharRange word = ostd::ConstCharRange(nullptr, nullptr)) {
+static inline void compileval(GenState &gs, int wordtype, ostd::ConstCharRange word = ostd::ConstCharRange(nullptr, nullptr)) {
     switch (wordtype) {
     case VAL_CANY:
-        if (word.size()) compilestr(code, word, true);
-        else compilenull(code);
+        if (word.size()) compilestr(gs, word, true);
+        else compilenull(gs);
         break;
     case VAL_CSTR:
-        compilestr(code, word, true);
+        compilestr(gs, word, true);
         break;
     case VAL_ANY:
-        if (word.size()) compilestr(code, word);
-        else compilenull(code);
+        if (word.size()) compilestr(gs, word);
+        else compilenull(gs);
         break;
     case VAL_STR:
-        compilestr(code, word);
+        compilestr(gs, word);
         break;
     case VAL_FLOAT:
-        compilefloat(code, word);
+        compilefloat(gs, word);
         break;
     case VAL_INT:
-        compileint(code, word);
+        compileint(gs, word);
         break;
     case VAL_COND:
-        if (word.size()) compileblock(code, word.data());
-        else compilenull(code);
+        if (word.size()) compileblock(gs, word.data());
+        else compilenull(gs);
         break;
     case VAL_CODE:
-        compileblock(code, word.data());
+        compileblock(gs, word.data());
         break;
     case VAL_IDENT:
-        compileident(code, word);
+        compileident(gs, word);
         break;
     default:
         break;
@@ -1139,17 +1152,17 @@ static inline void compileval(ostd::Vector<ostd::uint> &code, int wordtype, ostd
 }
 
 static ostd::ConstCharRange unusedword(nullptr, nullptr);
-static bool compilearg(ostd::Vector<ostd::uint> &code, const char *&p, int wordtype, int prevargs = MAX_RESULTS, ostd::ConstCharRange &word = unusedword);
+static bool compilearg(GenState &gs, const char *&p, int wordtype, int prevargs = MAX_RESULTS, ostd::ConstCharRange &word = unusedword);
 
-static void compilelookup(ostd::Vector<ostd::uint> &code, const char *&p, int ltype, int prevargs = MAX_RESULTS) {
+static void compilelookup(GenState &gs, const char *&p, int ltype, int prevargs = MAX_RESULTS) {
     ostd::ConstCharRange lookup;
     switch (*++p) {
     case '(':
     case '[':
-        if (!compilearg(code, p, VAL_CSTR, prevargs)) goto invalid;
+        if (!compilearg(gs, p, VAL_CSTR, prevargs)) goto invalid;
         break;
     case '$':
-        compilelookup(code, p, VAL_CSTR, prevargs);
+        compilelookup(gs, p, VAL_CSTR, prevargs);
         break;
     case '\"':
         cutstring(p, lookup);
@@ -1158,33 +1171,33 @@ static void compilelookup(ostd::Vector<ostd::uint> &code, const char *&p, int lt
         cutword(p, lookup);
         if (!lookup.size()) goto invalid;
 lookupid:
-        Ident *id = cstate.new_ident(lookup, IDF_UNKNOWN);
+        Ident *id = gs.cs.new_ident(lookup, IDF_UNKNOWN);
         if (id) switch (id->type) {
             case ID_VAR:
-                code.push(CODE_IVAR | retcodeint(ltype) | (id->index << 8));
+                gs.code.push(CODE_IVAR | retcode(ltype, RET_INT) | (id->index << 8));
                 switch (ltype) {
                 case VAL_POP:
-                    code.pop();
+                    gs.code.pop();
                     break;
                 case VAL_CODE:
-                    code.push(CODE_COMPILE);
+                    gs.code.push(CODE_COMPILE);
                     break;
                 case VAL_IDENT:
-                    code.push(CODE_IDENTU);
+                    gs.code.push(CODE_IDENTU);
                     break;
                 }
                 return;
             case ID_FVAR:
-                code.push(CODE_FVAR | retcodefloat(ltype) | (id->index << 8));
+                gs.code.push(CODE_FVAR | retcode(ltype, RET_FLOAT) | (id->index << 8));
                 switch (ltype) {
                 case VAL_POP:
-                    code.pop();
+                    gs.code.pop();
                     break;
                 case VAL_CODE:
-                    code.push(CODE_COMPILE);
+                    gs.code.push(CODE_COMPILE);
                     break;
                 case VAL_IDENT:
-                    code.push(CODE_IDENTU);
+                    gs.code.push(CODE_IDENTU);
                     break;
                 }
                 return;
@@ -1197,10 +1210,10 @@ lookupid:
                 case VAL_CODE:
                 case VAL_IDENT:
                 case VAL_COND:
-                    code.push(CODE_SVARM | (id->index << 8));
+                    gs.code.push(CODE_SVARM | (id->index << 8));
                     break;
                 default:
-                    code.push(CODE_SVAR | retcodestr(ltype) | (id->index << 8));
+                    gs.code.push(CODE_SVAR | retcode(ltype, RET_STR) | (id->index << 8));
                     break;
                 }
                 goto done;
@@ -1210,66 +1223,66 @@ lookupid:
                     return;
                 case VAL_CANY:
                 case VAL_COND:
-                    code.push((id->index < MAX_ARGUMENTS ? CODE_LOOKUPMARG : CODE_LOOKUPM) | (id->index << 8));
+                    gs.code.push((id->index < MAX_ARGUMENTS ? CODE_LOOKUPMARG : CODE_LOOKUPM) | (id->index << 8));
                     break;
                 case VAL_CSTR:
                 case VAL_CODE:
                 case VAL_IDENT:
-                    code.push((id->index < MAX_ARGUMENTS ? CODE_LOOKUPMARG : CODE_LOOKUPM) | RET_STR | (id->index << 8));
+                    gs.code.push((id->index < MAX_ARGUMENTS ? CODE_LOOKUPMARG : CODE_LOOKUPM) | RET_STR | (id->index << 8));
                     break;
                 default:
-                    code.push((id->index < MAX_ARGUMENTS ? CODE_LOOKUPARG : CODE_LOOKUP) | retcodestr(ltype) | (id->index << 8));
+                    gs.code.push((id->index < MAX_ARGUMENTS ? CODE_LOOKUPARG : CODE_LOOKUP) | retcode(ltype, RET_STR) | (id->index << 8));
                     break;
                 }
                 goto done;
             case ID_COMMAND: {
                 int comtype = CODE_COM, numargs = 0;
-                if (prevargs >= MAX_RESULTS) code.push(CODE_ENTER);
+                if (prevargs >= MAX_RESULTS) gs.code.push(CODE_ENTER);
                 for (const char *fmt = id->args; *fmt; fmt++) switch (*fmt) {
                     case 'S':
-                        compilestr(code);
+                        compilestr(gs);
                         numargs++;
                         break;
                     case 's':
-                        compilestr(code, nullptr, 0, true);
+                        compilestr(gs, nullptr, 0, true);
                         numargs++;
                         break;
                     case 'i':
-                        compileint(code);
+                        compileint(gs);
                         numargs++;
                         break;
                     case 'b':
-                        compileint(code, INT_MIN);
+                        compileint(gs, INT_MIN);
                         numargs++;
                         break;
                     case 'f':
-                        compilefloat(code);
+                        compilefloat(gs);
                         numargs++;
                         break;
                     case 'F':
-                        code.push(CODE_DUP | RET_FLOAT);
+                        gs.code.push(CODE_DUP | RET_FLOAT);
                         numargs++;
                         break;
                     case 'E':
                     case 'T':
                     case 't':
-                        compilenull(code);
+                        compilenull(gs);
                         numargs++;
                         break;
                     case 'e':
-                        compileblock(code);
+                        compileblock(gs);
                         numargs++;
                         break;
                     case 'r':
-                        compileident(code);
+                        compileident(gs);
                         numargs++;
                         break;
                     case '$':
-                        compileident(code, id);
+                        compileident(gs, id);
                         numargs++;
                         break;
                     case 'N':
-                        compileint(code, -1);
+                        compileint(gs, -1);
                         numargs++;
                         break;
                     case 'C':
@@ -1284,48 +1297,48 @@ lookupid:
                     case '4':
                         break;
                     }
-                code.push(comtype | retcodeany(ltype) | (id->index << 8));
-                code.push((prevargs >= MAX_RESULTS ? CODE_EXIT : CODE_RESULT_ARG) | retcodeany(ltype));
+                gs.code.push(comtype | retcode(ltype) | (id->index << 8));
+                gs.code.push((prevargs >= MAX_RESULTS ? CODE_EXIT : CODE_RESULT_ARG) | retcode(ltype));
                 goto done;
 compilecomv:
-                code.push(comtype | retcodeany(ltype) | (numargs << 8) | (id->index << 13));
-                code.push((prevargs >= MAX_RESULTS ? CODE_EXIT : CODE_RESULT_ARG) | retcodeany(ltype));
+                gs.code.push(comtype | retcode(ltype) | (numargs << 8) | (id->index << 13));
+                gs.code.push((prevargs >= MAX_RESULTS ? CODE_EXIT : CODE_RESULT_ARG) | retcode(ltype));
                 goto done;
             }
             default:
                 goto invalid;
             }
-        compilestr(code, lookup, true);
+        compilestr(gs, lookup, true);
         break;
     }
     }
     switch (ltype) {
     case VAL_CANY:
     case VAL_COND:
-        code.push(CODE_LOOKUPMU);
+        gs.code.push(CODE_LOOKUPMU);
         break;
     case VAL_CSTR:
     case VAL_CODE:
     case VAL_IDENT:
-        code.push(CODE_LOOKUPMU | RET_STR);
+        gs.code.push(CODE_LOOKUPMU | RET_STR);
         break;
     default:
-        code.push(CODE_LOOKUPU | retcodeany(ltype));
+        gs.code.push(CODE_LOOKUPU | retcode(ltype));
         break;
     }
 done:
     switch (ltype) {
     case VAL_POP:
-        code.push(CODE_POP);
+        gs.code.push(CODE_POP);
         break;
     case VAL_CODE:
-        code.push(CODE_COMPILE);
+        gs.code.push(CODE_COMPILE);
         break;
     case VAL_COND:
-        code.push(CODE_COND);
+        gs.code.push(CODE_COND);
         break;
     case VAL_IDENT:
-        code.push(CODE_IDENTU);
+        gs.code.push(CODE_IDENTU);
         break;
     }
     return;
@@ -1338,19 +1351,19 @@ invalid:
     case VAL_CANY:
     case VAL_WORD:
     case VAL_COND:
-        compilenull(code);
+        compilenull(gs);
         break;
     default:
-        compileval(code, ltype);
+        compileval(gs, ltype);
         break;
     }
 }
 
-static bool compileblockstr(ostd::Vector<ostd::uint> &code, const char *str, const char *end, bool macro) {
-    int start = code.size();
-    code.push(macro ? CODE_MACRO : CODE_VAL | RET_STR);
-    code.reserve(code.size() + (end - str) / sizeof(ostd::uint) + 1);
-    char *buf = (char *)&code[code.size()];
+static bool compileblockstr(GenState &gs, const char *str, const char *end, bool macro) {
+    int start = gs.code.size();
+    gs.code.push(macro ? CODE_MACRO : CODE_VAL | RET_STR);
+    gs.code.reserve(gs.code.size() + (end - str) / sizeof(ostd::uint) + 1);
+    char *buf = (char *)&gs.code[gs.code.size()];
     int len = 0;
     while (str < end) {
         int n = strcspn(str, "\r/\"@]\0");
@@ -1385,21 +1398,21 @@ static bool compileblockstr(ostd::Vector<ostd::uint> &code, const char *str, con
     }
 done:
     memset(&buf[len], '\0', sizeof(ostd::uint) - len % sizeof(ostd::uint));
-    code.advance(len / sizeof(ostd::uint) + 1);
-    code[start] |= len << 8;
+    gs.code.advance(len / sizeof(ostd::uint) + 1);
+    gs.code[start] |= len << 8;
     return true;
 }
 
-static bool compileblocksub(ostd::Vector<ostd::uint> &code, const char *&p, int prevargs) {
+static bool compileblocksub(GenState &gs, const char *&p, int prevargs) {
     ostd::ConstCharRange lookup;
     const char *op;
     switch (*p) {
     case '(':
-        if (!compilearg(code, p, VAL_CANY, prevargs)) return false;
+        if (!compilearg(gs, p, VAL_CANY, prevargs)) return false;
         break;
     case '[':
-        if (!compilearg(code, p, VAL_CSTR, prevargs)) return false;
-        code.push(CODE_LOOKUPMU);
+        if (!compilearg(gs, p, VAL_CSTR, prevargs)) return false;
+        gs.code.push(CODE_LOOKUPMU);
         break;
     case '\"':
         cutstring(p, lookup);
@@ -1410,23 +1423,23 @@ static bool compileblocksub(ostd::Vector<ostd::uint> &code, const char *&p, int 
         lookup = ostd::ConstCharRange(op, p - op);
         if (lookup.empty()) return false;
 lookupid:
-        Ident *id = cstate.new_ident(lookup, IDF_UNKNOWN);
+        Ident *id = gs.cs.new_ident(lookup, IDF_UNKNOWN);
         if (id) switch (id->type) {
             case ID_VAR:
-                code.push(CODE_IVAR | (id->index << 8));
+                gs.code.push(CODE_IVAR | (id->index << 8));
                 goto done;
             case ID_FVAR:
-                code.push(CODE_FVAR | (id->index << 8));
+                gs.code.push(CODE_FVAR | (id->index << 8));
                 goto done;
             case ID_SVAR:
-                code.push(CODE_SVARM | (id->index << 8));
+                gs.code.push(CODE_SVARM | (id->index << 8));
                 goto done;
             case ID_ALIAS:
-                code.push((id->index < MAX_ARGUMENTS ? CODE_LOOKUPMARG : CODE_LOOKUPM) | (id->index << 8));
+                gs.code.push((id->index < MAX_ARGUMENTS ? CODE_LOOKUPMARG : CODE_LOOKUPM) | (id->index << 8));
                 goto done;
             }
-        compilestr(code, lookup, true);
-        code.push(CODE_LOOKUPMU);
+        compilestr(gs, lookup, true);
+        gs.code.push(CODE_LOOKUPMU);
 done:
         break;
     }
@@ -1434,7 +1447,7 @@ done:
     return true;
 }
 
-static void compileblockmain(ostd::Vector<ostd::uint> &code, const char *&p, int wordtype, int prevargs) {
+static void compileblockmain(GenState &gs, const char *&p, int wordtype, int prevargs) {
     const char *line = p, *start = p;
     int concs = 0;
     for (int brak = 1; brak;) {
@@ -1442,7 +1455,7 @@ static void compileblockmain(ostd::Vector<ostd::uint> &code, const char *&p, int
         int c = *p++;
         switch (c) {
         case '\0':
-            cstate.debug_code_line(line, "missing \"]\"");
+            gs.cs.debug_code_line(line, "missing \"]\"");
             p--;
             goto done;
         case '\"':
@@ -1463,16 +1476,16 @@ static void compileblockmain(ostd::Vector<ostd::uint> &code, const char *&p, int
             while (*p == '@') p++;
             int level = p - (esc - 1);
             if (brak > level) continue;
-            else if (brak < level) cstate.debug_code_line(line, "too many @s");
-            if (!concs && prevargs >= MAX_RESULTS) code.push(CODE_ENTER);
+            else if (brak < level) gs.cs.debug_code_line(line, "too many @s");
+            if (!concs && prevargs >= MAX_RESULTS) gs.code.push(CODE_ENTER);
             if (concs + 2 > MAX_ARGUMENTS) {
-                code.push(CODE_CONCW | RET_STR | (concs << 8));
+                gs.code.push(CODE_CONCW | RET_STR | (concs << 8));
                 concs = 1;
             }
-            if (compileblockstr(code, start, esc - 1, true)) concs++;
-            if (compileblocksub(code, p, prevargs + concs)) concs++;
+            if (compileblockstr(gs, start, esc - 1, true)) concs++;
+            if (compileblocksub(gs, p, prevargs + concs)) concs++;
             if (concs) start = p;
-            else if (prevargs >= MAX_RESULTS) code.pop();
+            else if (prevargs >= MAX_RESULTS) gs.code.pop();
             break;
         }
         }
@@ -1484,10 +1497,10 @@ done:
                 return;
             case VAL_CODE:
             case VAL_COND:
-                p = compileblock(code, start, RET_NULL, ']');
+                p = compileblock(gs, start, RET_NULL, ']');
                 return;
             case VAL_IDENT:
-                compileident(code, ostd::ConstCharRange(start, p - 1));
+                compileident(gs, ostd::ConstCharRange(start, p - 1));
                 return;
             }
         switch (wordtype) {
@@ -1496,56 +1509,56 @@ done:
         case VAL_IDENT:
         case VAL_CANY:
         case VAL_COND:
-            compileblockstr(code, start, p - 1, true);
+            compileblockstr(gs, start, p - 1, true);
             break;
         default:
-            compileblockstr(code, start, p - 1, concs > 0);
+            compileblockstr(gs, start, p - 1, concs > 0);
             break;
         }
         if (concs > 1) concs++;
     }
     if (concs) {
         if (prevargs >= MAX_RESULTS) {
-            code.push(CODE_CONCM | retcodeany(wordtype) | (concs << 8));
-            code.push(CODE_EXIT | retcodeany(wordtype));
-        } else code.push(CODE_CONCW | retcodeany(wordtype) | (concs << 8));
+            gs.code.push(CODE_CONCM | retcode(wordtype) | (concs << 8));
+            gs.code.push(CODE_EXIT | retcode(wordtype));
+        } else gs.code.push(CODE_CONCW | retcode(wordtype) | (concs << 8));
     }
     switch (wordtype) {
     case VAL_POP:
-        if (concs || p - 1 > start) code.push(CODE_POP);
+        if (concs || p - 1 > start) gs.code.push(CODE_POP);
         break;
     case VAL_COND:
-        if (!concs && p - 1 <= start) compilenull(code);
-        else code.push(CODE_COND);
+        if (!concs && p - 1 <= start) compilenull(gs);
+        else gs.code.push(CODE_COND);
         break;
     case VAL_CODE:
-        if (!concs && p - 1 <= start) compileblock(code);
-        else code.push(CODE_COMPILE);
+        if (!concs && p - 1 <= start) compileblock(gs);
+        else gs.code.push(CODE_COMPILE);
         break;
     case VAL_IDENT:
-        if (!concs && p - 1 <= start) compileident(code);
-        else code.push(CODE_IDENTU);
+        if (!concs && p - 1 <= start) compileident(gs);
+        else gs.code.push(CODE_IDENTU);
         break;
     case VAL_CSTR:
     case VAL_CANY:
-        if (!concs && p - 1 <= start) compilestr(code, nullptr, 0, true);
+        if (!concs && p - 1 <= start) compilestr(gs, nullptr, 0, true);
         break;
     case VAL_STR:
     case VAL_NULL:
     case VAL_ANY:
     case VAL_WORD:
-        if (!concs && p - 1 <= start) compilestr(code);
+        if (!concs && p - 1 <= start) compilestr(gs);
         break;
     default:
         if (!concs) {
-            if (p - 1 <= start) compileval(code, wordtype);
-            else code.push(CODE_FORCE | (wordtype << CODE_RET));
+            if (p - 1 <= start) compileval(gs, wordtype);
+            else gs.code.push(CODE_FORCE | (wordtype << CODE_RET));
         }
         break;
     }
 }
 
-static bool compilearg(ostd::Vector<ostd::uint> &code, const char *&p, int wordtype, int prevargs, ostd::ConstCharRange &word) {
+static bool compilearg(GenState &gs, const char *&p, int wordtype, int prevargs, ostd::ConstCharRange &word) {
     skipcomments(p);
     switch (*p) {
     case '\"':
@@ -1556,14 +1569,14 @@ static bool compilearg(ostd::Vector<ostd::uint> &code, const char *&p, int wordt
             break;
         case VAL_COND: {
             char *s = cutstring(p);
-            if (s[0]) compileblock(code, s);
-            else compilenull(code);
+            if (s[0]) compileblock(gs, s);
+            else compilenull(gs);
             delete[] s;
             break;
         }
         case VAL_CODE: {
             char *s = cutstring(p);
-            compileblock(code, s);
+            compileblock(gs, s);
             delete[] s;
             break;
         }
@@ -1572,56 +1585,56 @@ static bool compilearg(ostd::Vector<ostd::uint> &code, const char *&p, int wordt
             break;
         case VAL_ANY:
         case VAL_STR:
-            compileunescapestring(code, p);
+            compileunescapestring(gs, p);
             break;
         case VAL_CANY:
         case VAL_CSTR:
-            compileunescapestring(code, p, true);
+            compileunescapestring(gs, p, true);
             break;
         default: {
             ostd::ConstCharRange s;
             cutstring(p, s);
-            compileval(code, wordtype, s);
+            compileval(gs, wordtype, s);
             break;
         }
         }
         return true;
     case '$':
-        compilelookup(code, p, wordtype, prevargs);
+        compilelookup(gs, p, wordtype, prevargs);
         return true;
     case '(':
         p++;
         if (prevargs >= MAX_RESULTS) {
-            code.push(CODE_ENTER);
-            compilestatements(code, p, wordtype > VAL_ANY ? VAL_CANY : VAL_ANY, ')');
-            code.push(CODE_EXIT | retcodeany(wordtype));
+            gs.code.push(CODE_ENTER);
+            compilestatements(gs, p, wordtype > VAL_ANY ? VAL_CANY : VAL_ANY, ')');
+            gs.code.push(CODE_EXIT | retcode(wordtype));
         } else {
-            ostd::Size start = code.size();
-            compilestatements(code, p, wordtype > VAL_ANY ? VAL_CANY : VAL_ANY, ')', prevargs);
-            if (code.size() > start) code.push(CODE_RESULT_ARG | retcodeany(wordtype));
+            ostd::Size start = gs.code.size();
+            compilestatements(gs, p, wordtype > VAL_ANY ? VAL_CANY : VAL_ANY, ')', prevargs);
+            if (gs.code.size() > start) gs.code.push(CODE_RESULT_ARG | retcode(wordtype));
             else {
-                compileval(code, wordtype);
+                compileval(gs, wordtype);
                 return true;
             }
         }
         switch (wordtype) {
         case VAL_POP:
-            code.push(CODE_POP);
+            gs.code.push(CODE_POP);
             break;
         case VAL_COND:
-            code.push(CODE_COND);
+            gs.code.push(CODE_COND);
             break;
         case VAL_CODE:
-            code.push(CODE_COMPILE);
+            gs.code.push(CODE_COMPILE);
             break;
         case VAL_IDENT:
-            code.push(CODE_IDENTU);
+            gs.code.push(CODE_IDENTU);
             break;
         }
         return true;
     case '[':
         p++;
-        compileblockmain(code, p, wordtype, prevargs);
+        compileblockmain(gs, p, wordtype, prevargs);
         return true;
     default:
         switch (wordtype) {
@@ -1633,14 +1646,14 @@ static bool compilearg(ostd::Vector<ostd::uint> &code, const char *&p, int wordt
         case VAL_COND: {
             char *s = cutword(p);
             if (!s) return false;
-            compileblock(code, s);
+            compileblock(gs, s);
             delete[] s;
             return true;
         }
         case VAL_CODE: {
             char *s = cutword(p);
             if (!s) return false;
-            compileblock(code, s);
+            compileblock(gs, s);
             delete[] s;
             return true;
         }
@@ -1651,21 +1664,21 @@ static bool compilearg(ostd::Vector<ostd::uint> &code, const char *&p, int wordt
             ostd::ConstCharRange s;
             cutword(p, s);
             if (s.empty()) return false;
-            compileval(code, wordtype, s);
+            compileval(gs, wordtype, s);
             return true;
         }
         }
     }
 }
 
-static void compilestatements(ostd::Vector<ostd::uint> &code, const char *&p, int rettype, int brak, int prevargs) {
+static void compilestatements(GenState &gs, const char *&p, int rettype, int brak, int prevargs) {
     const char *line = p;
     ostd::ConstCharRange idname;
     int numargs;
     for (;;) {
         skipcomments(p);
         idname = ostd::ConstCharRange(nullptr, nullptr);
-        bool more = compilearg(code, p, VAL_WORD, prevargs, idname);
+        bool more = compilearg(gs, p, VAL_WORD, prevargs, idname);
         if (!more) goto endstatement;
         skipcomments(p);
         if (p[0] == '=') switch (p[1]) {
@@ -1679,41 +1692,41 @@ static void compilestatements(ostd::Vector<ostd::uint> &code, const char *&p, in
             case '\0':
                 p++;
                 if (idname.data()) {
-                    Ident *id = cstate.new_ident(idname, IDF_UNKNOWN);
+                    Ident *id = gs.cs.new_ident(idname, IDF_UNKNOWN);
                     if (id) switch (id->type) {
                         case ID_ALIAS:
-                            if (!(more = compilearg(code, p, VAL_ANY, prevargs))) compilestr(code);
-                            code.push((id->index < MAX_ARGUMENTS ? CODE_ALIASARG : CODE_ALIAS) | (id->index << 8));
+                            if (!(more = compilearg(gs, p, VAL_ANY, prevargs))) compilestr(gs);
+                            gs.code.push((id->index < MAX_ARGUMENTS ? CODE_ALIASARG : CODE_ALIAS) | (id->index << 8));
                             goto endstatement;
                         case ID_VAR:
-                            if (!(more = compilearg(code, p, VAL_INT, prevargs))) compileint(code);
-                            code.push(CODE_IVAR1 | (id->index << 8));
+                            if (!(more = compilearg(gs, p, VAL_INT, prevargs))) compileint(gs);
+                            gs.code.push(CODE_IVAR1 | (id->index << 8));
                             goto endstatement;
                         case ID_FVAR:
-                            if (!(more = compilearg(code, p, VAL_FLOAT, prevargs))) compilefloat(code);
-                            code.push(CODE_FVAR1 | (id->index << 8));
+                            if (!(more = compilearg(gs, p, VAL_FLOAT, prevargs))) compilefloat(gs);
+                            gs.code.push(CODE_FVAR1 | (id->index << 8));
                             goto endstatement;
                         case ID_SVAR:
-                            if (!(more = compilearg(code, p, VAL_CSTR, prevargs))) compilestr(code);
-                            code.push(CODE_SVAR1 | (id->index << 8));
+                            if (!(more = compilearg(gs, p, VAL_CSTR, prevargs))) compilestr(gs);
+                            gs.code.push(CODE_SVAR1 | (id->index << 8));
                             goto endstatement;
                         }
-                    compilestr(code, idname, true);
+                    compilestr(gs, idname, true);
                 }
-                if (!(more = compilearg(code, p, VAL_ANY))) compilestr(code);
-                code.push(CODE_ALIASU);
+                if (!(more = compilearg(gs, p, VAL_ANY))) compilestr(gs);
+                gs.code.push(CODE_ALIASU);
                 goto endstatement;
             }
         numargs = 0;
         if (!idname.data()) {
 noid:
-            while (numargs < MAX_ARGUMENTS && (more = compilearg(code, p, VAL_CANY, prevargs + numargs))) numargs++;
-            code.push(CODE_CALLU | (numargs << 8));
+            while (numargs < MAX_ARGUMENTS && (more = compilearg(gs, p, VAL_CANY, prevargs + numargs))) numargs++;
+            gs.code.push(CODE_CALLU | (numargs << 8));
         } else {
-            Ident *id = cstate.idents.at(idname);
+            Ident *id = gs.cs.idents.at(idname);
             if (!id) {
                 if (!check_num(idname.data())) {
-                    compilestr(code, idname, true);
+                    compilestr(gs, idname, true);
                     goto noid;
                 }
                 switch (rettype) {
@@ -1721,19 +1734,19 @@ noid:
                 case VAL_CANY: {
                     char *end = (char *)idname.data();
                     int val = int(strtoul(idname.data(), &end, 0));
-                    if (end < &idname[idname.size()]) compilestr(code, idname, rettype == VAL_CANY);
-                    else compileint(code, val);
+                    if (end < &idname[idname.size()]) compilestr(gs, idname, rettype == VAL_CANY);
+                    else compileint(gs, val);
                     break;
                 }
                 default:
-                    compileval(code, rettype, idname);
+                    compileval(gs, rettype, idname);
                     break;
                 }
-                code.push(CODE_RESULT);
+                gs.code.push(CODE_RESULT);
             } else switch (id->type) {
                 case ID_ALIAS:
-                    while (numargs < MAX_ARGUMENTS && (more = compilearg(code, p, VAL_ANY, prevargs + numargs))) numargs++;
-                    code.push((id->index < MAX_ARGUMENTS ? CODE_CALLARG : CODE_CALL) | (numargs << 8) | (id->index << 13));
+                    while (numargs < MAX_ARGUMENTS && (more = compilearg(gs, p, VAL_ANY, prevargs + numargs))) numargs++;
+                    gs.code.push((id->index < MAX_ARGUMENTS ? CODE_CALLARG : CODE_CALL) | (numargs << 8) | (id->index << 13));
                     break;
                 case ID_COMMAND: {
                     int comtype = CODE_COM, fakeargs = 0;
@@ -1741,106 +1754,106 @@ noid:
                     for (const char *fmt = id->args; *fmt; fmt++) switch (*fmt) {
                         case 'S':
                         case 's':
-                            if (more) more = compilearg(code, p, *fmt == 's' ? VAL_CSTR : VAL_STR, prevargs + numargs);
+                            if (more) more = compilearg(gs, p, *fmt == 's' ? VAL_CSTR : VAL_STR, prevargs + numargs);
                             if (!more) {
                                 if (rep) break;
-                                compilestr(code, nullptr, 0, *fmt == 's');
+                                compilestr(gs, nullptr, 0, *fmt == 's');
                                 fakeargs++;
                             } else if (!fmt[1]) {
                                 int numconc = 1;
-                                while (numargs + numconc < MAX_ARGUMENTS && (more = compilearg(code, p, VAL_CSTR, prevargs + numargs + numconc))) numconc++;
-                                if (numconc > 1) code.push(CODE_CONC | RET_STR | (numconc << 8));
+                                while (numargs + numconc < MAX_ARGUMENTS && (more = compilearg(gs, p, VAL_CSTR, prevargs + numargs + numconc))) numconc++;
+                                if (numconc > 1) gs.code.push(CODE_CONC | RET_STR | (numconc << 8));
                             }
                             numargs++;
                             break;
                         case 'i':
-                            if (more) more = compilearg(code, p, VAL_INT, prevargs + numargs);
+                            if (more) more = compilearg(gs, p, VAL_INT, prevargs + numargs);
                             if (!more) {
                                 if (rep) break;
-                                compileint(code);
+                                compileint(gs);
                                 fakeargs++;
                             }
                             numargs++;
                             break;
                         case 'b':
-                            if (more) more = compilearg(code, p, VAL_INT, prevargs + numargs);
+                            if (more) more = compilearg(gs, p, VAL_INT, prevargs + numargs);
                             if (!more) {
                                 if (rep) break;
-                                compileint(code, INT_MIN);
+                                compileint(gs, INT_MIN);
                                 fakeargs++;
                             }
                             numargs++;
                             break;
                         case 'f':
-                            if (more) more = compilearg(code, p, VAL_FLOAT, prevargs + numargs);
+                            if (more) more = compilearg(gs, p, VAL_FLOAT, prevargs + numargs);
                             if (!more) {
                                 if (rep) break;
-                                compilefloat(code);
+                                compilefloat(gs);
                                 fakeargs++;
                             }
                             numargs++;
                             break;
                         case 'F':
-                            if (more) more = compilearg(code, p, VAL_FLOAT, prevargs + numargs);
+                            if (more) more = compilearg(gs, p, VAL_FLOAT, prevargs + numargs);
                             if (!more) {
                                 if (rep) break;
-                                code.push(CODE_DUP | RET_FLOAT);
+                                gs.code.push(CODE_DUP | RET_FLOAT);
                                 fakeargs++;
                             }
                             numargs++;
                             break;
                         case 'T':
                         case 't':
-                            if (more) more = compilearg(code, p, *fmt == 't' ? VAL_CANY : VAL_ANY, prevargs + numargs);
+                            if (more) more = compilearg(gs, p, *fmt == 't' ? VAL_CANY : VAL_ANY, prevargs + numargs);
                             if (!more) {
                                 if (rep) break;
-                                compilenull(code);
+                                compilenull(gs);
                                 fakeargs++;
                             }
                             numargs++;
                             break;
                         case 'E':
-                            if (more) more = compilearg(code, p, VAL_COND, prevargs + numargs);
+                            if (more) more = compilearg(gs, p, VAL_COND, prevargs + numargs);
                             if (!more) {
                                 if (rep) break;
-                                compilenull(code);
+                                compilenull(gs);
                                 fakeargs++;
                             }
                             numargs++;
                             break;
                         case 'e':
-                            if (more) more = compilearg(code, p, VAL_CODE, prevargs + numargs);
+                            if (more) more = compilearg(gs, p, VAL_CODE, prevargs + numargs);
                             if (!more) {
                                 if (rep) break;
-                                compileblock(code);
+                                compileblock(gs);
                                 fakeargs++;
                             }
                             numargs++;
                             break;
                         case 'r':
-                            if (more) more = compilearg(code, p, VAL_IDENT, prevargs + numargs);
+                            if (more) more = compilearg(gs, p, VAL_IDENT, prevargs + numargs);
                             if (!more) {
                                 if (rep) break;
-                                compileident(code);
+                                compileident(gs);
                                 fakeargs++;
                             }
                             numargs++;
                             break;
                         case '$':
-                            compileident(code, id);
+                            compileident(gs, id);
                             numargs++;
                             break;
                         case 'N':
-                            compileint(code, numargs - fakeargs);
+                            compileint(gs, numargs - fakeargs);
                             numargs++;
                             break;
                         case 'C':
                             comtype = CODE_COMC;
-                            if (more) while (numargs < MAX_ARGUMENTS && (more = compilearg(code, p, VAL_CANY, prevargs + numargs))) numargs++;
+                            if (more) while (numargs < MAX_ARGUMENTS && (more = compilearg(gs, p, VAL_CANY, prevargs + numargs))) numargs++;
                             goto compilecomv;
                         case 'V':
                             comtype = CODE_COMV;
-                            if (more) while (numargs < MAX_ARGUMENTS && (more = compilearg(code, p, VAL_CANY, prevargs + numargs))) numargs++;
+                            if (more) while (numargs < MAX_ARGUMENTS && (more = compilearg(gs, p, VAL_CANY, prevargs + numargs))) numargs++;
                             goto compilecomv;
                         case '1':
                         case '2':
@@ -1850,148 +1863,148 @@ noid:
                                 int numrep = *fmt - '0' + 1;
                                 fmt -= numrep;
                                 rep = true;
-                            } else for (; numargs > MAX_ARGUMENTS; numargs--) code.push(CODE_POP);
+                            } else for (; numargs > MAX_ARGUMENTS; numargs--) gs.code.push(CODE_POP);
                             break;
                         }
-                    code.push(comtype | retcodeany(rettype) | (id->index << 8));
+                     gs.code.push(comtype | retcode(rettype) | (id->index << 8));
                     break;
 compilecomv:
-                    code.push(comtype | retcodeany(rettype) | (numargs << 8) | (id->index << 13));
+                    gs.code.push(comtype | retcode(rettype) | (numargs << 8) | (id->index << 13));
                     break;
                 }
                 case ID_LOCAL:
-                    if (more) while (numargs < MAX_ARGUMENTS && (more = compilearg(code, p, VAL_IDENT, prevargs + numargs))) numargs++;
-                    if (more) while ((more = compilearg(code, p, VAL_POP)));
-                    code.push(CODE_LOCAL | (numargs << 8));
+                    if (more) while (numargs < MAX_ARGUMENTS && (more = compilearg(gs, p, VAL_IDENT, prevargs + numargs))) numargs++;
+                    if (more) while ((more = compilearg(gs, p, VAL_POP)));
+                    gs.code.push(CODE_LOCAL | (numargs << 8));
                     break;
                 case ID_DO:
-                    if (more) more = compilearg(code, p, VAL_CODE, prevargs);
-                    code.push((more ? CODE_DO : CODE_NULL) | retcodeany(rettype));
+                    if (more) more = compilearg(gs, p, VAL_CODE, prevargs);
+                    gs.code.push((more ? CODE_DO : CODE_NULL) | retcode(rettype));
                     break;
                 case ID_DOARGS:
-                    if (more) more = compilearg(code, p, VAL_CODE, prevargs);
-                    code.push((more ? CODE_DOARGS : CODE_NULL) | retcodeany(rettype));
+                    if (more) more = compilearg(gs, p, VAL_CODE, prevargs);
+                    gs.code.push((more ? CODE_DOARGS : CODE_NULL) | retcode(rettype));
                     break;
                 case ID_IF:
-                    if (more) more = compilearg(code, p, VAL_CANY, prevargs);
-                    if (!more) code.push(CODE_NULL | retcodeany(rettype));
+                    if (more) more = compilearg(gs, p, VAL_CANY, prevargs);
+                    if (!more) gs.code.push(CODE_NULL | retcode(rettype));
                     else {
-                        int start1 = code.size();
-                        more = compilearg(code, p, VAL_CODE, prevargs + 1);
+                        int start1 = gs.code.size();
+                        more = compilearg(gs, p, VAL_CODE, prevargs + 1);
                         if (!more) {
-                            code.push(CODE_POP);
-                            code.push(CODE_NULL | retcodeany(rettype));
+                            gs.code.push(CODE_POP);
+                            gs.code.push(CODE_NULL | retcode(rettype));
                         } else {
-                            int start2 = code.size();
-                            more = compilearg(code, p, VAL_CODE, prevargs + 2);
-                            ostd::uint inst1 = code[start1], op1 = inst1 & ~CODE_RET_MASK, len1 = start2 - (start1 + 1);
+                            int start2 = gs.code.size();
+                            more = compilearg(gs, p, VAL_CODE, prevargs + 2);
+                            ostd::uint inst1 = gs.code[start1], op1 = inst1 & ~CODE_RET_MASK, len1 = start2 - (start1 + 1);
                             if (!more) {
                                 if (op1 == (CODE_BLOCK | (len1 << 8))) {
-                                    code[start1] = (len1 << 8) | CODE_JUMP_FALSE;
-                                    code[start1 + 1] = CODE_ENTER_RESULT;
-                                    code[start1 + len1] = (code[start1 + len1] & ~CODE_RET_MASK) | retcodeany(rettype);
+                                    gs.code[start1] = (len1 << 8) | CODE_JUMP_FALSE;
+                                    gs.code[start1 + 1] = CODE_ENTER_RESULT;
+                                    gs.code[start1 + len1] = (gs.code[start1 + len1] & ~CODE_RET_MASK) | retcode(rettype);
                                     break;
                                 }
-                                compileblock(code);
+                                compileblock(gs);
                             } else {
-                                ostd::uint inst2 = code[start2], op2 = inst2 & ~CODE_RET_MASK, len2 = code.size() - (start2 + 1);
+                                ostd::uint inst2 = gs.code[start2], op2 = inst2 & ~CODE_RET_MASK, len2 = gs.code.size() - (start2 + 1);
                                 if (op2 == (CODE_BLOCK | (len2 << 8))) {
                                     if (op1 == (CODE_BLOCK | (len1 << 8))) {
-                                        code[start1] = ((start2 - start1) << 8) | CODE_JUMP_FALSE;
-                                        code[start1 + 1] = CODE_ENTER_RESULT;
-                                        code[start1 + len1] = (code[start1 + len1] & ~CODE_RET_MASK) | retcodeany(rettype);
-                                        code[start2] = (len2 << 8) | CODE_JUMP;
-                                        code[start2 + 1] = CODE_ENTER_RESULT;
-                                        code[start2 + len2] = (code[start2 + len2] & ~CODE_RET_MASK) | retcodeany(rettype);
+                                        gs.code[start1] = ((start2 - start1) << 8) | CODE_JUMP_FALSE;
+                                        gs.code[start1 + 1] = CODE_ENTER_RESULT;
+                                        gs.code[start1 + len1] = (gs.code[start1 + len1] & ~CODE_RET_MASK) | retcode(rettype);
+                                        gs.code[start2] = (len2 << 8) | CODE_JUMP;
+                                        gs.code[start2 + 1] = CODE_ENTER_RESULT;
+                                        gs.code[start2 + len2] = (gs.code[start2 + len2] & ~CODE_RET_MASK) | retcode(rettype);
                                         break;
                                     } else if (op1 == (CODE_EMPTY | (len1 << 8))) {
-                                        code[start1] = CODE_NULL | (inst2 & CODE_RET_MASK);
-                                        code[start2] = (len2 << 8) | CODE_JUMP_TRUE;
-                                        code[start2 + 1] = CODE_ENTER_RESULT;
-                                        code[start2 + len2] = (code[start2 + len2] & ~CODE_RET_MASK) | retcodeany(rettype);
+                                        gs.code[start1] = CODE_NULL | (inst2 & CODE_RET_MASK);
+                                        gs.code[start2] = (len2 << 8) | CODE_JUMP_TRUE;
+                                        gs.code[start2 + 1] = CODE_ENTER_RESULT;
+                                        gs.code[start2 + len2] = (gs.code[start2 + len2] & ~CODE_RET_MASK) | retcode(rettype);
                                         break;
                                     }
                                 }
                             }
-                            code.push(CODE_COM | retcodeany(rettype) | (id->index << 8));
+                            gs.code.push(CODE_COM | retcode(rettype) | (id->index << 8));
                         }
                     }
                     break;
                 case ID_RESULT:
-                    if (more) more = compilearg(code, p, VAL_ANY, prevargs);
-                    code.push((more ? CODE_RESULT : CODE_NULL) | retcodeany(rettype));
+                    if (more) more = compilearg(gs, p, VAL_ANY, prevargs);
+                    gs.code.push((more ? CODE_RESULT : CODE_NULL) | retcode(rettype));
                     break;
                 case ID_NOT:
-                    if (more) more = compilearg(code, p, VAL_CANY, prevargs);
-                    code.push((more ? CODE_NOT : CODE_TRUE) | retcodeany(rettype));
+                    if (more) more = compilearg(gs, p, VAL_CANY, prevargs);
+                    gs.code.push((more ? CODE_NOT : CODE_TRUE) | retcode(rettype));
                     break;
                 case ID_AND:
                 case ID_OR:
-                    if (more) more = compilearg(code, p, VAL_COND, prevargs);
+                    if (more) more = compilearg(gs, p, VAL_COND, prevargs);
                     if (!more) {
-                        code.push((id->type == ID_AND ? CODE_TRUE : CODE_FALSE) | retcodeany(rettype));
+                        gs.code.push((id->type == ID_AND ? CODE_TRUE : CODE_FALSE) | retcode(rettype));
                     } else {
                         numargs++;
-                        int start = code.size(), end = start;
+                        int start = gs.code.size(), end = start;
                         while (numargs < MAX_ARGUMENTS) {
-                            more = compilearg(code, p, VAL_COND, prevargs + numargs);
+                            more = compilearg(gs, p, VAL_COND, prevargs + numargs);
                             if (!more) break;
                             numargs++;
-                            if ((code[end] & ~CODE_RET_MASK) != (CODE_BLOCK | (ostd::uint(code.size() - (end + 1)) << 8))) break;
-                            end = code.size();
+                            if ((gs.code[end] & ~CODE_RET_MASK) != (CODE_BLOCK | (ostd::uint(gs.code.size() - (end + 1)) << 8))) break;
+                            end = gs.code.size();
                         }
                         if (more) {
-                            while (numargs < MAX_ARGUMENTS && (more = compilearg(code, p, VAL_COND, prevargs + numargs))) numargs++;
-                            code.push(CODE_COMV | retcodeany(rettype) | (numargs << 8) | (id->index << 13));
+                            while (numargs < MAX_ARGUMENTS && (more = compilearg(gs, p, VAL_COND, prevargs + numargs))) numargs++;
+                            gs.code.push(CODE_COMV | retcode(rettype) | (numargs << 8) | (id->index << 13));
                         } else {
                             ostd::uint op = id->type == ID_AND ? CODE_JUMP_RESULT_FALSE : CODE_JUMP_RESULT_TRUE;
-                            code.push(op);
-                            end = code.size();
+                            gs.code.push(op);
+                            end = gs.code.size();
                             while (start + 1 < end) {
-                                ostd::uint len = code[start] >> 8;
-                                code[start] = ((end - (start + 1)) << 8) | op;
-                                code[start + 1] = CODE_ENTER;
-                                code[start + len] = (code[start + len] & ~CODE_RET_MASK) | retcodeany(rettype);
+                                ostd::uint len = gs.code[start] >> 8;
+                                gs.code[start] = ((end - (start + 1)) << 8) | op;
+                                gs.code[start + 1] = CODE_ENTER;
+                                gs.code[start + len] = (gs.code[start + len] & ~CODE_RET_MASK) | retcode(rettype);
                                 start += len + 1;
                             }
                         }
                     }
                     break;
                 case ID_VAR:
-                    if (!(more = compilearg(code, p, VAL_INT, prevargs))) code.push(CODE_PRINT | (id->index << 8));
-                    else if (!(id->flags & IDF_HEX) || !(more = compilearg(code, p, VAL_INT, prevargs + 1))) code.push(CODE_IVAR1 | (id->index << 8));
-                    else if (!(more = compilearg(code, p, VAL_INT, prevargs + 2))) code.push(CODE_IVAR2 | (id->index << 8));
-                    else code.push(CODE_IVAR3 | (id->index << 8));
+                    if (!(more = compilearg(gs, p, VAL_INT, prevargs))) gs.code.push(CODE_PRINT | (id->index << 8));
+                    else if (!(id->flags & IDF_HEX) || !(more = compilearg(gs, p, VAL_INT, prevargs + 1))) gs.code.push(CODE_IVAR1 | (id->index << 8));
+                    else if (!(more = compilearg(gs, p, VAL_INT, prevargs + 2))) gs.code.push(CODE_IVAR2 | (id->index << 8));
+                    else gs.code.push(CODE_IVAR3 | (id->index << 8));
                     break;
                 case ID_FVAR:
-                    if (!(more = compilearg(code, p, VAL_FLOAT, prevargs))) code.push(CODE_PRINT | (id->index << 8));
-                    else code.push(CODE_FVAR1 | (id->index << 8));
+                    if (!(more = compilearg(gs, p, VAL_FLOAT, prevargs))) gs.code.push(CODE_PRINT | (id->index << 8));
+                    else gs.code.push(CODE_FVAR1 | (id->index << 8));
                     break;
                 case ID_SVAR:
-                    if (!(more = compilearg(code, p, VAL_CSTR, prevargs))) code.push(CODE_PRINT | (id->index << 8));
+                    if (!(more = compilearg(gs, p, VAL_CSTR, prevargs))) gs.code.push(CODE_PRINT | (id->index << 8));
                     else {
                         do ++numargs;
-                        while (numargs < MAX_ARGUMENTS && (more = compilearg(code, p, VAL_CANY, prevargs + numargs)));
-                        if (numargs > 1) code.push(CODE_CONC | RET_STR | (numargs << 8));
-                        code.push(CODE_SVAR1 | (id->index << 8));
+                        while (numargs < MAX_ARGUMENTS && (more = compilearg(gs, p, VAL_CANY, prevargs + numargs)));
+                        if (numargs > 1) gs.code.push(CODE_CONC | RET_STR | (numargs << 8));
+                        gs.code.push(CODE_SVAR1 | (id->index << 8));
                     }
                     break;
                 }
         }
 endstatement:
-        if (more) while (compilearg(code, p, VAL_POP));
+        if (more) while (compilearg(gs, p, VAL_POP));
         p += strcspn(p, ")];/\n\0");
         int c = *p++;
         switch (c) {
         case '\0':
-            if (c != brak) cstate.debug_code_line(line, "missing \"%c\"", brak);
+            if (c != brak) gs.cs.debug_code_line(line, "missing \"%c\"", brak);
             p--;
             return;
 
         case ')':
         case ']':
             if (c == brak) return;
-            cstate.debug_code_line(line, "unexpected \"%c\"", c);
+            gs.cs.debug_code_line(line, "unexpected \"%c\"", c);
             break;
 
         case '/':
@@ -2001,29 +2014,29 @@ endstatement:
     }
 }
 
-static void compilemain(ostd::Vector<ostd::uint> &code, const char *p, int rettype = VAL_ANY) {
+void GenState::gen_main(const char *p, int ret_type) {
     code.push(CODE_START);
-    compilestatements(code, p, VAL_ANY);
-    code.push(CODE_EXIT | (rettype < VAL_ANY ? rettype << CODE_RET : 0));
+    compilestatements(*this, p, VAL_ANY);
+    code.push(CODE_EXIT | ((ret_type < VAL_ANY) ? (ret_type << CODE_RET) : 0));
 }
 
 ostd::uint *compilecode(const char *p) {
-    ostd::Vector<ostd::uint> buf;
-    buf.reserve(64);
-    compilemain(buf, p);
-    ostd::uint *code = new ostd::uint[buf.size()];
-    memcpy(code, buf.data(), buf.size()*sizeof(ostd::uint));
+    GenState gs(cstate);
+    gs.code.reserve(64);
+    gs.gen_main(p);
+    ostd::uint *code = new ostd::uint[gs.code.size()];
+    memcpy(code, gs.code.data(), gs.code.size() * sizeof(ostd::uint));
     code[0] += 0x100;
     return code;
 }
 
 static inline const ostd::uint *forcecode(TaggedValue &v) {
     if (v.type != VAL_CODE) {
-        ostd::Vector<ostd::uint> buf;
-        buf.reserve(64);
-        compilemain(buf, v.get_str());
+        GenState gs(cstate);
+        gs.code.reserve(64);
+        gs.gen_main(v.get_str());
         v.cleanup();
-        v.set_code(buf.disown() + 1);
+        v.set_code(gs.code.disown() + 1);
     }
     return v.code;
 }
@@ -2539,38 +2552,38 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         }
         case CODE_COMPILE: {
             TaggedValue &arg = args[numargs - 1];
-            ostd::Vector<ostd::uint> buf;
+            GenState gs(cstate);
             switch (arg.type) {
             case VAL_INT:
-                buf.reserve(8);
-                buf.push(CODE_START);
-                compileint(buf, arg.i);
-                buf.push(CODE_RESULT);
-                buf.push(CODE_EXIT);
+                gs.code.reserve(8);
+                gs.code.push(CODE_START);
+                compileint(gs, arg.i);
+                gs.code.push(CODE_RESULT);
+                gs.code.push(CODE_EXIT);
                 break;
             case VAL_FLOAT:
-                buf.reserve(8);
-                buf.push(CODE_START);
-                compilefloat(buf, arg.f);
-                buf.push(CODE_RESULT);
-                buf.push(CODE_EXIT);
+                gs.code.reserve(8);
+                gs.code.push(CODE_START);
+                compilefloat(gs, arg.f);
+                gs.code.push(CODE_RESULT);
+                gs.code.push(CODE_EXIT);
                 break;
             case VAL_STR:
             case VAL_MACRO:
             case VAL_CSTR:
-                buf.reserve(64);
-                compilemain(buf, arg.s);
+                gs.code.reserve(64);
+                gs.gen_main(arg.s);
                 arg.cleanup();
                 break;
             default:
-                buf.reserve(8);
-                buf.push(CODE_START);
-                compilenull(buf);
-                buf.push(CODE_RESULT);
-                buf.push(CODE_EXIT);
+                gs.code.reserve(8);
+                gs.code.push(CODE_START);
+                compilenull(gs);
+                gs.code.push(CODE_RESULT);
+                gs.code.push(CODE_EXIT);
                 break;
             }
-            arg.set_code(buf.disown() + 1);
+            arg.set_code(gs.code.disown() + 1);
             continue;
         }
         case CODE_COND: {
@@ -2580,11 +2593,11 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
             case VAL_MACRO:
             case VAL_CSTR:
                 if (arg.s[0]) {
-                    ostd::Vector<ostd::uint> buf;
-                    buf.reserve(64);
-                    compilemain(buf, arg.s);
+                    GenState gs(cstate);
+                    gs.code.reserve(64);
+                    gs.gen_main(arg.s);
                     arg.cleanup();
-                    arg.set_code(buf.disown() + 1);
+                    arg.set_code(gs.code.disown() + 1);
                 } else arg.force_null();
                 break;
             }
@@ -2996,11 +3009,11 @@ void executeret(const ostd::uint *code, TaggedValue &result) {
 }
 
 void executeret(const char *p, TaggedValue &result) {
-    ostd::Vector<ostd::uint> code;
-    code.reserve(64);
-    compilemain(code, p, VAL_ANY);
-    runcode(code.data() + 1, result);
-    if (int(code[0]) >= 0x100) code.disown();
+    GenState gs(cstate);
+    gs.code.reserve(64);
+    gs.gen_main(p, VAL_ANY);
+    runcode(gs.code.data() + 1, result);
+    if (int(gs.code[0]) >= 0x100) gs.code.disown();
 }
 
 void executeret(Ident *id, TaggedValue *args, int numargs, TaggedValue &result) {
@@ -3092,12 +3105,12 @@ int CsState::run_int(const ostd::uint *code) {
 }
 
 int CsState::run_int(ostd::ConstCharRange p) {
-    ostd::Vector<ostd::uint> code;
-    code.reserve(64);
-    compilemain(code, p.data(), VAL_INT);
+    GenState gs(cstate);
+    gs.code.reserve(64);
+    gs.gen_main(p.data(), VAL_INT);
     TaggedValue result;
-    runcode(code.data() + 1, result);
-    if (int(code[0]) >= 0x100) code.disown();
+    runcode(gs.code.data() + 1, result);
+    if (int(gs.code[0]) >= 0x100) gs.code.disown();
     int i = result.get_int();
     result.cleanup();
     return i;
