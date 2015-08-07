@@ -146,13 +146,13 @@ void CsState::set_alias(ostd::ConstCharRange name, TaggedValue &v) {
             else id->set_alias(*this, v);
             return;
         case ID_VAR:
-            setvarchecked(id, v.get_int());
+            set_var_int_checked(id, v.get_int());
             break;
         case ID_FVAR:
-            setfvarchecked(id, v.get_float());
+            set_var_float_checked(id, v.get_float());
             break;
         case ID_SVAR:
-            setsvarchecked(id, v.get_str());
+            set_var_str_checked(id, v.get_str());
             break;
         default:
             debug_code("cannot redefine builtin %s with an alias", id->name);
@@ -531,123 +531,89 @@ CsState::get_alias(ostd::ConstCharRange name) {
     return ostd::ConstCharRange(id->get_str());
 }
 
-void init_lib_base(CsState &cs) {
-    cs.add_command("nodebug", "e", [](CsState &cs, ostd::uint *body) {
-        ++cs.nodebug;
-        executeret(body, *cs.result);
-        --cs.nodebug;
-    });
-
-    cs.add_command("push", "rTe", [](CsState &cs, Ident *id,
-                                     TaggedValue *v, ostd::uint *code) {
-        if (id->type != ID_ALIAS || id->index < MAX_ARGUMENTS) return;
-        IdentStack stack;
-        id->push_arg(*v, stack);
-        v->type = VAL_NULL;
-        id->flags &= ~IDF_UNKNOWN;
-        executeret(code, *cs.result);
-        id->pop_arg();
-    });
-
-    cs.add_command("local", ostd::ConstCharRange(), nullptr, ID_LOCAL);
-
-    cs.add_command("resetvar", "s", [](CsState &cs, char *name) {
-        cs.result->set_int(cs.reset_var(name));
-    });
-
-    cs.add_command("alias", "sT", [](CsState &cs, const char *name,
-                                     TaggedValue *v) {
-        cs.set_alias(name, *v);
-        v->type = VAL_NULL;
-    });
-
-    cs.add_command("getvarmin", "s", [](CsState &cs, const char *name) {
-        cs.result->set_int(cs.get_var_min_int(name).value_or(0));
-    });
-    cs.add_command("getvarmax", "s", [](CsState &cs, const char *name) {
-        cs.result->set_int(cs.get_var_max_int(name).value_or(0));
-    });
-    cs.add_command("getfvarmin", "s", [](CsState &cs, const char *name) {
-        cs.result->set_float(cs.get_var_min_float(name).value_or(0.0f));
-    });
-    cs.add_command("getfvarmax", "s", [](CsState &cs, const char *name) {
-        cs.result->set_float(cs.get_var_max_float(name).value_or(0.0f));
-    });
-
-    cs.add_command("identexists", "s", [](CsState &cs, const char *name) {
-        cs.result->set_int(cs.have_ident(name));
-    });
-
-    cs.add_command("getalias", "s", [](CsState &cs, const char *name) {
-        result(cs.get_alias(name).value_or("").data());
-    });
+int cs_clamp_var(CsState &cs, Ident *id, int v) {
+    if (v < id->minval)
+        v = id->minval;
+    else if (v > id->maxval)
+        v = id->maxval;
+    else
+        return v;
+    cs.debug_code((id->flags & IDF_HEX)
+                  ? ((id->minval <= 255)
+                     ? "valid range for '%s' is %d..0x%X"
+                     : "valid range for '%s' is 0x%X..0x%X")
+                  : "valid range for '%s' is %d..%d",
+                  id->name, id->minval, id->maxval);
+    return v;
 }
 
-int clampvar(Ident *id, int val) {
-    if (val < id->minval) val = id->minval;
-    else if (val > id->maxval) val = id->maxval;
-    else return val;
-    cstate.debug_code(id->flags & IDF_HEX ?
-              (id->minval <= 255 ? "valid range for %s is %d..0x%X" : "valid range for %s is 0x%X..0x%X") :
-              "valid range for %s is %d..%d",
-              id->name, id->minval, id->maxval);
-    return val;
-}
-
-void setvarchecked(Ident *id, int val) {
-    if (id->flags & IDF_READONLY) cstate.debug_code("variable %s is read-only", id->name);
-    else {
-        bool success = cs_override_var(cstate, id,
-            [&id]() { id->overrideval.i = *id->storage.i; },
-            []() {}, []() {});
-        if (!success) return;
-        if (val < id->minval || val > id->maxval) val = clampvar(id, val);
-        *id->storage.i = val;
-        id->changed(cstate);
+void CsState::set_var_int_checked(Ident *id, int v) {
+    if (id->flags & IDF_READONLY) {
+        debug_code("variable '%s' is read only", id->name);
+        return;
     }
+    bool success = cs_override_var(*this, id,
+        [&id]() { id->overrideval.i = *id->storage.i; },
+        []() {}, []() {});
+    if (!success)
+        return;
+    if (v < id->minval || v > id->maxval)
+        v = cs_clamp_var(*this, id, v);
+    *id->storage.i = v;
+    id->changed(*this);
 }
 
-static inline void setvarchecked(Ident *id, TaggedValue *args, int numargs) {
-    int val = args[0].force_int();
-    if (id->flags & IDF_HEX && numargs > 1) {
-        val = (val << 16) | (args[1].force_int() << 8);
-        if (numargs > 2) val |= args[2].force_int();
+void CsState::set_var_int_checked(Ident *id,
+                                  ostd::PointerRange<TaggedValue> args) {
+    int v = args[0].force_int();
+    if ((id->flags & IDF_HEX) && (args.size() > 1)) {
+        v = (v << 16) | (args[1].force_int() << 8);
+        if (args.size() > 2)
+            v |= args[2].force_int();
     }
-    setvarchecked(id, val);
+    set_var_int_checked(id, v);
 }
 
-float clampfvar(Ident *id, float val) {
-    if (val < id->minvalf) val = id->minvalf;
-    else if (val > id->maxvalf) val = id->maxvalf;
-    else return val;
-    cstate.debug_code("valid range for %s is %s..%s", id->name, floatstr(id->minvalf), floatstr(id->maxvalf));
-    return val;
+float cs_clamp_fvar(CsState &cs, Ident *id, float v) {
+    if (v < id->minvalf)
+        v = id->minvalf;
+    else if (v > id->maxvalf)
+        v = id->maxvalf;
+    else
+        return v;
+    cs.debug_code("valid range for '%s' is %s..%s", floatstr(id->minvalf),
+                  floatstr(id->maxvalf));
+    return v;
 }
 
-void setfvarchecked(Ident *id, float val) {
-    if (id->flags & IDF_READONLY) cstate.debug_code("variable %s is read-only", id->name);
-    else {
-        bool success = cs_override_var(cstate, id,
-            [&id]() { id->overrideval.f = *id->storage.f; },
-            []() {}, []() {});
-        if (!success) return;
-        if (val < id->minvalf || val > id->maxvalf) val = clampfvar(id, val);
-        *id->storage.f = val;
-        id->changed(cstate);
+void CsState::set_var_float_checked(Ident *id, float v) {
+    if (id->flags & IDF_READONLY) {
+        debug_code("variable '%s' is read only", id->name);
+        return;
     }
+    bool success = cs_override_var(*this, id,
+        [&id]() { id->overrideval.f = *id->storage.f; },
+        []() {}, []() {});
+    if (!success)
+        return;
+    if (v < id->minvalf || v > id->maxvalf)
+        v = cs_clamp_fvar(*this, id, v);
+    *id->storage.f = v;
+    id->changed(*this);
 }
 
-void setsvarchecked(Ident *id, const char *val) {
-    if (id->flags & IDF_READONLY) cstate.debug_code("variable %s is read-only", id->name);
-    else {
-        bool success = cs_override_var(cstate, id,
-            [&id]() { id->overrideval.s = *id->storage.s; },
-            [&id]() { delete[] id->overrideval.s; },
-            [&id]() { delete[] *id->storage.s; });
-        if (!success) return;
-        *id->storage.s = dup_ostr(val);
-        id->changed(cstate);
+void CsState::set_var_str_checked(Ident *id, ostd::ConstCharRange v) {
+    if (id->flags & IDF_READONLY) {
+        debug_code("variable '%s' is read only", id->name);
+        return;
     }
+    bool success = cs_override_var(*this, id,
+        [&id]() { id->overrideval.s = *id->storage.s; },
+        [&id]() { delete[] id->overrideval.s; },
+        [&id]() { delete[] *id->storage.s; });
+    if (!success) return;
+    *id->storage.s = dup_ostr(v);
+    id->changed(*this);
 }
 
 bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
@@ -707,6 +673,58 @@ bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
 
 bool addcommand(const char *name, IdentFunc fun, const char *args, int type) {
     return cstate.add_command(name, args, fun, type);
+}
+
+void init_lib_base(CsState &cs) {
+    cs.add_command("nodebug", "e", [](CsState &cs, ostd::uint *body) {
+        ++cs.nodebug;
+        executeret(body, *cs.result);
+        --cs.nodebug;
+    });
+
+    cs.add_command("push", "rTe", [](CsState &cs, Ident *id,
+                                     TaggedValue *v, ostd::uint *code) {
+        if (id->type != ID_ALIAS || id->index < MAX_ARGUMENTS) return;
+        IdentStack stack;
+        id->push_arg(*v, stack);
+        v->type = VAL_NULL;
+        id->flags &= ~IDF_UNKNOWN;
+        executeret(code, *cs.result);
+        id->pop_arg();
+    });
+
+    cs.add_command("local", ostd::ConstCharRange(), nullptr, ID_LOCAL);
+
+    cs.add_command("resetvar", "s", [](CsState &cs, char *name) {
+        cs.result->set_int(cs.reset_var(name));
+    });
+
+    cs.add_command("alias", "sT", [](CsState &cs, const char *name,
+                                     TaggedValue *v) {
+        cs.set_alias(name, *v);
+        v->type = VAL_NULL;
+    });
+
+    cs.add_command("getvarmin", "s", [](CsState &cs, const char *name) {
+        cs.result->set_int(cs.get_var_min_int(name).value_or(0));
+    });
+    cs.add_command("getvarmax", "s", [](CsState &cs, const char *name) {
+        cs.result->set_int(cs.get_var_max_int(name).value_or(0));
+    });
+    cs.add_command("getfvarmin", "s", [](CsState &cs, const char *name) {
+        cs.result->set_float(cs.get_var_min_float(name).value_or(0.0f));
+    });
+    cs.add_command("getfvarmax", "s", [](CsState &cs, const char *name) {
+        cs.result->set_float(cs.get_var_max_float(name).value_or(0.0f));
+    });
+
+    cs.add_command("identexists", "s", [](CsState &cs, const char *name) {
+        cs.result->set_int(cs.have_ident(name));
+    });
+
+    cs.add_command("getalias", "s", [](CsState &cs, const char *name) {
+        result(cs.get_alias(name).value_or("").data());
+    });
 }
 
 const char *parsestring(const char *p) {
@@ -2722,7 +2740,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
             args[numargs++].set_cstr(*cstate.identmap[op >> 8]->storage.s);
             continue;
         case CODE_SVAR1:
-            setsvarchecked(cstate.identmap[op >> 8], args[--numargs].s);
+            cstate.set_var_str_checked(cstate.identmap[op >> 8], args[--numargs].s);
             args[numargs].cleanup();
             continue;
 
@@ -2737,15 +2755,15 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
             args[numargs++].set_float(float(*cstate.identmap[op >> 8]->storage.i));
             continue;
         case CODE_IVAR1:
-            setvarchecked(cstate.identmap[op >> 8], args[--numargs].i);
+            cstate.set_var_int_checked(cstate.identmap[op >> 8], args[--numargs].i);
             continue;
         case CODE_IVAR2:
             numargs -= 2;
-            setvarchecked(cstate.identmap[op >> 8], (args[numargs].i << 16) | (args[numargs + 1].i << 8));
+            cstate.set_var_int_checked(cstate.identmap[op >> 8], (args[numargs].i << 16) | (args[numargs + 1].i << 8));
             continue;
         case CODE_IVAR3:
             numargs -= 3;
-            setvarchecked(cstate.identmap[op >> 8], (args[numargs].i << 16) | (args[numargs + 1].i << 8) | args[numargs + 2].i);
+            cstate.set_var_int_checked(cstate.identmap[op >> 8], (args[numargs].i << 16) | (args[numargs + 1].i << 8) | args[numargs + 2].i);
             continue;
 
         case CODE_FVAR|RET_FLOAT:
@@ -2759,7 +2777,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
             args[numargs++].set_int(int(*cstate.identmap[op >> 8]->storage.f));
             continue;
         case CODE_FVAR1:
-            setfvarchecked(cstate.identmap[op >> 8], args[--numargs].f);
+            cstate.set_var_float_checked(cstate.identmap[op >> 8], args[--numargs].f);
             continue;
 
 #define OFFSETARG(n) offset+n
@@ -2950,15 +2968,15 @@ noid:
             }
             case ID_VAR:
                 if (callargs <= 0) printvar(id);
-                else setvarchecked(id, &args[offset], callargs);
+                else cstate.set_var_int_checked(id, ostd::iter(&args[offset], callargs));
                 FORCERESULT;
             case ID_FVAR:
                 if (callargs <= 0) printvar(id);
-                else setfvarchecked(id, args[offset].force_float());
+                else cstate.set_var_float_checked(id, args[offset].force_float());
                 FORCERESULT;
             case ID_SVAR:
                 if (callargs <= 0) printvar(id);
-                else setsvarchecked(id, args[offset].force_str());
+                else cstate.set_var_str_checked(id, args[offset].force_str());
                 FORCERESULT;
             case ID_ALIAS:
                 if (id->index < MAX_ARGUMENTS && !(cstate.stack->usedargs & (1 << id->index))) FORCERESULT;
@@ -3009,15 +3027,15 @@ void executeret(Ident *id, TaggedValue *args, int numargs, TaggedValue &result) 
             break;
         case ID_VAR:
             if (numargs <= 0) printvar(id);
-            else setvarchecked(id, args, numargs);
+            else cstate.set_var_int_checked(id, ostd::iter(args, numargs));
             break;
         case ID_FVAR:
             if (numargs <= 0) printvar(id);
-            else setfvarchecked(id, args[0].force_float());
+            else cstate.set_var_float_checked(id, args[0].force_float());
             break;
         case ID_SVAR:
             if (numargs <= 0) printvar(id);
-            else setsvarchecked(id, args[0].force_str());
+            else cstate.set_var_str_checked(id, args[0].force_str());
             break;
         case ID_ALIAS:
             if (id->index < MAX_ARGUMENTS && !(cstate.stack->usedargs & (1 << id->index))) break;

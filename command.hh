@@ -406,6 +406,11 @@ struct CsState {
     void set_var_str(ostd::ConstCharRange name, ostd::ConstCharRange v,
                      bool dofunc = true);
 
+    void set_var_int_checked(Ident *id, int v);
+    void set_var_int_checked(Ident *id, ostd::PointerRange<TaggedValue> args);
+    void set_var_float_checked(Ident *id, float v);
+    void set_var_str_checked(Ident *id, ostd::ConstCharRange v);
+
     ostd::Maybe<int> get_var_int(ostd::ConstCharRange name);
     ostd::Maybe<float> get_var_float(ostd::ConstCharRange name);
     ostd::Maybe<ostd::String> get_var_str(ostd::ConstCharRange name);
@@ -554,9 +559,6 @@ inline void Ident::getcval(TaggedValue &v) const {
     }
 }
 
-extern void setvarchecked(Ident *id, int val);
-extern void setfvarchecked(Ident *id, float val);
-extern void setsvarchecked(Ident *id, const char *val);
 extern bool addcommand(const char *name, IdentFunc fun, const char *narg, int type = ID_COMMAND);
 extern ostd::uint *compilecode(const char *p);
 extern void keepcode(ostd::uint *p);
