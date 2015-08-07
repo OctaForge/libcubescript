@@ -428,9 +428,9 @@ extern CsState cstate;
 
 extern const char *intstr(int v);
 extern const char *floatstr(float v);
-extern void stringret(char *s);
-extern void result(TaggedValue &v);
-extern void result(const char *s);
+extern void stringret(CsState &cs, char *s);
+extern void result(CsState &cs, TaggedValue &v);
+extern void result(CsState &cs, const char *s);
 
 static inline int parseint(const char *s) {
     return int(strtoul(s, nullptr, 0));
@@ -562,9 +562,9 @@ inline void Ident::getcval(TaggedValue &v) const {
 extern ostd::uint *compilecode(const char *p);
 extern void keepcode(ostd::uint *p);
 extern void freecode(ostd::uint *p);
-extern void executeret(const ostd::uint *code, TaggedValue &result = *cstate.result);
-extern void executeret(const char *p, TaggedValue &result = *cstate.result);
-extern void executeret(Ident *id, TaggedValue *args, int numargs, TaggedValue &result = *cstate.result);
+extern void executeret(CsState &cs, const ostd::uint *code, TaggedValue &result = *cstate.result);
+extern void executeret(CsState &cs, const char *p, TaggedValue &result = *cstate.result);
+extern void executeret(CsState &cs, Ident *id, TaggedValue *args, int numargs, TaggedValue &result = *cstate.result);
 extern const char *getalias(const char *name);
 extern const char *escapestring(const char *s);
 extern const char *escapeid(const char *s);

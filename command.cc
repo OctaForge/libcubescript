@@ -674,7 +674,7 @@ bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
 static void cs_init_lib_base_var(CsState &cs) {
     cs.add_command("nodebug", "e", [](CsState &cs, ostd::uint *body) {
         ++cs.nodebug;
-        executeret(body, *cs.result);
+        executeret(cs, body, *cs.result);
         --cs.nodebug;
     });
 
@@ -685,7 +685,7 @@ static void cs_init_lib_base_var(CsState &cs) {
         id->push_arg(*v, stack);
         v->type = VAL_NULL;
         id->flags &= ~IDF_UNKNOWN;
-        executeret(code, *cs.result);
+        executeret(cs, code, *cs.result);
         id->pop_arg();
     });
 
@@ -719,7 +719,7 @@ static void cs_init_lib_base_var(CsState &cs) {
     });
 
     cs.add_command("getalias", "s", [](CsState &cs, const char *name) {
-        result(cs.get_alias(name).value_or("").data());
+        result(cs, cs.get_alias(name).value_or("").data());
     });
 }
 
@@ -940,6 +940,10 @@ static inline int cs_ret_code(int type, int def = 0) {
                              : (type << CODE_RET);
 }
 
+struct GenState;
+
+static void compilestatements(GenState &gs, const char *&p, int rettype, int brak = '\0', int prevargs = 0);
+
 struct GenState {
     CsState &cs;
     ostd::Vector<ostd::uint> code;
@@ -1023,6 +1027,25 @@ struct GenState {
     void gen_main(const char *p, int ret_type = VAL_ANY);
 };
 
+static inline void compileblock(GenState &gs) {
+    gs.code.push(CODE_EMPTY);
+}
+
+static inline const char *compileblock(GenState &gs, const char *p, int rettype = RET_NULL, int brak = '\0') {
+    ostd::Size start = gs.code.size();
+    gs.code.push(CODE_BLOCK);
+    gs.code.push(CODE_OFFSET | ((start + 2) << 8));
+    if (p) compilestatements(gs, p, VAL_ANY, brak);
+    if (gs.code.size() > start + 2) {
+        gs.code.push(CODE_EXIT | rettype);
+        gs.code[start] |= ostd::uint(gs.code.size() - (start + 1)) << 8;
+    } else {
+        gs.code.resize(start);
+        gs.code.push(CODE_EMPTY | rettype);
+    }
+    return p;
+}
+
 static inline void compileunescapestring(GenState &gs, const char *&p, bool macro = false) {
     p++;
     const char *end = parsestring(p);
@@ -1043,27 +1066,6 @@ static ostd::uint emptyblock[VAL_ANY][2] = {
     { CODE_START + 0x100, CODE_EXIT | RET_FLOAT },
     { CODE_START + 0x100, CODE_EXIT | RET_STR }
 };
-
-static inline void compileblock(GenState &gs) {
-    gs.code.push(CODE_EMPTY);
-}
-
-static void compilestatements(GenState &gs, const char *&p, int rettype, int brak = '\0', int prevargs = 0);
-
-static inline const char *compileblock(GenState &gs, const char *p, int rettype = RET_NULL, int brak = '\0') {
-    ostd::Size start = gs.code.size();
-    gs.code.push(CODE_BLOCK);
-    gs.code.push(CODE_OFFSET | ((start + 2) << 8));
-    if (p) compilestatements(gs, p, VAL_ANY, brak);
-    if (gs.code.size() > start + 2) {
-        gs.code.push(CODE_EXIT | rettype);
-        gs.code[start] |= ostd::uint(gs.code.size() - (start + 1)) << 8;
-    } else {
-        gs.code.resize(start);
-        gs.code.push(CODE_EMPTY | rettype);
-    }
-    return p;
-}
 
 static inline bool getbool(const char *s) {
     switch (s[0]) {
@@ -2020,8 +2022,8 @@ void GenState::gen_main(const char *p, int ret_type) {
     code.push(CODE_EXIT | ((ret_type < VAL_ANY) ? (ret_type << CODE_RET) : 0));
 }
 
-ostd::uint *compilecode(const char *p) {
-    GenState gs(cstate);
+ostd::uint *compilecode(CsState &cs, const char *p) {
+    GenState gs(cs);
     gs.code.reserve(64);
     gs.gen_main(p);
     ostd::uint *code = new ostd::uint[gs.code.size()];
@@ -2030,9 +2032,9 @@ ostd::uint *compilecode(const char *p) {
     return code;
 }
 
-static inline const ostd::uint *forcecode(TaggedValue &v) {
+static inline const ostd::uint *forcecode(CsState &cs, TaggedValue &v) {
     if (v.type != VAL_CODE) {
-        GenState gs(cstate);
+        GenState gs(cs);
         gs.code.reserve(64);
         gs.gen_main(v.get_str());
         v.cleanup();
@@ -2041,12 +2043,12 @@ static inline const ostd::uint *forcecode(TaggedValue &v) {
     return v.code;
 }
 
-static inline void forcecond(TaggedValue &v) {
+static inline void forcecond(CsState &cs, TaggedValue &v) {
     switch (v.type) {
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR:
-        if (v.s[0]) forcecode(v);
+        if (v.s[0]) forcecode(cs, v);
         else v.set_int(0);
         break;
     }
@@ -2175,7 +2177,7 @@ static const ostd::uint *skipcode(const ostd::uint *code, TaggedValue &result = 
     }
 }
 
-static inline void callcommand(Ident *id, TaggedValue *args, int numargs, bool lookup = false) {
+static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int numargs, bool lookup = false) {
     int i = -1, fakeargs = 0;
     bool rep = false;
     for (const char *fmt = id->args; *fmt; fmt++) switch (*fmt) {
@@ -2234,21 +2236,21 @@ static inline void callcommand(Ident *id, TaggedValue *args, int numargs, bool l
                 if (rep) break;
                 args[i].set_null();
                 fakeargs++;
-            } else forcecond(args[i]);
+            } else forcecond(cs, args[i]);
             break;
         case 'e':
             if (++i >= numargs) {
                 if (rep) break;
                 args[i].set_code(emptyblock[VAL_NULL] + 1);
                 fakeargs++;
-            } else forcecode(args[i]);
+            } else forcecode(cs, args[i]);
             break;
         case 'r':
             if (++i >= numargs) {
                 if (rep) break;
-                args[i].set_ident(cstate.dummy);
+                args[i].set_ident(cs.dummy);
                 fakeargs++;
-            } else cstate.force_ident(args[i]);
+            } else cs.force_ident(args[i]);
             break;
         case '$':
             if (++i < numargs) args[i].cleanup();
@@ -2261,12 +2263,12 @@ static inline void callcommand(Ident *id, TaggedValue *args, int numargs, bool l
         case 'C': {
             i = ostd::max(i + 1, numargs);
             ostd::Vector<char> buf;
-            ((CommandFunc1)id->fun)(cstate, conc(buf, args, i, true));
+            ((CommandFunc1)id->fun)(cs, conc(buf, args, i, true));
             goto cleanup;
         }
         case 'V':
             i = ostd::max(i + 1, numargs);
-            ((CommandFuncTv)id->fun)(cstate, args, i);
+            ((CommandFuncTv)id->fun)(cs, args, i);
             goto cleanup;
         case '1':
         case '2':
@@ -2284,19 +2286,19 @@ static inline void callcommand(Ident *id, TaggedValue *args, int numargs, bool l
 #define CALLCOM(n) \
         switch(n) \
         { \
-            case 0: ((CommandFunc)id->fun)(cstate); break; \
-            case 1: ((CommandFunc1)id->fun)(cstate, ARG(0)); break; \
-            case 2: ((CommandFunc2)id->fun)(cstate, ARG(0), ARG(1)); break; \
-            case 3: ((CommandFunc3)id->fun)(cstate, ARG(0), ARG(1), ARG(2)); break; \
-            case 4: ((CommandFunc4)id->fun)(cstate, ARG(0), ARG(1), ARG(2), ARG(3)); break; \
-            case 5: ((CommandFunc5)id->fun)(cstate, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4)); break; \
-            case 6: ((CommandFunc6)id->fun)(cstate, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5)); break; \
-            case 7: ((CommandFunc7)id->fun)(cstate, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6)); break; \
-            case 8: ((CommandFunc8)id->fun)(cstate, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7)); break; \
-            case 9: ((CommandFunc9)id->fun)(cstate, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8)); break; \
-            case 10: ((CommandFunc10)id->fun)(cstate, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9)); break; \
-            case 11: ((CommandFunc11)id->fun)(cstate, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9), ARG(10)); break; \
-            case 12: ((CommandFunc12)id->fun)(cstate, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9), ARG(10), ARG(11)); break; \
+            case 0: ((CommandFunc)id->fun)(cs); break; \
+            case 1: ((CommandFunc1)id->fun)(cs, ARG(0)); break; \
+            case 2: ((CommandFunc2)id->fun)(cs, ARG(0), ARG(1)); break; \
+            case 3: ((CommandFunc3)id->fun)(cs, ARG(0), ARG(1), ARG(2)); break; \
+            case 4: ((CommandFunc4)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3)); break; \
+            case 5: ((CommandFunc5)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4)); break; \
+            case 6: ((CommandFunc6)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5)); break; \
+            case 7: ((CommandFunc7)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6)); break; \
+            case 8: ((CommandFunc8)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7)); break; \
+            case 9: ((CommandFunc9)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8)); break; \
+            case 10: ((CommandFunc10)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9)); break; \
+            case 11: ((CommandFunc11)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9), ARG(10)); break; \
+            case 12: ((CommandFunc12)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9), ARG(10), ARG(11)); break; \
         }
     CALLCOM(i)
 #undef OFFSETARG
@@ -2308,16 +2310,16 @@ cleanup:
 #define MAXRUNDEPTH 255
 static int rundepth = 0;
 
-static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
+static const ostd::uint *runcode(CsState &cs, const ostd::uint *code, TaggedValue &result) {
     result.set_null();
     if (rundepth >= MAXRUNDEPTH) {
-        cstate.debug_code("exceeded recursion limit");
+        cs.debug_code("exceeded recursion limit");
         return skipcode(code, result);
     }
     ++rundepth;
     int numargs = 0;
-    TaggedValue args[MAX_ARGUMENTS + MAX_RESULTS], *prevret = cstate.result;
-    cstate.result = &result;
+    TaggedValue args[MAX_ARGUMENTS + MAX_RESULTS], *prevret = cs.result;
+    cs.result = &result;
     for (;;) {
         ostd::uint op = *code++;
         switch (op & 0xFF) {
@@ -2358,11 +2360,11 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
                     args[--numargs].cleanup();
             continue;
         case CODE_ENTER:
-            code = runcode(code, args[numargs++]);
+            code = runcode(cs, code, args[numargs++]);
             continue;
         case CODE_ENTER_RESULT:
             result.cleanup();
-            code = runcode(code, result);
+            code = runcode(cs, code, result);
             continue;
         case CODE_EXIT|RET_STR:
         case CODE_EXIT|RET_INT:
@@ -2381,7 +2383,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
             result.set_null();
             continue;
         case CODE_PRINT:
-            printvar(cstate.identmap[op >> 8]);
+            printvar(cs.identmap[op >> 8]);
             continue;
 
         case CODE_LOCAL: {
@@ -2389,7 +2391,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
             int numlocals = op >> 8, offset = numargs - numlocals;
             IdentStack locals[MAX_ARGUMENTS];
             for (int i = 0; i < numlocals; ++i) args[offset + i].id->push_alias(locals[i]);
-            code = runcode(code, result);
+            code = runcode(cs, code, result);
             for (int i = offset; i < numargs; i++) args[i].id->pop_alias();
             goto exit;
         }
@@ -2398,10 +2400,10 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         case CODE_DOARGS|RET_STR:
         case CODE_DOARGS|RET_INT:
         case CODE_DOARGS|RET_FLOAT:
-            if (cstate.stack != &cstate.noalias) {
-                cs_do_args(cstate, [&]() {
+            if (cs.stack != &cs.noalias) {
+                cs_do_args(cs, [&]() {
                     result.cleanup();
-                    runcode(args[--numargs].code, result);
+                    runcode(cs, args[--numargs].code, result);
                     args[numargs].cleanup();
                     result.force(op & CODE_RET_MASK);
                 });
@@ -2413,7 +2415,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         case CODE_DO|RET_INT:
         case CODE_DO|RET_FLOAT:
             result.cleanup();
-            runcode(args[--numargs].code, result);
+            runcode(cs, args[--numargs].code, result);
             args[numargs].cleanup();
             result.force(op & CODE_RET_MASK);
             continue;
@@ -2440,7 +2442,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
             result.cleanup();
             --numargs;
             if (args[numargs].type == VAL_CODE) {
-                runcode(args[numargs].code, result);
+                runcode(cs, args[numargs].code, result);
                 args[numargs].cleanup();
             } else result = args[numargs];
             if (getbool(result)) code += len;
@@ -2451,7 +2453,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
             result.cleanup();
             --numargs;
             if (args[numargs].type == VAL_CODE) {
-                runcode(args[numargs].code, result);
+                runcode(cs, args[numargs].code, result);
                 args[numargs].cleanup();
             } else result = args[numargs];
             if (!getbool(result)) code += len;
@@ -2552,7 +2554,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         }
         case CODE_COMPILE: {
             TaggedValue &arg = args[numargs - 1];
-            GenState gs(cstate);
+            GenState gs(cs);
             switch (arg.type) {
             case VAL_INT:
                 gs.code.reserve(8);
@@ -2593,7 +2595,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
             case VAL_MACRO:
             case VAL_CSTR:
                 if (arg.s[0]) {
-                    GenState gs(cstate);
+                    GenState gs(cs);
                     gs.code.reserve(64);
                     gs.gen_main(arg.s);
                     arg.cleanup();
@@ -2605,23 +2607,23 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         }
 
         case CODE_IDENT:
-            args[numargs++].set_ident(cstate.identmap[op >> 8]);
+            args[numargs++].set_ident(cs.identmap[op >> 8]);
             continue;
         case CODE_IDENTARG: {
-            Ident *id = cstate.identmap[op >> 8];
-            if (!(cstate.stack->usedargs & (1 << id->index))) {
-                id->push_arg(null_value, cstate.stack->argstack[id->index]);
-                cstate.stack->usedargs |= 1 << id->index;
+            Ident *id = cs.identmap[op >> 8];
+            if (!(cs.stack->usedargs & (1 << id->index))) {
+                id->push_arg(null_value, cs.stack->argstack[id->index]);
+                cs.stack->usedargs |= 1 << id->index;
             }
             args[numargs++].set_ident(id);
             continue;
         }
         case CODE_IDENTU: {
             TaggedValue &arg = args[numargs - 1];
-            Ident *id = arg.type == VAL_STR || arg.type == VAL_MACRO || arg.type == VAL_CSTR ? cstate.new_ident(arg.cstr, IDF_UNKNOWN) : cstate.dummy;
-            if (id->index < MAX_ARGUMENTS && !(cstate.stack->usedargs & (1 << id->index))) {
-                id->push_arg(null_value, cstate.stack->argstack[id->index]);
-                cstate.stack->usedargs |= 1 << id->index;
+            Ident *id = arg.type == VAL_STR || arg.type == VAL_MACRO || arg.type == VAL_CSTR ? cs.new_ident(arg.cstr, IDF_UNKNOWN) : cs.dummy;
+            if (id->index < MAX_ARGUMENTS && !(cs.stack->usedargs & (1 << id->index))) {
+                id->push_arg(null_value, cs.stack->argstack[id->index]);
+                cs.stack->usedargs |= 1 << id->index;
             }
             arg.cleanup();
             arg.set_ident(id);
@@ -2632,13 +2634,13 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
 #define LOOKUPU(aval, sval, ival, fval, nval) { \
                     TaggedValue &arg = args[numargs-1]; \
                     if(arg.type != VAL_STR && arg.type != VAL_MACRO && arg.type != VAL_CSTR) continue; \
-                    Ident *id = cstate.idents.at(arg.s); \
+                    Ident *id = cs.idents.at(arg.s); \
                     if(id) switch(id->type) \
                     { \
                         case ID_ALIAS: \
                             if(id->flags&IDF_UNKNOWN) break; \
                             arg.cleanup(); \
-                            if(id->index < MAX_ARGUMENTS && !(cstate.stack->usedargs&(1<<id->index))) { nval; continue; } \
+                            if(id->index < MAX_ARGUMENTS && !(cs.stack->usedargs&(1<<id->index))) { nval; continue; } \
                             aval; \
                             continue; \
                         case ID_SVAR: arg.cleanup(); sval; continue; \
@@ -2648,16 +2650,16 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
                         { \
                             arg.cleanup(); \
                             arg.set_null(); \
-                            cstate.result = &arg; \
+                            cs.result = &arg; \
                             TaggedValue buf[MAX_ARGUMENTS]; \
-                            callcommand(id, buf, 0, true); \
+                            callcommand(cs, id, buf, 0, true); \
                             arg.force(op&CODE_RET_MASK); \
-                            cstate.result = &result; \
+                            cs.result = &result; \
                             continue; \
                         } \
                         default: arg.cleanup(); nval; continue; \
                     } \
-                    cstate.debug_code("unknown alias lookup: %s", arg.s); \
+                    cs.debug_code("unknown alias lookup: %s", arg.s); \
                     arg.cleanup(); \
                     nval; \
                     continue; \
@@ -2669,16 +2671,16 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
                     arg.set_str(dup_ostr("")));
         case CODE_LOOKUP|RET_STR:
 #define LOOKUP(aval) { \
-                    Ident *id = cstate.identmap[op>>8]; \
-                    if(id->flags&IDF_UNKNOWN) cstate.debug_code("unknown alias lookup: %s", id->name); \
+                    Ident *id = cs.identmap[op>>8]; \
+                    if(id->flags&IDF_UNKNOWN) cs.debug_code("unknown alias lookup: %s", id->name); \
                     aval; \
                     continue; \
                 }
             LOOKUP(args[numargs++].set_str(dup_ostr(id->get_str())));
         case CODE_LOOKUPARG|RET_STR:
 #define LOOKUPARG(aval, nval) { \
-                    Ident *id = cstate.identmap[op>>8]; \
-                    if(!(cstate.stack->usedargs&(1<<id->index))) { nval; continue; } \
+                    Ident *id = cs.identmap[op>>8]; \
+                    if(!(cs.stack->usedargs&(1<<id->index))) { nval; continue; } \
                     aval; \
                     continue; \
                 }
@@ -2737,56 +2739,56 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
 
         case CODE_SVAR|RET_STR:
         case CODE_SVAR|RET_NULL:
-            args[numargs++].set_str(dup_ostr(*cstate.identmap[op >> 8]->storage.s));
+            args[numargs++].set_str(dup_ostr(*cs.identmap[op >> 8]->storage.s));
             continue;
         case CODE_SVAR|RET_INT:
-            args[numargs++].set_int(parseint(*cstate.identmap[op >> 8]->storage.s));
+            args[numargs++].set_int(parseint(*cs.identmap[op >> 8]->storage.s));
             continue;
         case CODE_SVAR|RET_FLOAT:
-            args[numargs++].set_float(parsefloat(*cstate.identmap[op >> 8]->storage.s));
+            args[numargs++].set_float(parsefloat(*cs.identmap[op >> 8]->storage.s));
             continue;
         case CODE_SVARM:
-            args[numargs++].set_cstr(*cstate.identmap[op >> 8]->storage.s);
+            args[numargs++].set_cstr(*cs.identmap[op >> 8]->storage.s);
             continue;
         case CODE_SVAR1:
-            cstate.set_var_str_checked(cstate.identmap[op >> 8], args[--numargs].s);
+            cs.set_var_str_checked(cs.identmap[op >> 8], args[--numargs].s);
             args[numargs].cleanup();
             continue;
 
         case CODE_IVAR|RET_INT:
         case CODE_IVAR|RET_NULL:
-            args[numargs++].set_int(*cstate.identmap[op >> 8]->storage.i);
+            args[numargs++].set_int(*cs.identmap[op >> 8]->storage.i);
             continue;
         case CODE_IVAR|RET_STR:
-            args[numargs++].set_str(dup_ostr(intstr(*cstate.identmap[op >> 8]->storage.i)));
+            args[numargs++].set_str(dup_ostr(intstr(*cs.identmap[op >> 8]->storage.i)));
             continue;
         case CODE_IVAR|RET_FLOAT:
-            args[numargs++].set_float(float(*cstate.identmap[op >> 8]->storage.i));
+            args[numargs++].set_float(float(*cs.identmap[op >> 8]->storage.i));
             continue;
         case CODE_IVAR1:
-            cstate.set_var_int_checked(cstate.identmap[op >> 8], args[--numargs].i);
+            cs.set_var_int_checked(cs.identmap[op >> 8], args[--numargs].i);
             continue;
         case CODE_IVAR2:
             numargs -= 2;
-            cstate.set_var_int_checked(cstate.identmap[op >> 8], (args[numargs].i << 16) | (args[numargs + 1].i << 8));
+            cs.set_var_int_checked(cs.identmap[op >> 8], (args[numargs].i << 16) | (args[numargs + 1].i << 8));
             continue;
         case CODE_IVAR3:
             numargs -= 3;
-            cstate.set_var_int_checked(cstate.identmap[op >> 8], (args[numargs].i << 16) | (args[numargs + 1].i << 8) | args[numargs + 2].i);
+            cs.set_var_int_checked(cs.identmap[op >> 8], (args[numargs].i << 16) | (args[numargs + 1].i << 8) | args[numargs + 2].i);
             continue;
 
         case CODE_FVAR|RET_FLOAT:
         case CODE_FVAR|RET_NULL:
-            args[numargs++].set_float(*cstate.identmap[op >> 8]->storage.f);
+            args[numargs++].set_float(*cs.identmap[op >> 8]->storage.f);
             continue;
         case CODE_FVAR|RET_STR:
-            args[numargs++].set_str(dup_ostr(floatstr(*cstate.identmap[op >> 8]->storage.f)));
+            args[numargs++].set_str(dup_ostr(floatstr(*cs.identmap[op >> 8]->storage.f)));
             continue;
         case CODE_FVAR|RET_INT:
-            args[numargs++].set_int(int(*cstate.identmap[op >> 8]->storage.f));
+            args[numargs++].set_int(int(*cs.identmap[op >> 8]->storage.f));
             continue;
         case CODE_FVAR1:
-            cstate.set_var_float_checked(cstate.identmap[op >> 8], args[--numargs].f);
+            cs.set_var_float_checked(cs.identmap[op >> 8], args[--numargs].f);
             continue;
 
 #define OFFSETARG(n) offset+n
@@ -2794,7 +2796,7 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         case CODE_COM|RET_STR:
         case CODE_COM|RET_FLOAT:
         case CODE_COM|RET_INT: {
-            Ident *id = cstate.identmap[op >> 8];
+            Ident *id = cs.identmap[op >> 8];
             int offset = numargs - id->numargs;
             result.force_null();
             CALLCOM(id->numargs)
@@ -2808,10 +2810,10 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         case CODE_COMV|RET_STR:
         case CODE_COMV|RET_FLOAT:
         case CODE_COMV|RET_INT: {
-            Ident *id = cstate.identmap[op >> 13];
+            Ident *id = cs.identmap[op >> 13];
             int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
             result.force_null();
-            ((CommandFuncTv)id->fun)(cstate, &args[offset], callargs);
+            ((CommandFuncTv)id->fun)(cs, &args[offset], callargs);
             result.force(op & CODE_RET_MASK);
             free_args(args, numargs, offset);
             continue;
@@ -2820,13 +2822,13 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         case CODE_COMC|RET_STR:
         case CODE_COMC|RET_FLOAT:
         case CODE_COMC|RET_INT: {
-            Ident *id = cstate.identmap[op >> 13];
+            Ident *id = cs.identmap[op >> 13];
             int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
             result.force_null();
             {
                 ostd::Vector<char> buf;
                 buf.reserve(256);
-                ((CommandFunc1)id->fun)(cstate, conc(buf, &args[offset], callargs, true));
+                ((CommandFunc1)id->fun)(cs, conc(buf, &args[offset], callargs, true));
             }
             result.force(op & CODE_RET_MASK);
             free_args(args, numargs, offset);
@@ -2863,14 +2865,14 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         }
 
         case CODE_ALIAS:
-            cstate.identmap[op >> 8]->set_alias(cstate, args[--numargs]);
+            cs.identmap[op >> 8]->set_alias(cs, args[--numargs]);
             continue;
         case CODE_ALIASARG:
-            cstate.identmap[op >> 8]->set_arg(cstate, args[--numargs]);
+            cs.identmap[op >> 8]->set_arg(cs, args[--numargs]);
             continue;
         case CODE_ALIASU:
             numargs -= 2;
-            cstate.set_alias(args[numargs].get_str(), args[numargs + 1]);
+            cs.set_alias(args[numargs].get_str(), args[numargs + 1]);
             args[numargs].cleanup();
             continue;
 
@@ -2887,34 +2889,34 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
 #define CALLALIAS { \
                 IdentStack argstack[MAX_ARGUMENTS]; \
                 for(int i = 0; i < callargs; i++) \
-                    cstate.identmap[i]->push_arg(args[offset + i], argstack[i]); \
-                int oldargs = cstate.numargs; \
-                cstate.numargs = callargs; \
-                int oldflags = cstate.identflags; \
-                cstate.identflags |= id->flags&IDF_OVERRIDDEN; \
-                IdentLink aliaslink = { id, cstate.stack, (1<<callargs)-1, argstack }; \
-                cstate.stack = &aliaslink; \
-                if(!id->code) id->code = compilecode(id->get_str()); \
+                    cs.identmap[i]->push_arg(args[offset + i], argstack[i]); \
+                int oldargs = cs.numargs; \
+                cs.numargs = callargs; \
+                int oldflags = cs.identflags; \
+                cs.identflags |= id->flags&IDF_OVERRIDDEN; \
+                IdentLink aliaslink = { id, cs.stack, (1<<callargs)-1, argstack }; \
+                cs.stack = &aliaslink; \
+                if(!id->code) id->code = compilecode(cs, id->get_str()); \
                 ostd::uint *code = id->code; \
                 code[0] += 0x100; \
-                runcode(code+1, result); \
+                runcode(cs, code+1, result); \
                 code[0] -= 0x100; \
                 if(int(code[0]) < 0x100) delete[] code; \
-                cstate.stack = aliaslink.next; \
-                cstate.identflags = oldflags; \
+                cs.stack = aliaslink.next; \
+                cs.identflags = oldflags; \
                 for(int i = 0; i < callargs; i++) \
-                    cstate.identmap[i]->pop_arg(); \
+                    cs.identmap[i]->pop_arg(); \
                 for(int argmask = aliaslink.usedargs&(~0<<callargs), i = callargs; argmask; i++) \
-                    if(argmask&(1<<i)) { cstate.identmap[i]->pop_arg(); argmask &= ~(1<<i); } \
+                    if(argmask&(1<<i)) { cs.identmap[i]->pop_arg(); argmask &= ~(1<<i); } \
                 result.force(op&CODE_RET_MASK); \
-                cstate.numargs = oldargs; \
+                cs.numargs = oldargs; \
                 numargs = SKIPARGS(offset); \
             }
             result.force_null();
-            Ident *id = cstate.identmap[op >> 13];
+            Ident *id = cs.identmap[op >> 13];
             int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
             if (id->flags & IDF_UNKNOWN) {
-                cstate.debug_code("unknown command: %s", id->name);
+                cs.debug_code("unknown command: %s", id->name);
                 FORCERESULT;
             }
             CALLALIAS;
@@ -2925,9 +2927,9 @@ static const ostd::uint *runcode(const ostd::uint *code, TaggedValue &result) {
         case CODE_CALLARG|RET_FLOAT:
         case CODE_CALLARG|RET_INT: {
             result.force_null();
-            Ident *id = cstate.identmap[op >> 13];
+            Ident *id = cs.identmap[op >> 13];
             int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
-            if (!(cstate.stack->usedargs & (1 << id->index))) FORCERESULT;
+            if (!(cs.stack->usedargs & (1 << id->index))) FORCERESULT;
             CALLALIAS;
             continue;
         }
@@ -2948,11 +2950,11 @@ litval:
                 while (--numargs >= offset) args[numargs].cleanup();
                 continue;
             }
-            Ident *id = cstate.idents.at(idarg.s);
+            Ident *id = cs.idents.at(idarg.s);
             if (!id) {
 noid:
                 if (check_num(idarg.s)) goto litval;
-                cstate.debug_code("unknown command: %s", idarg.s);
+                cs.debug_code("unknown command: %s", idarg.s);
                 result.force_null();
                 FORCERESULT;
             }
@@ -2963,32 +2965,32 @@ noid:
             /* fallthrough */
             case ID_COMMAND:
                 idarg.cleanup();
-                callcommand(id, &args[offset], callargs);
+                callcommand(cs, id, &args[offset], callargs);
                 result.force(op & CODE_RET_MASK);
                 numargs = offset - 1;
                 continue;
             case ID_LOCAL: {
                 IdentStack locals[MAX_ARGUMENTS];
                 idarg.cleanup();
-                for (ostd::Size j = 0; j < ostd::Size(callargs); ++j) cstate.force_ident(args[offset + j])->push_alias(locals[j]);
-                code = runcode(code, result);
+                for (ostd::Size j = 0; j < ostd::Size(callargs); ++j) cs.force_ident(args[offset + j])->push_alias(locals[j]);
+                code = runcode(cs, code, result);
                 for (ostd::Size j = 0; j < ostd::Size(callargs); ++j) args[offset + j].id->pop_alias();
                 goto exit;
             }
             case ID_VAR:
                 if (callargs <= 0) printvar(id);
-                else cstate.set_var_int_checked(id, ostd::iter(&args[offset], callargs));
+                else cs.set_var_int_checked(id, ostd::iter(&args[offset], callargs));
                 FORCERESULT;
             case ID_FVAR:
                 if (callargs <= 0) printvar(id);
-                else cstate.set_var_float_checked(id, args[offset].force_float());
+                else cs.set_var_float_checked(id, args[offset].force_float());
                 FORCERESULT;
             case ID_SVAR:
                 if (callargs <= 0) printvar(id);
-                else cstate.set_var_str_checked(id, args[offset].force_str());
+                else cs.set_var_str_checked(id, args[offset].force_str());
                 FORCERESULT;
             case ID_ALIAS:
-                if (id->index < MAX_ARGUMENTS && !(cstate.stack->usedargs & (1 << id->index))) FORCERESULT;
+                if (id->index < MAX_ARGUMENTS && !(cs.stack->usedargs & (1 << id->index))) FORCERESULT;
                 if (id->valtype == VAL_NULL) goto noid;
                 idarg.cleanup();
                 CALLALIAS;
@@ -2999,29 +3001,29 @@ noid:
         }
     }
 exit:
-    cstate.result = prevret;
+    cs.result = prevret;
     --rundepth;
     return code;
 }
 
-void executeret(const ostd::uint *code, TaggedValue &result) {
-    runcode(code, result);
+void executeret(CsState &cs, const ostd::uint *code, TaggedValue &result) {
+    runcode(cs, code, result);
 }
 
-void executeret(const char *p, TaggedValue &result) {
-    GenState gs(cstate);
+void executeret(CsState &cs, const char *p, TaggedValue &result) {
+    GenState gs(cs);
     gs.code.reserve(64);
     gs.gen_main(p, VAL_ANY);
-    runcode(gs.code.data() + 1, result);
+    runcode(cs, gs.code.data() + 1, result);
     if (int(gs.code[0]) >= 0x100) gs.code.disown();
 }
 
-void executeret(Ident *id, TaggedValue *args, int numargs, TaggedValue &result) {
+void executeret(CsState &cs, Ident *id, TaggedValue *args, int numargs, TaggedValue &result) {
     result.set_null();
     ++rundepth;
-    TaggedValue *prevret = cstate.result;
-    cstate.result = &result;
-    if (rundepth > MAXRUNDEPTH) cstate.debug_code("exceeded recursion limit");
+    TaggedValue *prevret = cs.result;
+    cs.result = &result;
+    if (rundepth > MAXRUNDEPTH) cs.debug_code("exceeded recursion limit");
     else if (id) switch (id->type) {
         default:
             if (!id->fun) break;
@@ -3030,24 +3032,24 @@ void executeret(Ident *id, TaggedValue *args, int numargs, TaggedValue &result) 
             if (numargs < id->numargs) {
                 TaggedValue buf[MAX_ARGUMENTS];
                 memcpy(buf, args, numargs * sizeof(TaggedValue));
-                callcommand(id, buf, numargs, false);
-            } else callcommand(id, args, numargs, false);
+                callcommand(cs, id, buf, numargs, false);
+            } else callcommand(cs, id, args, numargs, false);
             numargs = 0;
             break;
         case ID_VAR:
             if (numargs <= 0) printvar(id);
-            else cstate.set_var_int_checked(id, ostd::iter(args, numargs));
+            else cs.set_var_int_checked(id, ostd::iter(args, numargs));
             break;
         case ID_FVAR:
             if (numargs <= 0) printvar(id);
-            else cstate.set_var_float_checked(id, args[0].force_float());
+            else cs.set_var_float_checked(id, args[0].force_float());
             break;
         case ID_SVAR:
             if (numargs <= 0) printvar(id);
-            else cstate.set_var_str_checked(id, args[0].force_str());
+            else cs.set_var_str_checked(id, args[0].force_str());
             break;
         case ID_ALIAS:
-            if (id->index < MAX_ARGUMENTS && !(cstate.stack->usedargs & (1 << id->index))) break;
+            if (id->index < MAX_ARGUMENTS && !(cs.stack->usedargs & (1 << id->index))) break;
             if (id->valtype == VAL_NULL) break;
 #define callargs numargs
 #define offset 0
@@ -3061,13 +3063,13 @@ void executeret(Ident *id, TaggedValue *args, int numargs, TaggedValue &result) 
             break;
         }
     free_args(args, numargs, 0);
-    cstate.result = prevret;
+    cs.result = prevret;
     --rundepth;
 }
 
 ostd::String CsState::run_str(const ostd::uint *code) {
     TaggedValue result;
-    runcode(code, result);
+    runcode(*this, code, result);
     if (result.type == VAL_NULL) return ostd::String();
     result.force_str();
     ostd::String ret(result.s);
@@ -3078,7 +3080,7 @@ ostd::String CsState::run_str(const ostd::uint *code) {
 ostd::String CsState::run_str(ostd::ConstCharRange code) {
     TaggedValue result;
     /* FIXME range */
-    executeret(code.data(), result);
+    executeret(*this, code.data(), result);
     if (result.type == VAL_NULL) return ostd::String();
     result.force_str();
     ostd::String ret(result.s);
@@ -3088,7 +3090,7 @@ ostd::String CsState::run_str(ostd::ConstCharRange code) {
 
 ostd::String CsState::run_str(Ident *id, ostd::PointerRange<TaggedValue> args) {
     TaggedValue result;
-    executeret(id, args.data(), int(args.size()), result);
+    executeret(*this, id, args.data(), int(args.size()), result);
     if (result.type == VAL_NULL) return nullptr;
     result.force_str();
     ostd::String ret(result.s);
@@ -3098,18 +3100,18 @@ ostd::String CsState::run_str(Ident *id, ostd::PointerRange<TaggedValue> args) {
 
 int CsState::run_int(const ostd::uint *code) {
     TaggedValue result;
-    runcode(code, result);
+    runcode(*this, code, result);
     int i = result.get_int();
     result.cleanup();
     return i;
 }
 
 int CsState::run_int(ostd::ConstCharRange p) {
-    GenState gs(cstate);
+    GenState gs(*this);
     gs.code.reserve(64);
     gs.gen_main(p.data(), VAL_INT);
     TaggedValue result;
-    runcode(gs.code.data() + 1, result);
+    runcode(*this, gs.code.data() + 1, result);
     if (int(gs.code[0]) >= 0x100) gs.code.disown();
     int i = result.get_int();
     result.cleanup();
@@ -3118,7 +3120,7 @@ int CsState::run_int(ostd::ConstCharRange p) {
 
 int CsState::run_int(Ident *id, ostd::PointerRange<TaggedValue> args) {
     TaggedValue result;
-    executeret(id, args.data(), int(args.size()), result);
+    executeret(*this, id, args.data(), int(args.size()), result);
     int i = result.get_int();
     result.cleanup();
     return i;
@@ -3126,7 +3128,7 @@ int CsState::run_int(Ident *id, ostd::PointerRange<TaggedValue> args) {
 
 float CsState::run_float(const ostd::uint *code) {
     TaggedValue result;
-    runcode(code, result);
+    runcode(*this, code, result);
     float f = result.get_float();
     result.cleanup();
     return f;
@@ -3134,7 +3136,7 @@ float CsState::run_float(const ostd::uint *code) {
 
 float CsState::run_float(ostd::ConstCharRange code) {
     TaggedValue result;
-    executeret(code.data(), result);
+    executeret(*this, code.data(), result);
     float f = result.get_float();
     result.cleanup();
     return f;
@@ -3142,7 +3144,7 @@ float CsState::run_float(ostd::ConstCharRange code) {
 
 float CsState::run_float(Ident *id, ostd::PointerRange<TaggedValue> args) {
     TaggedValue result;
-    executeret(id, args.data(), int(args.size()), result);
+    executeret(*this, id, args.data(), int(args.size()), result);
     float f = result.get_float();
     result.cleanup();
     return f;
@@ -3150,7 +3152,7 @@ float CsState::run_float(Ident *id, ostd::PointerRange<TaggedValue> args) {
 
 bool CsState::run_bool(const ostd::uint *code) {
     TaggedValue result;
-    runcode(code, result);
+    runcode(*this, code, result);
     bool b = getbool(result);
     result.cleanup();
     return b;
@@ -3158,7 +3160,7 @@ bool CsState::run_bool(const ostd::uint *code) {
 
 bool CsState::run_bool(ostd::ConstCharRange code) {
     TaggedValue result;
-    executeret(code.data(), result);
+    executeret(*this, code.data(), result);
     bool b = getbool(result);
     result.cleanup();
     return b;
@@ -3166,14 +3168,14 @@ bool CsState::run_bool(ostd::ConstCharRange code) {
 
 bool CsState::run_bool(Ident *id, ostd::PointerRange<TaggedValue> args) {
     TaggedValue result;
-    executeret(id, args.data(), int(args.size()), result);
+    executeret(*this, id, args.data(), int(args.size()), result);
     bool b = getbool(result);
     result.cleanup();
     return b;
 }
 
 bool CsState::run_file(ostd::ConstCharRange fname, bool msg) {
-    ostd::ConstCharRange oldsrcfile = cstate.src_file, oldsrcstr = cstate.src_str;
+    ostd::ConstCharRange oldsrcfile = src_file, oldsrcstr = src_str;
     char *buf = nullptr;
     ostd::Size len;
 
@@ -3188,11 +3190,11 @@ bool CsState::run_file(ostd::ConstCharRange fname, bool msg) {
     }
     buf[len] = '\0';
 
-    cstate.src_file = fname;
-    cstate.src_str = ostd::ConstCharRange(buf, len);
-    cstate.run_int(buf);
-    cstate.src_file = oldsrcfile;
-    cstate.src_str = oldsrcstr;
+    src_file = fname;
+    src_str = ostd::ConstCharRange(buf, len);
+    run_int(buf);
+    src_file = oldsrcfile;
+    src_str = oldsrcstr;
     delete[] buf;
     return true;
 
@@ -3242,12 +3244,12 @@ const char *escapestring(const char *s) {
     return buf.data();
 }
 
-ICOMMAND(escape, "s", (CsState &, char *s), result(escapestring(s)));
-ICOMMAND(unescape, "s", (CsState &, char *s), {
+ICOMMAND(escape, "s", (CsState &cs, char *s), result(cs, escapestring(s)));
+ICOMMAND(unescape, "s", (CsState &cs, char *s), {
     int len = strlen(s);
     char *d = new char[len + 1];
     unescapestring(d, s, &s[len]);
-    stringret(d);
+    stringret(cs, d);
 });
 
 const char *escapeid(const char *s) {
@@ -3311,17 +3313,17 @@ const char *floatstr(float v) {
 #undef ICOMMANDSNAME
 #define ICOMMANDSNAME _stdcmd
 
-ICOMMANDK(do, ID_DO, "e", (CsState &cs, ostd::uint *body), executeret(body, *cs.result));
+ICOMMANDK(do, ID_DO, "e", (CsState &cs, ostd::uint *body), executeret(cs, body, *cs.result));
 
 static void doargs(CsState &cs, ostd::uint *body) {
-    if (cstate.stack != &cstate.noalias) {
-        cs_do_args(cs, [&]() { executeret(body, *cs.result); });
-    } else executeret(body, *cs.result);
+    if (cs.stack != &cs.noalias) {
+        cs_do_args(cs, [&]() { executeret(cs, body, *cs.result); });
+    } else executeret(cs, body, *cs.result);
 }
 COMMANDK(doargs, ID_DOARGS, "e");
 
-ICOMMANDK(if, ID_IF, "tee", (CsState &cs, TaggedValue *cond, ostd::uint *t, ostd::uint *f), executeret(getbool(*cond) ? t : f, *cs.result));
-ICOMMAND(?, "tTT", (CsState &, TaggedValue *cond, TaggedValue *t, TaggedValue *f), result(*(getbool(*cond) ? t : f)));
+ICOMMANDK(if, ID_IF, "tee", (CsState &cs, TaggedValue *cond, ostd::uint *t, ostd::uint *f), executeret(cs, getbool(*cond) ? t : f, *cs.result));
+ICOMMAND(?, "tTT", (CsState &cs, TaggedValue *cond, TaggedValue *t, TaggedValue *f), result(cs, *(getbool(*cond) ? t : f)));
 
 ICOMMAND(pushif, "rTe", (CsState &cs, Ident *id, TaggedValue *v, ostd::uint *code), {
     if (id->type != ID_ALIAS || id->index < MAX_ARGUMENTS) return;
@@ -3330,7 +3332,7 @@ ICOMMAND(pushif, "rTe", (CsState &cs, Ident *id, TaggedValue *v, ostd::uint *cod
         id->push_arg(*v, stack);
         v->type = VAL_NULL;
         id->flags &= ~IDF_UNKNOWN;
-        executeret(code, *cs.result);
+        executeret(cs, code, *cs.result);
         id->pop_arg();
     }
 });
@@ -3382,14 +3384,14 @@ ICOMMAND(loopwhile+*, "riiiee", (CsState &cs, Ident *id, int *offset, int *step,
 
 ICOMMAND(while, "ee", (CsState &cs, ostd::uint *cond, ostd::uint *body), while (cs.run_bool(cond)) cs.run_int(body));
 
-static inline void loopconc(Ident &id, int offset, int n, int step, ostd::uint *body, bool space) {
+static inline void loopconc(CsState &cs, Ident &id, int offset, int n, int step, ostd::uint *body, bool space) {
     if (n <= 0 || id.type != ID_ALIAS) return;
     IdentStack stack;
     ostd::Vector<char> s;
     for (int i = 0; i < n; ++i) {
         setiter(id, offset + i * step, stack);
         TaggedValue v;
-        executeret(body, v);
+        executeret(cs, body, v);
         const char *vstr = v.get_str();
         int len = strlen(vstr);
         if (space && i) s.push(' ');
@@ -3398,16 +3400,16 @@ static inline void loopconc(Ident &id, int offset, int n, int step, ostd::uint *
     }
     if (n > 0) id.pop_arg();
     s.push('\0');
-    cstate.result->set_str(s.disown());
+    cs.result->set_str(s.disown());
 }
-ICOMMAND(loopconcat, "rie", (CsState &, Ident *id, int *n, ostd::uint *body), loopconc(*id, 0, *n, 1, body, true));
-ICOMMAND(loopconcat+, "riie", (CsState &, Ident *id, int *offset, int *n, ostd::uint *body), loopconc(*id, *offset, *n, 1, body, true));
-ICOMMAND(loopconcat*, "riie", (CsState &, Ident *id, int *step, int *n, ostd::uint *body), loopconc(*id, 0, *n, *step, body, true));
-ICOMMAND(loopconcat+*, "riiie", (CsState &, Ident *id, int *offset, int *step, int *n, ostd::uint *body), loopconc(*id, *offset, *n, *step, body, true));
-ICOMMAND(loopconcatword, "rie", (CsState &, Ident *id, int *n, ostd::uint *body), loopconc(*id, 0, *n, 1, body, false));
-ICOMMAND(loopconcatword+, "riie", (CsState &, Ident *id, int *offset, int *n, ostd::uint *body), loopconc(*id, *offset, *n, 1, body, false));
-ICOMMAND(loopconcatword*, "riie", (CsState &, Ident *id, int *step, int *n, ostd::uint *body), loopconc(*id, 0, *n, *step, body, false));
-ICOMMAND(loopconcatword+*, "riiie", (CsState &, Ident *id, int *offset, int *step, int *n, ostd::uint *body), loopconc(*id, *offset, *n, *step, body, false));
+ICOMMAND(loopconcat, "rie", (CsState &cs, Ident *id, int *n, ostd::uint *body), loopconc(cs, *id, 0, *n, 1, body, true));
+ICOMMAND(loopconcat+, "riie", (CsState &cs, Ident *id, int *offset, int *n, ostd::uint *body), loopconc(cs, *id, *offset, *n, 1, body, true));
+ICOMMAND(loopconcat*, "riie", (CsState &cs, Ident *id, int *step, int *n, ostd::uint *body), loopconc(cs, *id, 0, *n, *step, body, true));
+ICOMMAND(loopconcat+*, "riiie", (CsState &cs, Ident *id, int *offset, int *step, int *n, ostd::uint *body), loopconc(cs, *id, *offset, *n, *step, body, true));
+ICOMMAND(loopconcatword, "rie", (CsState &cs, Ident *id, int *n, ostd::uint *body), loopconc(cs, *id, 0, *n, 1, body, false));
+ICOMMAND(loopconcatword+, "riie", (CsState &cs, Ident *id, int *offset, int *n, ostd::uint *body), loopconc(cs, *id, *offset, *n, 1, body, false));
+ICOMMAND(loopconcatword*, "riie", (CsState &cs, Ident *id, int *step, int *n, ostd::uint *body), loopconc(cs, *id, 0, *n, *step, body, false));
+ICOMMAND(loopconcatword+*, "riiie", (CsState &cs, Ident *id, int *offset, int *step, int *n, ostd::uint *body), loopconc(cs, *id, *offset, *n, *step, body, false));
 
 void concat(CsState &cs, TaggedValue *v, int n) {
     cs.result->set_str(conc(v, n, true));
@@ -3419,17 +3421,17 @@ void concatword(CsState &cs, TaggedValue *v, int n) {
 }
 COMMAND(concatword, "V");
 
-void result(TaggedValue &v) {
-    *cstate.result = v;
+void result(CsState &cs, TaggedValue &v) {
+    *cs.result = v;
     v.type = VAL_NULL;
 }
 
-void stringret(char *s) {
-    cstate.result->set_str(s);
+void stringret(CsState &cs, char *s) {
+    cs.result->set_str(s);
 }
 
-void result(const char *s) {
-    cstate.result->set_str(dup_ostr(s));
+void result(CsState &cs, const char *s) {
+    cs.result->set_str(dup_ostr(s));
 }
 
 ICOMMANDK(result, ID_RESULT, "T", (CsState &cs, TaggedValue *v), {
@@ -3636,7 +3638,7 @@ void listassoc(CsState &cs, Ident *id, const char *list, const ostd::uint *body)
         ++n;
         setiter(*id, dup_ostr(ostd::ConstCharRange(start, end - start)), stack);
         if (cs.run_bool(body)) {
-            if (parselist(s, start, end, qstart)) stringret(listelem(start, end, qstart).disown());
+            if (parselist(s, start, end, qstart)) stringret(cs, listelem(start, end, qstart).disown());
             break;
         }
         if (!parselist(s)) break;
@@ -3663,12 +3665,12 @@ LISTFIND(listfind=f, "f", float, , parsefloat(start) == *val);
 LISTFIND(listfind=s, "s", char, int len = (int)strlen(val), int(end - start) == len && !memcmp(start, val, len));
 
 #define LISTASSOC(name, fmt, type, init, cmp) \
-    ICOMMAND(name, "s" fmt, (CsState &, char *list, type *val), \
+    ICOMMAND(name, "s" fmt, (CsState &cs, char *list, type *val), \
     { \
         init; \
         for(const char *s = list, *start, *end, *qstart; parselist(s, start, end);) \
         { \
-            if(cmp) { if(parselist(s, start, end, qstart)) stringret(listelem(start, end, qstart).disown()); return; } \
+            if(cmp) { if(parselist(s, start, end, qstart)) stringret(cs, listelem(start, end, qstart).disown()); return; } \
             if(!parselist(s)) break; \
         } \
     });
@@ -3734,7 +3736,7 @@ void looplistconc(CsState &cs, Ident *id, const char *list, const ostd::uint *bo
         if (n && space) r.push(' ');
 
         TaggedValue v;
-        executeret(body, v);
+        executeret(cs, body, v);
         const char *vstr = v.get_str();
         int len = strlen(vstr);
         r.push_n(vstr, len);
@@ -4045,7 +4047,7 @@ ICOMMANDK(&&, ID_AND, "E1V", (CsState &cs, TaggedValue *args, int numargs), {
     if (!numargs) cs.result->set_int(1);
     else for (int i = 0; i < numargs; ++i) {
             if (i) cs.result->cleanup();
-            if (args[i].type == VAL_CODE) executeret(args[i].code, *cs.result);
+            if (args[i].type == VAL_CODE) executeret(cs, args[i].code, *cs.result);
             else *cs.result = args[i];
             if (!getbool(*cs.result)) break;
         }
@@ -4054,7 +4056,7 @@ ICOMMANDK( ||, ID_OR, "E1V", (CsState &cs, TaggedValue *args, int numargs), {
     if (!numargs) cs.result->set_int(0);
     else for (int i = 0; i < numargs; ++i) {
             if (i) cs.result->cleanup();
-            if (args[i].type == VAL_CODE) executeret(args[i].code, *cs.result);
+            if (args[i].type == VAL_CODE) executeret(cs, args[i].code, *cs.result);
             else *cs.result = args[i];
             if (getbool(*cs.result)) break;
         }
@@ -4157,11 +4159,11 @@ ICOMMAND(cond, "ee2V", (CsState &cs, TaggedValue *args, int numargs), {
     for (int i = 0; i < numargs; i += 2) {
         if (i + 1 < numargs) {
             if (cs.run_bool(args[i].code)) {
-                executeret(args[i + 1].code, *cs.result);
+                executeret(cs, args[i + 1].code, *cs.result);
                 break;
             }
         } else {
-            executeret(args[i].code, *cs.result);
+            executeret(cs, args[i].code, *cs.result);
             break;
         }
     }
@@ -4176,7 +4178,7 @@ ICOMMAND(cond, "ee2V", (CsState &cs, TaggedValue *args, int numargs), {
         { \
             if(compare) \
             { \
-                executeret(args[i+1].code, *cs.result); \
+                executeret(cs, args[i+1].code, *cs.result); \
                 return; \
             } \
         } \
@@ -4186,11 +4188,11 @@ CASECOMMAND(case, "i", int, args[0].get_int(), args[i].type == VAL_NULL || args[
 CASECOMMAND(casef, "f", float, args[0].get_float(), args[i].type == VAL_NULL || args[i].get_float() == val);
 CASECOMMAND(cases, "s", const char *, args[0].get_str(), args[i].type == VAL_NULL || !strcmp(args[i].get_str(), val));
 
-ICOMMAND(tohex, "ii", (CsState &, int *n, int *p), {
+ICOMMAND(tohex, "ii", (CsState &cs, int *n, int *p), {
     auto r = ostd::appender<ostd::Vector<char>>();
     ostd::format(r, "0x%.*X", ostd::max(*p, 1), *n);
     r.put('\0');
-    stringret(r.get().disown());
+    stringret(cs, r.get().disown());
 });
 
 #define CMPSCMD(name, op) \
@@ -4218,16 +4220,16 @@ ICOMMAND(echo, "C", (CsState &, char *s), printf("%s\n", s));
 ICOMMAND(strstr, "ss", (CsState &cs, char *a, char *b), { char *s = strstr(a, b); cs.result->set_int(s ? s - a : -1); });
 ICOMMAND(strlen, "s", (CsState &cs, char *s), cs.result->set_int(strlen(s)));
 ICOMMAND(strcode, "si", (CsState &cs, char *s, int *i), cs.result->set_int(*i > 0 ? (memchr(s, 0, *i) ? 0 : ostd::byte(s[*i])) : ostd::byte(s[0])));
-ICOMMAND(codestr, "i", (CsState &, int *i), { char *s = new char[2]; s[0] = char(*i); s[1] = '\0'; stringret(s); });
+ICOMMAND(codestr, "i", (CsState &cs, int *i), { char *s = new char[2]; s[0] = char(*i); s[1] = '\0'; stringret(cs, s); });
 
 #define STRMAPCOMMAND(name, map) \
-    ICOMMAND(name, "s", (CsState &, char *s), \
+    ICOMMAND(name, "s", (CsState &cs, char *s), \
     { \
         int len = strlen(s); \
         char *m = new char[len + 1]; \
         for (int i = 0; i < len; ++i) m[i] = map(s[i]); \
         m[len] = '\0'; \
-        stringret(m); \
+        stringret(cs, m); \
     })
 
 STRMAPCOMMAND(strlower, tolower);
