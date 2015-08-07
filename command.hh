@@ -595,18 +595,12 @@ extern void printvar(Ident *id, int i);
 extern void printfvar(Ident *id, float f);
 extern void printsvar(Ident *id, const char *s);
 
-#define COMMANDKN(name, type, fun, nargs) static bool __dummy_##fun = cstate.add_command(#name, nargs, (IdentFunc)fun, type)
-#define COMMANDK(name, type, nargs) COMMANDKN(name, type, name, nargs)
-#define COMMAND(name, nargs) COMMANDK(name, ID_COMMAND, nargs)
+#define COMMAND(name, nargs) static bool __dummy_##name = cstate.add_command(#name, nargs, (IdentFunc)name, ID_COMMAND)
 
 #define ICOMMANDNAME(name) _icmd_##name
 #define ICOMMANDSNAME _icmds_
-#define ICOMMANDKNS(name, type, cmdname, nargs, proto, b) template<int N> struct cmdname; template<> struct cmdname<__LINE__> { static bool init; static void run proto; }; bool cmdname<__LINE__>::init = cstate.add_command(name, nargs, (IdentFunc)cmdname<__LINE__>::run, type); void cmdname<__LINE__>::run proto \
+#define ICOMMANDNS(name, cmdname, nargs, proto, b) template<int N> struct cmdname; template<> struct cmdname<__LINE__> { static bool init; static void run proto; }; bool cmdname<__LINE__>::init = cstate.add_command(name, nargs, (IdentFunc)cmdname<__LINE__>::run, ID_COMMAND); void cmdname<__LINE__>::run proto \
     { b; }
-#define ICOMMANDKN(name, type, cmdname, nargs, proto, b) ICOMMANDKNS(#name, type, cmdname, nargs, proto, b)
-#define ICOMMANDK(name, type, nargs, proto, b) ICOMMANDKN(name, type, ICOMMANDNAME(name), nargs, proto, b)
-#define ICOMMANDKS(name, type, nargs, proto, b) ICOMMANDKNS(name, type, ICOMMANDSNAME, nargs, proto, b)
-#define ICOMMANDNS(name, cmdname, nargs, proto, b) ICOMMANDKNS(name, ID_COMMAND, cmdname, nargs, proto, b)
 #define ICOMMANDN(name, cmdname, nargs, proto, b) ICOMMANDNS(#name, cmdname, nargs, proto, b)
 #define ICOMMAND(name, nargs, proto, b) ICOMMANDN(name, ICOMMANDNAME(name), nargs, proto, b)
 #define ICOMMANDS(name, nargs, proto, b) ICOMMANDNS(name, ICOMMANDSNAME, nargs, proto, b)

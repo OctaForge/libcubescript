@@ -3295,6 +3295,64 @@ bool validateblock(const char *s) {
 /* standard lib */
 
 void init_lib_base(CsState &cs) {
+    cs.add_command("do", "e", [](CsState &cs, ostd::uint *body) {
+        cs.run_ret(body);
+    }, ID_DO);
+
+    cs.add_command("doargs", "e", [](CsState &cs, ostd::uint *body) {
+        if (cs.stack != &cs.noalias)
+            cs_do_args(cs, [&]() { cs.run_ret(body); });
+        else
+            cs.run_ret(body);
+    }, ID_DOARGS);
+
+    cs.add_command("if", "tee", [](CsState &cs, TaggedValue *cond,
+                                   ostd::uint *t, ostd::uint *f) {
+        cs.run_ret(getbool(*cond) ? t : f);
+    }, ID_IF);
+
+    cs.add_command("result", "T", [](CsState &cs, TaggedValue *v) {
+        *cs.result = *v;
+        v->type = VAL_NULL;
+    }, ID_RESULT);
+
+    cs.add_command("!", "t", [](CsState &cs, TaggedValue *a) {
+        cs.result->set_int(!getbool(*a));
+    }, ID_NOT);
+
+    cs.add_command("&&", "E1V", [](CsState &cs, TaggedValue *args,
+                                   int numargs) {
+        if (!numargs)
+            cs.result->set_int(1);
+        else for (int i = 0; i < numargs; ++i) {
+            if (i) cs.result->cleanup();
+            if (args[i].type == VAL_CODE)
+                cs.run_ret(args[i].code);
+            else
+                *cs.result = args[i];
+            if (!getbool(*cs.result)) break;
+        }
+    }, ID_AND);
+
+    cs.add_command("||", "E1V", [](CsState &cs, TaggedValue *args,
+                                   int numargs) {
+        if (!numargs)
+            cs.result->set_int(0);
+        else for (int i = 0; i < numargs; ++i) {
+            if (i) cs.result->cleanup();
+            if (args[i].type == VAL_CODE)
+                cs.run_ret(args[i].code);
+            else
+                *cs.result = args[i];
+            if (getbool(*cs.result)) break;
+        }
+    }, ID_OR);
+
+    cs.add_command("?", "tTT", [](CsState &cs, TaggedValue *cond,
+                                  TaggedValue *t, TaggedValue *f) {
+        result(cs, *(getbool(*cond) ? t : f));
+    });
+
     cs_init_lib_base_var(cs);
 }
 
@@ -3317,18 +3375,6 @@ const char *floatstr(float v) {
 #define ICOMMANDNAME(name) _stdcmd
 #undef ICOMMANDSNAME
 #define ICOMMANDSNAME _stdcmd
-
-ICOMMANDK(do, ID_DO, "e", (CsState &cs, ostd::uint *body), cs.run_ret(body));
-
-static void doargs(CsState &cs, ostd::uint *body) {
-    if (cs.stack != &cs.noalias) {
-        cs_do_args(cs, [&]() { cs.run_ret(body); });
-    } else cs.run_ret(body);
-}
-COMMANDK(doargs, ID_DOARGS, "e");
-
-ICOMMANDK(if, ID_IF, "tee", (CsState &cs, TaggedValue *cond, ostd::uint *t, ostd::uint *f), cs.run_ret(getbool(*cond) ? t : f));
-ICOMMAND(?, "tTT", (CsState &cs, TaggedValue *cond, TaggedValue *t, TaggedValue *f), result(cs, *(getbool(*cond) ? t : f)));
 
 ICOMMAND(pushif, "rTe", (CsState &cs, Ident *id, TaggedValue *v, ostd::uint *code), {
     if (id->type != ID_ALIAS || id->index < MAX_ARGUMENTS) return;
@@ -3438,11 +3484,6 @@ void stringret(CsState &cs, char *s) {
 void result(CsState &cs, const char *s) {
     cs.result->set_str(dup_ostr(s));
 }
-
-ICOMMANDK(result, ID_RESULT, "T", (CsState &cs, TaggedValue *v), {
-    *cs.result = *v;
-    v->type = VAL_NULL;
-});
 
 void format(CsState &cs, TaggedValue *args, int numargs) {
     ostd::Vector<char> s;
@@ -4046,27 +4087,6 @@ CMPFCMD(<);
 CMPFCMD(>);
 CMPFCMD(<=);
 CMPFCMD(>=);
-
-ICOMMANDK(!, ID_NOT, "t", (CsState &cs, TaggedValue *a), cs.result->set_int(getbool(*a) ? 0 : 1));
-ICOMMANDK(&&, ID_AND, "E1V", (CsState &cs, TaggedValue *args, int numargs), {
-    if (!numargs) cs.result->set_int(1);
-    else for (int i = 0; i < numargs; ++i) {
-            if (i) cs.result->cleanup();
-            if (args[i].type == VAL_CODE) cs.run_ret(args[i].code);
-            else *cs.result = args[i];
-            if (!getbool(*cs.result)) break;
-        }
-});
-ICOMMANDK( ||, ID_OR, "E1V", (CsState &cs, TaggedValue *args, int numargs), {
-    if (!numargs) cs.result->set_int(0);
-    else for (int i = 0; i < numargs; ++i) {
-            if (i) cs.result->cleanup();
-            if (args[i].type == VAL_CODE) cs.run_ret(args[i].code);
-            else *cs.result = args[i];
-            if (getbool(*cs.result)) break;
-        }
-});
-
 
 #define DIVCMD(name, fmt, type, op) MATHCMD(#name, fmt, type, { if(val2) op; else val = 0; }, 0, )
 
