@@ -1,7 +1,5 @@
 #include "command.hh"
 
-#define fatal printf
-
 static inline bool check_num(const char *s) {
     if (isdigit(s[0]))
         return true;
@@ -164,6 +162,47 @@ void CsState::set_alias(ostd::ConstCharRange name, TaggedValue &v) {
         v.cleanup();
     } else {
         add_ident(ID_ALIAS, name, v, identflags);
+    }
+}
+
+void CsState::print_var_int(Ident *id, int i) {
+    if (i < 0) {
+        writefln("%s = %d", id->name, i);
+        return;
+    }
+    if (id->flags & IDF_HEX) {
+        if (id->maxval == 0xFFFFFF)
+            writefln("%s = 0x%.6X (%d, %d, %d)", id->name,
+                     i, (i >> 16) & 0xFF, (i >> 8) & 0xFF, i & 0xFF);
+        else
+            writefln("%s = 0x%X", id->name, i);
+        return;
+    }
+    writefln("%s = %d", id->name, i);
+}
+
+void CsState::print_var_float(Ident *id, float f) {
+    writefln("%s = %s", id->name, floatstr(f));
+}
+
+void CsState::print_var_str(Ident *id, ostd::ConstCharRange s) {
+    if (ostd::find(s, '"').empty())
+        writefln("%s = \"%s\"", id->name, s);
+    else
+        writefln("%s = [%s]", id->name, s);
+}
+
+void CsState::print_var(Ident *id) {
+    switch (id->type) {
+    case ID_VAR:
+        print_var_int(id, *id->storage.i);
+        break;
+    case ID_FVAR:
+        print_var_float(id, *id->storage.f);
+        break;
+    case ID_SVAR:
+        print_var_str(id, *id->storage.s);
+        break;
     }
 }
 
@@ -2093,36 +2132,6 @@ void freecode(ostd::uint *code) {
     }
 }
 
-void printvar(Ident *id, int i) {
-    if (i < 0) printf("%s = %d\n", id->name.data(), i);
-    else if (id->flags & IDF_HEX && id->maxval == 0xFFFFFF)
-        printf("%s = 0x%.6X (%d, %d, %d)\n", id->name.data(), i, (i >> 16) & 0xFF, (i >> 8) & 0xFF, i & 0xFF);
-    else
-        printf(id->flags & IDF_HEX ? "%s = 0x%X\n" : "%s = %d\n", id->name.data(), i);
-}
-
-void printfvar(Ident *id, float f) {
-    printf("%s = %s\n", id->name.data(), floatstr(f));
-}
-
-void printsvar(Ident *id, const char *s) {
-    printf(strchr(s, '"') ? "%s = [%s]\n" : "%s = \"%s\"\n", id->name.data(), s);
-}
-
-void printvar(Ident *id) {
-    switch (id->type) {
-    case ID_VAR:
-        printvar(id, *id->storage.i);
-        break;
-    case ID_FVAR:
-        printfvar(id, *id->storage.f);
-        break;
-    case ID_SVAR:
-        printsvar(id, *id->storage.s);
-        break;
-    }
-}
-
 using CommandFunc = void (__cdecl *)(CsState &);
 using CommandFunc1 = void (__cdecl *)(CsState &, void *);
 using CommandFunc2 = void (__cdecl *)(CsState &, void *, void *);
@@ -2383,7 +2392,7 @@ static const ostd::uint *runcode(CsState &cs, const ostd::uint *code, TaggedValu
             result.set_null();
             continue;
         case CODE_PRINT:
-            printvar(cs.identmap[op >> 8]);
+            cs.print_var(cs.identmap[op >> 8]);
             continue;
 
         case CODE_LOCAL: {
@@ -2978,15 +2987,15 @@ noid:
                 goto exit;
             }
             case ID_VAR:
-                if (callargs <= 0) printvar(id);
+                if (callargs <= 0) cs.print_var(id);
                 else cs.set_var_int_checked(id, ostd::iter(&args[offset], callargs));
                 FORCERESULT;
             case ID_FVAR:
-                if (callargs <= 0) printvar(id);
+                if (callargs <= 0) cs.print_var(id);
                 else cs.set_var_float_checked(id, args[offset].force_float());
                 FORCERESULT;
             case ID_SVAR:
-                if (callargs <= 0) printvar(id);
+                if (callargs <= 0) cs.print_var(id);
                 else cs.set_var_str_checked(id, args[offset].force_str());
                 FORCERESULT;
             case ID_ALIAS:
@@ -3042,15 +3051,15 @@ void CsState::run_ret(Ident *id, ostd::PointerRange<TaggedValue> args,
             numargs = 0;
             break;
         case ID_VAR:
-            if (args.empty()) printvar(id);
+            if (args.empty()) print_var(id);
             else set_var_int_checked(id, args);
             break;
         case ID_FVAR:
-            if (args.empty()) printvar(id);
+            if (args.empty()) print_var(id);
             else set_var_float_checked(id, args[0].force_float());
             break;
         case ID_SVAR:
-            if (args.empty()) printvar(id);
+            if (args.empty()) print_var(id);
             else set_var_str_checked(id, args[0].force_str());
             break;
         case ID_ALIAS:
@@ -4241,7 +4250,7 @@ CMPSCMD(>s, >);
 CMPSCMD(<=s, <=);
 CMPSCMD(>=s, >=);
 
-ICOMMAND(echo, "C", (CsState &, char *s), printf("%s\n", s));
+ICOMMAND(echo, "C", (CsState &, char *s), ostd::writeln(s));
 ICOMMAND(strstr, "ss", (CsState &cs, char *a, char *b), { char *s = strstr(a, b); cs.result->set_int(s ? s - a : -1); });
 ICOMMAND(strlen, "s", (CsState &cs, char *s), cs.result->set_int(strlen(s)));
 ICOMMAND(strcode, "si", (CsState &cs, char *s, int *i), cs.result->set_int(*i > 0 ? (memchr(s, 0, *i) ? 0 : ostd::byte(s[*i])) : ostd::byte(s[0])));

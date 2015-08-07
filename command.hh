@@ -439,6 +439,11 @@ struct CsState {
     ostd::Maybe<float> get_var_max_float(ostd::ConstCharRange name);
 
     ostd::Maybe<ostd::ConstCharRange> get_alias(ostd::ConstCharRange name);
+
+    void print_var(Ident *id);
+    void print_var_int(Ident *id, int i);
+    void print_var_float(Ident *id, float f);
+    void print_var_str(Ident *id, ostd::ConstCharRange s);
 };
 
 extern CsState cstate;
@@ -590,10 +595,6 @@ extern bool validateblock(const char *s);
 void explodelist(const char *s, ostd::Vector<ostd::String> &elems, int limit = -1);
 extern char *indexlist(const char *s, int pos);
 extern int listlen(CsState &cs, const char *s);
-extern void printvar(Ident *id);
-extern void printvar(Ident *id, int i);
-extern void printfvar(Ident *id, float f);
-extern void printsvar(Ident *id, const char *s);
 
 #define COMMAND(name, nargs) static bool __dummy_##name = cstate.add_command(#name, nargs, (IdentFunc)name, ID_COMMAND)
 
