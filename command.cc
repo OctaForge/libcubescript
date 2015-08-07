@@ -674,7 +674,7 @@ bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
 static void cs_init_lib_base_var(CsState &cs) {
     cs.add_command("nodebug", "e", [](CsState &cs, ostd::uint *body) {
         ++cs.nodebug;
-        executeret(cs, body, *cs.result);
+        cs.run_ret(body);
         --cs.nodebug;
     });
 
@@ -685,7 +685,7 @@ static void cs_init_lib_base_var(CsState &cs) {
         id->push_arg(*v, stack);
         v->type = VAL_NULL;
         id->flags &= ~IDF_UNKNOWN;
-        executeret(cs, code, *cs.result);
+        cs.run_ret(code);
         id->pop_arg();
     });
 
@@ -2886,30 +2886,30 @@ static const ostd::uint *runcode(CsState &cs, const ostd::uint *code, TaggedValu
                 result.force(op&CODE_RET_MASK); \
                 continue; \
             }
-#define CALLALIAS { \
+#define CALLALIAS(cs, result) { \
                 IdentStack argstack[MAX_ARGUMENTS]; \
                 for(int i = 0; i < callargs; i++) \
-                    cs.identmap[i]->push_arg(args[offset + i], argstack[i]); \
-                int oldargs = cs.numargs; \
-                cs.numargs = callargs; \
-                int oldflags = cs.identflags; \
-                cs.identflags |= id->flags&IDF_OVERRIDDEN; \
-                IdentLink aliaslink = { id, cs.stack, (1<<callargs)-1, argstack }; \
-                cs.stack = &aliaslink; \
-                if(!id->code) id->code = compilecode(cs, id->get_str()); \
+                    (cs).identmap[i]->push_arg(args[offset + i], argstack[i]); \
+                int oldargs = (cs).numargs; \
+                (cs).numargs = callargs; \
+                int oldflags = (cs).identflags; \
+                (cs).identflags |= id->flags&IDF_OVERRIDDEN; \
+                IdentLink aliaslink = { id, (cs).stack, (1<<callargs)-1, argstack }; \
+                (cs).stack = &aliaslink; \
+                if(!id->code) id->code = compilecode((cs), id->get_str()); \
                 ostd::uint *code = id->code; \
                 code[0] += 0x100; \
-                runcode(cs, code+1, result); \
+                runcode((cs), code+1, (result)); \
                 code[0] -= 0x100; \
                 if(int(code[0]) < 0x100) delete[] code; \
-                cs.stack = aliaslink.next; \
-                cs.identflags = oldflags; \
+                (cs).stack = aliaslink.next; \
+                (cs).identflags = oldflags; \
                 for(int i = 0; i < callargs; i++) \
-                    cs.identmap[i]->pop_arg(); \
+                    (cs).identmap[i]->pop_arg(); \
                 for(int argmask = aliaslink.usedargs&(~0<<callargs), i = callargs; argmask; i++) \
-                    if(argmask&(1<<i)) { cs.identmap[i]->pop_arg(); argmask &= ~(1<<i); } \
-                result.force(op&CODE_RET_MASK); \
-                cs.numargs = oldargs; \
+                    if(argmask&(1<<i)) { (cs).identmap[i]->pop_arg(); argmask &= ~(1<<i); } \
+                (result).force(op&CODE_RET_MASK); \
+                (cs).numargs = oldargs; \
                 numargs = SKIPARGS(offset); \
             }
             result.force_null();
@@ -2919,7 +2919,7 @@ static const ostd::uint *runcode(CsState &cs, const ostd::uint *code, TaggedValu
                 cs.debug_code("unknown command: %s", id->name);
                 FORCERESULT;
             }
-            CALLALIAS;
+            CALLALIAS(cs, result);
             continue;
         }
         case CODE_CALLARG|RET_NULL:
@@ -2930,7 +2930,7 @@ static const ostd::uint *runcode(CsState &cs, const ostd::uint *code, TaggedValu
             Ident *id = cs.identmap[op >> 13];
             int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
             if (!(cs.stack->usedargs & (1 << id->index))) FORCERESULT;
-            CALLALIAS;
+            CALLALIAS(cs, result);
             continue;
         }
 #undef SKIPARGS
@@ -2993,7 +2993,7 @@ noid:
                 if (id->index < MAX_ARGUMENTS && !(cs.stack->usedargs & (1 << id->index))) FORCERESULT;
                 if (id->valtype == VAL_NULL) goto noid;
                 idarg.cleanup();
-                CALLALIAS;
+                CALLALIAS(cs, result);
                 continue;
             }
         }
@@ -3006,24 +3006,29 @@ exit:
     return code;
 }
 
-void executeret(CsState &cs, const ostd::uint *code, TaggedValue &result) {
-    runcode(cs, code, result);
+void CsState::run_ret(const ostd::uint *code, TaggedValue &result) {
+    runcode(*this, code, result);
 }
 
-void executeret(CsState &cs, const char *p, TaggedValue &result) {
-    GenState gs(cs);
+void CsState::run_ret(ostd::ConstCharRange code, TaggedValue &result) {
+    GenState gs(*this);
     gs.code.reserve(64);
-    gs.gen_main(p, VAL_ANY);
-    runcode(cs, gs.code.data() + 1, result);
-    if (int(gs.code[0]) >= 0x100) gs.code.disown();
+    /* FIXME range */
+    gs.gen_main(code.data(), VAL_ANY);
+    runcode(*this, gs.code.data() + 1, result);
+    if (int(gs.code[0]) >= 0x100)
+        gs.code.disown();
 }
 
-void executeret(CsState &cs, Ident *id, TaggedValue *args, int numargs, TaggedValue &result) {
-    result.set_null();
+/* TODO */
+void CsState::run_ret(Ident *id, ostd::PointerRange<TaggedValue> args,
+                      TaggedValue &ret) {
+    int numargs = int(args.size());
+    ret.set_null();
     ++rundepth;
-    TaggedValue *prevret = cs.result;
-    cs.result = &result;
-    if (rundepth > MAXRUNDEPTH) cs.debug_code("exceeded recursion limit");
+    TaggedValue *prevret = result;
+    result = &ret;
+    if (rundepth > MAXRUNDEPTH) debug_code("exceeded recursion limit");
     else if (id) switch (id->type) {
         default:
             if (!id->fun) break;
@@ -3031,39 +3036,39 @@ void executeret(CsState &cs, Ident *id, TaggedValue *args, int numargs, TaggedVa
         case ID_COMMAND:
             if (numargs < id->numargs) {
                 TaggedValue buf[MAX_ARGUMENTS];
-                memcpy(buf, args, numargs * sizeof(TaggedValue));
-                callcommand(cs, id, buf, numargs, false);
-            } else callcommand(cs, id, args, numargs, false);
+                memcpy(buf, args.data(), args.size() * sizeof(TaggedValue));
+                callcommand(*this, id, buf, numargs, false);
+            } else callcommand(*this, id, args.data(), numargs, false);
             numargs = 0;
             break;
         case ID_VAR:
-            if (numargs <= 0) printvar(id);
-            else cs.set_var_int_checked(id, ostd::iter(args, numargs));
+            if (args.empty()) printvar(id);
+            else set_var_int_checked(id, args);
             break;
         case ID_FVAR:
-            if (numargs <= 0) printvar(id);
-            else cs.set_var_float_checked(id, args[0].force_float());
+            if (args.empty()) printvar(id);
+            else set_var_float_checked(id, args[0].force_float());
             break;
         case ID_SVAR:
-            if (numargs <= 0) printvar(id);
-            else cs.set_var_str_checked(id, args[0].force_str());
+            if (args.empty()) printvar(id);
+            else set_var_str_checked(id, args[0].force_str());
             break;
         case ID_ALIAS:
-            if (id->index < MAX_ARGUMENTS && !(cs.stack->usedargs & (1 << id->index))) break;
+            if (id->index < MAX_ARGUMENTS && !(stack->usedargs & (1 << id->index))) break;
             if (id->valtype == VAL_NULL) break;
 #define callargs numargs
 #define offset 0
 #define op RET_NULL
 #define SKIPARGS(offset) offset
-            CALLALIAS;
+            CALLALIAS(*this, ret);
 #undef callargs
 #undef offset
 #undef op
 #undef SKIPARGS
             break;
         }
-    free_args(args, numargs, 0);
-    cs.result = prevret;
+    free_args(args.data(), numargs, 0);
+    result = prevret;
     --rundepth;
 }
 
@@ -3080,7 +3085,7 @@ ostd::String CsState::run_str(const ostd::uint *code) {
 ostd::String CsState::run_str(ostd::ConstCharRange code) {
     TaggedValue result;
     /* FIXME range */
-    executeret(*this, code.data(), result);
+    run_ret(code, result);
     if (result.type == VAL_NULL) return ostd::String();
     result.force_str();
     ostd::String ret(result.s);
@@ -3090,7 +3095,7 @@ ostd::String CsState::run_str(ostd::ConstCharRange code) {
 
 ostd::String CsState::run_str(Ident *id, ostd::PointerRange<TaggedValue> args) {
     TaggedValue result;
-    executeret(*this, id, args.data(), int(args.size()), result);
+    run_ret(id, args, result);
     if (result.type == VAL_NULL) return nullptr;
     result.force_str();
     ostd::String ret(result.s);
@@ -3120,7 +3125,7 @@ int CsState::run_int(ostd::ConstCharRange p) {
 
 int CsState::run_int(Ident *id, ostd::PointerRange<TaggedValue> args) {
     TaggedValue result;
-    executeret(*this, id, args.data(), int(args.size()), result);
+    run_ret(id, args, result);
     int i = result.get_int();
     result.cleanup();
     return i;
@@ -3136,7 +3141,7 @@ float CsState::run_float(const ostd::uint *code) {
 
 float CsState::run_float(ostd::ConstCharRange code) {
     TaggedValue result;
-    executeret(*this, code.data(), result);
+    run_ret(code, result);
     float f = result.get_float();
     result.cleanup();
     return f;
@@ -3144,7 +3149,7 @@ float CsState::run_float(ostd::ConstCharRange code) {
 
 float CsState::run_float(Ident *id, ostd::PointerRange<TaggedValue> args) {
     TaggedValue result;
-    executeret(*this, id, args.data(), int(args.size()), result);
+    run_ret(id, args, result);
     float f = result.get_float();
     result.cleanup();
     return f;
@@ -3160,7 +3165,7 @@ bool CsState::run_bool(const ostd::uint *code) {
 
 bool CsState::run_bool(ostd::ConstCharRange code) {
     TaggedValue result;
-    executeret(*this, code.data(), result);
+    run_ret(code, result);
     bool b = getbool(result);
     result.cleanup();
     return b;
@@ -3168,7 +3173,7 @@ bool CsState::run_bool(ostd::ConstCharRange code) {
 
 bool CsState::run_bool(Ident *id, ostd::PointerRange<TaggedValue> args) {
     TaggedValue result;
-    executeret(*this, id, args.data(), int(args.size()), result);
+    run_ret(id, args, result);
     bool b = getbool(result);
     result.cleanup();
     return b;
@@ -3313,16 +3318,16 @@ const char *floatstr(float v) {
 #undef ICOMMANDSNAME
 #define ICOMMANDSNAME _stdcmd
 
-ICOMMANDK(do, ID_DO, "e", (CsState &cs, ostd::uint *body), executeret(cs, body, *cs.result));
+ICOMMANDK(do, ID_DO, "e", (CsState &cs, ostd::uint *body), cs.run_ret(body));
 
 static void doargs(CsState &cs, ostd::uint *body) {
     if (cs.stack != &cs.noalias) {
-        cs_do_args(cs, [&]() { executeret(cs, body, *cs.result); });
-    } else executeret(cs, body, *cs.result);
+        cs_do_args(cs, [&]() { cs.run_ret(body); });
+    } else cs.run_ret(body);
 }
 COMMANDK(doargs, ID_DOARGS, "e");
 
-ICOMMANDK(if, ID_IF, "tee", (CsState &cs, TaggedValue *cond, ostd::uint *t, ostd::uint *f), executeret(cs, getbool(*cond) ? t : f, *cs.result));
+ICOMMANDK(if, ID_IF, "tee", (CsState &cs, TaggedValue *cond, ostd::uint *t, ostd::uint *f), cs.run_ret(getbool(*cond) ? t : f));
 ICOMMAND(?, "tTT", (CsState &cs, TaggedValue *cond, TaggedValue *t, TaggedValue *f), result(cs, *(getbool(*cond) ? t : f)));
 
 ICOMMAND(pushif, "rTe", (CsState &cs, Ident *id, TaggedValue *v, ostd::uint *code), {
@@ -3332,7 +3337,7 @@ ICOMMAND(pushif, "rTe", (CsState &cs, Ident *id, TaggedValue *v, ostd::uint *cod
         id->push_arg(*v, stack);
         v->type = VAL_NULL;
         id->flags &= ~IDF_UNKNOWN;
-        executeret(cs, code, *cs.result);
+        cs.run_ret(code);
         id->pop_arg();
     }
 });
@@ -3391,7 +3396,7 @@ static inline void loopconc(CsState &cs, Ident &id, int offset, int n, int step,
     for (int i = 0; i < n; ++i) {
         setiter(id, offset + i * step, stack);
         TaggedValue v;
-        executeret(cs, body, v);
+        cs.run_ret(body, v);
         const char *vstr = v.get_str();
         int len = strlen(vstr);
         if (space && i) s.push(' ');
@@ -3736,7 +3741,7 @@ void looplistconc(CsState &cs, Ident *id, const char *list, const ostd::uint *bo
         if (n && space) r.push(' ');
 
         TaggedValue v;
-        executeret(cs, body, v);
+        cs.run_ret(body, v);
         const char *vstr = v.get_str();
         int len = strlen(vstr);
         r.push_n(vstr, len);
@@ -4047,7 +4052,7 @@ ICOMMANDK(&&, ID_AND, "E1V", (CsState &cs, TaggedValue *args, int numargs), {
     if (!numargs) cs.result->set_int(1);
     else for (int i = 0; i < numargs; ++i) {
             if (i) cs.result->cleanup();
-            if (args[i].type == VAL_CODE) executeret(cs, args[i].code, *cs.result);
+            if (args[i].type == VAL_CODE) cs.run_ret(args[i].code);
             else *cs.result = args[i];
             if (!getbool(*cs.result)) break;
         }
@@ -4056,7 +4061,7 @@ ICOMMANDK( ||, ID_OR, "E1V", (CsState &cs, TaggedValue *args, int numargs), {
     if (!numargs) cs.result->set_int(0);
     else for (int i = 0; i < numargs; ++i) {
             if (i) cs.result->cleanup();
-            if (args[i].type == VAL_CODE) executeret(cs, args[i].code, *cs.result);
+            if (args[i].type == VAL_CODE) cs.run_ret(args[i].code);
             else *cs.result = args[i];
             if (getbool(*cs.result)) break;
         }
@@ -4159,11 +4164,11 @@ ICOMMAND(cond, "ee2V", (CsState &cs, TaggedValue *args, int numargs), {
     for (int i = 0; i < numargs; i += 2) {
         if (i + 1 < numargs) {
             if (cs.run_bool(args[i].code)) {
-                executeret(cs, args[i + 1].code, *cs.result);
+                cs.run_ret(args[i + 1].code);
                 break;
             }
         } else {
-            executeret(cs, args[i].code, *cs.result);
+            cs.run_ret(args[i].code);
             break;
         }
     }
@@ -4178,7 +4183,7 @@ ICOMMAND(cond, "ee2V", (CsState &cs, TaggedValue *args, int numargs), {
         { \
             if(compare) \
             { \
-                executeret(cs, args[i+1].code, *cs.result); \
+                cs.run_ret(args[i+1].code); \
                 return; \
             } \
         } \

@@ -376,6 +376,23 @@ struct CsState {
     bool run_bool(ostd::ConstCharRange code);
     bool run_bool(Ident *id, ostd::PointerRange<TaggedValue> args);
 
+    void run_ret(const ostd::uint *code, TaggedValue &result);
+    void run_ret(ostd::ConstCharRange code, TaggedValue &result);
+    void run_ret(Ident *id, ostd::PointerRange<TaggedValue> args,
+                 TaggedValue &result);
+
+    void run_ret(const ostd::uint *code) {
+        run_ret(code, *result);
+    }
+
+    void run_ret(ostd::ConstCharRange code) {
+        run_ret(code, *result);
+    }
+
+    void run_ret(Ident *id, ostd::PointerRange<TaggedValue> args) {
+        run_ret(id, args, *result);
+    }
+
     bool run_file(ostd::ConstCharRange fname, bool msg = true);
 
     template<typename ...A>
@@ -562,9 +579,7 @@ inline void Ident::getcval(TaggedValue &v) const {
 extern ostd::uint *compilecode(const char *p);
 extern void keepcode(ostd::uint *p);
 extern void freecode(ostd::uint *p);
-extern void executeret(CsState &cs, const ostd::uint *code, TaggedValue &result = *cstate.result);
-extern void executeret(CsState &cs, const char *p, TaggedValue &result = *cstate.result);
-extern void executeret(CsState &cs, Ident *id, TaggedValue *args, int numargs, TaggedValue &result = *cstate.result);
+
 extern const char *getalias(const char *name);
 extern const char *escapestring(const char *s);
 extern const char *escapeid(const char *s);
@@ -582,8 +597,7 @@ extern void printsvar(Ident *id, const char *s);
 
 #define COMMANDKN(name, type, fun, nargs) static bool __dummy_##fun = cstate.add_command(#name, nargs, (IdentFunc)fun, type)
 #define COMMANDK(name, type, nargs) COMMANDKN(name, type, name, nargs)
-#define COMMANDN(name, fun, nargs) COMMANDKN(name, ID_COMMAND, fun, nargs)
-#define COMMAND(name, nargs) COMMANDN(name, name, nargs)
+#define COMMAND(name, nargs) COMMANDK(name, ID_COMMAND, nargs)
 
 #define ICOMMANDNAME(name) _icmd_##name
 #define ICOMMANDSNAME _icmds_
