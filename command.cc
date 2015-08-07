@@ -657,7 +657,7 @@ void CsState::set_var_str_checked(Ident *id, ostd::ConstCharRange v) {
 
 bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
                           IdentFunc func, int type) {
-    ostd::uint argmask = 0;
+    ostd::Uint32 argmask = 0;
     int nargs = 0;
     bool limit = true;
     ostd::ConstCharRange fmt(args);
@@ -711,14 +711,14 @@ bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
 }
 
 static void cs_init_lib_base_var(CsState &cs) {
-    cs.add_command("nodebug", "e", [](CsState &cs, ostd::uint *body) {
+    cs.add_command("nodebug", "e", [](CsState &cs, ostd::Uint32 *body) {
         ++cs.nodebug;
         cs.run_ret(body);
         --cs.nodebug;
     });
 
     cs.add_command("push", "rTe", [](CsState &cs, Ident *id,
-                                     TaggedValue *v, ostd::uint *code) {
+                                     TaggedValue *v, ostd::Uint32 *code) {
         if (id->type != ID_ALIAS || id->index < MAX_ARGUMENTS) return;
         IdentStack stack;
         id->push_arg(*v, stack);
@@ -985,25 +985,27 @@ static void compilestatements(GenState &gs, const char *&p, int rettype, int bra
 
 struct GenState {
     CsState &cs;
-    ostd::Vector<ostd::uint> code;
+    ostd::Vector<ostd::Uint32> code;
 
     GenState() = delete;
     GenState(CsState &cs): cs(cs), code() {}
 
     void gen_str(ostd::ConstCharRange word, bool macro = false) {
         if (word.size() <= 3 && !macro) {
-            ostd::uint op = CODE_VALI | RET_STR;                                
+            ostd::Uint32 op = CODE_VALI | RET_STR;
             for (ostd::Size i = 0; i < word.size(); ++i)
-                op |= ostd::uint(ostd::byte(word[i])) << ((i + 1) * 8);
+                op |= ostd::Uint32(ostd::byte(word[i])) << ((i + 1) * 8);
             code.push(op);
             return;
         }
-        code.push((macro ? CODE_MACRO : (CODE_VAL | RET_STR)) | (word.size() << 8));
-        code.push_n((const ostd::uint *)word.data(), word.size() / sizeof(ostd::uint));
-        ostd::Size esz = word.size() % sizeof(ostd::uint);
+        code.push((macro ? CODE_MACRO : (CODE_VAL | RET_STR)) |
+                  (word.size() << 8));
+        code.push_n((const ostd::Uint32 *)word.data(),
+                    word.size() / sizeof(ostd::Uint32));
+        ostd::Size esz = word.size() % sizeof(ostd::Uint32);
         union {
-            char c[sizeof(ostd::uint)];
-            ostd::uint u;
+            char c[sizeof(ostd::Uint32)];
+            ostd::Uint32 u;
         } end;
         end.u = 0;
         memcpy(end.c, word.data() + word.size() - esz, esz);
@@ -1037,7 +1039,7 @@ struct GenState {
         else {
             union {
                 float f;
-                ostd::uint u;
+                ostd::Uint32 u;
             } c;
             c.f = f;
             code.push(CODE_VAL | RET_FLOAT);
@@ -1077,7 +1079,7 @@ static inline const char *compileblock(GenState &gs, const char *p, int rettype 
     if (p) compilestatements(gs, p, VAL_ANY, brak);
     if (gs.code.size() > start + 2) {
         gs.code.push(CODE_EXIT | rettype);
-        gs.code[start] |= ostd::uint(gs.code.size() - (start + 1)) << 8;
+        gs.code[start] |= ostd::Uint32(gs.code.size() - (start + 1)) << 8;
     } else {
         gs.code.resize(start);
         gs.code.push(CODE_EMPTY | rettype);
@@ -1089,17 +1091,17 @@ static inline void compileunescapestring(GenState &gs, const char *&p, bool macr
     p++;
     const char *end = parsestring(p);
     gs.code.push(macro ? CODE_MACRO : CODE_VAL | RET_STR);
-    gs.code.reserve(gs.code.size() + (end - p) / sizeof(ostd::uint) + 1);
+    gs.code.reserve(gs.code.size() + (end - p) / sizeof(ostd::Uint32) + 1);
     char *buf = (char *)&gs.code[gs.code.size()];
     int len = unescapestring(buf, p, end);
-    memset(&buf[len], 0, sizeof(ostd::uint) - len % sizeof(ostd::uint));
+    memset(&buf[len], 0, sizeof(ostd::Uint32) - len % sizeof(ostd::Uint32));
     gs.code.back() |= len << 8;
-    gs.code.advance(len / sizeof(ostd::uint) + 1);
+    gs.code.advance(len / sizeof(ostd::Uint32) + 1);
     p = end;
     if (*p == '\"') p++;
 }
 
-static ostd::uint emptyblock[VAL_ANY][2] = {
+static ostd::Uint32 emptyblock[VAL_ANY][2] = {
     { CODE_START + 0x100, CODE_EXIT | RET_NULL },
     { CODE_START + 0x100, CODE_EXIT | RET_INT },
     { CODE_START + 0x100, CODE_EXIT | RET_FLOAT },
@@ -1403,7 +1405,7 @@ invalid:
 static bool compileblockstr(GenState &gs, const char *str, const char *end, bool macro) {
     int start = gs.code.size();
     gs.code.push(macro ? CODE_MACRO : CODE_VAL | RET_STR);
-    gs.code.reserve(gs.code.size() + (end - str) / sizeof(ostd::uint) + 1);
+    gs.code.reserve(gs.code.size() + (end - str) / sizeof(ostd::Uint32) + 1);
     char *buf = (char *)&gs.code[gs.code.size()];
     int len = 0;
     while (str < end) {
@@ -1438,8 +1440,8 @@ static bool compileblockstr(GenState &gs, const char *str, const char *end, bool
         }
     }
 done:
-    memset(&buf[len], '\0', sizeof(ostd::uint) - len % sizeof(ostd::uint));
-    gs.code.advance(len / sizeof(ostd::uint) + 1);
+    memset(&buf[len], '\0', sizeof(ostd::Uint32) - len % sizeof(ostd::Uint32));
+    gs.code.advance(len / sizeof(ostd::Uint32) + 1);
     gs.code[start] |= len << 8;
     return true;
 }
@@ -1938,7 +1940,7 @@ compilecomv:
                         } else {
                             int start2 = gs.code.size();
                             more = compilearg(gs, p, VAL_CODE, prevargs + 2);
-                            ostd::uint inst1 = gs.code[start1], op1 = inst1 & ~CODE_RET_MASK, len1 = start2 - (start1 + 1);
+                            ostd::Uint32 inst1 = gs.code[start1], op1 = inst1 & ~CODE_RET_MASK, len1 = start2 - (start1 + 1);
                             if (!more) {
                                 if (op1 == (CODE_BLOCK | (len1 << 8))) {
                                     gs.code[start1] = (len1 << 8) | CODE_JUMP_FALSE;
@@ -1948,7 +1950,7 @@ compilecomv:
                                 }
                                 compileblock(gs);
                             } else {
-                                ostd::uint inst2 = gs.code[start2], op2 = inst2 & ~CODE_RET_MASK, len2 = gs.code.size() - (start2 + 1);
+                                ostd::Uint32 inst2 = gs.code[start2], op2 = inst2 & ~CODE_RET_MASK, len2 = gs.code.size() - (start2 + 1);
                                 if (op2 == (CODE_BLOCK | (len2 << 8))) {
                                     if (op1 == (CODE_BLOCK | (len1 << 8))) {
                                         gs.code[start1] = ((start2 - start1) << 8) | CODE_JUMP_FALSE;
@@ -1991,18 +1993,18 @@ compilecomv:
                             more = compilearg(gs, p, VAL_COND, prevargs + numargs);
                             if (!more) break;
                             numargs++;
-                            if ((gs.code[end] & ~CODE_RET_MASK) != (CODE_BLOCK | (ostd::uint(gs.code.size() - (end + 1)) << 8))) break;
+                            if ((gs.code[end] & ~CODE_RET_MASK) != (CODE_BLOCK | (ostd::Uint32(gs.code.size() - (end + 1)) << 8))) break;
                             end = gs.code.size();
                         }
                         if (more) {
                             while (numargs < MAX_ARGUMENTS && (more = compilearg(gs, p, VAL_COND, prevargs + numargs))) numargs++;
                             gs.code.push(CODE_COMV | cs_ret_code(rettype) | (numargs << 8) | (id->index << 13));
                         } else {
-                            ostd::uint op = id->type == ID_AND ? CODE_JUMP_RESULT_FALSE : CODE_JUMP_RESULT_TRUE;
+                            ostd::Uint32 op = id->type == ID_AND ? CODE_JUMP_RESULT_FALSE : CODE_JUMP_RESULT_TRUE;
                             gs.code.push(op);
                             end = gs.code.size();
                             while (start + 1 < end) {
-                                ostd::uint len = gs.code[start] >> 8;
+                                ostd::Uint32 len = gs.code[start] >> 8;
                                 gs.code[start] = ((end - (start + 1)) << 8) | op;
                                 gs.code[start + 1] = CODE_ENTER;
                                 gs.code[start + len] = (gs.code[start + len] & ~CODE_RET_MASK) | cs_ret_code(rettype);
@@ -2061,17 +2063,17 @@ void GenState::gen_main(const char *p, int ret_type) {
     code.push(CODE_EXIT | ((ret_type < VAL_ANY) ? (ret_type << CODE_RET) : 0));
 }
 
-ostd::uint *compilecode(CsState &cs, const char *p) {
+ostd::Uint32 *compilecode(CsState &cs, const char *p) {
     GenState gs(cs);
     gs.code.reserve(64);
     gs.gen_main(p);
-    ostd::uint *code = new ostd::uint[gs.code.size()];
-    memcpy(code, gs.code.data(), gs.code.size() * sizeof(ostd::uint));
+    ostd::Uint32 *code = new ostd::Uint32[gs.code.size()];
+    memcpy(code, gs.code.data(), gs.code.size() * sizeof(ostd::Uint32));
     code[0] += 0x100;
     return code;
 }
 
-static inline const ostd::uint *forcecode(CsState &cs, TaggedValue &v) {
+static inline const ostd::Uint32 *forcecode(CsState &cs, TaggedValue &v) {
     if (v.type != VAL_CODE) {
         GenState gs(cs);
         gs.code.reserve(64);
@@ -2093,7 +2095,7 @@ static inline void forcecond(CsState &cs, TaggedValue &v) {
     }
 }
 
-void keepcode(ostd::uint *code) {
+void keepcode(ostd::Uint32 *code) {
     if (!code) return;
     switch (*code & CODE_OP_MASK) {
     case CODE_START:
@@ -2111,7 +2113,7 @@ void keepcode(ostd::uint *code) {
     }
 }
 
-void freecode(ostd::uint *code) {
+void freecode(ostd::Uint32 *code) {
     if (!code) return;
     switch (*code & CODE_OP_MASK) {
     case CODE_START:
@@ -2147,15 +2149,15 @@ using CommandFunc11 = void (__cdecl *)(CsState &, void *, void *, void *, void *
 using CommandFunc12 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
 using CommandFuncTv = void (__cdecl *)(CsState &, TaggedValue *, int);
 
-static const ostd::uint *skipcode(const ostd::uint *code, TaggedValue &result = no_ret) {
+static const ostd::Uint32 *skipcode(const ostd::Uint32 *code, TaggedValue &result = no_ret) {
     int depth = 0;
     for (;;) {
-        ostd::uint op = *code++;
+        ostd::Uint32 op = *code++;
         switch (op & 0xFF) {
         case CODE_MACRO:
         case CODE_VAL|RET_STR: {
-            ostd::uint len = op >> 8;
-            code += len / sizeof(ostd::uint) + 1;
+            ostd::Uint32 len = op >> 8;
+            code += len / sizeof(ostd::Uint32) + 1;
             continue;
         }
         case CODE_BLOCK:
@@ -2164,7 +2166,7 @@ static const ostd::uint *skipcode(const ostd::uint *code, TaggedValue &result = 
         case CODE_JUMP_FALSE:
         case CODE_JUMP_RESULT_TRUE:
         case CODE_JUMP_RESULT_FALSE: {
-            ostd::uint len = op >> 8;
+            ostd::Uint32 len = op >> 8;
             code += len;
             continue;
         }
@@ -2319,7 +2321,7 @@ cleanup:
 #define MAXRUNDEPTH 255
 static int rundepth = 0;
 
-static const ostd::uint *runcode(CsState &cs, const ostd::uint *code, TaggedValue &result) {
+static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, TaggedValue &result) {
     result.set_null();
     if (rundepth >= MAXRUNDEPTH) {
         cs.debug_code("exceeded recursion limit");
@@ -2330,7 +2332,7 @@ static const ostd::uint *runcode(CsState &cs, const ostd::uint *code, TaggedValu
     TaggedValue args[MAX_ARGUMENTS + MAX_RESULTS], *prevret = cs.result;
     cs.result = &result;
     for (;;) {
-        ostd::uint op = *code++;
+        ostd::Uint32 op = *code++;
         switch (op & 0xFF) {
         case CODE_START:
         case CODE_OFFSET:
@@ -2430,24 +2432,24 @@ static const ostd::uint *runcode(CsState &cs, const ostd::uint *code, TaggedValu
             continue;
 
         case CODE_JUMP: {
-            ostd::uint len = op >> 8;
+            ostd::Uint32 len = op >> 8;
             code += len;
             continue;
         }
         case CODE_JUMP_TRUE: {
-            ostd::uint len = op >> 8;
+            ostd::Uint32 len = op >> 8;
             if (getbool(args[--numargs])) code += len;
             args[numargs].cleanup();
             continue;
         }
         case CODE_JUMP_FALSE: {
-            ostd::uint len = op >> 8;
+            ostd::Uint32 len = op >> 8;
             if (!getbool(args[--numargs])) code += len;
             args[numargs].cleanup();
             continue;
         }
         case CODE_JUMP_RESULT_TRUE: {
-            ostd::uint len = op >> 8;
+            ostd::Uint32 len = op >> 8;
             result.cleanup();
             --numargs;
             if (args[numargs].type == VAL_CODE) {
@@ -2458,7 +2460,7 @@ static const ostd::uint *runcode(CsState &cs, const ostd::uint *code, TaggedValu
             continue;
         }
         case CODE_JUMP_RESULT_FALSE: {
-            ostd::uint len = op >> 8;
+            ostd::Uint32 len = op >> 8;
             result.cleanup();
             --numargs;
             if (args[numargs].type == VAL_CODE) {
@@ -2470,16 +2472,16 @@ static const ostd::uint *runcode(CsState &cs, const ostd::uint *code, TaggedValu
         }
 
         case CODE_MACRO: {
-            ostd::uint len = op >> 8;
+            ostd::Uint32 len = op >> 8;
             args[numargs++].set_macro(code);
-            code += len / sizeof(ostd::uint) + 1;
+            code += len / sizeof(ostd::Uint32) + 1;
             continue;
         }
 
         case CODE_VAL|RET_STR: {
-            ostd::uint len = op >> 8;
+            ostd::Uint32 len = op >> 8;
             args[numargs++].set_str(dup_ostr(ostd::ConstCharRange((const char *)code, len)));
-            code += len / sizeof(ostd::uint) + 1;
+            code += len / sizeof(ostd::Uint32) + 1;
             continue;
         }
         case CODE_VALI|RET_STR: {
@@ -2556,7 +2558,7 @@ static const ostd::uint *runcode(CsState &cs, const ostd::uint *code, TaggedValu
             args[numargs++].set_code(emptyblock[VAL_FLOAT] + 1);
             break;
         case CODE_BLOCK: {
-            ostd::uint len = op >> 8;
+            ostd::Uint32 len = op >> 8;
             args[numargs++].set_code(code + 1);
             code += len;
             continue;
@@ -2906,7 +2908,7 @@ static const ostd::uint *runcode(CsState &cs, const ostd::uint *code, TaggedValu
                 IdentLink aliaslink = { id, (cs).stack, (1<<callargs)-1, argstack }; \
                 (cs).stack = &aliaslink; \
                 if(!id->code) id->code = compilecode((cs), id->get_str()); \
-                ostd::uint *code = id->code; \
+                ostd::Uint32 *code = id->code; \
                 code[0] += 0x100; \
                 runcode((cs), code+1, (result)); \
                 code[0] -= 0x100; \
@@ -3015,7 +3017,7 @@ exit:
     return code;
 }
 
-void CsState::run_ret(const ostd::uint *code, TaggedValue &result) {
+void CsState::run_ret(const ostd::Uint32 *code, TaggedValue &result) {
     runcode(*this, code, result);
 }
 
@@ -3081,7 +3083,7 @@ void CsState::run_ret(Ident *id, ostd::PointerRange<TaggedValue> args,
     --rundepth;
 }
 
-ostd::String CsState::run_str(const ostd::uint *code) {
+ostd::String CsState::run_str(const ostd::Uint32 *code) {
     TaggedValue result;
     runcode(*this, code, result);
     if (result.type == VAL_NULL) return ostd::String();
@@ -3112,7 +3114,7 @@ ostd::String CsState::run_str(Ident *id, ostd::PointerRange<TaggedValue> args) {
     return ret;
 }
 
-int CsState::run_int(const ostd::uint *code) {
+int CsState::run_int(const ostd::Uint32 *code) {
     TaggedValue result;
     runcode(*this, code, result);
     int i = result.get_int();
@@ -3140,7 +3142,7 @@ int CsState::run_int(Ident *id, ostd::PointerRange<TaggedValue> args) {
     return i;
 }
 
-float CsState::run_float(const ostd::uint *code) {
+float CsState::run_float(const ostd::Uint32 *code) {
     TaggedValue result;
     runcode(*this, code, result);
     float f = result.get_float();
@@ -3164,7 +3166,7 @@ float CsState::run_float(Ident *id, ostd::PointerRange<TaggedValue> args) {
     return f;
 }
 
-bool CsState::run_bool(const ostd::uint *code) {
+bool CsState::run_bool(const ostd::Uint32 *code) {
     TaggedValue result;
     runcode(*this, code, result);
     bool b = getbool(result);
@@ -3220,6 +3222,10 @@ error:
 void init_lib_io(CsState &cs) {
     cs.add_command("exec", "sb", [](CsState &cs, char *file, int *msg) {
         cs.result->set_int(cs.run_file(file, *msg != 0) ? 1 : 0);
+    });
+
+    cs.add_command("echo", "C", [](CsState &, char *s) {
+        ostd::writeln(s);
     });
 }
 
@@ -3303,12 +3309,14 @@ bool validateblock(const char *s) {
 
 /* standard lib */
 
+void cs_init_lib_base_loops(CsState &cs);
+
 void init_lib_base(CsState &cs) {
-    cs.add_command("do", "e", [](CsState &cs, ostd::uint *body) {
+    cs.add_command("do", "e", [](CsState &cs, ostd::Uint32 *body) {
         cs.run_ret(body);
     }, ID_DO);
 
-    cs.add_command("doargs", "e", [](CsState &cs, ostd::uint *body) {
+    cs.add_command("doargs", "e", [](CsState &cs, ostd::Uint32 *body) {
         if (cs.stack != &cs.noalias)
             cs_do_args(cs, [&]() { cs.run_ret(body); });
         else
@@ -3316,7 +3324,7 @@ void init_lib_base(CsState &cs) {
     }, ID_DOARGS);
 
     cs.add_command("if", "tee", [](CsState &cs, TaggedValue *cond,
-                                   ostd::uint *t, ostd::uint *f) {
+                                   ostd::Uint32 *t, ostd::Uint32 *f) {
         cs.run_ret(getbool(*cond) ? t : f);
     }, ID_IF);
 
@@ -3362,7 +3370,213 @@ void init_lib_base(CsState &cs) {
         result(cs, *(getbool(*cond) ? t : f));
     });
 
+    cs.add_command("cond", "ee2V", [](CsState &cs, TaggedValue *args,
+                                      int numargs) {
+        for (int i = 0; i < numargs; i += 2) {
+            if ((i + 1) < numargs) {
+                if (cs.run_bool(args[i].code)) {
+                    cs.run_ret(args[i + 1].code);
+                    break;
+                }
+            } else {
+                cs.run_ret(args[i].code);
+                break;
+            }
+        }
+    });
+
+#define CS_CASE_COMMAND(name, fmt, type, acc, compare) \
+    cs.add_command(name, fmt "te2V", [](CsState &cs, TaggedValue *args, \
+                                        int numargs) { \
+        type val = acc; \
+        int i; \
+        for (i = 1; (i + 1) < numargs; i += 2) { \
+            if (compare) { \
+                cs.run_ret(args[i + 1].code); \
+                return; \
+            } \
+        } \
+    });
+
+    CS_CASE_COMMAND("case", "i", int, args[0].get_int(),
+                    ((args[i].type == VAL_NULL) ||
+                     (args[i].get_int() == val)));
+
+    CS_CASE_COMMAND("casef", "f", float, args[0].get_float(),
+                    ((args[i].type == VAL_NULL) ||
+                     (args[i].get_float() == val)));
+
+    CS_CASE_COMMAND("cases", "s", const char *, args[0].get_str(),
+                    ((args[i].type == VAL_NULL) ||
+                     !strcmp(args[i].get_str(), val)));
+
+#undef CS_CASE_COMMAND
+
+    cs.add_command("pushif", "rTe", [](CsState &cs, Ident *id,
+                                       TaggedValue *v, ostd::Uint32 *code) {
+        if ((id->type != ID_ALIAS) || (id->index < MAX_ARGUMENTS))
+            return;
+        if (getbool(*v)) {
+            IdentStack stack;
+            id->push_arg(*v, stack);
+            v->type = VAL_NULL;
+            id->flags &= ~IDF_UNKNOWN;
+            cs.run_ret(code);
+            id->pop_arg();
+        }
+    });
+
+    cs_init_lib_base_loops(cs);
     cs_init_lib_base_var(cs);
+}
+
+static inline void cs_set_iter(Ident &id, int i, IdentStack &stack) {
+    if (id.stack == &stack) {
+        if (id.valtype != VAL_INT) {
+            if (id.valtype == VAL_STR) delete[] id.val.s;
+            id.clean_code();
+            id.valtype = VAL_INT;
+        }
+        id.val.i = i;
+        return;
+    }
+    TaggedValue v;
+    v.set_int(i);
+    id.push_arg(v, stack);
+    id.flags &= ~IDF_UNKNOWN;
+}
+
+static inline void cs_do_loop(CsState &cs, Ident &id, int offset, int n,
+                              int step, ostd::Uint32 *cond, ostd::Uint32 *body) {
+    if (n <= 0 || (id.type != ID_ALIAS))
+        return;
+    IdentStack stack;
+    for (int i = 0; i < n; ++i) {
+        cs_set_iter(id, offset + i * step, stack);
+        if (cond && !cs.run_bool(cond)) break;
+        cs.run_int(body);
+    }
+    id.pop_arg();
+}
+
+static inline void cs_loop_conc(CsState &cs, Ident &id, int offset, int n,
+                                int step, ostd::Uint32 *body, bool space) {
+    if (n <= 0 || id.type != ID_ALIAS)
+        return;
+    IdentStack stack;
+    ostd::Vector<char> s;
+    for (int i = 0; i < n; ++i) {
+        cs_set_iter(id, offset + i * step, stack);
+        TaggedValue v;
+        cs.run_ret(body, v);
+        const char *vstr = v.get_str();
+        if (space && i) s.push(' ');
+        s.push_n(vstr, strlen(vstr));
+        v.cleanup();
+    }
+    if (n > 0) id.pop_arg();
+    s.push('\0');
+    cs.result->set_str(s.disown());
+}
+
+void cs_init_lib_base_loops(CsState &cs) {
+    cs.add_command("loop", "rie", [](CsState &cs, Ident *id, int *n,
+                                     ostd::Uint32 *body) {
+        cs_do_loop(cs, *id, 0, *n, 1, nullptr, body);
+    });
+
+    cs.add_command("loop+", "riie", [](CsState &cs, Ident *id, int *offset,
+                                       int *n, ostd::Uint32 *body) {
+        cs_do_loop(cs, *id, *offset, *n, 1, nullptr, body);
+    });
+
+    cs.add_command("loop*", "riie", [](CsState &cs, Ident *id, int *step,
+                                       int *n, ostd::Uint32 *body) {
+        cs_do_loop(cs, *id, 0, *n, *step, nullptr, body);
+    });
+
+    cs.add_command("loop+*", "riiie", [](CsState &cs, Ident *id, int *offset,
+                                         int *step, int *n, ostd::Uint32 *body) {
+        cs_do_loop(cs, *id, *offset, *n, *step, nullptr, body);
+    });
+
+    cs.add_command("loopwhile", "riee", [](CsState &cs, Ident *id, int *n,
+                                           ostd::Uint32 *cond,
+                                           ostd::Uint32 *body) {
+        cs_do_loop(cs, *id, 0, *n, 1, cond, body);
+    });
+
+    cs.add_command("loopwhile+", "riiee", [](CsState &cs, Ident *id,
+                                             int *offset, int *n,
+                                             ostd::Uint32 *cond,
+                                             ostd::Uint32 *body) {
+        cs_do_loop(cs, *id, *offset, *n, 1, cond, body);
+    });
+
+    cs.add_command("loopwhile*", "riiee", [](CsState &cs, Ident *id,
+                                             int *step, int *n,
+                                             ostd::Uint32 *cond,
+                                             ostd::Uint32 *body) {
+        cs_do_loop(cs, *id, 0, *n, *step, cond, body);
+    });
+
+    cs.add_command("loopwhile+*", "riiiee", [](CsState &cs, Ident *id,
+                                               int *offset, int *step,
+                                               int *n, ostd::Uint32 *cond,
+                                               ostd::Uint32 *body) {
+        cs_do_loop(cs, *id, *offset, *n, *step, cond, body);
+    });
+
+    cs.add_command("while", "ee", [](CsState &cs, ostd::Uint32 *cond,
+                                     ostd::Uint32 *body) {
+        while (cs.run_bool(cond)) cs.run_int(body);
+    });
+
+    cs.add_command("loopconcat", "rie", [](CsState &cs, Ident *id, int *n,
+                                           ostd::Uint32 *body) {
+        cs_loop_conc(cs, *id, 0, *n, 1, body, true);
+    });
+
+    cs.add_command("loopconcat+", "riie", [](CsState &cs, Ident *id,
+                                             int *offset, int *n,
+                                             ostd::Uint32 *body) {
+        cs_loop_conc(cs, *id, *offset, *n, 1, body, true);
+    });
+
+    cs.add_command("loopconcat*", "riie", [](CsState &cs, Ident *id,
+                                             int *step, int *n,
+                                             ostd::Uint32 *body) {
+        cs_loop_conc(cs, *id, 0, *n, *step, body, true);
+    });
+
+    cs.add_command("loopconcat+*", "riiie", [](CsState &cs, Ident *id,
+                                               int *offset, int *step,
+                                               int *n, ostd::Uint32 *body) {
+        cs_loop_conc(cs, *id, *offset, *n, *step, body, true);
+    });
+
+    cs.add_command("loopconcatword", "rie", [](CsState &cs, Ident *id,
+                                               int *n, ostd::Uint32 *body) {
+        cs_loop_conc(cs, *id, 0, *n, 1, body, false);
+    });
+
+    cs.add_command("loopconcatword+", "riie", [](CsState &cs, Ident *id,
+                                                 int *offset, int *n,
+                                                 ostd::Uint32 *body) {
+        cs_loop_conc(cs, *id, *offset, *n, 1, body, false);
+    });
+
+    cs.add_command("loopconcatword*", "riie", [](CsState &cs, Ident *id,
+                                                 int *step, int *n,
+                                                 ostd::Uint32 *body) {
+        cs_loop_conc(cs, *id, 0, *n, *step, body, false);
+    });
+
+    cs.add_command("loopconcatword+*", "riiie", [](CsState &cs, Ident *id,
+                                                   int *offset, int *step,
+                                                   int *n, ostd::Uint32 *body) {
+        cs_loop_conc(cs, *id, *offset, *n, *step, body, false);
+    });
 }
 
 static char retbuf[4][256];
@@ -3384,92 +3598,6 @@ const char *floatstr(float v) {
 #define ICOMMANDNAME(name) _stdcmd
 #undef ICOMMANDSNAME
 #define ICOMMANDSNAME _stdcmd
-
-ICOMMAND(pushif, "rTe", (CsState &cs, Ident *id, TaggedValue *v, ostd::uint *code), {
-    if (id->type != ID_ALIAS || id->index < MAX_ARGUMENTS) return;
-    if (getbool(*v)) {
-        IdentStack stack;
-        id->push_arg(*v, stack);
-        v->type = VAL_NULL;
-        id->flags &= ~IDF_UNKNOWN;
-        cs.run_ret(code);
-        id->pop_arg();
-    }
-});
-
-static inline void setiter(Ident &id, int i, IdentStack &stack) {
-    if (id.stack == &stack) {
-        if (id.valtype != VAL_INT) {
-            if (id.valtype == VAL_STR) delete[] id.val.s;
-            id.clean_code();
-            id.valtype = VAL_INT;
-        }
-        id.val.i = i;
-    } else {
-        TaggedValue t;
-        t.set_int(i);
-        id.push_arg(t, stack);
-        id.flags &= ~IDF_UNKNOWN;
-    }
-}
-
-static inline void doloop(CsState &cs, Ident &id, int offset, int n, int step, ostd::uint *body) {
-    if (n <= 0 || id.type != ID_ALIAS) return;
-    IdentStack stack;
-    for (int i = 0; i < n; ++i) {
-        setiter(id, offset + i * step, stack);
-        cs.run_int(body);
-    }
-    id.pop_arg();
-}
-ICOMMAND(loop, "rie", (CsState &cs, Ident *id, int *n, ostd::uint *body), doloop(cs, *id, 0, *n, 1, body));
-ICOMMAND(loop+, "riie", (CsState &cs, Ident *id, int *offset, int *n, ostd::uint *body), doloop(cs, *id, *offset, *n, 1, body));
-ICOMMAND(loop*, "riie", (CsState &cs, Ident *id, int *step, int *n, ostd::uint *body), doloop(cs, *id, 0, *n, *step, body));
-ICOMMAND(loop+*, "riiie", (CsState &cs, Ident *id, int *offset, int *step, int *n, ostd::uint *body), doloop(cs, *id, *offset, *n, *step, body));
-
-static inline void loopwhile(CsState &cs, Ident &id, int offset, int n, int step, ostd::uint *cond, ostd::uint *body) {
-    if (n <= 0 || id.type != ID_ALIAS) return;
-    IdentStack stack;
-    for (int i = 0; i < n; ++i) {
-        setiter(id, offset + i * step, stack);
-        if (!cs.run_bool(cond)) break;
-        cs.run_int(body);
-    }
-    id.pop_arg();
-}
-ICOMMAND(loopwhile, "riee", (CsState &cs, Ident *id, int *n, ostd::uint *cond, ostd::uint *body), loopwhile(cs, *id, 0, *n, 1, cond, body));
-ICOMMAND(loopwhile+, "riiee", (CsState &cs, Ident *id, int *offset, int *n, ostd::uint *cond, ostd::uint *body), loopwhile(cs, *id, *offset, *n, 1, cond, body));
-ICOMMAND(loopwhile*, "riiee", (CsState &cs, Ident *id, int *step, int *n, ostd::uint *cond, ostd::uint *body), loopwhile(cs, *id, 0, *n, *step, cond, body));
-ICOMMAND(loopwhile+*, "riiiee", (CsState &cs, Ident *id, int *offset, int *step, int *n, ostd::uint *cond, ostd::uint *body), loopwhile(cs, *id, *offset, *n, *step, cond, body));
-
-ICOMMAND(while, "ee", (CsState &cs, ostd::uint *cond, ostd::uint *body), while (cs.run_bool(cond)) cs.run_int(body));
-
-static inline void loopconc(CsState &cs, Ident &id, int offset, int n, int step, ostd::uint *body, bool space) {
-    if (n <= 0 || id.type != ID_ALIAS) return;
-    IdentStack stack;
-    ostd::Vector<char> s;
-    for (int i = 0; i < n; ++i) {
-        setiter(id, offset + i * step, stack);
-        TaggedValue v;
-        cs.run_ret(body, v);
-        const char *vstr = v.get_str();
-        int len = strlen(vstr);
-        if (space && i) s.push(' ');
-        s.push_n(vstr, len);
-        v.cleanup();
-    }
-    if (n > 0) id.pop_arg();
-    s.push('\0');
-    cs.result->set_str(s.disown());
-}
-ICOMMAND(loopconcat, "rie", (CsState &cs, Ident *id, int *n, ostd::uint *body), loopconc(cs, *id, 0, *n, 1, body, true));
-ICOMMAND(loopconcat+, "riie", (CsState &cs, Ident *id, int *offset, int *n, ostd::uint *body), loopconc(cs, *id, *offset, *n, 1, body, true));
-ICOMMAND(loopconcat*, "riie", (CsState &cs, Ident *id, int *step, int *n, ostd::uint *body), loopconc(cs, *id, 0, *n, *step, body, true));
-ICOMMAND(loopconcat+*, "riiie", (CsState &cs, Ident *id, int *offset, int *step, int *n, ostd::uint *body), loopconc(cs, *id, *offset, *n, *step, body, true));
-ICOMMAND(loopconcatword, "rie", (CsState &cs, Ident *id, int *n, ostd::uint *body), loopconc(cs, *id, 0, *n, 1, body, false));
-ICOMMAND(loopconcatword+, "riie", (CsState &cs, Ident *id, int *offset, int *n, ostd::uint *body), loopconc(cs, *id, *offset, *n, 1, body, false));
-ICOMMAND(loopconcatword*, "riie", (CsState &cs, Ident *id, int *step, int *n, ostd::uint *body), loopconc(cs, *id, 0, *n, *step, body, false));
-ICOMMAND(loopconcatword+*, "riiie", (CsState &cs, Ident *id, int *offset, int *step, int *n, ostd::uint *body), loopconc(cs, *id, *offset, *n, *step, body, false));
 
 void concat(CsState &cs, TaggedValue *v, int n) {
     cs.result->set_str(conc(v, n, true));
@@ -3664,7 +3792,7 @@ static inline void setiter(Ident &id, char *val, IdentStack &stack) {
     }
 }
 
-void listfind(CsState &cs, Ident *id, const char *list, const ostd::uint *body) {
+void listfind(CsState &cs, Ident *id, const char *list, const ostd::Uint32 *body) {
     if (id->type != ID_ALIAS) {
         cs.result->set_int(-1);
         return;
@@ -3685,7 +3813,7 @@ found:
 }
 COMMAND(listfind, "rse");
 
-void listassoc(CsState &cs, Ident *id, const char *list, const ostd::uint *body) {
+void listassoc(CsState &cs, Ident *id, const char *list, const ostd::Uint32 *body) {
     if (id->type != ID_ALIAS) return;
     IdentStack stack;
     int n = -1;
@@ -3733,7 +3861,7 @@ LISTASSOC(listassoc=, "i", int, , parseint(start) == *val);
 LISTASSOC(listassoc=f, "f", float, , parsefloat(start) == *val);
 LISTASSOC(listassoc=s, "s", char, int len = (int)strlen(val), int(end - start) == len && !memcmp(start, val, len));
 
-void looplist(CsState &cs, Ident *id, const char *list, const ostd::uint *body) {
+void looplist(CsState &cs, Ident *id, const char *list, const ostd::Uint32 *body) {
     if (id->type != ID_ALIAS) return;
     IdentStack stack;
     int n = 0;
@@ -3745,7 +3873,7 @@ void looplist(CsState &cs, Ident *id, const char *list, const ostd::uint *body) 
 }
 COMMAND(looplist, "rse");
 
-void looplist2(CsState &cs, Ident *id, Ident *id2, const char *list, const ostd::uint *body) {
+void looplist2(CsState &cs, Ident *id, Ident *id2, const char *list, const ostd::Uint32 *body) {
     if (id->type != ID_ALIAS || id2->type != ID_ALIAS) return;
     IdentStack stack, stack2;
     int n = 0;
@@ -3761,7 +3889,7 @@ void looplist2(CsState &cs, Ident *id, Ident *id2, const char *list, const ostd:
 }
 COMMAND(looplist2, "rrse");
 
-void looplist3(CsState &cs, Ident *id, Ident *id2, Ident *id3, const char *list, const ostd::uint *body) {
+void looplist3(CsState &cs, Ident *id, Ident *id2, Ident *id3, const char *list, const ostd::Uint32 *body) {
     if (id->type != ID_ALIAS || id2->type != ID_ALIAS || id3->type != ID_ALIAS) return;
     IdentStack stack, stack2, stack3;
     int n = 0;
@@ -3779,7 +3907,7 @@ void looplist3(CsState &cs, Ident *id, Ident *id2, Ident *id3, const char *list,
 }
 COMMAND(looplist3, "rrrse");
 
-void looplistconc(CsState &cs, Ident *id, const char *list, const ostd::uint *body, bool space) {
+void looplistconc(CsState &cs, Ident *id, const char *list, const ostd::Uint32 *body, bool space) {
     if (id->type != ID_ALIAS) return;
     IdentStack stack;
     ostd::Vector<char> r;
@@ -3801,10 +3929,10 @@ void looplistconc(CsState &cs, Ident *id, const char *list, const ostd::uint *bo
     r.push('\0');
     cs.result->set_str(r.disown());
 }
-ICOMMAND(looplistconcat, "rse", (CsState &cs, Ident *id, char *list, ostd::uint *body), looplistconc(cs, id, list, body, true));
-ICOMMAND(looplistconcatword, "rse", (CsState &cs, Ident *id, char *list, ostd::uint *body), looplistconc(cs, id, list, body, false));
+ICOMMAND(looplistconcat, "rse", (CsState &cs, Ident *id, char *list, ostd::Uint32 *body), looplistconc(cs, id, list, body, true));
+ICOMMAND(looplistconcatword, "rse", (CsState &cs, Ident *id, char *list, ostd::Uint32 *body), looplistconc(cs, id, list, body, false));
 
-void listfilter(CsState &cs, Ident *id, const char *list, const ostd::uint *body) {
+void listfilter(CsState &cs, Ident *id, const char *list, const ostd::Uint32 *body) {
     if (id->type != ID_ALIAS) return;
     IdentStack stack;
     ostd::Vector<char> r;
@@ -3824,7 +3952,7 @@ void listfilter(CsState &cs, Ident *id, const char *list, const ostd::uint *body
 }
 COMMAND(listfilter, "rse");
 
-void listcount(CsState &cs, Ident *id, const char *list, const ostd::uint *body) {
+void listcount(CsState &cs, Ident *id, const char *list, const ostd::Uint32 *body) {
     if (id->type != ID_ALIAS) return;
     IdentStack stack;
     int n = 0, r = 0;
@@ -3931,20 +4059,20 @@ struct sortitem {
 struct sortfun {
     CsState &cs;
     Ident *x, *y;
-    ostd::uint *body;
+    ostd::Uint32 *body;
 
     bool operator()(const sortitem &xval, const sortitem &yval) {
         if (x->valtype != VAL_CSTR) x->valtype = VAL_CSTR;
         x->clean_code();
-        x->val.code = (const ostd::uint *)xval.str;
+        x->val.code = (const ostd::Uint32 *)xval.str;
         if (y->valtype != VAL_CSTR) y->valtype = VAL_CSTR;
         y->clean_code();
-        y->val.code = (const ostd::uint *)yval.str;
+        y->val.code = (const ostd::Uint32 *)yval.str;
         return cs.run_bool(body);
     }
 };
 
-void sortlist(CsState &cs, char *list, Ident *x, Ident *y, ostd::uint *body, ostd::uint *unique) {
+void sortlist(CsState &cs, char *list, Ident *x, Ident *y, ostd::Uint32 *body, ostd::Uint32 *unique) {
     if (x == y || x->type != ID_ALIAS || y->type != ID_ALIAS) return;
 
     ostd::Vector<sortitem> items;
@@ -4030,7 +4158,7 @@ void sortlist(CsState &cs, char *list, Ident *x, Ident *y, ostd::uint *body, ost
     cs.result->set_str(sorted);
 }
 COMMAND(sortlist, "srree");
-ICOMMAND(uniquelist, "srre", (CsState &cs, char *list, Ident *x, Ident *y, ostd::uint *body), sortlist(cs, list, x, y, nullptr, body));
+ICOMMAND(uniquelist, "srre", (CsState &cs, char *list, Ident *x, Ident *y, ostd::Uint32 *body), sortlist(cs, list, x, y, nullptr, body));
 
 #define MATHCMD(name, fmt, type, op, initval, unaryop) \
     ICOMMANDS(name, #fmt "1V", (CsState &cs, TaggedValue *args, int numargs), \
@@ -4189,39 +4317,6 @@ ICOMMAND(round, "ff", (CsState &cs, float *n, float *k), {
     cs.result->set_float(float(r));
 });
 
-ICOMMAND(cond, "ee2V", (CsState &cs, TaggedValue *args, int numargs), {
-    for (int i = 0; i < numargs; i += 2) {
-        if (i + 1 < numargs) {
-            if (cs.run_bool(args[i].code)) {
-                cs.run_ret(args[i + 1].code);
-                break;
-            }
-        } else {
-            cs.run_ret(args[i].code);
-            break;
-        }
-    }
-});
-
-#define CASECOMMAND(name, fmt, type, acc, compare) \
-    ICOMMAND(name, fmt "te2V", (CsState &cs, TaggedValue *args, int numargs), \
-    { \
-        type val = acc; \
-        int i; \
-        for(i = 1; i+1 < numargs; i += 2) \
-        { \
-            if(compare) \
-            { \
-                cs.run_ret(args[i+1].code); \
-                return; \
-            } \
-        } \
-    })
-
-CASECOMMAND(case, "i", int, args[0].get_int(), args[i].type == VAL_NULL || args[i].get_int() == val);
-CASECOMMAND(casef, "f", float, args[0].get_float(), args[i].type == VAL_NULL || args[i].get_float() == val);
-CASECOMMAND(cases, "s", const char *, args[0].get_str(), args[i].type == VAL_NULL || !strcmp(args[i].get_str(), val));
-
 ICOMMAND(tohex, "ii", (CsState &cs, int *n, int *p), {
     auto r = ostd::appender<ostd::Vector<char>>();
     ostd::format(r, "0x%.*X", ostd::max(*p, 1), *n);
@@ -4250,7 +4345,6 @@ CMPSCMD(>s, >);
 CMPSCMD(<=s, <=);
 CMPSCMD(>=s, >=);
 
-ICOMMAND(echo, "C", (CsState &, char *s), ostd::writeln(s));
 ICOMMAND(strstr, "ss", (CsState &cs, char *a, char *b), { char *s = strstr(a, b); cs.result->set_int(s ? s - a : -1); });
 ICOMMAND(strlen, "s", (CsState &cs, char *s), cs.result->set_int(strlen(s)));
 ICOMMAND(strcode, "si", (CsState &cs, char *s, int *i), cs.result->set_int(*i > 0 ? (memchr(s, 0, *i) ? 0 : ostd::byte(s[*i])) : ostd::byte(s[0])));

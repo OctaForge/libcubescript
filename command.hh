@@ -99,7 +99,7 @@ struct IdentValue {
         int i;      /* ID_VAR, VAL_INT */
         float f;    /* ID_FVAR, VAL_FLOAT */
         char *s;    /* ID_SVAR, VAL_STR */
-        const ostd::uint *code; /* VAL_CODE */
+        const ostd::Uint32 *code; /* VAL_CODE */
         Ident *id;  /* VAL_IDENT */
         const char *cstr; /* VAL_CSTR */
     };
@@ -124,11 +124,11 @@ struct TaggedValue: IdentValue {
         type = VAL_NULL;
         i = 0;
     }
-    void set_code(const ostd::uint *val) {
+    void set_code(const ostd::Uint32 *val) {
         type = VAL_CODE;
         code = val;
     }
-    void set_macro(const ostd::uint *val) {
+    void set_macro(const ostd::Uint32 *val) {
         type = VAL_MACRO;
         code = val;
     }
@@ -195,13 +195,13 @@ struct Ident {
             IdentValue overrideval;
         };
         struct { /* ID_ALIAS */
-            ostd::uint *code;
+            ostd::Uint32 *code;
             IdentValue val;
             IdentStack *stack;
         };
         struct { /* ID_COMMAND */
             char *args;
-            ostd::uint argmask;
+            ostd::Uint32 argmask;
         };
     };
     IdentFunc fun; /* ID_VAR, ID_FVAR, ID_SVAR, ID_COMMAND */
@@ -243,7 +243,7 @@ struct Ident {
         val = v;
     }
     /* ID_COMMAND */
-    Ident(int t, ostd::ConstCharRange n, ostd::ConstCharRange args, ostd::uint argmask, int numargs, IdentFunc f = nullptr, int flags = 0)
+    Ident(int t, ostd::ConstCharRange n, ostd::ConstCharRange args, ostd::Uint32 argmask, int numargs, IdentFunc f = nullptr, int flags = 0)
         : type(t), numargs(numargs), flags(flags), name(n), args(!args.empty() ? dup_ostr(args) : nullptr), argmask(argmask), fun(f) {
     }
 
@@ -360,28 +360,28 @@ struct CsState {
     bool add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
                      IdentFunc func, int type = ID_COMMAND);
 
-    ostd::String run_str(const ostd::uint *code);
+    ostd::String run_str(const ostd::Uint32 *code);
     ostd::String run_str(ostd::ConstCharRange code);
     ostd::String run_str(Ident *id, ostd::PointerRange<TaggedValue> args);
 
-    int run_int(const ostd::uint *code);
+    int run_int(const ostd::Uint32 *code);
     int run_int(ostd::ConstCharRange code);
     int run_int(Ident *id, ostd::PointerRange<TaggedValue> args);
 
-    float run_float(const ostd::uint *code);
+    float run_float(const ostd::Uint32 *code);
     float run_float(ostd::ConstCharRange code);
     float run_float(Ident *id, ostd::PointerRange<TaggedValue> args);
 
-    bool run_bool(const ostd::uint *code);
+    bool run_bool(const ostd::Uint32 *code);
     bool run_bool(ostd::ConstCharRange code);
     bool run_bool(Ident *id, ostd::PointerRange<TaggedValue> args);
 
-    void run_ret(const ostd::uint *code, TaggedValue &result);
+    void run_ret(const ostd::Uint32 *code, TaggedValue &result);
     void run_ret(ostd::ConstCharRange code, TaggedValue &result);
     void run_ret(Ident *id, ostd::PointerRange<TaggedValue> args,
                  TaggedValue &result);
 
-    void run_ret(const ostd::uint *code) {
+    void run_ret(const ostd::Uint32 *code) {
         run_ret(code, *result);
     }
 
@@ -581,9 +581,9 @@ inline void Ident::getcval(TaggedValue &v) const {
     }
 }
 
-extern ostd::uint *compilecode(const char *p);
-extern void keepcode(ostd::uint *p);
-extern void freecode(ostd::uint *p);
+extern ostd::Uint32 *compilecode(const char *p);
+extern void keepcode(ostd::Uint32 *p);
+extern void freecode(ostd::Uint32 *p);
 
 extern const char *getalias(const char *name);
 extern const char *escapestring(const char *s);
