@@ -671,11 +671,7 @@ bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
     return true;
 }
 
-bool addcommand(const char *name, IdentFunc fun, const char *args, int type) {
-    return cstate.add_command(name, args, fun, type);
-}
-
-void init_lib_base(CsState &cs) {
+static void cs_init_lib_base_var(CsState &cs) {
     cs.add_command("nodebug", "e", [](CsState &cs, ostd::uint *body) {
         ++cs.nodebug;
         executeret(body, *cs.result);
@@ -3278,6 +3274,10 @@ bool validateblock(const char *s) {
 
 /* standard lib */
 
+void init_lib_base(CsState &cs) {
+    cs_init_lib_base_var(cs);
+}
+
 static char retbuf[4][256];
 static int retidx = 0;
 
@@ -3321,21 +3321,6 @@ ICOMMAND(pushif, "rTe", (CsState &cs, Ident *id, TaggedValue *v, ostd::uint *cod
         id->pop_arg();
     }
 });
-
-void loopiter(Ident *id, IdentStack &stack, const TaggedValue &v) {
-    if (id->stack != &stack) {
-        id->push_arg(v, stack);
-        id->flags &= ~IDF_UNKNOWN;
-    } else {
-        if (id->valtype == VAL_STR) delete[] id->val.s;
-        id->clean_code();
-        id->setval(v);
-    }
-}
-
-void loopend(Ident *id, IdentStack &stack) {
-    if (id->stack == &stack) id->pop_arg();
-}
 
 static inline void setiter(Ident &id, int i, IdentStack &stack) {
     if (id.stack == &stack) {
@@ -3529,30 +3514,30 @@ endblock:
     return true;
 }
 
-static inline char *listelem(const char *start = liststart, const char *end = listend, const char *quotestart = listquotestart) {
+static inline ostd::String listelem(const char *start = liststart, const char *end = listend, const char *quotestart = listquotestart) {
     ostd::Size len = end - start;
-    char *s = new char[len + 1];
-    if (*quotestart == '"') unescapestring(s, start, end);
+    ostd::String s;
+    s.reserve(len);
+    if (*quotestart == '"') unescapestring(s.data(), start, end);
     else {
-        memcpy(s, start, len);
+        memcpy(s.data(), start, len);
         s[len] = '\0';
     }
+    s.advance(len);
     return s;
 }
 
 void explodelist(const char *s, ostd::Vector<ostd::String> &elems, int limit) {
     const char *start, *end, *qstart;
     while ((limit < 0 || int(elems.size()) < limit) && parselist(s, start, end, qstart)) {
-        char *s = listelem(start, end, qstart);
-        elems.push(s);
-        delete[] s;
+        elems.push(ostd::move(listelem(start, end, qstart)));
     }
 }
 
 char *indexlist(const char *s, int pos) {
     for (int i = 0; i < pos; ++i) if (!parselist(s)) return dup_ostr("");
     const char *start, *end, *qstart;
-    return parselist(s, start, end, qstart) ? listelem(start, end, qstart) : dup_ostr("");
+    return parselist(s, start, end, qstart) ? listelem(start, end, qstart).disown() : dup_ostr("");
 }
 
 int listlen(CsState &, const char *s) {
@@ -3571,7 +3556,7 @@ void at(CsState &cs, TaggedValue *args, int numargs) {
         for (; pos > 0; pos--) if (!parselist(list)) break;
         if (pos > 0 || !parselist(list, start, end, qstart)) start = end = qstart = "";
     }
-    cs.result->set_str(listelem(start, end, qstart));
+    cs.result->set_str(listelem(start, end, qstart).disown());
 }
 COMMAND(at, "si1V");
 
@@ -3638,7 +3623,7 @@ void listassoc(CsState &cs, Ident *id, const char *list, const ostd::uint *body)
         ++n;
         setiter(*id, dup_ostr(ostd::ConstCharRange(start, end - start)), stack);
         if (cs.run_bool(body)) {
-            if (parselist(s, start, end, qstart)) stringret(listelem(start, end, qstart));
+            if (parselist(s, start, end, qstart)) stringret(listelem(start, end, qstart).disown());
             break;
         }
         if (!parselist(s)) break;
@@ -3670,7 +3655,7 @@ LISTFIND(listfind=s, "s", char, int len = (int)strlen(val), int(end - start) == 
         init; \
         for(const char *s = list, *start, *end, *qstart; parselist(s, start, end);) \
         { \
-            if(cmp) { if(parselist(s, start, end, qstart)) stringret(listelem(start, end, qstart)); return; } \
+            if(cmp) { if(parselist(s, start, end, qstart)) stringret(listelem(start, end, qstart).disown()); return; } \
             if(!parselist(s)) break; \
         } \
     });
@@ -3683,7 +3668,7 @@ void looplist(CsState &cs, Ident *id, const char *list, const ostd::uint *body) 
     IdentStack stack;
     int n = 0;
     for (const char *s = list, *start, *end, *qstart; parselist(s, start, end, qstart); n++) {
-        setiter(*id, listelem(start, end, qstart), stack);
+        setiter(*id, listelem(start, end, qstart).disown(), stack);
         cs.run_int(body);
     }
     if (n) id->pop_arg();
@@ -3695,8 +3680,8 @@ void looplist2(CsState &cs, Ident *id, Ident *id2, const char *list, const ostd:
     IdentStack stack, stack2;
     int n = 0;
     for (const char *s = list, *start, *end, *qstart; parselist(s, start, end, qstart); n += 2) {
-        setiter(*id, listelem(start, end, qstart), stack);
-        setiter(*id2, parselist(s, start, end, qstart) ? listelem(start, end, qstart) : dup_ostr(""), stack2);
+        setiter(*id, listelem(start, end, qstart).disown(), stack);
+        setiter(*id2, parselist(s, start, end, qstart) ? listelem(start, end, qstart).disown() : dup_ostr(""), stack2);
         cs.run_int(body);
     }
     if (n) {
@@ -3711,9 +3696,9 @@ void looplist3(CsState &cs, Ident *id, Ident *id2, Ident *id3, const char *list,
     IdentStack stack, stack2, stack3;
     int n = 0;
     for (const char *s = list, *start, *end, *qstart; parselist(s, start, end, qstart); n += 3) {
-        setiter(*id, listelem(start, end, qstart), stack);
-        setiter(*id2, parselist(s, start, end, qstart) ? listelem(start, end, qstart) : dup_ostr(""), stack2);
-        setiter(*id3, parselist(s, start, end, qstart) ? listelem(start, end, qstart) : dup_ostr(""), stack3);
+        setiter(*id, listelem(start, end, qstart).disown(), stack);
+        setiter(*id2, parselist(s, start, end, qstart) ? listelem(start, end, qstart).disown() : dup_ostr(""), stack2);
+        setiter(*id3, parselist(s, start, end, qstart) ? listelem(start, end, qstart).disown() : dup_ostr(""), stack3);
         cs.run_int(body);
     }
     if (n) {
@@ -3730,7 +3715,7 @@ void looplistconc(CsState &cs, Ident *id, const char *list, const ostd::uint *bo
     ostd::Vector<char> r;
     int n = 0;
     for (const char *s = list, *start, *end, *qstart; parselist(s, start, end, qstart); n++) {
-        char *val = listelem(start, end, qstart);
+        char *val = listelem(start, end, qstart).disown();
         setiter(*id, val, stack);
 
         if (n && space) r.push(' ');

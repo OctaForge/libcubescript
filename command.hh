@@ -559,7 +559,6 @@ inline void Ident::getcval(TaggedValue &v) const {
     }
 }
 
-extern bool addcommand(const char *name, IdentFunc fun, const char *narg, int type = ID_COMMAND);
 extern ostd::uint *compilecode(const char *p);
 extern void keepcode(ostd::uint *p);
 extern void freecode(ostd::uint *p);
@@ -580,36 +579,15 @@ extern void printvar(Ident *id);
 extern void printvar(Ident *id, int i);
 extern void printfvar(Ident *id, float f);
 extern void printsvar(Ident *id, const char *s);
-extern int clampvar(Ident *id, int i, int minval, int maxval);
-extern float clampfvar(Ident *id, float f, float minval, float maxval);
-extern void loopiter(Ident *id, IdentStack &stack, const TaggedValue &v);
-extern void loopend(Ident *id, IdentStack &stack);
 
-#define loopstart(id, stack) if((id)->type != ID_ALIAS) return; IdentStack stack;
-static inline void loopiter(Ident *id, IdentStack &stack, int i) {
-    TaggedValue v;
-    v.set_int(i);
-    loopiter(id, stack, v);
-}
-static inline void loopiter(Ident *id, IdentStack &stack, float f) {
-    TaggedValue v;
-    v.set_float(f);
-    loopiter(id, stack, v);
-}
-static inline void loopiter(Ident *id, IdentStack &stack, const char *s) {
-    TaggedValue v;
-    v.set_str(dup_ostr(s));
-    loopiter(id, stack, v);
-}
-
-#define COMMANDKN(name, type, fun, nargs) static bool __dummy_##fun = addcommand(#name, (IdentFunc)fun, nargs, type)
+#define COMMANDKN(name, type, fun, nargs) static bool __dummy_##fun = cstate.add_command(#name, nargs, (IdentFunc)fun, type)
 #define COMMANDK(name, type, nargs) COMMANDKN(name, type, name, nargs)
 #define COMMANDN(name, fun, nargs) COMMANDKN(name, ID_COMMAND, fun, nargs)
 #define COMMAND(name, nargs) COMMANDN(name, name, nargs)
 
 #define ICOMMANDNAME(name) _icmd_##name
 #define ICOMMANDSNAME _icmds_
-#define ICOMMANDKNS(name, type, cmdname, nargs, proto, b) template<int N> struct cmdname; template<> struct cmdname<__LINE__> { static bool init; static void run proto; }; bool cmdname<__LINE__>::init = addcommand(name, (IdentFunc)cmdname<__LINE__>::run, nargs, type); void cmdname<__LINE__>::run proto \
+#define ICOMMANDKNS(name, type, cmdname, nargs, proto, b) template<int N> struct cmdname; template<> struct cmdname<__LINE__> { static bool init; static void run proto; }; bool cmdname<__LINE__>::init = cstate.add_command(name, nargs, (IdentFunc)cmdname<__LINE__>::run, type); void cmdname<__LINE__>::run proto \
     { b; }
 #define ICOMMANDKN(name, type, cmdname, nargs, proto, b) ICOMMANDKNS(#name, type, cmdname, nargs, proto, b)
 #define ICOMMANDK(name, type, nargs, proto, b) ICOMMANDKN(name, type, ICOMMANDNAME(name), nargs, proto, b)
