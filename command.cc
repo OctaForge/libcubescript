@@ -758,7 +758,7 @@ static void cs_init_lib_base_var(CsState &cs) {
     });
 
     cs.add_command("getalias", "s", [](CsState &cs, const char *name) {
-        result(cs, cs.get_alias(name).value_or("").data());
+        cs.result->set_str(dup_ostr(cs.get_alias(name).value_or("").data()));
     });
 }
 
@@ -775,7 +775,7 @@ const char *parsestring(const char *p) {
     return p;
 }
 
-int unescapestring(char *dst, const char *src, const char *end) {
+int cs_str_unescape(char *dst, const char *src, const char *end) {
     char *start = dst;
     while (src < end) {
         int c = *src++;
@@ -913,7 +913,7 @@ static inline void cutstring(const char *&p, ostd::ConstCharRange &s) {
     ostd::Vector<char> &buf = strbuf[stridx];
     buf.reserve(maxlen);
 
-    s = ostd::ConstCharRange(buf.data(), unescapestring(buf.data(), p, end));
+    s = ostd::ConstCharRange(buf.data(), cs_str_unescape(buf.data(), p, end));
     p = end;
     if (*p == '\"') p++;
 }
@@ -922,7 +922,7 @@ static inline char *cutstring(const char *&p) {
     p++;
     const char *end = parsestring(p);
     char *buf = new char[end - p + 1];
-    unescapestring(buf, p, end);
+    cs_str_unescape(buf, p, end);
     p = end;
     if (*p == '\"') p++;
     return buf;
@@ -1087,13 +1087,13 @@ static inline const char *compileblock(GenState &gs, const char *p, int rettype 
     return p;
 }
 
-static inline void compileunescapestring(GenState &gs, const char *&p, bool macro = false) {
+static inline void compileunescapestr(GenState &gs, const char *&p, bool macro = false) {
     p++;
     const char *end = parsestring(p);
     gs.code.push(macro ? CODE_MACRO : CODE_VAL | RET_STR);
     gs.code.reserve(gs.code.size() + (end - p) / sizeof(ostd::Uint32) + 1);
     char *buf = (char *)&gs.code[gs.code.size()];
-    int len = unescapestring(buf, p, end);
+    int len = cs_str_unescape(buf, p, end);
     memset(&buf[len], 0, sizeof(ostd::Uint32) - len % sizeof(ostd::Uint32));
     gs.code.back() |= len << 8;
     gs.code.advance(len / sizeof(ostd::Uint32) + 1);
@@ -1628,11 +1628,11 @@ static bool compilearg(GenState &gs, const char *&p, int wordtype, int prevargs,
             break;
         case VAL_ANY:
         case VAL_STR:
-            compileunescapestring(gs, p);
+            compileunescapestr(gs, p);
             break;
         case VAL_CANY:
         case VAL_CSTR:
-            compileunescapestring(gs, p, true);
+            compileunescapestr(gs, p, true);
             break;
         default: {
             ostd::ConstCharRange s;
@@ -3264,14 +3264,6 @@ const char *escapestring(const char *s) {
     return buf.data();
 }
 
-ICOMMAND(escape, "s", (CsState &cs, char *s), result(cs, escapestring(s)));
-ICOMMAND(unescape, "s", (CsState &cs, char *s), {
-    int len = strlen(s);
-    char *d = new char[len + 1];
-    unescapestring(d, s, &s[len]);
-    stringret(cs, d);
-});
-
 const char *escapeid(const char *s) {
     const char *end = s + strcspn(s, "\"/;()[]@ \f\t\r\n\0");
     return *end ? escapestring(s) : s;
@@ -3367,7 +3359,7 @@ void init_lib_base(CsState &cs) {
 
     cs.add_command("?", "tTT", [](CsState &cs, TaggedValue *cond,
                                   TaggedValue *t, TaggedValue *f) {
-        result(cs, *(getbool(*cond) ? t : f));
+        cs.result->set(*(getbool(*cond) ? t : f));
     });
 
     cs.add_command("cond", "ee2V", [](CsState &cs, TaggedValue *args,
@@ -3385,7 +3377,7 @@ void init_lib_base(CsState &cs) {
         }
     });
 
-#define CS_CASE_COMMAND(name, fmt, type, acc, compare) \
+#define CS_CMD_CASE(name, fmt, type, acc, compare) \
     cs.add_command(name, fmt "te2V", [](CsState &cs, TaggedValue *args, \
                                         int numargs) { \
         type val = acc; \
@@ -3398,19 +3390,19 @@ void init_lib_base(CsState &cs) {
         } \
     });
 
-    CS_CASE_COMMAND("case", "i", int, args[0].get_int(),
+    CS_CMD_CASE("case", "i", int, args[0].get_int(),
                     ((args[i].type == VAL_NULL) ||
                      (args[i].get_int() == val)));
 
-    CS_CASE_COMMAND("casef", "f", float, args[0].get_float(),
+    CS_CMD_CASE("casef", "f", float, args[0].get_float(),
                     ((args[i].type == VAL_NULL) ||
                      (args[i].get_float() == val)));
 
-    CS_CASE_COMMAND("cases", "s", const char *, args[0].get_str(),
+    CS_CMD_CASE("cases", "s", const char *, args[0].get_str(),
                     ((args[i].type == VAL_NULL) ||
                      !strcmp(args[i].get_str(), val)));
 
-#undef CS_CASE_COMMAND
+#undef CS_CMD_CASE
 
     cs.add_command("pushif", "rTe", [](CsState &cs, Ident *id,
                                        TaggedValue *v, ostd::Uint32 *code) {
@@ -3599,48 +3591,6 @@ const char *floatstr(float v) {
 #undef ICOMMANDSNAME
 #define ICOMMANDSNAME _stdcmd
 
-void concat(CsState &cs, TaggedValue *v, int n) {
-    cs.result->set_str(conc(v, n, true));
-}
-COMMAND(concat, "V");
-
-void concatword(CsState &cs, TaggedValue *v, int n) {
-    cs.result->set_str(conc(v, n, false));
-}
-COMMAND(concatword, "V");
-
-void result(CsState &cs, TaggedValue &v) {
-    *cs.result = v;
-    v.type = VAL_NULL;
-}
-
-void stringret(CsState &cs, char *s) {
-    cs.result->set_str(s);
-}
-
-void result(CsState &cs, const char *s) {
-    cs.result->set_str(dup_ostr(s));
-}
-
-void format(CsState &cs, TaggedValue *args, int numargs) {
-    ostd::Vector<char> s;
-    const char *f = args[0].get_str();
-    while (*f) {
-        int c = *f++;
-        if (c == '%') {
-            int i = *f++;
-            if (i >= '1' && i <= '9') {
-                i -= '0';
-                const char *sub = i < numargs ? args[i].get_str() : "";
-                while (*sub) s.push(*sub++);
-            } else s.push(i);
-        } else s.push(c);
-    }
-    s.push('\0');
-    cs.result->set_str(s.disown());
-}
-COMMAND(format, "V");
-
 static const char *liststart = nullptr, *listend = nullptr, *listquotestart = nullptr, *listquoteend = nullptr;
 
 static inline void skiplist(const char *&p) {
@@ -3716,7 +3666,7 @@ static inline ostd::String listelem(const char *start = liststart, const char *e
     ostd::Size len = end - start;
     ostd::String s;
     s.reserve(len);
-    if (*quotestart == '"') unescapestring(s.data(), start, end);
+    if (*quotestart == '"') cs_str_unescape(s.data(), start, end);
     else {
         memcpy(s.data(), start, len);
         s[len] = '\0';
@@ -3757,12 +3707,6 @@ void at(CsState &cs, TaggedValue *args, int numargs) {
     cs.result->set_str(listelem(start, end, qstart).disown());
 }
 COMMAND(at, "si1V");
-
-void substr(CsState &cs, char *s, int *start, int *count, int *numargs) {
-    int len = strlen(s), offset = ostd::clamp(*start, 0, len);
-    cs.result->set_str(dup_ostr(ostd::ConstCharRange(&s[offset], *numargs >= 3 ? ostd::clamp(*count, 0, len - offset) : len - offset)));
-}
-COMMAND(substr, "siiN");
 
 void sublist(CsState &cs, const char *s, int *skip, int *count, int *numargs) {
     int offset = ostd::max(*skip, 0), len = *numargs >= 3 ? ostd::max(*count, 0) : -1;
@@ -3821,7 +3765,7 @@ void listassoc(CsState &cs, Ident *id, const char *list, const ostd::Uint32 *bod
         ++n;
         setiter(*id, dup_ostr(ostd::ConstCharRange(start, end - start)), stack);
         if (cs.run_bool(body)) {
-            if (parselist(s, start, end, qstart)) stringret(cs, listelem(start, end, qstart).disown());
+            if (parselist(s, start, end, qstart)) cs.result->set_str(listelem(start, end, qstart).disown());
             break;
         }
         if (!parselist(s)) break;
@@ -3853,7 +3797,7 @@ LISTFIND(listfind=s, "s", char, int len = (int)strlen(val), int(end - start) == 
         init; \
         for(const char *s = list, *start, *end, *qstart; parselist(s, start, end);) \
         { \
-            if(cmp) { if(parselist(s, start, end, qstart)) stringret(cs, listelem(start, end, qstart).disown()); return; } \
+            if(cmp) { if(parselist(s, start, end, qstart)) cs.result->set_str(listelem(start, end, qstart).disown()); return; } \
             if(!parselist(s)) break; \
         } \
     });
@@ -3972,7 +3916,7 @@ void prettylist(CsState &cs, const char *s, const char *conj) {
     for (int len = listlen(cs, s), n = 0; parselist(s, start, end, qstart); n++) {
         if (*qstart == '"') {
             p.reserve(p.size() + end - start);
-            p.advance(unescapestring(&p[p.size()], start, end));
+            p.advance(cs_str_unescape(&p[p.size()], start, end));
         } else p.push_n(start, end - start);
         if (n + 1 < len) {
             if (len > 2 || !conj[0]) p.push(',');
@@ -4160,79 +4104,6 @@ void sortlist(CsState &cs, char *list, Ident *x, Ident *y, ostd::Uint32 *body, o
 COMMAND(sortlist, "srree");
 ICOMMAND(uniquelist, "srre", (CsState &cs, char *list, Ident *x, Ident *y, ostd::Uint32 *body), sortlist(cs, list, x, y, nullptr, body));
 
-#define MATHCMD(name, fmt, type, op, initval, unaryop) \
-    ICOMMANDS(name, #fmt "1V", (CsState &cs, TaggedValue *args, int numargs), \
-    { \
-        type val; \
-        if(numargs >= 2) \
-        { \
-            val = args[0].fmt; \
-            type val2 = args[1].fmt; \
-            op; \
-            for(int i = 2; i < numargs; i++) { val2 = args[i].fmt; op; } \
-        } \
-        else { val = numargs > 0 ? args[0].fmt : initval; unaryop; } \
-        cs.result->set_##type(val); \
-    })
-#define MATHICMDN(name, op, initval, unaryop) MATHCMD(#name, i, int, val = val op val2, initval, unaryop)
-#define MATHICMD(name, initval, unaryop) MATHICMDN(name, name, initval, unaryop)
-#define MATHFCMDN(name, op, initval, unaryop) MATHCMD(#name "f", f, float, val = val op val2, initval, unaryop)
-#define MATHFCMD(name, initval, unaryop) MATHFCMDN(name, name, initval, unaryop)
-
-#define CMPCMD(name, fmt, type, op) \
-    ICOMMANDS(name, #fmt "1V", (CsState &cs, TaggedValue *args, int numargs), \
-    { \
-        bool val; \
-        if(numargs >= 2) \
-        { \
-            val = args[0].fmt op args[1].fmt; \
-            for(int i = 2; i < numargs && val; i++) val = args[i-1].fmt op args[i].fmt; \
-        } \
-        else val = (numargs > 0 ? args[0].fmt : 0) op 0; \
-        cs.result->set_int(int(val)); \
-    })
-#define CMPICMDN(name, op) CMPCMD(#name, i, int, op)
-#define CMPICMD(name) CMPICMDN(name, name)
-#define CMPFCMDN(name, op) CMPCMD(#name "f", f, float, op)
-#define CMPFCMD(name) CMPFCMDN(name, name)
-
-MATHICMD(+, 0, );
-MATHICMD(*, 1, );
-MATHICMD(-, 0, val = -val);
-CMPICMDN(=, ==);
-CMPICMD(!=);
-CMPICMD(<);
-CMPICMD(>);
-CMPICMD(<=);
-CMPICMD(>=);
-MATHICMD(^, 0, val = ~val);
-MATHICMDN(~, ^, 0, val = ~val);
-MATHICMD(&, 0, );
-MATHICMD(|, 0, );
-MATHICMD(^~, 0, );
-MATHICMD(&~, 0, );
-MATHICMD(|~, 0, );
-MATHCMD("<<", i, int, val = val2 < 32 ? val << ostd::max(val2, 0) : 0, 0, );
-MATHCMD(">>", i, int, val >>= ostd::clamp(val2, 0, 31), 0, );
-
-MATHFCMD(+, 0, );
-MATHFCMD(*, 1, );
-MATHFCMD(-, 0, val = -val);
-CMPFCMDN(=, ==);
-CMPFCMD(!=);
-CMPFCMD(<);
-CMPFCMD(>);
-CMPFCMD(<=);
-CMPFCMD(>=);
-
-#define DIVCMD(name, fmt, type, op) MATHCMD(#name, fmt, type, { if(val2) op; else val = 0; }, 0, )
-
-DIVCMD(div, i, int, val /= val2);
-DIVCMD(mod, i, int, val %= val2);
-DIVCMD(divf, f, float, val /= val2);
-DIVCMD(modf, f, float, val = fmod(val, val2));
-MATHCMD("pow", f, float, val = pow(val, val2), 0, );
-
 static constexpr float PI = 3.14159265358979f;
 static constexpr float RAD = PI / 180.0f;
 
@@ -4305,63 +4176,126 @@ void init_lib_math(CsState &cs) {
     cs.add_command("ceil", "f", [](CsState &cs, float *v) {
         cs.result->set_float(ceil(*v));
     });
-}
 
-ICOMMAND(round, "ff", (CsState &cs, float *n, float *k), {
-    double step = *k;
-    double r = *n;
-    if (step > 0) {
-        r += step * (r < 0 ? -0.5 : 0.5);
-        r -= fmod(r, step);
-    } else r = r < 0 ? ceil(r - 0.5) : floor(r + 0.5);
-    cs.result->set_float(float(r));
-});
+    cs.add_command("round", "ff", [](CsState &cs, float *n, float *k) {
+        double step = *k;
+        double r = *n;
+        if (step > 0) {
+            r += step * ((r < 0) ? -0.5 : 0.5);
+            r -= fmod(r, step);
+        } else {
+            r = (r < 0) ? ceil(r - 0.5) : floor(r + 0.5);
+        }
+        cs.result->set_float(float(r));
+    });
 
-ICOMMAND(tohex, "ii", (CsState &cs, int *n, int *p), {
-    auto r = ostd::appender<ostd::Vector<char>>();
-    ostd::format(r, "0x%.*X", ostd::max(*p, 1), *n);
-    r.put('\0');
-    stringret(cs, r.get().disown());
-});
-
-#define CMPSCMD(name, op) \
-    ICOMMAND(name, "s1V", (CsState &cs, TaggedValue *args, int numargs), \
-    { \
-        bool val; \
-        if(numargs >= 2) \
-        { \
-            val = strcmp(args[0].s, args[1].s) op 0; \
-            for(int i = 2; i < numargs && val; i++) val = strcmp(args[i-1].s, args[i].s) op 0; \
+#define CS_CMD_MATH(name, fmt, type, op, initval, unaryop) \
+    cs.add_command(name, #fmt "1V", [](CsState &, TaggedValue *args, \
+                                       int numargs) { \
+        type val; \
+        if (numargs >= 2) { \
+            val = args[0].fmt; \
+            type val2 = args[1].fmt; \
+            op; \
+            for (int i = 2; i < numargs; ++i) { \
+                val2 = args[i].fmt; \
+                op; \
+            } \
+        } else { \
+            val = (numargs > 0) ? args[0].fmt : initval; \
+            unaryop; \
         } \
-        else val = (numargs > 0 ? args[0].s[0] : 0) op 0; \
+    });
+
+#define CS_CMD_MATHIN(name, op, initval, unaryop) \
+    CS_CMD_MATH(#name, i, int, val = val op val2, initval, unaryop)
+
+#define CS_CMD_MATHI(name, initval, unaryop) \
+    CS_CMD_MATHIN(name, name, initval, unaryop)
+
+#define CS_CMD_MATHFN(name, op, initval, unaryop) \
+    CS_CMD_MATH(#name "f", f, float, val = val op val2, initval, unaryop)
+
+#define CS_CMD_MATHF(name, initval, unaryop) \
+    CS_CMD_MATHIN(name, name, initval, unaryop)
+
+    CS_CMD_MATHI(+, 0, );
+    CS_CMD_MATHI(*, 1, );
+    CS_CMD_MATHI(-, 0, val = -val);
+
+    CS_CMD_MATHI(^, 0, val = ~val);
+    CS_CMD_MATHIN(~, ^, 0, val = ~val);
+    CS_CMD_MATHI(&, 0, );
+    CS_CMD_MATHI(|, 0, );
+    CS_CMD_MATHI(^~, 0, );
+    CS_CMD_MATHI(&~, 0, );
+    CS_CMD_MATHI(|~, 0, );
+
+    CS_CMD_MATH("<<", i, int, {
+        val = (val2 < 32) ? (val << ostd::max(val2, 0)) : 0;
+    }, 0, );
+    CS_CMD_MATH(">>", i, int, val >>= ostd::clamp(val2, 0, 31), 0, );
+
+    CS_CMD_MATHF(+, 0, );
+    CS_CMD_MATHF(*, 1, );
+    CS_CMD_MATHF(-, 0, val = -val);
+
+#define CS_CMD_DIV(name, fmt, type, op) \
+    CS_CMD_MATH(#name, fmt, type, { if (val2) op; else val = 0; }, 0, )
+
+    CS_CMD_DIV(div, i, int, val /= val2);
+    CS_CMD_DIV(mod, i, int, val %= val2);
+    CS_CMD_DIV(divf, f, float, val /= val2);
+    CS_CMD_DIV(modf, f, float, val = fmod(val, val2));
+
+#undef CS_CMD_DIV
+
+    CS_CMD_MATH("pow", f, float, val = pow(val, val2), 0, );
+
+#undef CS_CMD_MATHF
+#undef CS_CMD_MATHFN
+#undef CS_CMD_MATHI
+#undef CS_CMD_MATHIN
+#undef CS_CMD_MATH
+
+#define CS_CMD_CMP(name, fmt, type, op) \
+    cs.add_command(name, #fmt "1V", [](CsState &cs, TaggedValue *args, \
+                                       int numargs) { \
+        bool val; \
+        if (numargs >= 2) { \
+            val = args[0].fmt op args[1].fmt; \
+            for (int i = 2; i < numargs && val; ++i) \
+                val = args[i-1].fmt op args[i].fmt; \
+        } else \
+            val = ((numargs > 0) ? args[0].fmt : 0) op 0; \
         cs.result->set_int(int(val)); \
     })
 
-CMPSCMD(strcmp, ==);
-CMPSCMD(=s, ==);
-CMPSCMD(!=s, !=);
-CMPSCMD(<s, <);
-CMPSCMD(>s, >);
-CMPSCMD(<=s, <=);
-CMPSCMD(>=s, >=);
+#define CS_CMD_CMPIN(name, op) CS_CMD_CMP(#name, i, int, op)
+#define CS_CMD_CMPI(name) CS_CMD_CMPIN(name, name)
+#define CS_CMD_CMPFN(name, op) CS_CMD_CMP(#name "f", f, float, op)
+#define CS_CMD_CMPF(name) CS_CMD_CMPFN(name, name)
 
-ICOMMAND(strstr, "ss", (CsState &cs, char *a, char *b), { char *s = strstr(a, b); cs.result->set_int(s ? s - a : -1); });
-ICOMMAND(strlen, "s", (CsState &cs, char *s), cs.result->set_int(strlen(s)));
-ICOMMAND(strcode, "si", (CsState &cs, char *s, int *i), cs.result->set_int(*i > 0 ? (memchr(s, 0, *i) ? 0 : ostd::byte(s[*i])) : ostd::byte(s[0])));
-ICOMMAND(codestr, "i", (CsState &cs, int *i), { char *s = new char[2]; s[0] = char(*i); s[1] = '\0'; stringret(cs, s); });
+    CS_CMD_CMPIN(=, ==);
+    CS_CMD_CMPI(!=);
+    CS_CMD_CMPI(<);
+    CS_CMD_CMPI(>);
+    CS_CMD_CMPI(<=);
+    CS_CMD_CMPI(>=);
 
-#define STRMAPCOMMAND(name, map) \
-    ICOMMAND(name, "s", (CsState &cs, char *s), \
-    { \
-        int len = strlen(s); \
-        char *m = new char[len + 1]; \
-        for (int i = 0; i < len; ++i) m[i] = map(s[i]); \
-        m[len] = '\0'; \
-        stringret(cs, m); \
-    })
+    CS_CMD_CMPFN(=, ==);
+    CS_CMD_CMPF(!=);
+    CS_CMD_CMPF(<);
+    CS_CMD_CMPF(>);
+    CS_CMD_CMPF(<=);
+    CS_CMD_CMPF(>=);
 
-STRMAPCOMMAND(strlower, tolower);
-STRMAPCOMMAND(strupper, toupper);
+#undef CS_CMD_CMPF
+#undef CS_CMD_CMPFN
+#undef CS_CMD_CMPI
+#undef CS_CMD_CMPIN
+#undef CS_CMD_CMP
+}
 
 char *strreplace(CsState &, const char *s, const char *oldval, const char *newval, const char *newval2) {
     ostd::Vector<char> buf;
@@ -4396,6 +4330,132 @@ void strsplice(CsState &cs, const char *s, const char *vals, int *skip, int *cou
     cs.result->set_str(p);
 }
 COMMAND(strsplice, "ssii");
+
+void init_lib_list(CsState &) {
+}
+
+void init_lib_string(CsState &cs) {
+    cs.add_command("strstr", "ss", [](CsState &cs, char *a, char *b) {
+        char *s = strstr(a, b);
+        cs.result->set_int(s ? (s - a) : -1);
+    });
+
+    cs.add_command("strlen", "s", [](CsState &cs, char *s) {
+        cs.result->set_int(strlen(s));
+    });
+
+    cs.add_command("strcode", "si", [](CsState &cs, char *s, int *i) {
+        cs.result->set_int((*i > 0)
+                           ? (memchr(s, '\0', *i) ? 0 : ostd::byte(s[*i]))
+                           : ostd::byte(s[0]));
+    });
+
+    cs.add_command("codestr", "i", [](CsState &cs, int *i) {
+        char *s = new char[2];
+        s[0] = char(*i);
+        s[1] = '\0';
+        cs.result->set_str(s);
+    });
+
+    cs.add_command("strlower", "s", [](CsState &cs, char *s) {
+        ostd::Size len = strlen(s);
+        char *buf = new char[len + 1];
+        for (ostd::Size i = 0; i < len; ++i)
+            buf[i] = tolower(s[i]);
+        buf[len] = '\0';
+        cs.result->set_str(buf);
+    });
+
+    cs.add_command("strupper", "s", [](CsState &cs, char *s) {
+        ostd::Size len = strlen(s);
+        char *buf = new char[len + 1];
+        for (ostd::Size i = 0; i < len; ++i)
+            buf[i] = toupper(s[i]);
+        buf[len] = '\0';
+        cs.result->set_str(buf);
+    });
+
+    cs.add_command("escape", "s", [](CsState &cs, char *s) {
+        cs.result->set_str(dup_ostr(escapestring(s)));
+    });
+
+    cs.add_command("unescape", "s", [](CsState &cs, char *s) {
+        ostd::Size len = strlen(s);
+        char *buf = new char[len + 1];
+        cs_str_unescape(buf, s, &s[len]);
+        cs.result->set_str(buf);
+    });
+
+    cs.add_command("concat", "V", [](CsState &cs, TaggedValue *v, int n) {
+        cs.result->set_str(conc(v, n, true));
+    });
+
+    cs.add_command("concatworld", "V", [](CsState &cs, TaggedValue *v,
+                                          int n) {
+        cs.result->set_str(conc(v, n, false));
+    });
+
+    cs.add_command("format", "V", [](CsState &cs, TaggedValue *v, int n) {
+        if (n <= 0) {
+            cs.result->set_str(dup_ostr(""));
+            return;
+        }
+        ostd::Vector<char> s;
+        const char *f = v[0].get_str();
+        while (*f) {
+            char c = *f++;
+            if (c == '%') {
+                char ic = *f++;
+                if (ic >= '1' && ic <= '9') {
+                    int i = ic - '0';
+                    const char *sub = (i < n) ? v[i].get_str() : "";
+                    s.push_n(sub, strlen(sub));
+                } else s.push(ic);
+            } else s.push(c);
+        }
+        s.push('\0');
+        cs.result->set_str(s.disown());
+    });
+
+    cs.add_command("tohex", "ii", [](CsState &cs, int *n, int *p) {
+        auto r = ostd::appender<ostd::Vector<char>>();
+        ostd::format(r, "0x%.*X", ostd::max(*p, 1), *n);
+        r.put('\0');
+        cs.result->set_str(r.get().disown());
+    });
+
+    cs.add_command("substr", "siiN", [](CsState &cs, char *s, int *start,
+                                        int *count, int *numargs) {
+        int len = strlen(s), offset = ostd::clamp(*start, 0, len);
+        cs.result->set_str(dup_ostr(ostd::ConstCharRange(
+            &s[offset],
+            (*numargs >= 3) ? ostd::clamp(*count, 0, len - offset)
+                            : (len - offset))));
+    });
+
+#define CS_CMD_CMPS(name, op) \
+    cs.add_command(#name, "s1V", [](CsState &cs, TaggedValue *args, \
+                                    int numargs) { \
+        bool val; \
+        if (numargs >= 2) { \
+            val = strcmp(args[0].s, args[1].s) op 0; \
+            for (int i = 2; i < numargs && val; ++i) \
+                val = strcmp(args[i-1].s, args[i].s) op 0; \
+        } else \
+            val = (numargs > 0 ? args[0].s[0] : 0) op 0; \
+        cs.result->set_int(int(val)); \
+    })
+
+    CS_CMD_CMPS(strcmp, ==);
+    CS_CMD_CMPS(=s, ==);
+    CS_CMD_CMPS(!=s, !=);
+    CS_CMD_CMPS(<s, <);
+    CS_CMD_CMPS(>s, >);
+    CS_CMD_CMPS(<=s, <=);
+    CS_CMD_CMPS(>=s, >=);
+
+#undef CS_CMD_CMPS
+}
 
 void init_lib_shell(CsState &cs) {
     cs.add_command("shell", "C", [](CsState &cs, char *s) {

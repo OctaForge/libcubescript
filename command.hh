@@ -141,6 +141,11 @@ struct TaggedValue: IdentValue {
         id = val;
     }
 
+    void set(TaggedValue &tv) {
+        *this = tv;
+        tv.type = VAL_NULL;
+    }
+
     const char *get_str() const;
     int get_int() const;
     float get_float() const;
@@ -450,9 +455,6 @@ extern CsState cstate;
 
 extern const char *intstr(int v);
 extern const char *floatstr(float v);
-extern void stringret(CsState &cs, char *s);
-extern void result(CsState &cs, TaggedValue &v);
-extern void result(CsState &cs, const char *s);
 
 static inline int parseint(const char *s) {
     return int(strtoul(s, nullptr, 0));
@@ -585,7 +587,6 @@ extern ostd::Uint32 *compilecode(const char *p);
 extern void keepcode(ostd::Uint32 *p);
 extern void freecode(ostd::Uint32 *p);
 
-extern const char *getalias(const char *name);
 extern const char *escapestring(const char *s);
 extern const char *escapeid(const char *s);
 static inline const char *escapeid(Ident &id) {
@@ -609,4 +610,6 @@ extern int listlen(CsState &cs, const char *s);
 void init_lib_base(CsState &cs);
 void init_lib_io(CsState &cs);
 void init_lib_math(CsState &cs);
+void init_lib_string(CsState &cs);
+void init_lib_list(CsState &cs);
 void init_lib_shell(CsState &cs);
