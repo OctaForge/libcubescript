@@ -451,8 +451,6 @@ struct CsState {
     void print_var_str(Ident *id, ostd::ConstCharRange s);
 };
 
-extern CsState cstate;
-
 extern const char *intstr(int v);
 extern const char *floatstr(float v);
 
@@ -596,16 +594,6 @@ extern bool validateblock(const char *s);
 void explodelist(const char *s, ostd::Vector<ostd::String> &elems, int limit = -1);
 extern char *indexlist(const char *s, int pos);
 extern int listlen(CsState &cs, const char *s);
-
-#define COMMAND(name, nargs) static bool __dummy_##name = cstate.add_command(#name, nargs, (IdentFunc)name, ID_COMMAND)
-
-#define ICOMMANDNAME(name) _icmd_##name
-#define ICOMMANDSNAME _icmds_
-#define ICOMMANDNS(name, cmdname, nargs, proto, b) template<int N> struct cmdname; template<> struct cmdname<__LINE__> { static bool init; static void run proto; }; bool cmdname<__LINE__>::init = cstate.add_command(name, nargs, (IdentFunc)cmdname<__LINE__>::run, ID_COMMAND); void cmdname<__LINE__>::run proto \
-    { b; }
-#define ICOMMANDN(name, cmdname, nargs, proto, b) ICOMMANDNS(#name, cmdname, nargs, proto, b)
-#define ICOMMAND(name, nargs, proto, b) ICOMMANDN(name, ICOMMANDNAME(name), nargs, proto, b)
-#define ICOMMANDS(name, nargs, proto, b) ICOMMANDNS(name, ICOMMANDSNAME, nargs, proto, b)
 
 void init_lib_base(CsState &cs);
 void init_lib_io(CsState &cs);

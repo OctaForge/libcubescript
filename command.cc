@@ -14,8 +14,6 @@ static inline bool check_num(const char *s) {
     }
 }
 
-CsState cstate;
-
 const struct NullValue: TaggedValue {
     NullValue() { set_null(); }
 } null_value;
@@ -3693,49 +3691,66 @@ int listlen(CsState &, const char *s) {
     while (parselist(s)) n++;
     return n;
 }
-ICOMMAND(listlen, "s", (CsState &cs, char *s), cs.result->set_int(listlen(cs, s)));
 
-void at(CsState &cs, TaggedValue *args, int numargs) {
-    if (!numargs) return;
-    const char *start = args[0].get_str(), *end = start + strlen(start), *qstart = "";
-    for (int i = 1; i < numargs; i++) {
-        const char *list = start;
-        int pos = args[i].get_int();
-        for (; pos > 0; pos--) if (!parselist(list)) break;
-        if (pos > 0 || !parselist(list, start, end, qstart)) start = end = qstart = "";
-    }
-    cs.result->set_str(listelem(start, end, qstart).disown());
-}
-COMMAND(at, "si1V");
-
-void sublist(CsState &cs, const char *s, int *skip, int *count, int *numargs) {
-    int offset = ostd::max(*skip, 0), len = *numargs >= 3 ? ostd::max(*count, 0) : -1;
-    for (int i = 0; i < offset; ++i) if (!parselist(s)) break;
-    if (len < 0) {
-        if (offset > 0) skiplist(s);
-        cs.result->set_str(dup_ostr(s));
-        return;
-    }
-    const char *list = s, *start, *end, *qstart, *qend = s;
-    if (len > 0 && parselist(s, start, end, list, qend)) while (--len > 0 && parselist(s, start, end, qstart, qend));
-    cs.result->set_str(dup_ostr(ostd::ConstCharRange(list, qend - list)));
-}
-COMMAND(sublist, "siiN");
-
-static inline void setiter(Ident &id, char *val, IdentStack &stack) {
+static inline void cs_set_iter(Ident &id, char *val, IdentStack &stack) {
     if (id.stack == &stack) {
-        if (id.valtype == VAL_STR) delete[] id.val.s;
-        else id.valtype = VAL_STR;
+        if (id.valtype == VAL_STR)
+            delete[] id.val.s;
+        else
+            id.valtype = VAL_STR;
         id.clean_code();
         id.val.s = val;
-    } else {
-        TaggedValue t;
-        t.set_str(val);
-        id.push_arg(t, stack);
-        id.flags &= ~IDF_UNKNOWN;
+        return;
     }
+    TaggedValue v;
+    v.set_str(val);
+    id.push_arg(v, stack);
+    id.flags &= ~IDF_UNKNOWN;
 }
 
+void init_lib_list(CsState &cs) {
+    cs.add_command("listlen", "s", [](CsState &cs, char *s) {
+        cs.result->set_int(listlen(cs, s));
+    });
+
+    cs.add_command("at", "si1V", [](CsState &cs, TaggedValue *args,
+                                    int numargs) {
+        if (!numargs)
+            return;
+        const char *start = args[0].get_str(),
+                   *end = start + strlen(start),
+                   *qstart = "";
+        for (int i = 1; i < numargs; ++i) {
+            const char *list = start;
+            int pos = args[i].get_int();
+            for (; pos > 0; --pos)
+                if (!parselist(list)) break;
+            if (pos > 0 || !parselist(list, start, end, qstart))
+                start = end = qstart = "";
+        }
+        cs.result->set_str(listelem(start, end, qstart).disown());
+    });
+
+    cs.add_command("sublist", "siiN", [](CsState &cs, const char *s,
+                                         int *skip, int *count, int *numargs) {
+        int offset = ostd::max(*skip, 0),
+            len = (*numargs >= 3) ? ostd::max(*count, 0) : -1;
+        for (int i = 0; i < offset; ++i)
+            if (!parselist(s)) break;
+        if (len < 0) {
+            if (offset > 0)
+                skiplist(s);
+            cs.result->set_str(dup_ostr(s));
+            return;
+        }
+        const char *list = s, *start, *end, *qstart, *qend = s;
+        if (len > 0 && parselist(s, start, end, list, qend))
+            while (--len > 0 && parselist(s, start, end, qstart, qend));
+        cs.result->set_str(dup_ostr(ostd::ConstCharRange(list, qend - list)));
+    });
+}
+
+/*
 void listfind(CsState &cs, Ident *id, const char *list, const ostd::Uint32 *body) {
     if (id->type != ID_ALIAS) {
         cs.result->set_int(-1);
@@ -4103,7 +4118,7 @@ void sortlist(CsState &cs, char *list, Ident *x, Ident *y, ostd::Uint32 *body, o
 }
 COMMAND(sortlist, "srree");
 ICOMMAND(uniquelist, "srre", (CsState &cs, char *list, Ident *x, Ident *y, ostd::Uint32 *body), sortlist(cs, list, x, y, nullptr, body));
-
+*/
 static constexpr float PI = 3.14159265358979f;
 static constexpr float RAD = PI / 180.0f;
 
@@ -4295,9 +4310,6 @@ void init_lib_math(CsState &cs) {
 #undef CS_CMD_CMPI
 #undef CS_CMD_CMPIN
 #undef CS_CMD_CMP
-}
-
-void init_lib_list(CsState &) {
 }
 
 void init_lib_string(CsState &cs) {
