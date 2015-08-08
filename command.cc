@@ -3745,6 +3745,8 @@ int cs_list_includes(const char *list, ostd::ConstCharRange needle) {
     return -1;
 }
 
+static void cs_init_lib_list_sort(CsState &cs);
+
 void init_lib_list(CsState &cs) {
     cs.add_command("listlen", "s", [](CsState &cs, char *s) {
         cs.result->set_int(listlen(cs, s));
@@ -4093,45 +4095,53 @@ found:
         p.push('\0');
         cs.result->set_str(p.disown());
     });
+
+    cs_init_lib_list_sort(cs);
 }
 
-/*
-struct sortitem {
-    const char *str, *quotestart, *quoteend;
-
-    int quotelength() const {
-        return int(quoteend - quotestart);
-    }
+struct ListSortItem {
+    const char *str;
+    ostd::ConstCharRange quote;
 };
 
-struct sortfun {
+struct ListSortFun {
     CsState &cs;
     Ident *x, *y;
     ostd::Uint32 *body;
 
-    bool operator()(const sortitem &xval, const sortitem &yval) {
-        if (x->valtype != VAL_CSTR) x->valtype = VAL_CSTR;
+    bool operator()(const ListSortItem &xval, const ListSortItem &yval) {
+        if (x->valtype != VAL_CSTR)
+            x->valtype = VAL_CSTR;
         x->clean_code();
         x->val.code = (const ostd::Uint32 *)xval.str;
-        if (y->valtype != VAL_CSTR) y->valtype = VAL_CSTR;
+        if (y->valtype != VAL_CSTR)
+            y->valtype = VAL_CSTR;
         y->clean_code();
         y->val.code = (const ostd::Uint32 *)yval.str;
         return cs.run_bool(body);
     }
 };
 
-void sortlist(CsState &cs, char *list, Ident *x, Ident *y, ostd::Uint32 *body, ostd::Uint32 *unique) {
-    if (x == y || x->type != ID_ALIAS || y->type != ID_ALIAS) return;
+void cs_list_sort(CsState &cs, char *list, Ident *x, Ident *y,
+                  ostd::Uint32 *body, ostd::Uint32 *unique) {
+    if (x == y || x->type != ID_ALIAS || y->type != ID_ALIAS)
+        return;
 
-    ostd::Vector<sortitem> items;
-    int clen = strlen(list), total = 0;
+    ostd::Vector<ListSortItem> items;
+    ostd::Size clen = strlen(list);
+    ostd::Size total = 0;
+
     char *cstr = dup_ostr(ostd::ConstCharRange(list, clen));
+
     const char *curlist = list, *start, *end, *quotestart, *quoteend;
     while (parselist(curlist, start, end, quotestart, quoteend)) {
         cstr[end - list] = '\0';
-        sortitem item = { &cstr[start - list], quotestart, quoteend };
+        ListSortItem item = {
+            &cstr[start - list],
+            ostd::ConstCharRange(quotestart, quoteend)
+        };
         items.push(item);
-        total += item.quotelength();
+        total += item.quote.size();
     }
 
     if (items.empty()) {
@@ -4145,39 +4155,41 @@ void sortlist(CsState &cs, char *list, Ident *x, Ident *y, ostd::Uint32 *body, o
     y->push_arg(null_value, ystack);
     y->flags &= ~IDF_UNKNOWN;
 
-    int totalunique = total, numunique = items.size();
+    ostd::Size totaluniq = total;
+    ostd::Size nuniq = items.size();
     if (body) {
-        sortfun f = { cs, x, y, body };
+        ListSortFun f = { cs, x, y, body };
         ostd::sort(items.iter(), f);
         if ((*unique & CODE_OP_MASK) != CODE_EXIT) {
             f.body = unique;
-            totalunique = items[0].quotelength();
-            numunique = 1;
+            totaluniq = items[0].quote.size();
+            nuniq = 1;
             for (ostd::Size i = 1; i < items.size(); i++) {
-                sortitem &item = items[i];
-                if (f(items[i - 1], item)) item.quotestart = nullptr;
+                ListSortItem &item = items[i];
+                if (f(items[i - 1], item))
+                    item.quote = nullptr;
                 else {
-                    totalunique += item.quotelength();
-                    numunique++;
+                    totaluniq += item.quote.size();
+                    ++nuniq;
                 }
             }
         }
     } else {
-        sortfun f = { cs, x, y, unique };
-        totalunique = items[0].quotelength();
-        numunique = 1;
+        ListSortFun f = { cs, x, y, unique };
+        totaluniq = items[0].quote.size();
+        nuniq = 1;
         for (ostd::Size i = 1; i < items.size(); i++) {
-            sortitem &item = items[i];
+            ListSortItem &item = items[i];
             for (ostd::Size j = 0; j < i; ++j) {
-                sortitem &prev = items[j];
-                if (prev.quotestart && f(item, prev)) {
-                    item.quotestart = nullptr;
+                ListSortItem &prev = items[j];
+                if (!prev.quote.empty() && f(item, prev)) {
+                    item.quote = nullptr;
                     break;
                 }
             }
-            if (item.quotestart) {
-                totalunique += item.quotelength();
-                numunique++;
+            if (!item.quote.empty()) {
+                totaluniq += item.quote.size();
+                ++nuniq;
             }
         }
     }
@@ -4186,28 +4198,36 @@ void sortlist(CsState &cs, char *list, Ident *x, Ident *y, ostd::Uint32 *body, o
     y->pop_arg();
 
     char *sorted = cstr;
-    int sortedlen = totalunique + ostd::max(numunique - 1, 0);
+    ostd::Size sortedlen = totaluniq + ostd::max(nuniq - 1, ostd::Size(0));
     if (clen < sortedlen) {
         delete[] cstr;
         sorted = new char[sortedlen + 1];
     }
 
-    int offset = 0;
+    ostd::Size offset = 0;
     for (ostd::Size i = 0; i < items.size(); ++i) {
-        sortitem &item = items[i];
-        if (!item.quotestart) continue;
-        int len = item.quotelength();
-        if (i) sorted[offset++] = ' ';
-        memcpy(&sorted[offset], item.quotestart, len);
-        offset += len;
+        ListSortItem &item = items[i];
+        if (item.quote.empty())
+            continue;
+        if (i)
+            sorted[offset++] = ' ';
+        memcpy(&sorted[offset], item.quote.data(), item.quote.size());
+        offset += item.quote.size();
     }
     sorted[offset] = '\0';
 
     cs.result->set_str(sorted);
 }
-COMMAND(sortlist, "srree");
-ICOMMAND(uniquelist, "srre", (CsState &cs, char *list, Ident *x, Ident *y, ostd::Uint32 *body), sortlist(cs, list, x, y, nullptr, body));
-*/
+
+static void cs_init_lib_list_sort(CsState &cs) {
+    cs.add_command("sortlist", "srree", cs_list_sort);
+    cs.add_command("uniquelist", "srre", [](CsState &cs, char *list,
+                                            Ident *x, Ident *y,
+                                            ostd::Uint32 *body) {
+        cs_list_sort(cs, list, x, y, nullptr, body);
+    });
+}
+
 static constexpr float PI = 3.14159265358979f;
 static constexpr float RAD = PI / 180.0f;
 
