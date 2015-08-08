@@ -3708,6 +3708,43 @@ static inline void cs_set_iter(Ident &id, char *val, IdentStack &stack) {
     id.flags &= ~IDF_UNKNOWN;
 }
 
+static void cs_loop_list_conc(CsState &cs, Ident *id, const char *list,
+                              const ostd::Uint32 *body, bool space) {
+    if (id->type != ID_ALIAS)
+        return;
+    IdentStack stack;
+    ostd::Vector<char> r;
+    int n = 0;
+    const char *s = list, *start, *end, *qstart;
+    for (; parselist(s, start, end, qstart); ++n) {
+        char *val = listelem(start, end, qstart).disown();
+        cs_set_iter(*id, val, stack);
+        if (n && space)
+            r.push(' ');
+        TaggedValue v;
+        cs.run_ret(body, v);
+        const char *vstr = v.get_str();
+        int len = strlen(vstr);
+        r.push_n(vstr, len);
+        v.cleanup();
+    }
+    if (n >= 0)
+        id->pop_arg();
+    r.push('\0');
+    cs.result->set_str(r.disown());
+}
+
+int cs_list_includes(const char *list, ostd::ConstCharRange needle) {
+    int offset = 0;
+    const char *s = list, *start, *end;
+    while (parselist(s, start, end)) {
+        if (ostd::ConstCharRange(start, end) == needle)
+            return offset;
+        ++offset;
+    }
+    return -1;
+}
+
 void init_lib_list(CsState &cs) {
     cs.add_command("listlen", "s", [](CsState &cs, char *s) {
         cs.result->set_int(listlen(cs, s));
@@ -3803,7 +3840,7 @@ found:
         int n = 0; \
         init; \
         const char *s = list, *start, *end, *qstart; \
-        for (; parselist(s, start, end, qstart); n++) { \
+        for (; parselist(s, start, end, qstart); ++n) { \
             if (cmp) { \
                 cs.result->set_int(n); \
                 return; \
@@ -3818,216 +3855,247 @@ found:
         cs.result->set_int(-1); \
     });
 
-    CS_CMD_LIST_FIND("listfind=", "i", int, , parseint(start) == *val);
-    CS_CMD_LIST_FIND("listfind=f", "f", float, , parsefloat(start) == *val);
+    CS_CMD_LIST_FIND("listfind=", "i", int, {}, parseint(start) == *val);
+    CS_CMD_LIST_FIND("listfind=f", "f", float, {}, parsefloat(start) == *val);
     CS_CMD_LIST_FIND("listfind=s", "s", char, int len = (int)strlen(val),
         int(end - start) == len && !memcmp(start, val, len));
 
 #undef CS_CMD_LIST_FIND
-}
 
-/*
-#define LISTASSOC(name, fmt, type, init, cmp) \
-    ICOMMAND(name, "s" fmt, (CsState &cs, char *list, type *val), \
-    { \
+#define CS_CMD_LIST_ASSOC(name, fmt, type, init, cmp) \
+    cs.add_command(name, "s" fmt, [](CsState &cs, char *list, type *val) { \
         init; \
-        for(const char *s = list, *start, *end, *qstart; parselist(s, start, end);) \
-        { \
-            if(cmp) { if(parselist(s, start, end, qstart)) cs.result->set_str(listelem(start, end, qstart).disown()); return; } \
-            if(!parselist(s)) break; \
+        const char *s = list, *start, *end, *qstart; \
+        while (parselist(s, start, end)) { \
+            if (cmp) { \
+                if (parselist(s, start, end, qstart)) \
+                    cs.result->set_str(listelem(start, end, qstart).disown()); \
+                return; \
+            } \
+            if (!parselist(s)) \
+                break; \
         } \
     });
-LISTASSOC(listassoc=, "i", int, , parseint(start) == *val);
-LISTASSOC(listassoc=f, "f", float, , parsefloat(start) == *val);
-LISTASSOC(listassoc=s, "s", char, int len = (int)strlen(val), int(end - start) == len && !memcmp(start, val, len));
 
-void looplist(CsState &cs, Ident *id, const char *list, const ostd::Uint32 *body) {
-    if (id->type != ID_ALIAS) return;
-    IdentStack stack;
-    int n = 0;
-    for (const char *s = list, *start, *end, *qstart; parselist(s, start, end, qstart); n++) {
-        setiter(*id, listelem(start, end, qstart).disown(), stack);
-        cs.run_int(body);
-    }
-    if (n) id->pop_arg();
-}
-COMMAND(looplist, "rse");
+    CS_CMD_LIST_ASSOC("listassoc=", "i", int, {}, parseint(start) == *val);
+    CS_CMD_LIST_ASSOC("listassoc=f", "f", float, {}, parsefloat(start) == *val);
+    CS_CMD_LIST_ASSOC("listassoc=s", "s", char, int len = (int)strlen(val),
+        int(end - start) == len && !memcmp(start, val, len));
 
-void looplist2(CsState &cs, Ident *id, Ident *id2, const char *list, const ostd::Uint32 *body) {
-    if (id->type != ID_ALIAS || id2->type != ID_ALIAS) return;
-    IdentStack stack, stack2;
-    int n = 0;
-    for (const char *s = list, *start, *end, *qstart; parselist(s, start, end, qstart); n += 2) {
-        setiter(*id, listelem(start, end, qstart).disown(), stack);
-        setiter(*id2, parselist(s, start, end, qstart) ? listelem(start, end, qstart).disown() : dup_ostr(""), stack2);
-        cs.run_int(body);
-    }
-    if (n) {
-        id->pop_arg();
-        id2->pop_arg();
-    }
-}
-COMMAND(looplist2, "rrse");
+#undef CS_CMD_LIST_ASSOC
 
-void looplist3(CsState &cs, Ident *id, Ident *id2, Ident *id3, const char *list, const ostd::Uint32 *body) {
-    if (id->type != ID_ALIAS || id2->type != ID_ALIAS || id3->type != ID_ALIAS) return;
-    IdentStack stack, stack2, stack3;
-    int n = 0;
-    for (const char *s = list, *start, *end, *qstart; parselist(s, start, end, qstart); n += 3) {
-        setiter(*id, listelem(start, end, qstart).disown(), stack);
-        setiter(*id2, parselist(s, start, end, qstart) ? listelem(start, end, qstart).disown() : dup_ostr(""), stack2);
-        setiter(*id3, parselist(s, start, end, qstart) ? listelem(start, end, qstart).disown() : dup_ostr(""), stack3);
-        cs.run_int(body);
-    }
-    if (n) {
-        id->pop_arg();
-        id2->pop_arg();
-        id3->pop_arg();
-    }
-}
-COMMAND(looplist3, "rrrse");
-
-void looplistconc(CsState &cs, Ident *id, const char *list, const ostd::Uint32 *body, bool space) {
-    if (id->type != ID_ALIAS) return;
-    IdentStack stack;
-    ostd::Vector<char> r;
-    int n = 0;
-    for (const char *s = list, *start, *end, *qstart; parselist(s, start, end, qstart); n++) {
-        char *val = listelem(start, end, qstart).disown();
-        setiter(*id, val, stack);
-
-        if (n && space) r.push(' ');
-
-        TaggedValue v;
-        cs.run_ret(body, v);
-        const char *vstr = v.get_str();
-        int len = strlen(vstr);
-        r.push_n(vstr, len);
-        v.cleanup();
-    }
-    if (n) id->pop_arg();
-    r.push('\0');
-    cs.result->set_str(r.disown());
-}
-ICOMMAND(looplistconcat, "rse", (CsState &cs, Ident *id, char *list, ostd::Uint32 *body), looplistconc(cs, id, list, body, true));
-ICOMMAND(looplistconcatword, "rse", (CsState &cs, Ident *id, char *list, ostd::Uint32 *body), looplistconc(cs, id, list, body, false));
-
-void listfilter(CsState &cs, Ident *id, const char *list, const ostd::Uint32 *body) {
-    if (id->type != ID_ALIAS) return;
-    IdentStack stack;
-    ostd::Vector<char> r;
-    int n = 0;
-    for (const char *s = list, *start, *end, *qstart, *qend; parselist(s, start, end, qstart, qend); n++) {
-        char *val = dup_ostr(ostd::ConstCharRange(start, end - start));
-        setiter(*id, val, stack);
-
-        if (cs.run_bool(body)) {
-            if (r.size()) r.push(' ');
-            r.push_n(qstart, qend - qstart);
+    cs.add_command("looplist", "rse", [](CsState &cs, Ident *id,
+                                         const char *list,
+                                         const ostd::Uint32 *body) {
+        if (id->type != ID_ALIAS)
+            return;
+        IdentStack stack;
+        int n = 0;
+        const char *s = list, *start, *end, *qstart;
+        for (; parselist(s, start, end, qstart); ++n) {
+            cs_set_iter(*id, listelem(start, end, qstart).disown(), stack);
+            cs.run_int(body);
         }
-    }
-    if (n) id->pop_arg();
-    r.push('\0');
-    cs.result->set_str(r.disown());
-}
-COMMAND(listfilter, "rse");
+        if (n >= 0)
+            id->pop_arg();
+    });
 
-void listcount(CsState &cs, Ident *id, const char *list, const ostd::Uint32 *body) {
-    if (id->type != ID_ALIAS) return;
-    IdentStack stack;
-    int n = 0, r = 0;
-    for (const char *s = list, *start, *end; parselist(s, start, end); n++) {
-        char *val = dup_ostr(ostd::ConstCharRange(start, end - start));
-        setiter(*id, val, stack);
-        if (cs.run_bool(body)) r++;
-    }
-    if (n) id->pop_arg();
-    cs.result->set_int(r);
-}
-COMMAND(listcount, "rse");
+    cs.add_command("looplist2", "rrse", [](CsState &cs, Ident *id,
+                                           Ident *id2, const char *list,
+                                           const ostd::Uint32 *body) {
+        if (id->type != ID_ALIAS || id2->type != ID_ALIAS)
+            return;
+        IdentStack stack, stack2;
+        int n = 0;
+        const char *s = list, *start, *end, *qstart;
+        for (; parselist(s, start, end, qstart); n += 2) {
+            cs_set_iter(*id, listelem(start, end, qstart).disown(), stack);
+            cs_set_iter(*id2, parselist(s, start, end, qstart)
+                        ? listelem(start, end, qstart).disown()
+                        : dup_ostr(""), stack2);
+            cs.run_int(body);
+        }
+        if (n >= 0) {
+            id->pop_arg();
+            id2->pop_arg();
+        }
+    });
 
-void prettylist(CsState &cs, const char *s, const char *conj) {
-    ostd::Vector<char> p;
-    const char *start, *end, *qstart;
-    for (int len = listlen(cs, s), n = 0; parselist(s, start, end, qstart); n++) {
-        if (*qstart == '"') {
-            p.reserve(p.size() + end - start);
-            p.advance(cs_str_unescape(&p[p.size()], start, end));
-        } else p.push_n(start, end - start);
-        if (n + 1 < len) {
-            if (len > 2 || !conj[0]) p.push(',');
-            if (n + 2 == len && conj[0]) {
-                p.push(' ');
-                p.push_n(conj, strlen(conj));
+    cs.add_command("looplist3", "rrrse", [](CsState &cs, Ident *id,
+                                            Ident *id2, Ident *id3,
+                                            const char *list,
+                                            const ostd::Uint32 *body) {
+        if (id->type != ID_ALIAS)
+            return;
+        if (id2->type != ID_ALIAS || id3->type != ID_ALIAS)
+            return;
+        IdentStack stack, stack2, stack3;
+        int n = 0;
+        const char *s = list, *start, *end, *qstart;
+        for (; parselist(s, start, end, qstart); n += 3) {
+            cs_set_iter(*id, listelem(start, end, qstart).disown(), stack);
+            cs_set_iter(*id2, parselist(s, start, end, qstart)
+                        ? listelem(start, end, qstart).disown()
+                        : dup_ostr(""), stack2);
+            cs_set_iter(*id3, parselist(s, start, end, qstart)
+                        ? listelem(start, end, qstart).disown()
+                        : dup_ostr(""), stack3);
+            cs.run_int(body);
+        }
+        if (n >= 0) {
+            id->pop_arg();
+            id2->pop_arg();
+            id3->pop_arg();
+        }
+    });
+
+    cs.add_command("looplistconcat", "rse", [](CsState &cs, Ident *id,
+                                               char *list,
+                                               ostd::Uint32 *body) {
+        cs_loop_list_conc(cs, id, list, body, true);
+    });
+
+    cs.add_command("looplistconcatword", "rse", [](CsState &cs, Ident *id,
+                                                   char *list,
+                                                   ostd::Uint32 *body) {
+        cs_loop_list_conc(cs, id, list, body, false);
+    });
+
+    cs.add_command("listfilter", "rse", [](CsState &cs, Ident *id,
+                                           const char *list,
+                                           const ostd::Uint32 *body) {
+        if (id->type != ID_ALIAS)
+            return;
+        IdentStack stack;
+        ostd::Vector<char> r;
+        int n = 0;
+        const char *s = list, *start, *end, *qstart, *qend;
+        for (; parselist(s, start, end, qstart, qend); ++n) {
+            char *val = dup_ostr(ostd::ConstCharRange(start, end - start));
+            cs_set_iter(*id, val, stack);
+            if (cs.run_bool(body)) {
+                if (r.size()) r.push(' ');
+                r.push_n(qstart, qend - qstart);
             }
-            p.push(' ');
         }
-    }
-    p.push('\0');
-    cs.result->set_str(p.disown());
-}
-COMMAND(prettylist, "ss");
+        if (n >= 0)
+            id->pop_arg();
+        r.push('\0');
+        cs.result->set_str(r.disown());
+    });
 
-int listincludes(CsState &, const char *list, const char *needle, int needlelen) {
-    int offset = 0;
-    for (const char *s = list, *start, *end; parselist(s, start, end);) {
-        int len = end - start;
-        if (needlelen == len && !strncmp(needle, start, len)) return offset;
-        offset++;
-    }
-    return -1;
-}
-ICOMMAND(indexof, "ss", (CsState &cs, char *list, char *elem), cs.result->set_int(listincludes(cs, list, elem, strlen(elem))));
+    cs.add_command("listcount", "rse", [](CsState &cs, Ident *id,
+                                          const char *list,
+                                          const ostd::Uint32 *body) {
+        if (id->type != ID_ALIAS)
+            return;
+        IdentStack stack;
+        int n = 0, r = 0;
+        const char *s = list, *start, *end;
+        for (; parselist(s, start, end); ++n) {
+            char *val = dup_ostr(ostd::ConstCharRange(start, end - start));
+            cs_set_iter(*id, val, stack);
+            if (cs.run_bool(body))
+                r++;
+        }
+        if (n >= 0)
+            id->pop_arg();
+        cs.result->set_int(r);
+    });
 
-#define LISTMERGECMD(name, init, iter, filter, dir) \
-    ICOMMAND(name, "ss", (CsState &cs, const char *list, const char *elems), \
-    { \
+    cs.add_command("prettylist", "ss", [](CsState &cs, const char *s,
+                                          const char *conj) {
+        ostd::Vector<char> p;
+        int len = listlen(cs, s);
+        int n = 0;
+        const char *start, *end, *qstart;
+        for (; parselist(s, start, end, qstart); ++n) {
+            if (*qstart == '"') {
+                p.reserve(p.size() + end - start);
+                p.advance(cs_str_unescape(&p[p.size()], start, end));
+            } else
+                p.push_n(start, end - start);
+            if ((n + 1) < len) {
+                if ((len > 2) || !conj[0])
+                    p.push(',');
+                if ((n + 2 == len) && conj[0]) {
+                    p.push(' ');
+                    p.push_n(conj, strlen(conj));
+                }
+                p.push(' ');
+            }
+        }
+        p.push('\0');
+        cs.result->set_str(p.disown());
+    });
+
+    cs.add_command("indexof", "ss", [](CsState &cs, char *list, char *elem) {
+        cs.result->set_int(cs_list_includes(list, elem));
+    });
+
+#define CS_CMD_LIST_MERGE(name, init, iter, filter, dir) \
+    cs.add_command(name, "ss", [](CsState &cs, const char *list, \
+                                  const char *elems) { \
         ostd::Vector<char> p; \
         init; \
-        for(const char *start, *end, *qstart, *qend; parselist(iter, start, end, qstart, qend);) \
-        { \
-            int len = end - start; \
-            if(listincludes(cs, filter, start, len) dir 0) \
-            { \
-                if(!p.empty()) p.push(' '); \
-                p.push_n(qstart, qend-qstart); \
+        const char *start, *end, *qstart, *qend; \
+        while (parselist(iter, start, end, qstart, qend)) { \
+            auto needle = ostd::ConstCharRange(start, end); \
+            if (cs_list_includes(filter, needle) dir 0) { \
+                if (!p.empty()) \
+                    p.push(' '); \
+                p.push_n(qstart, qend - qstart); \
             } \
         } \
         p.push('\0'); \
         cs.result->set_str(p.disown()); \
-    })
+    });
 
-LISTMERGECMD(listdel, , list, elems, < );
-LISTMERGECMD(listintersect, , list, elems, >= );
-LISTMERGECMD(listunion, p.push_n(list, strlen(list)), elems, list, < );
+    CS_CMD_LIST_MERGE("listdel", {}, list, elems, <);
+    CS_CMD_LIST_MERGE("listintersect", {}, list, elems, >=);
+    CS_CMD_LIST_MERGE("listunion", p.push_n(list, strlen(list)), elems,
+        list, <);
 
-void listsplice(CsState &cs, const char *s, const char *vals, int *skip, int *count) {
-    int offset = ostd::max(*skip, 0), len = ostd::max(*count, 0);
-    const char *list = s, *start, *end, *qstart, *qend = s;
-    for (int i = 0; i < offset; ++i) if (!parselist(s, start, end, qstart, qend)) break;
-    ostd::Vector<char> p;
-    if (qend > list) p.push_n(list, qend - list);
-    if (*vals) {
-        if (!p.empty()) p.push(' ');
-        p.push_n(vals, strlen(vals));
-    }
-    for (int i = 0; i < len; ++i) if (!parselist(s)) break;
-    skiplist(s);
-    switch (*s) {
-    case '\0':
-    case ')':
-    case ']':
-        break;
-    default:
-        if (!p.empty()) p.push(' ');
-        p.push_n(s, strlen(s));
-        break;
-    }
-    p.push('\0');
-    cs.result->set_str(p.disown());
+#undef CS_CMD_LIST_MERGE
+
+    cs.add_command("listsplice", "ssii", [](CsState &cs, const char *s,
+                                            const char *vals, int *skip,
+                                            int *count) {
+        int offset = ostd::max(*skip, 0);
+        int len    = ostd::max(*count, 0);
+        const char *list = s, *start, *end, *qstart, *qend = s;
+        for (int i = 0; i < offset; ++i)
+            if (!parselist(s, start, end, qstart, qend))
+                break;
+        ostd::Vector<char> p;
+        if (qend > list)
+            p.push_n(list, qend - list);
+        if (*vals) {
+            if (!p.empty())
+                p.push(' ');
+            p.push_n(vals, strlen(vals));
+        }
+        for (int i = 0; i < len; ++i)
+            if (!parselist(s))
+                break;
+        skiplist(s);
+        switch (*s) {
+        case '\0':
+        case ')':
+        case ']':
+            break;
+        default:
+            if (!p.empty())
+                p.push(' ');
+            p.push_n(s, strlen(s));
+            break;
+        }
+        p.push('\0');
+        cs.result->set_str(p.disown());
+    });
 }
-COMMAND(listsplice, "ssii");
 
+/*
 struct sortitem {
     const char *str, *quotestart, *quoteend;
 
@@ -4255,29 +4323,29 @@ void init_lib_math(CsState &cs) {
 #define CS_CMD_MATHF(name, initval, unaryop) \
     CS_CMD_MATHIN(name, name, initval, unaryop)
 
-    CS_CMD_MATHI(+, 0, );
-    CS_CMD_MATHI(*, 1, );
+    CS_CMD_MATHI(+, 0, {});
+    CS_CMD_MATHI(*, 1, {});
     CS_CMD_MATHI(-, 0, val = -val);
 
     CS_CMD_MATHI(^, 0, val = ~val);
     CS_CMD_MATHIN(~, ^, 0, val = ~val);
-    CS_CMD_MATHI(&, 0, );
-    CS_CMD_MATHI(|, 0, );
-    CS_CMD_MATHI(^~, 0, );
-    CS_CMD_MATHI(&~, 0, );
-    CS_CMD_MATHI(|~, 0, );
+    CS_CMD_MATHI(&, 0, {});
+    CS_CMD_MATHI(|, 0, {});
+    CS_CMD_MATHI(^~, 0, {});
+    CS_CMD_MATHI(&~, 0, {});
+    CS_CMD_MATHI(|~, 0, {});
 
     CS_CMD_MATH("<<", i, int, {
         val = (val2 < 32) ? (val << ostd::max(val2, 0)) : 0;
-    }, 0, );
-    CS_CMD_MATH(">>", i, int, val >>= ostd::clamp(val2, 0, 31), 0, );
+    }, 0, {});
+    CS_CMD_MATH(">>", i, int, val >>= ostd::clamp(val2, 0, 31), 0, {});
 
-    CS_CMD_MATHF(+, 0, );
-    CS_CMD_MATHF(*, 1, );
+    CS_CMD_MATHF(+, 0, {});
+    CS_CMD_MATHF(*, 1, {});
     CS_CMD_MATHF(-, 0, val = -val);
 
 #define CS_CMD_DIV(name, fmt, type, op) \
-    CS_CMD_MATH(#name, fmt, type, { if (val2) op; else val = 0; }, 0, )
+    CS_CMD_MATH(#name, fmt, type, { if (val2) op; else val = 0; }, 0, {})
 
     CS_CMD_DIV(div, i, int, val /= val2);
     CS_CMD_DIV(mod, i, int, val %= val2);
@@ -4286,7 +4354,7 @@ void init_lib_math(CsState &cs) {
 
 #undef CS_CMD_DIV
 
-    CS_CMD_MATH("pow", f, float, val = pow(val, val2), 0, );
+    CS_CMD_MATH("pow", f, float, val = pow(val, val2), 0, {});
 
 #undef CS_CMD_MATHF
 #undef CS_CMD_MATHFN
