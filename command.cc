@@ -3748,64 +3748,85 @@ void init_lib_list(CsState &cs) {
             while (--len > 0 && parselist(s, start, end, qstart, qend));
         cs.result->set_str(dup_ostr(ostd::ConstCharRange(list, qend - list)));
     });
-}
 
-/*
-void listfind(CsState &cs, Ident *id, const char *list, const ostd::Uint32 *body) {
-    if (id->type != ID_ALIAS) {
+    cs.add_command("listfind", "rse", [](CsState &cs, Ident *id,
+                                         const char *list,
+                                         const ostd::Uint32 *body) {
+        if (id->type != ID_ALIAS) {
+            cs.result->set_int(-1);
+            return;
+        }
+        IdentStack stack;
+        int n = -1;
+        for (const char *s = list, *start, *end; parselist(s, start, end);) {
+            ++n;
+            cs_set_iter(*id, dup_ostr(ostd::ConstCharRange(start,
+                end - start)), stack);
+            if (cs.run_bool(body)) {
+                cs.result->set_int(n);
+                goto found;
+            }
+        }
         cs.result->set_int(-1);
-        return;
-    }
-    IdentStack stack;
-    int n = -1;
-    for (const char *s = list, *start, *end; parselist(s, start, end);) {
-        ++n;
-        setiter(*id, dup_ostr(ostd::ConstCharRange(start, end - start)), stack);
-        if (cs.run_bool(body)) {
-            cs.result->set_int(n);
-            goto found;
-        }
-    }
-    cs.result->set_int(-1);
 found:
-    if (n >= 0) id->pop_arg();
-}
-COMMAND(listfind, "rse");
+        if (n >= 0)
+            id->pop_arg();
+    });
 
-void listassoc(CsState &cs, Ident *id, const char *list, const ostd::Uint32 *body) {
-    if (id->type != ID_ALIAS) return;
-    IdentStack stack;
-    int n = -1;
-    for (const char *s = list, *start, *end, *qstart; parselist(s, start, end);) {
-        ++n;
-        setiter(*id, dup_ostr(ostd::ConstCharRange(start, end - start)), stack);
-        if (cs.run_bool(body)) {
-            if (parselist(s, start, end, qstart)) cs.result->set_str(listelem(start, end, qstart).disown());
-            break;
+    cs.add_command("listassoc", "rse", [](CsState &cs, Ident *id,
+                                         const char *list,
+                                         const ostd::Uint32 *body) {
+        if (id->type != ID_ALIAS)
+            return;
+        IdentStack stack;
+        int n = -1;
+        const char *s = list, *start, *end, *qstart;
+        while (parselist(s, start, end)) {
+            ++n;
+            cs_set_iter(*id, dup_ostr(ostd::ConstCharRange(start,
+                end - start)), stack);
+            if (cs.run_bool(body)) {
+                if (parselist(s, start, end, qstart))
+                    cs.result->set_str(listelem(start, end, qstart).disown());
+                break;
+            }
+            if (!parselist(s))
+                break;
         }
-        if (!parselist(s)) break;
-    }
-    if (n >= 0) id->pop_arg();
-}
-COMMAND(listassoc, "rse");
+        if (n >= 0)
+            id->pop_arg();
+    });
 
-#define LISTFIND(name, fmt, type, init, cmp) \
-    ICOMMAND(name, "s" fmt "i", (CsState &cs, char *list, type *val, int *skip), \
-    { \
+#define CS_CMD_LIST_FIND(name, fmt, type, init, cmp) \
+    cs.add_command(name, "s" fmt "i", [](CsState &cs, char *list, \
+                                         type *val, int *skip) { \
         int n = 0; \
         init; \
-        for(const char *s = list, *start, *end, *qstart; parselist(s, start, end, qstart); n++) \
-        { \
-            if(cmp) { cs.result->set_int(n); return; } \
-            for (int i = 0; i < *skip; ++i) { if(!parselist(s)) goto notfound; n++; } \
+        const char *s = list, *start, *end, *qstart; \
+        for (; parselist(s, start, end, qstart); n++) { \
+            if (cmp) { \
+                cs.result->set_int(n); \
+                return; \
+            } \
+            for (int i = 0; i < *skip; ++i) { \
+                if (!parselist(s)) \
+                    goto notfound; \
+                ++n; \
+            } \
         } \
     notfound: \
         cs.result->set_int(-1); \
     });
-LISTFIND(listfind=, "i", int, , parseint(start) == *val);
-LISTFIND(listfind=f, "f", float, , parsefloat(start) == *val);
-LISTFIND(listfind=s, "s", char, int len = (int)strlen(val), int(end - start) == len && !memcmp(start, val, len));
 
+    CS_CMD_LIST_FIND("listfind=", "i", int, , parseint(start) == *val);
+    CS_CMD_LIST_FIND("listfind=f", "f", float, , parsefloat(start) == *val);
+    CS_CMD_LIST_FIND("listfind=s", "s", char, int len = (int)strlen(val),
+        int(end - start) == len && !memcmp(start, val, len));
+
+#undef CS_CMD_LIST_FIND
+}
+
+/*
 #define LISTASSOC(name, fmt, type, init, cmp) \
     ICOMMAND(name, "s" fmt, (CsState &cs, char *list, type *val), \
     { \
@@ -4374,10 +4395,8 @@ void init_lib_string(CsState &cs) {
     });
 
     cs.add_command("format", "V", [](CsState &cs, TaggedValue *v, int n) {
-        if (n <= 0) {
-            cs.result->set_str(dup_ostr(""));
+        if (n <= 0)
             return;
-        }
         ostd::Vector<char> s;
         const char *f = v[0].get_str();
         while (*f) {
