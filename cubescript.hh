@@ -1,22 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h>
-#include <stdarg.h>
-#include <string.h>
-#include <ctype.h>
-#include <limits.h>
-#include <math.h>
 
-#include <ostd/algorithm.hh>
-#include <ostd/array.hh>
-#include <ostd/vector.hh>
+#include <ostd/types.hh>
 #include <ostd/string.hh>
+#include <ostd/vector.hh>
+#include <ostd/array.hh>
 #include <ostd/keyset.hh>
-#include <ostd/format.hh>
-#include <ostd/functional.hh>
-#include <ostd/map.hh>
-#include <ostd/io.hh>
+#include <ostd/range.hh>
+#include <ostd/utility.hh>
 #include <ostd/maybe.hh>
+#include <ostd/io.hh>
+#include <ostd/functional.hh>
 
 namespace cscript {
 

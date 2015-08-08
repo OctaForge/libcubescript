@@ -1,4 +1,11 @@
-#include "command.hh"
+#include "cubescript.hh"
+
+#include <limits.h>
+#include <ctype.h>
+#include <math.h>
+
+#include <ostd/algorithm.hh>
+#include <ostd/format.hh>
 
 namespace cscript {
 
