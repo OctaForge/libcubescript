@@ -2,7 +2,7 @@
 
 namespace cscript {
 
-static inline bool check_num(const char *s) {
+static inline bool cs_check_num(const char *s) {
     if (isdigit(s[0]))
         return true;
     switch (s[0]) {
@@ -82,7 +82,7 @@ void CsState::clear_overrides() {
 Ident *CsState::new_ident(ostd::ConstCharRange name, int flags) {
     Ident *id = idents.at(name);
     if (!id) {
-        if (check_num(name.data())) {
+        if (cs_check_num(name.data())) {
             debug_code("number %s is not a valid identifier name", name);
             return dummy;
         }
@@ -157,7 +157,7 @@ void CsState::set_alias(ostd::ConstCharRange name, TaggedValue &v) {
             break;
         }
         v.cleanup();
-    } else if (check_num(name.data())) {
+    } else if (cs_check_num(name.data())) {
         debug_code("cannot alias number %s", name);
         v.cleanup();
     } else {
@@ -309,20 +309,20 @@ void Ident::clean_code() {
     }
 }
 
-ostd::ConstCharRange debug_line(CsState &cs, ostd::ConstCharRange p,
-                                ostd::ConstCharRange fmt,
-                                ostd::CharRange buf) {
-    if (cs.src_str.empty()) return fmt;
+ostd::ConstCharRange CsState::debug_line(ostd::ConstCharRange p,
+                                         ostd::ConstCharRange fmt,
+                                         ostd::CharRange buf) {
+    if (src_str.empty()) return fmt;
     ostd::Size num = 1;
-    ostd::ConstCharRange line(cs.src_str);
+    ostd::ConstCharRange line(src_str);
     for (;;) {
         ostd::ConstCharRange end = ostd::find(line, '\n');
         if (!end.empty())
             line = line.slice(0, line.distance_front(end));
         if (&p[0] >= &line[0] && &p[0] <= &line[line.size()]) {
             ostd::CharRange r(buf);
-            if (!cs.src_file.empty())
-                ostd::format(r, "%s:%d: %s", cs.src_file, num, fmt);
+            if (!src_file.empty())
+                ostd::format(r, "%s:%d: %s", src_file, num, fmt);
             else
                 ostd::format(r, "%d: %s", num, fmt);
             r.put('\0');
@@ -336,18 +336,18 @@ ostd::ConstCharRange debug_line(CsState &cs, ostd::ConstCharRange p,
     return fmt;
 }
 
-void debug_alias(CsState &cs) {
-    if (!cs.dbgalias) return;
+void CsState::debug_alias() {
+    if (!dbgalias) return;
     int total = 0, depth = 0;
-    for (IdentLink *l = cs.stack; l != &cs.noalias; l = l->next) total++;
-    for (IdentLink *l = cs.stack; l != &cs.noalias; l = l->next) {
+    for (IdentLink *l = stack; l != &noalias; l = l->next) total++;
+    for (IdentLink *l = stack; l != &noalias; l = l->next) {
         Ident *id = l->id;
         ++depth;
-        if (depth < cs.dbgalias)
+        if (depth < dbgalias)
             ostd::err.writefln("  %d) %s", total - depth + 1, id->name);
-        else if (l->next == &cs.noalias)
-            ostd::err.writefln(depth == cs.dbgalias ? "  %d) %s"
-                                                    : "  ..%d) %s",
+        else if (l->next == &noalias)
+            ostd::err.writefln(depth == dbgalias ? "  %d) %s"
+                                                 : "  ..%d) %s",
                                total - depth + 1, id->name);
     }
 }
@@ -1768,7 +1768,7 @@ noid:
         } else {
             Ident *id = gs.cs.idents.at(idname);
             if (!id) {
-                if (!check_num(idname.data())) {
+                if (!cs_check_num(idname.data())) {
                     gs.gen_str(idname, true);
                     goto noid;
                 }
@@ -2063,8 +2063,8 @@ void GenState::gen_main(const char *p, int ret_type) {
     code.push(CODE_EXIT | ((ret_type < VAL_ANY) ? (ret_type << CODE_RET) : 0));
 }
 
-ostd::Uint32 *compilecode(CsState &cs, const char *p) {
-    GenState gs(cs);
+ostd::Uint32 *CsState::compile(const char *p) {
+    GenState gs(*this);
     gs.code.reserve(64);
     gs.gen_main(p);
     ostd::Uint32 *code = new ostd::Uint32[gs.code.size()];
@@ -2095,7 +2095,7 @@ static inline void forcecond(CsState &cs, TaggedValue &v) {
     }
 }
 
-void keepcode(ostd::Uint32 *code) {
+void bcode_ref(ostd::Uint32 *code) {
     if (!code) return;
     switch (*code & CODE_OP_MASK) {
     case CODE_START:
@@ -2113,7 +2113,7 @@ void keepcode(ostd::Uint32 *code) {
     }
 }
 
-void freecode(ostd::Uint32 *code) {
+void bcode_unref(ostd::Uint32 *code) {
     if (!code) return;
     switch (*code & CODE_OP_MASK) {
     case CODE_START:
@@ -2907,7 +2907,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                 (cs).identflags |= id->flags&IDF_OVERRIDDEN; \
                 IdentLink aliaslink = { id, (cs).stack, (1<<callargs)-1, argstack }; \
                 (cs).stack = &aliaslink; \
-                if(!id->code) id->code = compilecode((cs), id->get_str()); \
+                if(!id->code) id->code = (cs).compile(id->get_str()); \
                 ostd::Uint32 *code = id->code; \
                 code[0] += 0x100; \
                 runcode((cs), code+1, (result)); \
@@ -2964,7 +2964,7 @@ litval:
             Ident *id = cs.idents.at(idarg.s);
             if (!id) {
 noid:
-                if (check_num(idarg.s)) goto litval;
+                if (cs_check_num(idarg.s)) goto litval;
                 cs.debug_code("unknown command: %s", idarg.s);
                 result.force_null();
                 FORCERESULT;
@@ -3228,38 +3228,6 @@ void init_lib_io(CsState &cs) {
         ostd::writeln(s);
     });
 }
-
-bool validateblock(const char *s) {
-    const int maxbrak = 100;
-    static char brakstack[maxbrak];
-    int brakdepth = 0;
-    for (; *s; s++) switch (*s) {
-        case '[':
-        case '(':
-            if (brakdepth >= maxbrak) return false;
-            brakstack[brakdepth++] = *s;
-            break;
-        case ']':
-            if (brakdepth <= 0 || brakstack[--brakdepth] != '[') return false;
-            break;
-        case ')':
-            if (brakdepth <= 0 || brakstack[--brakdepth] != '(') return false;
-            break;
-        case '"':
-            s = parsestring(s + 1);
-            if (*s != '"') return false;
-            break;
-        case '/':
-            if (s[1] == '/') return false;
-            break;
-        case '@':
-        case '\f':
-            return false;
-        }
-    return brakdepth == 0;
-}
-
-/* standard lib */
 
 void cs_init_lib_base_loops(CsState &cs);
 
@@ -3546,11 +3514,6 @@ const char *floatstr(float v) {
     return retbuf[retidx];
 }
 
-#undef ICOMMANDNAME
-#define ICOMMANDNAME(name) _stdcmd
-#undef ICOMMANDSNAME
-#define ICOMMANDSNAME _stdcmd
-
 static const char *liststart = nullptr, *listend = nullptr, *listquotestart = nullptr, *listquoteend = nullptr;
 
 static inline void skiplist(const char *&p) {
@@ -3635,23 +3598,31 @@ static inline ostd::String listelem(const char *start = liststart, const char *e
     return s;
 }
 
-void explodelist(const char *s, ostd::Vector<ostd::String> &elems, int limit) {
-    const char *start, *end, *qstart;
-    while ((limit < 0 || int(elems.size()) < limit) && parselist(s, start, end, qstart)) {
-        elems.push(ostd::move(listelem(start, end, qstart)));
+namespace util {
+    ostd::Size list_length(const char *str) {
+        ostd::Size ret = 0;
+        while (parselist(str)) ++ret;
+        return ret;
     }
-}
 
-char *indexlist(const char *s, int pos) {
-    for (int i = 0; i < pos; ++i) if (!parselist(s)) return dup_ostr("");
-    const char *start, *end, *qstart;
-    return parselist(s, start, end, qstart) ? listelem(start, end, qstart).disown() : dup_ostr("");
-}
+    ostd::Maybe<ostd::String> list_index(const char *s, ostd::Size idx) {
+        for (ostd::Size i = 0; i < idx; ++i)
+            if (!parselist(s)) return ostd::nothing;
+        const char *start, *end, *qstart;
+        if (!parselist(s, start, end, qstart))
+            return ostd::nothing;
+        return ostd::move(listelem(start, end, qstart));
+    }
 
-int listlen(CsState &, const char *s) {
-    int n = 0;
-    while (parselist(s)) n++;
-    return n;
+    ostd::Vector<ostd::String> list_explode(const char *s,
+                                            ostd::Size limit) {
+        ostd::Vector<ostd::String> ret;
+        const char *start, *end, *qstart;
+        while ((ret.size() < limit) && parselist(s, start, end, qstart)) {
+            ret.push(ostd::move(listelem(start, end, qstart)));
+        }
+        return ret;
+    }
 }
 
 static inline void cs_set_iter(Ident &id, char *val, IdentStack &stack) {
@@ -3711,7 +3682,7 @@ static void cs_init_lib_list_sort(CsState &cs);
 
 void init_lib_list(CsState &cs) {
     cs.add_command("listlen", "s", [](CsState &cs, char *s) {
-        cs.result->set_int(listlen(cs, s));
+        cs.result->set_int(int(util::list_length(s)));
     });
 
     cs.add_command("at", "si1V", [](CsState &cs, TaggedValue *args,
@@ -3970,8 +3941,8 @@ found:
     cs.add_command("prettylist", "ss", [](CsState &cs, const char *s,
                                           const char *conj) {
         ostd::Vector<char> p;
-        int len = listlen(cs, s);
-        int n = 0;
+        ostd::Size len = util::list_length(s);
+        ostd::Size n = 0;
         const char *start, *end, *qstart;
         for (; parselist(s, start, end, qstart); ++n) {
             if (*qstart == '"') {

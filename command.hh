@@ -305,11 +305,6 @@ struct IdentLink {
     IdentStack *argstack;
 };
 
-void debug_alias(CsState &cs);
-ostd::ConstCharRange debug_line(CsState &cs, ostd::ConstCharRange p,
-                               ostd::ConstCharRange fmt,
-                               ostd::CharRange buf);
-
 struct CsState {
     ostd::Keyset<Ident> idents;
     ostd::Vector<Ident *> identmap;
@@ -406,7 +401,7 @@ struct CsState {
     void debug_code(ostd::ConstCharRange fmt, A &&...args) {
         if (nodebug) return;
         ostd::err.writefln(fmt, ostd::forward<A>(args)...);
-        debug_alias(*this);
+        debug_alias();
     }
 
     template<typename ...A>
@@ -414,11 +409,10 @@ struct CsState {
                          ostd::ConstCharRange fmt, A &&...args) {
         if (nodebug) return;
         ostd::Array<char, 256> buf;
-        ostd::err.writefln(debug_line(*this, p, fmt,
-                                      ostd::CharRange(buf.data(),
-                                                      buf.size())),
+        ostd::err.writefln(debug_line(p, fmt, ostd::CharRange(buf.data(),
+                                                              buf.size())),
                            ostd::forward<A>(args)...);
-        debug_alias(*this);
+        debug_alias();
     }
 
     void set_alias(ostd::ConstCharRange name, TaggedValue &v);
@@ -426,7 +420,7 @@ struct CsState {
     void set_var_int(ostd::ConstCharRange name, int v,
                      bool dofunc = true, bool doclamp = true);
     void set_var_float(ostd::ConstCharRange name, float v,
-                       bool dofunc = true, bool doclamp = true);
+                       bool dofunc  = true, bool doclamp = true);
     void set_var_str(ostd::ConstCharRange name, ostd::ConstCharRange v,
                      bool dofunc = true);
 
@@ -451,6 +445,14 @@ struct CsState {
     void print_var_int(Ident *id, int i);
     void print_var_float(Ident *id, float f);
     void print_var_str(Ident *id, ostd::ConstCharRange s);
+
+    ostd::Uint32 *compile(const char *code);
+
+private:
+    void debug_alias();
+    ostd::ConstCharRange debug_line(ostd::ConstCharRange p,
+                                    ostd::ConstCharRange fmt,
+                                    ostd::CharRange buf);
 };
 
 extern const char *intstr(int v);
@@ -583,14 +585,8 @@ inline void Ident::getcval(TaggedValue &v) const {
     }
 }
 
-extern ostd::Uint32 *compilecode(const char *p);
-extern void keepcode(ostd::Uint32 *p);
-extern void freecode(ostd::Uint32 *p);
-
-extern bool validateblock(const char *s);
-void explodelist(const char *s, ostd::Vector<ostd::String> &elems, int limit = -1);
-extern char *indexlist(const char *s, int pos);
-extern int listlen(CsState &cs, const char *s);
+void bcode_ref(ostd::Uint32 *p);
+void bcode_unref(ostd::Uint32 *p);
 
 void init_lib_base(CsState &cs);
 void init_lib_io(CsState &cs);
@@ -626,6 +622,11 @@ namespace util {
         writer.put('"');
         return ret;
     }
+
+    ostd::Size list_length(const char *str);
+    ostd::Maybe<ostd::String> list_index(const char *s, ostd::Size idx);
+    ostd::Vector<ostd::String> list_explode(const char *s,
+                                            ostd::Size limit = -1);
 }
 
 } /* namespace cscript */
