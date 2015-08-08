@@ -18,6 +18,8 @@
 #include <ostd/io.hh>
 #include <ostd/maybe.hh>
 
+namespace cscript {
+
 inline char *dup_ostr(ostd::ConstCharRange s) {
     char *r = new char[s.size() + 1];
     memcpy(r, s.data(), s.size());
@@ -491,10 +493,10 @@ static inline const char *get_str(const IdentValue &v, int type) {
     }
 }
 inline const char *TaggedValue::get_str() const {
-    return ::get_str(*this, type);
+    return cscript::get_str(*this, type);
 }
 inline const char *Ident::get_str() const {
-    return ::get_str(val, valtype);
+    return cscript::get_str(val, valtype);
 }
 
 #define GETNUMBER(name, ret) \
@@ -508,8 +510,8 @@ inline const char *Ident::get_str() const {
             default: return ret(0); \
         } \
     } \
-    inline ret TaggedValue::get_##name() const { return ::get_##name(*this, type); } \
-    inline ret Ident::get_##name() const { return ::get_##name(val, valtype); }
+    inline ret TaggedValue::get_##name() const { return cscript::get_##name(*this, type); } \
+    inline ret Ident::get_##name() const { return cscript::get_##name(val, valtype); }
 GETNUMBER(int, int)
 GETNUMBER(float, float)
 
@@ -533,10 +535,10 @@ static inline void get_val(const IdentValue &v, int type, TaggedValue &r) {
 }
 
 inline void TaggedValue::get_val(TaggedValue &r) const {
-    ::get_val(*this, type, r);
+    cscript::get_val(*this, type, r);
 }
 inline void Ident::get_val(TaggedValue &r) const {
-    ::get_val(val, valtype, r);
+    cscript::get_val(val, valtype, r);
 }
 
 inline void Ident::getcstr(TaggedValue &v) const {
@@ -595,7 +597,6 @@ void init_lib_io(CsState &cs);
 void init_lib_math(CsState &cs);
 void init_lib_string(CsState &cs);
 void init_lib_list(CsState &cs);
-void init_lib_shell(CsState &cs);
 
 namespace util {
     template<typename R>
@@ -626,3 +627,5 @@ namespace util {
         return ret;
     }
 }
+
+} /* namespace cscript */

@@ -1,5 +1,7 @@
 #include "command.hh"
 
+namespace cscript {
+
 static inline bool check_num(const char *s) {
     if (isdigit(s[0]))
         return true;
@@ -4551,8 +4553,4 @@ void init_lib_string(CsState &cs) {
     });
 }
 
-void init_lib_shell(CsState &cs) {
-    cs.add_command("shell", "C", [](CsState &cs, char *s) {
-        cs.result->set_int(system(s));
-    });
-}
+} /* namespace cscript */
