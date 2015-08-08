@@ -4297,40 +4297,6 @@ void init_lib_math(CsState &cs) {
 #undef CS_CMD_CMP
 }
 
-char *strreplace(CsState &, const char *s, const char *oldval, const char *newval, const char *newval2) {
-    ostd::Vector<char> buf;
-
-    int oldlen = strlen(oldval);
-    if (!oldlen) return dup_ostr(s);
-    for (int i = 0;; i++) {
-        const char *found = strstr(s, oldval);
-        if (found) {
-            while (s < found) buf.push(*s++);
-            for (const char *n = i & 1 ? newval2 : newval; *n; n++) buf.push(*n);
-            s = found + oldlen;
-        } else {
-            while (*s) buf.push(*s++);
-            buf.push('\0');
-            return dup_ostr(ostd::ConstCharRange(buf.data(), buf.size()));
-        }
-    }
-}
-
-ICOMMAND(strreplace, "ssss", (CsState &cs, char *s, char *o, char *n, char *n2), cs.result->set_str(strreplace(cs, s, o, n, n2[0] ? n2 : n)));
-
-void strsplice(CsState &cs, const char *s, const char *vals, int *skip, int *count) {
-    int slen = strlen(s), vlen = strlen(vals),
-        offset = ostd::clamp(*skip, 0, slen),
-        len = ostd::clamp(*count, 0, slen - offset);
-    char *p = new char[slen - len + vlen + 1];
-    if (offset) memcpy(p, s, offset);
-    if (vlen) memcpy(&p[offset], vals, vlen);
-    if (offset + len < slen) memcpy(&p[offset + vlen], &s[offset + len], slen - (offset + len));
-    p[slen - len + vlen] = '\0';
-    cs.result->set_str(p);
-}
-COMMAND(strsplice, "ssii");
-
 void init_lib_list(CsState &) {
 }
 
@@ -4455,6 +4421,53 @@ void init_lib_string(CsState &cs) {
     CS_CMD_CMPS(>=s, >=);
 
 #undef CS_CMD_CMPS
+
+    cs.add_command("strreplace", "ssss", [](CsState &cs, const char *s,
+                                            const char *oldval,
+                                            const char *newval,
+                                            const char *newval2) {
+        if (!newval2[0]) newval2 = newval;
+        ostd::Vector<char> buf;
+        int oldlen = strlen(oldval);
+        if (!oldlen) {
+            cs.result->set_str(dup_ostr(s));
+            return;
+        }
+        for (int i = 0;; ++i) {
+            const char *found = strstr(s, oldval);
+            if (found) {
+                while (s < found) buf.push(*s++);
+                for (const char *n = (i & 1) ? newval2 : newval; *n; ++n)
+                    buf.push(*n);
+                s = found + oldlen;
+            } else {
+                while (*s)
+                    buf.push(*s++);
+                buf.push('\0');
+                cs.result->set_str(dup_ostr(ostd::ConstCharRange(buf.data(),
+                    buf.size())));
+                return;
+            }
+        }
+    });
+
+    cs.add_command("strsplice", "ssii", [](CsState &cs, const char *s,
+                                           const char *vals, int *skip,
+                                           int *count) {
+        int slen = strlen(s),
+            vlen = strlen(vals),
+            offset = ostd::clamp(*skip, 0, slen),
+            len    = ostd::clamp(*count, 0, slen - offset);
+        char *p = new char[slen - len + vlen + 1];
+        if (offset)
+            memcpy(p, s, offset);
+        if (vlen)
+            memcpy(&p[offset], vals, vlen);
+        if (offset + len < slen)
+            memcpy(&p[offset + vlen], &s[offset + len], slen - (offset + len));
+        p[slen - len + vlen] = '\0';
+        cs.result->set_str(p);
+    });
 }
 
 void init_lib_shell(CsState &cs) {
