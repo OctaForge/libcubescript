@@ -3227,46 +3227,6 @@ void init_lib_io(CsState &cs) {
     });
 }
 
-const char *escapestring(const char *s) {
-    stridx = (stridx + 1) % 4;
-    ostd::Vector<char> &buf = strbuf[stridx];
-    buf.clear();
-    buf.push('"');
-    for (; *s; s++) switch (*s) {
-        case '\n':
-            buf.push('^');
-            buf.push('n');
-            break;
-        case '\t':
-            buf.push('^');
-            buf.push('t');
-            break;
-        case '\f':
-            buf.push('^');
-            buf.push('f');
-            break;
-        case '"':
-            buf.push('^');
-            buf.push('\"');
-            break;
-        case '^':
-            buf.push('^');
-            buf.push('^');
-            break;
-        default:
-            buf.push(*s);
-            break;
-        }
-    buf.push('"');
-    buf.push('\0');
-    return buf.data();
-}
-
-const char *escapeid(const char *s) {
-    const char *end = s + strcspn(s, "\"/;()[]@ \f\t\r\n\0");
-    return *end ? escapestring(s) : s;
-}
-
 bool validateblock(const char *s) {
     const int maxbrak = 100;
     static char brakstack[maxbrak];
@@ -4463,7 +4423,9 @@ void init_lib_string(CsState &cs) {
     });
 
     cs.add_command("escape", "s", [](CsState &cs, char *s) {
-        cs.result->set_str(dup_ostr(escapestring(s)));
+        auto x = ostd::appender<ostd::String>();
+        util::escape_string(x, s);
+        cs.result->set_str(x.get().disown());
     });
 
     cs.add_command("unescape", "s", [](CsState &cs, char *s) {

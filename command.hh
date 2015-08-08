@@ -585,11 +585,6 @@ extern ostd::Uint32 *compilecode(const char *p);
 extern void keepcode(ostd::Uint32 *p);
 extern void freecode(ostd::Uint32 *p);
 
-extern const char *escapestring(const char *s);
-extern const char *escapeid(const char *s);
-static inline const char *escapeid(Ident &id) {
-    return escapeid(id.name.data());
-}
 extern bool validateblock(const char *s);
 void explodelist(const char *s, ostd::Vector<ostd::String> &elems, int limit = -1);
 extern char *indexlist(const char *s, int pos);
@@ -601,3 +596,33 @@ void init_lib_math(CsState &cs);
 void init_lib_string(CsState &cs);
 void init_lib_list(CsState &cs);
 void init_lib_shell(CsState &cs);
+
+namespace util {
+    template<typename R>
+    inline ostd::Size escape_string(R &&writer, ostd::ConstCharRange str) {
+        ostd::Size ret = 2;
+        writer.put('"');
+        for (; !str.empty(); str.pop_front()) switch (str.front()) {
+        case '\n':
+            ret += writer.put_n("^n", 2);
+            break;
+        case '\t':
+            ret += writer.put_n("^t", 2);
+            break;
+        case '\f':
+            ret += writer.put_n("^f", 2);
+            break;
+        case '"':
+            ret += writer.put_n("^\"", 2);
+            break;
+        case '^':
+            ret += writer.put_n("^^", 2);
+            break;
+        default:
+            ret += writer.put(str.front());
+            break;
+        }
+        writer.put('"');
+        return ret;
+    }
+}
