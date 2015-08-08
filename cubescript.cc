@@ -2070,10 +2070,10 @@ void GenState::gen_main(const char *p, int ret_type) {
     code.push(CODE_EXIT | ((ret_type < VAL_ANY) ? (ret_type << CODE_RET) : 0));
 }
 
-ostd::Uint32 *CsState::compile(const char *p) {
+ostd::Uint32 *CsState::compile(ostd::ConstCharRange str) {
     GenState gs(*this);
     gs.code.reserve(64);
-    gs.gen_main(p);
+    gs.gen_main(str.data());
     ostd::Uint32 *code = new ostd::Uint32[gs.code.size()];
     memcpy(code, gs.code.data(), gs.code.size() * sizeof(ostd::Uint32));
     code[0] += 0x100;

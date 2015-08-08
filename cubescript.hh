@@ -440,7 +440,7 @@ struct CsState {
     void print_var_float(Ident *id, float f);
     void print_var_str(Ident *id, ostd::ConstCharRange s);
 
-    ostd::Uint32 *compile(const char *code);
+    ostd::Uint32 *compile(ostd::ConstCharRange code);
 
 private:
     void debug_alias();
