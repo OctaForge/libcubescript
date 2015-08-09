@@ -1072,7 +1072,7 @@ struct GenState {
         gen_ident(cs.new_ident(word, IDF_UNKNOWN));
     }
 
-    void gen_main(const char *p, int ret_type = VAL_ANY);
+    void gen_main(ostd::ConstCharRange s, int ret_type = VAL_ANY);
 };
 
 static inline void compileblock(GenState &gs) {
@@ -2064,8 +2064,9 @@ endstatement:
     }
 }
 
-void GenState::gen_main(const char *p, int ret_type) {
+void GenState::gen_main(ostd::ConstCharRange s, int ret_type) {
     code.push(CODE_START);
+    auto p = s.data();
     compilestatements(*this, p, VAL_ANY);
     code.push(CODE_EXIT | ((ret_type < VAL_ANY) ? (ret_type << CODE_RET) : 0));
 }
@@ -2073,7 +2074,7 @@ void GenState::gen_main(const char *p, int ret_type) {
 ostd::Uint32 *CsState::compile(ostd::ConstCharRange str) {
     GenState gs(*this);
     gs.code.reserve(64);
-    gs.gen_main(str.data());
+    gs.gen_main(str);
     ostd::Uint32 *code = new ostd::Uint32[gs.code.size()];
     memcpy(code, gs.code.data(), gs.code.size() * sizeof(ostd::Uint32));
     code[0] += 0x100;
