@@ -782,33 +782,6 @@ const char *parsestring(const char *p) {
     return p;
 }
 
-int cs_str_unescape(char *dst, const char *src, const char *end) {
-    char *start = dst;
-    while (src < end) {
-        int c = *src++;
-        if (c == '^') {
-            if (src >= end) break;
-            int e = *src++;
-            switch (e) {
-            case 'n':
-                *dst++ = '\n';
-                break;
-            case 't':
-                *dst++ = '\t';
-                break;
-            case 'f':
-                *dst++ = '\f';
-                break;
-            default:
-                *dst++ = e;
-                break;
-            }
-        } else *dst++ = c;
-    }
-    *dst = '\0';
-    return dst - start;
-}
-
 static char *conc(ostd::Vector<char> &buf, TaggedValue *v, int n, bool space, const char *prefix = nullptr, int prefixlen = 0) {
     if (prefix) {
         buf.push_n(prefix, prefixlen);
@@ -920,7 +893,10 @@ static inline void cutstring(const char *&p, ostd::ConstCharRange &s) {
     ostd::Vector<char> &buf = strbuf[stridx];
     buf.reserve(maxlen);
 
-    s = ostd::ConstCharRange(buf.data(), cs_str_unescape(buf.data(), p, end));
+    auto writer = buf.iter_cap();
+    s = ostd::ConstCharRange(buf.data(),
+        util::unescape_string(writer, ostd::ConstCharRange(p, end)));
+    writer.put('\0');
     p = end;
     if (*p == '\"') p++;
 }
@@ -929,7 +905,9 @@ static inline char *cutstring(const char *&p) {
     p++;
     const char *end = parsestring(p);
     char *buf = new char[end - p + 1];
-    cs_str_unescape(buf, p, end);
+    auto writer = ostd::CharRange(buf, end - p + 1);
+    util::unescape_string(writer, ostd::ConstCharRange(p, end));
+    writer.put('\0');
     p = end;
     if (*p == '\"') p++;
     return buf;
@@ -1152,7 +1130,9 @@ static inline void compileunescapestr(GenState &gs, bool macro = false) {
     gs.code.push(macro ? CODE_MACRO : CODE_VAL | RET_STR);
     gs.code.reserve(gs.code.size() + (end - gs.source) / sizeof(ostd::Uint32) + 1);
     char *buf = (char *)&gs.code[gs.code.size()];
-    int len = cs_str_unescape(buf, gs.source, end);
+    auto writer = ostd::CharRange(buf, (gs.code.capacity() - gs.code.size()) * sizeof(ostd::Uint32));
+    ostd::Size len = util::unescape_string(writer, ostd::ConstCharRange(gs.source, end));
+    writer.put('\0');
     memset(&buf[len], 0, sizeof(ostd::Uint32) - len % sizeof(ostd::Uint32));
     gs.code.back() |= len << 8;
     gs.code.advance(len / sizeof(ostd::Uint32) + 1);
@@ -3617,8 +3597,11 @@ static inline ostd::String listelem(const char *start = liststart, const char *e
     ostd::Size len = end - start;
     ostd::String s;
     s.reserve(len);
-    if (*quotestart == '"') cs_str_unescape(s.data(), start, end);
-    else {
+    if (*quotestart == '"') {
+        auto writer = s.iter_cap();
+        util::unescape_string(writer, ostd::ConstCharRange(start, end));
+        writer.put('\0');
+    } else {
         memcpy(s.data(), start, len);
         s[len] = '\0';
     }
@@ -3975,7 +3958,10 @@ found:
         for (; parselist(s, start, end, qstart); ++n) {
             if (*qstart == '"') {
                 p.reserve(p.size() + end - start);
-                p.advance(cs_str_unescape(&p[p.size()], start, end));
+                auto writer = ostd::CharRange(&p[p.size()], p.capacity() - p.size());
+                ostd::Size adv = util::unescape_string(writer, ostd::ConstCharRange(start, end));
+                writer.put('\0');
+                p.advance(adv);
             } else
                 p.push_n(start, end - start);
             if ((n + 1) < len) {
@@ -4432,7 +4418,9 @@ void init_lib_string(CsState &cs) {
     cs.add_command("unescape", "s", [](CsState &cs, char *s) {
         ostd::Size len = strlen(s);
         char *buf = new char[len + 1];
-        cs_str_unescape(buf, s, &s[len]);
+        auto writer = ostd::CharRange(buf, len + 1);
+        util::unescape_string(writer, ostd::ConstCharRange(s, len));
+        writer.put('\0');
         cs.result->set_str(buf);
     });
 

@@ -617,6 +617,35 @@ namespace util {
         return ret;
     }
 
+    template<typename R>
+    inline ostd::Size unescape_string(R &&writer, ostd::ConstCharRange str) {
+        ostd::Size ret = 0;
+        for (; !str.empty(); str.pop_front()) {
+            if (str.front() == '^') {
+                str.pop_front();
+                if (str.empty())
+                    break;
+                switch (str.front()) {
+                case 'n':
+                    ret += writer.put('\n');
+                    break;
+                case 't':
+                    ret += writer.put('\r');
+                    break;
+                case 'f':
+                    ret += writer.put('\f');
+                    break;
+                default:
+                    ret += writer.put(str.front());
+                    break;
+                }
+            } else {
+                ret += writer.put(str.front());
+            }
+        }
+        return ret;
+    }
+
     ostd::Size list_length(const char *str);
     ostd::Maybe<ostd::String> list_index(const char *s, ostd::Size idx);
     ostd::Vector<ostd::String> list_explode(const char *s,
