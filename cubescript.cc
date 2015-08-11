@@ -1424,41 +1424,44 @@ invalid:
     }
 }
 
-static bool compileblockstr(GenState &gs, const char *str, const char *end, bool macro) {
+static bool compileblockstr(GenState &gs, ostd::ConstCharRange str, bool macro) {
     int start = gs.code.size();
     gs.code.push(macro ? CODE_MACRO : CODE_VAL | RET_STR);
-    gs.code.reserve(gs.code.size() + (end - str) / sizeof(ostd::Uint32) + 1);
+    gs.code.reserve(gs.code.size() + str.size() / sizeof(ostd::Uint32) + 1);
     char *buf = (char *)&gs.code[gs.code.size()];
     int len = 0;
-    while (str < end) {
-        int n = strcspn(str, "\r/\"@]\0");
-        memcpy(&buf[len], str, n);
+    while (!str.empty()) {
+        int n = strcspn(str.data(), "\r/\"@]\0");
+        memcpy(&buf[len], str.data(), n);
         len += n;
-        str += n;
-        switch (*str) {
+        str.pop_front_n(n);
+        if (str.empty())
+            goto done;
+        switch (str.front()) {
         case '\r':
-            str++;
+            str.pop_front();
             break;
         case '\"': {
-            const char *start = str;
-            str = parsestring(str + 1);
-            if (*str == '\"') str++;
-            memcpy(&buf[len], start, str - start);
-            len += str - start;
+            const char *start = str.data();
+            const char *end = parsestring(start + 1);
+            if (*end == '\"') end++;
+            memcpy(&buf[len], start, end - start);
+            len += end - start;
+            str.pop_front_n(end - start);
             break;
         }
         case '/':
-            if (str[1] == '/') str += strcspn(str, "\n\0");
-            else buf[len++] = *str++;
+            if (str[1] == '/') str.pop_front_n(strcspn(str.data(), "\n\0"));
+            else {
+                buf[len++] = str.front();
+                str.pop_front();
+            }
             break;
         case '@':
         case ']':
-            if (str < end) {
-                buf[len++] = *str++;
-                break;
-            }
-        case '\0':
-            goto done;
+            buf[len++] = str.front();
+            str.pop_front();
+            break;
         }
     }
 done:
@@ -1547,7 +1550,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
                 gs.code.push(CODE_CONCW | RET_STR | (concs << 8));
                 concs = 1;
             }
-            if (compileblockstr(gs, start, esc - 1, true)) concs++;
+            if (compileblockstr(gs, ostd::ConstCharRange(start, esc - 1), true)) concs++;
             if (compileblocksub(gs, prevargs + concs)) concs++;
             if (concs) start = gs.source;
             else if (prevargs >= MAX_RESULTS) gs.code.pop();
@@ -1574,10 +1577,10 @@ done:
         case VAL_IDENT:
         case VAL_CANY:
         case VAL_COND:
-            compileblockstr(gs, start, gs.source - 1, true);
+            compileblockstr(gs, ostd::ConstCharRange(start, gs.source - 1), true);
             break;
         default:
-            compileblockstr(gs, start, gs.source - 1, concs > 0);
+            compileblockstr(gs, ostd::ConstCharRange(start, gs.source - 1), concs > 0);
             break;
         }
         if (concs > 1) concs++;
