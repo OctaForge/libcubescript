@@ -1335,6 +1335,10 @@ struct GenState {
     char next_char() {
         return *source++;
     }
+
+    char current() {
+        return *source;
+    }
 };
 
 static inline void compileblock(GenState &gs) {
@@ -1439,7 +1443,8 @@ static bool compilearg(GenState &gs, int wordtype, int prevargs = MAX_RESULTS, o
 
 static void compilelookup(GenState &gs, int ltype, int prevargs = MAX_RESULTS) {
     ostd::ConstCharRange lookup;
-    switch (*++gs.source) {
+    gs.next_char();
+    switch (gs.current()) {
     case '(':
     case '[':
         if (!compilearg(gs, VAL_CSTR, prevargs)) goto invalid;
@@ -1693,7 +1698,7 @@ done:
 static bool compileblocksub(GenState &gs, int prevargs) {
     ostd::ConstCharRange lookup;
     const char *op;
-    switch (*gs.source) {
+    switch (gs.current()) {
     case '(':
         if (!compilearg(gs, VAL_CANY, prevargs)) return false;
         break;
@@ -1706,7 +1711,7 @@ static bool compileblocksub(GenState &gs, int prevargs) {
         goto lookupid;
     default: {
         op = gs.source;
-        while (isalnum(*gs.source) || *gs.source == '_') gs.source++;
+        while (isalnum(gs.current()) || gs.current() == '_') gs.next_char();
         lookup = ostd::ConstCharRange(op, gs.source - op);
         if (lookup.empty()) return false;
 lookupid:
@@ -1747,10 +1752,10 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
             goto done;
         case '\"':
             gs.source = parsestring(gs.source);
-            if (*gs.source == '\"') gs.next_char();
+            if (gs.current() == '\"') gs.next_char();
             break;
         case '/':
-            if (*gs.source == '/') gs.source += strcspn(gs.source, "\n\0");
+            if (gs.current() == '/') gs.source += strcspn(gs.source, "\n\0");
             break;
         case '[':
             brak++;
@@ -1760,7 +1765,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
             break;
         case '@': {
             const char *esc = gs.source;
-            while (*gs.source == '@') gs.next_char();
+            while (gs.current() == '@') gs.next_char();
             int level = gs.source - (esc - 1);
             if (brak > level) continue;
             else if (brak < level) gs.cs.debug_code_line(line, "too many @s");
@@ -1848,12 +1853,12 @@ done:
 
 static bool compilearg(GenState &gs, int wordtype, int prevargs, ostd::ConstCharRange &word) {
     skipcomments(gs.source);
-    switch (*gs.source) {
+    switch (gs.current()) {
     case '\"':
         switch (wordtype) {
         case VAL_POP:
             gs.source = parsestring(gs.source + 1);
-            if (*gs.source == '\"') gs.next_char();
+            if (gs.current() == '\"') gs.next_char();
             break;
         case VAL_COND: {
             char *s = cutstring(gs.source);
@@ -1969,7 +1974,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
         bool more = compilearg(gs, VAL_WORD, prevargs, idname);
         if (!more) goto endstatement;
         skipcomments(gs.source);
-        if (gs.source[0] == '=') switch (gs.source[1]) {
+        if (gs.current() == '=') switch (gs.source[1]) {
             case '/':
                 if (gs.source[2] != '/') break;
             case ';':
@@ -2296,7 +2301,7 @@ endstatement:
             break;
 
         case '/':
-            if (*gs.source == '/') gs.source += strcspn(gs.source, "\n\0");
+            if (gs.current() == '/') gs.source += strcspn(gs.source, "\n\0");
             goto endstatement;
         }
     }
