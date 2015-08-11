@@ -1431,10 +1431,10 @@ static bool compileblockstr(GenState &gs, ostd::ConstCharRange str, bool macro) 
     char *buf = (char *)&gs.code[gs.code.size()];
     int len = 0;
     while (!str.empty()) {
-        int n = strcspn(str.data(), "\r/\"@]\0");
-        memcpy(&buf[len], str.data(), n);
-        len += n;
-        str.pop_front_n(n);
+        const char *p = str.data();
+        str = ostd::find_one_of(str, ostd::ConstCharRange("\r/\"@]"));
+        memcpy(&buf[len], p, str.data() - p);
+        len += str.data() - p;
         if (str.empty())
             goto done;
         switch (str.front()) {
@@ -1451,7 +1451,8 @@ static bool compileblockstr(GenState &gs, ostd::ConstCharRange str, bool macro) 
             break;
         }
         case '/':
-            if (str[1] == '/') str.pop_front_n(strcspn(str.data(), "\n\0"));
+            if (str[1] == '/')
+                str = ostd::find(str, '\n');
             else {
                 buf[len++] = str.front();
                 str.pop_front();
