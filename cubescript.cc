@@ -9,7 +9,7 @@
 
 namespace cscript {
 
-static inline bool cs_check_num(const char *s) {
+static inline bool cs_check_num(ostd::ConstCharRange s) {
     if (isdigit(s[0]))
         return true;
     switch (s[0]) {
@@ -43,7 +43,7 @@ CsState::CsState(): result(&no_ret) {
 CsState::~CsState() {
     for (Ident &i: idents.iter()) {
         if (i.type == ID_ALIAS) {
-            i.forcenull();
+            i.force_null();
             delete[] i.code;
             i.code = nullptr;
         } else if (i.type == ID_COMMAND || i.type >= ID_LOCAL) {
@@ -89,7 +89,7 @@ void CsState::clear_overrides() {
 Ident *CsState::new_ident(ostd::ConstCharRange name, int flags) {
     Ident *id = idents.at(name);
     if (!id) {
-        if (cs_check_num(name.data())) {
+        if (cs_check_num(name)) {
             debug_code("number %s is not a valid identifier name", name);
             return dummy;
         }
@@ -164,7 +164,7 @@ void CsState::set_alias(ostd::ConstCharRange name, TaggedValue &v) {
             break;
         }
         v.cleanup();
-    } else if (cs_check_num(name.data())) {
+    } else if (cs_check_num(name)) {
         debug_code("cannot alias number %s", name);
         v.cleanup();
     } else {
@@ -213,7 +213,7 @@ void CsState::print_var(Ident *id) {
     }
 }
 
-void TaggedValue::cleanup() {
+inline void TaggedValue::cleanup() {
     switch (type) {
     case VAL_STR:
         delete[] s;
@@ -224,13 +224,13 @@ void TaggedValue::cleanup() {
     }
 }
 
-void TaggedValue::force_null() {
+inline void TaggedValue::force_null() {
     if (type == VAL_NULL) return;
     cleanup();
     set_null();
 }
 
-float TaggedValue::force_float() {
+inline float TaggedValue::force_float() {
     float rf = 0.0f;
     switch (type) {
     case VAL_INT:
@@ -249,7 +249,7 @@ float TaggedValue::force_float() {
     return rf;
 }
 
-int TaggedValue::force_int() {
+inline int TaggedValue::force_int() {
     int ri = 0;
     switch (type) {
     case VAL_FLOAT:
@@ -268,7 +268,7 @@ int TaggedValue::force_int() {
     return ri;
 }
 
-const char *TaggedValue::force_str() {
+inline const char *TaggedValue::force_str() {
     const char *rs = "";
     switch (type) {
     case VAL_FLOAT:
@@ -289,7 +289,7 @@ const char *TaggedValue::force_str() {
     return rs;
 }
 
-void TaggedValue::force(int type) {
+inline void TaggedValue::force(int type) {
     switch (type) {
     case RET_STR:
         if (type != VAL_STR) force_str();
@@ -299,6 +299,119 @@ void TaggedValue::force(int type) {
         break;
     case RET_FLOAT:
         if (type != VAL_FLOAT) force_float();
+        break;
+    }
+}
+
+static inline int cs_get_int(const IdentValue &v, int type) {
+    switch (type) {
+    case VAL_FLOAT:
+        return int(v.f);
+    case VAL_INT:
+        return v.i;
+    case VAL_STR:
+    case VAL_MACRO:
+    case VAL_CSTR:
+        return parseint(v.s);
+    }
+    return 0;
+}
+
+inline int TaggedValue::get_int() const {
+    return cs_get_int(*this, type);
+}
+
+inline int Ident::get_int() const {
+    return cs_get_int(val, valtype);
+}
+
+static inline float cs_get_float(const IdentValue &v, int type) {
+    switch (type) {
+    case VAL_FLOAT:
+        return v.f;
+    case VAL_INT:
+        return float(v.i);
+    case VAL_STR:
+    case VAL_MACRO:
+    case VAL_CSTR:
+        return parsefloat(v.s);
+    }
+    return 0.0f;
+}
+
+inline float TaggedValue::get_float() const {
+    return cs_get_float(*this, type);
+}
+
+inline float Ident::get_float() const {
+    return cs_get_float(val, valtype);
+}
+
+static inline void cs_get_val(const IdentValue &v, int type, TaggedValue &r) {
+    switch (type) {
+    case VAL_STR:
+    case VAL_MACRO:
+    case VAL_CSTR:
+        r.set_str(dup_ostr(v.s));
+        break;
+    case VAL_INT:
+        r.set_int(v.i);
+        break;
+    case VAL_FLOAT:
+        r.set_float(v.f);
+        break;
+    default:
+        r.set_null();
+        break;
+    }
+}
+
+inline void TaggedValue::get_val(TaggedValue &r) const {
+    cs_get_val(*this, type, r);
+}
+
+inline void Ident::get_val(TaggedValue &r) const {
+    cs_get_val(val, valtype, r);
+}
+
+inline void Ident::get_cstr(TaggedValue &v) const {
+    switch (valtype) {
+    case VAL_MACRO:
+        v.set_macro(val.code);
+        break;
+    case VAL_STR:
+    case VAL_CSTR:
+        v.set_cstr(val.s);
+        break;
+    case VAL_INT:
+        v.set_str(dup_ostr(intstr(val.i)));
+        break;
+    case VAL_FLOAT:
+        v.set_str(dup_ostr(floatstr(val.f)));
+        break;
+    default:
+        v.set_cstr("");
+        break;
+    }
+}
+
+inline void Ident::get_cval(TaggedValue &v) const {
+    switch (valtype) {
+    case VAL_MACRO:
+        v.set_macro(val.code);
+        break;
+    case VAL_STR:
+    case VAL_CSTR:
+        v.set_cstr(val.s);
+        break;
+    case VAL_INT:
+        v.set_int(val.i);
+        break;
+    case VAL_FLOAT:
+        v.set_float(val.f);
+        break;
+    default:
+        v.set_null();
         break;
     }
 }
@@ -364,7 +477,7 @@ void Ident::push_arg(const TaggedValue &v, IdentStack &st) {
     st.valtype = valtype;
     st.next = stack;
     stack = &st;
-    setval(v);
+    set_value(v);
     clean_code();
 }
 
@@ -372,7 +485,7 @@ void Ident::pop_arg() {
     if (!stack) return;
     IdentStack *st = stack;
     if (valtype == VAL_STR) delete[] val.s;
-    setval(*stack);
+    set_value(*stack);
     clean_code();
     stack = st->next;
 }
@@ -383,7 +496,7 @@ void Ident::undo_arg(IdentStack &st) {
     st.valtype = valtype;
     st.next = prev;
     stack = prev->next;
-    setval(*prev);
+    set_value(*prev);
     clean_code();
 }
 
@@ -392,7 +505,7 @@ void Ident::redo_arg(const IdentStack &st) {
     prev->val = val;
     prev->valtype = valtype;
     stack = prev;
-    setval(st);
+    set_value(st);
     clean_code();
 }
 
@@ -410,7 +523,7 @@ void Ident::pop_alias() {
 void Ident::set_arg(CsState &cs, TaggedValue &v) {
     if (cs.stack->usedargs & (1 << index)) {
         if (valtype == VAL_STR) delete[] val.s;
-        setval(v);
+        set_value(v);
         clean_code();
     } else {
         push_arg(v, cs.stack->argstack[index]);
@@ -420,7 +533,7 @@ void Ident::set_arg(CsState &cs, TaggedValue &v) {
 
 void Ident::set_alias(CsState &cs, TaggedValue &v) {
     if (valtype == VAL_STR) delete[] val.s;
-    setval(v);
+    set_value(v);
     clean_code();
     flags = (flags & cs.identflags) | cs.identflags;
 }
@@ -1775,7 +1888,7 @@ noid:
         } else {
             Ident *id = gs.cs.idents.at(idname);
             if (!id) {
-                if (!cs_check_num(idname.data())) {
+                if (!cs_check_num(idname)) {
                     gs.gen_str(idname, true);
                     goto noid;
                 }
@@ -2736,25 +2849,25 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             LOOKUPARG(id->get_val(args[numargs++]), args[numargs++].set_null());
 
         case CODE_LOOKUPMU|RET_STR:
-            LOOKUPU(id->getcstr(arg),
+            LOOKUPU(id->get_cstr(arg),
                     arg.set_cstr(*id->storage.s),
                     arg.set_str(dup_ostr(intstr(*id->storage.i))),
                     arg.set_str(dup_ostr(floatstr(*id->storage.f))),
                     arg.set_cstr(""));
         case CODE_LOOKUPM|RET_STR:
-            LOOKUP(id->getcstr(args[numargs++]));
+            LOOKUP(id->get_cstr(args[numargs++]));
         case CODE_LOOKUPMARG|RET_STR:
-            LOOKUPARG(id->getcstr(args[numargs++]), args[numargs++].set_cstr(""));
+            LOOKUPARG(id->get_cstr(args[numargs++]), args[numargs++].set_cstr(""));
         case CODE_LOOKUPMU|RET_NULL:
-            LOOKUPU(id->getcval(arg),
+            LOOKUPU(id->get_cval(arg),
                     arg.set_cstr(*id->storage.s),
                     arg.set_int(*id->storage.i),
                     arg.set_float(*id->storage.f),
                     arg.set_null());
         case CODE_LOOKUPM|RET_NULL:
-            LOOKUP(id->getcval(args[numargs++]));
+            LOOKUP(id->get_cval(args[numargs++]));
         case CODE_LOOKUPMARG|RET_NULL:
-            LOOKUPARG(id->getcval(args[numargs++]), args[numargs++].set_null());
+            LOOKUPARG(id->get_cval(args[numargs++]), args[numargs++].set_null());
 
         case CODE_SVAR|RET_STR:
         case CODE_SVAR|RET_NULL:

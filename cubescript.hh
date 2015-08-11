@@ -252,18 +252,19 @@ struct Ident {
         if (fun) fun(cs, this);
     }
 
-    void setval(const TaggedValue &v) {
+    void set_value(const TaggedValue &v) {
         valtype = v.type;
         val = v;
     }
 
-    void setval(const IdentStack &v) {
+    void set_value(const IdentStack &v) {
         valtype = v.valtype;
         val = v.val;
     }
 
-    void forcenull() {
-        if (valtype == VAL_STR) delete[] val.s;
+    void force_null() {
+        if (valtype == VAL_STR)
+            delete[] val.s;
         valtype = VAL_NULL;
     }
 
@@ -271,8 +272,8 @@ struct Ident {
     int get_int() const;
     const char *get_str() const;
     void get_val(TaggedValue &r) const;
-    void getcstr(TaggedValue &v) const;
-    void getcval(TaggedValue &v) const;
+    void get_cstr(TaggedValue &v) const;
+    void get_cval(TaggedValue &v) const;
 
     ostd::ConstCharRange get_key() const {
         return name.iter();
@@ -456,16 +457,13 @@ static inline int parseint(const char *s) {
     return int(strtoul(s, nullptr, 0));
 }
 
-#define PARSEFLOAT(name, type) \
-    static inline type parse##name(const char *s) \
-    { \
-        /* not all platforms (windows) can parse hexadecimal integers via strtod */ \
-        char *end; \
-        double val = strtod(s, &end); \
-        return val || end==s || (*end!='x' && *end!='X') ? type(val) : type(parseint(s)); \
-    }
-PARSEFLOAT(float, float)
-PARSEFLOAT(number, double)
+static inline float parsefloat(const char *s)
+{
+    /* not all platforms (windows) can parse hexadecimal integers via strtod */
+    char *end;
+    double val = strtod(s, &end);
+    return val || end==s || (*end!='x' && *end!='X') ? float(val) : float(parseint(s));
+}
 
 static inline void intformat(char *buf, int v, int len = 20) {
     snprintf(buf, len, "%d", v);
@@ -493,90 +491,6 @@ inline const char *TaggedValue::get_str() const {
 }
 inline const char *Ident::get_str() const {
     return cscript::get_str(val, valtype);
-}
-
-#define GETNUMBER(name, ret) \
-    static inline ret get_##name(const IdentValue &v, int type) \
-    { \
-        switch(type) \
-        { \
-            case VAL_FLOAT: return ret(v.f); \
-            case VAL_INT: return ret(v.i); \
-            case VAL_STR: case VAL_MACRO: case VAL_CSTR: return parse##name(v.s); \
-            default: return ret(0); \
-        } \
-    } \
-    inline ret TaggedValue::get_##name() const { return cscript::get_##name(*this, type); } \
-    inline ret Ident::get_##name() const { return cscript::get_##name(val, valtype); }
-GETNUMBER(int, int)
-GETNUMBER(float, float)
-
-static inline void get_val(const IdentValue &v, int type, TaggedValue &r) {
-    switch (type) {
-    case VAL_STR:
-    case VAL_MACRO:
-    case VAL_CSTR:
-        r.set_str(dup_ostr(v.s));
-        break;
-    case VAL_INT:
-        r.set_int(v.i);
-        break;
-    case VAL_FLOAT:
-        r.set_float(v.f);
-        break;
-    default:
-        r.set_null();
-        break;
-    }
-}
-
-inline void TaggedValue::get_val(TaggedValue &r) const {
-    cscript::get_val(*this, type, r);
-}
-inline void Ident::get_val(TaggedValue &r) const {
-    cscript::get_val(val, valtype, r);
-}
-
-inline void Ident::getcstr(TaggedValue &v) const {
-    switch (valtype) {
-    case VAL_MACRO:
-        v.set_macro(val.code);
-        break;
-    case VAL_STR:
-    case VAL_CSTR:
-        v.set_cstr(val.s);
-        break;
-    case VAL_INT:
-        v.set_str(dup_ostr(intstr(val.i)));
-        break;
-    case VAL_FLOAT:
-        v.set_str(dup_ostr(floatstr(val.f)));
-        break;
-    default:
-        v.set_cstr("");
-        break;
-    }
-}
-
-inline void Ident::getcval(TaggedValue &v) const {
-    switch (valtype) {
-    case VAL_MACRO:
-        v.set_macro(val.code);
-        break;
-    case VAL_STR:
-    case VAL_CSTR:
-        v.set_cstr(val.s);
-        break;
-    case VAL_INT:
-        v.set_int(val.i);
-        break;
-    case VAL_FLOAT:
-        v.set_float(val.f);
-        break;
-    default:
-        v.set_null();
-        break;
-    }
 }
 
 void bcode_ref(ostd::Uint32 *p);
