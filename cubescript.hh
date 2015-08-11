@@ -14,13 +14,6 @@
 
 namespace cscript {
 
-inline char *dup_ostr(ostd::ConstCharRange s) {
-    char *r = new char[s.size() + 1];
-    memcpy(r, s.data(), s.size());
-    r[s.size()] = 0;
-    return r;
-}
-
 static constexpr int MAX_ARGUMENTS = 25;
 static constexpr int MAX_RESULTS = 7;
 static constexpr int MAX_COMARGS = 12;
@@ -74,8 +67,8 @@ enum {
 };
 
 enum {
-    ID_VAR, ID_FVAR, ID_SVAR, ID_COMMAND, ID_ALIAS, ID_LOCAL,
-    ID_DO, ID_DOARGS, ID_IF, ID_RESULT, ID_NOT, ID_AND, ID_OR
+    ID_UNKNOWN = -1, ID_VAR, ID_FVAR, ID_SVAR, ID_COMMAND, ID_ALIAS,
+    ID_LOCAL, ID_DO, ID_DOARGS, ID_IF, ID_RESULT, ID_NOT, ID_AND, ID_OR
 };
 
 enum {
@@ -207,46 +200,31 @@ struct Ident {
     };
     IdentFunc fun; /* ID_VAR, ID_FVAR, ID_SVAR, ID_COMMAND */
 
-    Ident() {}
+    Ident(): type(ID_UNKNOWN) {}
+
     /* ID_VAR */
-    Ident(int t, ostd::ConstCharRange n, int m, int x, int *s, IdentFunc f = nullptr, int flags = 0)
-        : type(t), flags(flags | (m > x ? IDF_READONLY : 0)), name(n), minval(m), maxval(x), fun(f) {
-        storage.i = s;
-    }
+    Ident(int t, ostd::ConstCharRange n, int m, int x, int *s,
+          IdentFunc f = nullptr, int flags = 0);
+
     /* ID_FVAR */
-    Ident(int t, ostd::ConstCharRange n, float m, float x, float *s, IdentFunc f = nullptr, int flags = 0)
-        : type(t), flags(flags | (m > x ? IDF_READONLY : 0)), name(n), minvalf(m), maxvalf(x), fun(f) {
-        storage.f = s;
-    }
+    Ident(int t, ostd::ConstCharRange n, float m, float x, float *s,
+          IdentFunc f = nullptr, int flags = 0);
+
     /* ID_SVAR */
-    Ident(int t, ostd::ConstCharRange n, char **s, IdentFunc f = nullptr, int flags = 0)
-        : type(t), flags(flags), name(n), fun(f) {
-        storage.s = s;
-    }
+    Ident(int t, ostd::ConstCharRange n, char **s, IdentFunc f = nullptr,
+          int flags = 0);
+
     /* ID_ALIAS */
-    Ident(int t, ostd::ConstCharRange n, char *a, int flags)
-        : type(t), valtype(VAL_STR), flags(flags), name(n), code(nullptr), stack(nullptr) {
-        val.s = a;
-    }
-    Ident(int t, ostd::ConstCharRange n, int a, int flags)
-        : type(t), valtype(VAL_INT), flags(flags), name(n), code(nullptr), stack(nullptr) {
-        val.i = a;
-    }
-    Ident(int t, ostd::ConstCharRange n, float a, int flags)
-        : type(t), valtype(VAL_FLOAT), flags(flags), name(n), code(nullptr), stack(nullptr) {
-        val.f = a;
-    }
-    Ident(int t, ostd::ConstCharRange n, int flags)
-        : type(t), valtype(VAL_NULL), flags(flags), name(n), code(nullptr), stack(nullptr) {
-    }
-    Ident(int t, ostd::ConstCharRange n, const TaggedValue &v, int flags)
-        : type(t), valtype(v.type), flags(flags), name(n), code(nullptr), stack(nullptr) {
-        val = v;
-    }
+    Ident(int t, ostd::ConstCharRange n, char *a, int flags);
+    Ident(int t, ostd::ConstCharRange n, int a, int flags);
+    Ident(int t, ostd::ConstCharRange n, float a, int flags);
+    Ident(int t, ostd::ConstCharRange n, int flags);
+    Ident(int t, ostd::ConstCharRange n, const TaggedValue &v, int flags);
+
     /* ID_COMMAND */
-    Ident(int t, ostd::ConstCharRange n, ostd::ConstCharRange args, ostd::Uint32 argmask, int numargs, IdentFunc f = nullptr, int flags = 0)
-        : type(t), numargs(numargs), flags(flags), name(n), args(!args.empty() ? dup_ostr(args) : nullptr), argmask(argmask), fun(f) {
-    }
+    Ident(int t, ostd::ConstCharRange n, ostd::ConstCharRange args,
+          ostd::Uint32 argmask, int numargs, IdentFunc f = nullptr,
+          int flags = 0);
 
     void changed(CsState &cs) {
         if (fun) fun(cs, this);

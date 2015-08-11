@@ -43,6 +43,13 @@ const char *floatstr(float v) {
     return retbuf[retidx];
 }
 
+inline char *cs_dup_ostr(ostd::ConstCharRange s) {
+    char *r = new char[s.size() + 1];
+    memcpy(r, s.data(), s.size());
+    r[s.size()] = 0;
+    return r;
+}
+
 static inline bool cs_check_num(ostd::ConstCharRange s) {
     if (isdigit(s[0]))
         return true;
@@ -55,6 +62,62 @@ static inline bool cs_check_num(ostd::ConstCharRange s) {
     default:
         return false;
     }
+}
+
+/* ID_VAR */
+Ident::Ident(int t, ostd::ConstCharRange n, int m, int x, int *s,
+             IdentFunc f, int flags)
+    : type(t), flags(flags | (m > x ? IDF_READONLY : 0)), name(n),
+      minval(m), maxval(x), fun(f) {
+    storage.i = s;
+}
+
+/* ID_FVAR */
+Ident::Ident(int t, ostd::ConstCharRange n, float m, float x, float *s,
+             IdentFunc f, int flags)
+    : type(t), flags(flags | (m > x ? IDF_READONLY : 0)), name(n),
+      minvalf(m), maxvalf(x), fun(f) {
+    storage.f = s;
+}
+
+/* ID_SVAR */
+Ident::Ident(int t, ostd::ConstCharRange n, char **s, IdentFunc f, int flags)
+    : type(t), flags(flags), name(n), fun(f) {
+    storage.s = s;
+}
+
+/* ID_ALIAS */
+Ident::Ident(int t, ostd::ConstCharRange n, char *a, int flags)
+    : type(t), valtype(VAL_STR), flags(flags), name(n), code(nullptr),
+      stack(nullptr) {
+    val.s = a;
+}
+Ident::Ident(int t, ostd::ConstCharRange n, int a, int flags)
+    : type(t), valtype(VAL_INT), flags(flags), name(n), code(nullptr),
+      stack(nullptr) {
+    val.i = a;
+}
+Ident::Ident(int t, ostd::ConstCharRange n, float a, int flags)
+    : type(t), valtype(VAL_FLOAT), flags(flags), name(n), code(nullptr),
+      stack(nullptr) {
+    val.f = a;
+}
+Ident::Ident(int t, ostd::ConstCharRange n, int flags)
+    : type(t), valtype(VAL_NULL), flags(flags), name(n), code(nullptr),
+      stack(nullptr) {
+}
+Ident::Ident(int t, ostd::ConstCharRange n, const TaggedValue &v, int flags)
+    : type(t), valtype(v.type), flags(flags), name(n), code(nullptr),
+      stack(nullptr) {
+    val = v;
+}
+
+/* ID_COMMAND */
+Ident::Ident(int t, ostd::ConstCharRange n, ostd::ConstCharRange args,
+             ostd::Uint32 argmask, int numargs, IdentFunc f, int flags)
+    : type(t), numargs(numargs), flags(flags), name(n),
+      args(!args.empty() ? cs_dup_ostr(args) : nullptr),
+      argmask(argmask), fun(f) {
 }
 
 const struct NullValue: TaggedValue {
@@ -96,7 +159,7 @@ void CsState::clear_override(Ident &id) {
         }
         id.clean_code();
         id.valtype = VAL_STR;
-        id.val.s = dup_ostr("");
+        id.val.s = cs_dup_ostr("");
         break;
     case ID_VAR:
         *id.storage.i = id.overrideval.i;
@@ -181,8 +244,10 @@ void CsState::set_alias(ostd::ConstCharRange name, TaggedValue &v) {
     if (id) {
         switch (id->type) {
         case ID_ALIAS:
-            if (id->index < MAX_ARGUMENTS) id->set_arg(*this, v);
-            else id->set_alias(*this, v);
+            if (id->index < MAX_ARGUMENTS)
+                id->set_arg(*this, v);
+            else
+                id->set_alias(*this, v);
             return;
         case ID_VAR:
             set_var_int_checked(id, v.get_int());
@@ -319,7 +384,7 @@ inline const char *TaggedValue::force_str() {
         return s;
     }
     cleanup();
-    set_str(dup_ostr(rs));
+    set_str(cs_dup_ostr(rs));
     return rs;
 }
 
@@ -408,7 +473,7 @@ static inline void cs_get_val(const IdentValue &v, int type, TaggedValue &r) {
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR:
-        r.set_str(dup_ostr(v.s));
+        r.set_str(cs_dup_ostr(v.s));
         break;
     case VAL_INT:
         r.set_int(v.i);
@@ -440,10 +505,10 @@ inline void Ident::get_cstr(TaggedValue &v) const {
         v.set_cstr(val.s);
         break;
     case VAL_INT:
-        v.set_str(dup_ostr(intstr(val.i)));
+        v.set_str(cs_dup_ostr(intstr(val.i)));
         break;
     case VAL_FLOAT:
-        v.set_str(dup_ostr(floatstr(val.f)));
+        v.set_str(cs_dup_ostr(floatstr(val.f)));
         break;
     default:
         v.set_cstr("");
@@ -682,7 +747,7 @@ void CsState::set_var_str(ostd::ConstCharRange name, ostd::ConstCharRange v,
         [&id]() { delete[] *id->storage.s; });
     if (!success)
         return;
-    *id->storage.s = dup_ostr(v);
+    *id->storage.s = cs_dup_ostr(v);
     if (dofunc)
         id->changed(*this);
 }
@@ -827,7 +892,7 @@ void CsState::set_var_str_checked(Ident *id, ostd::ConstCharRange v) {
         [&id]() { delete[] id->overrideval.s; },
         [&id]() { delete[] *id->storage.s; });
     if (!success) return;
-    *id->storage.s = dup_ostr(v);
+    *id->storage.s = cs_dup_ostr(v);
     id->changed(*this);
 }
 
@@ -934,7 +999,7 @@ static void cs_init_lib_base_var(CsState &cs) {
     });
 
     cs.add_command("getalias", "s", [](CsState &cs, const char *name) {
-        cs.result->set_str(dup_ostr(cs.get_alias(name).value_or("").data()));
+        cs.result->set_str(cs_dup_ostr(cs.get_alias(name).value_or("").data()));
     });
 }
 
@@ -1125,7 +1190,7 @@ static inline void cutword(const char *&p, ostd::ConstCharRange &s) {
 static inline char *cutword(const char *&p) {
     const char *word = p;
     p = parseword(p);
-    return p != word ? dup_ostr(ostd::ConstCharRange(word, p - word)) : nullptr;
+    return p != word ? cs_dup_ostr(ostd::ConstCharRange(word, p - word)) : nullptr;
 }
 
 static inline int cs_ret_code(int type, int def = 0) {
@@ -2400,7 +2465,7 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
         case 'S':
             if (++i >= numargs) {
                 if (rep) break;
-                args[i].set_str(dup_ostr(""));
+                args[i].set_str(cs_dup_ostr(""));
                 fakeargs++;
             } else args[i].force_str();
             break;
@@ -2522,16 +2587,16 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                     continue;
 
             RETOP(CODE_NULL | RET_NULL, result.set_null())
-            RETOP(CODE_NULL | RET_STR, result.set_str(dup_ostr("")))
+            RETOP(CODE_NULL | RET_STR, result.set_str(cs_dup_ostr("")))
             RETOP(CODE_NULL | RET_INT, result.set_int(0))
             RETOP(CODE_NULL | RET_FLOAT, result.set_float(0.0f))
 
-            RETOP(CODE_FALSE | RET_STR, result.set_str(dup_ostr("0")))
+            RETOP(CODE_FALSE | RET_STR, result.set_str(cs_dup_ostr("0")))
         case CODE_FALSE|RET_NULL:
             RETOP(CODE_FALSE | RET_INT, result.set_int(0))
             RETOP(CODE_FALSE | RET_FLOAT, result.set_float(0.0f))
 
-            RETOP(CODE_TRUE | RET_STR, result.set_str(dup_ostr("1")))
+            RETOP(CODE_TRUE | RET_STR, result.set_str(cs_dup_ostr("1")))
         case CODE_TRUE|RET_NULL:
             RETOP(CODE_TRUE | RET_INT, result.set_int(1))
             RETOP(CODE_TRUE | RET_FLOAT, result.set_float(1.0f))
@@ -2539,7 +2604,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
 #define RETPOP(op, val) \
                 RETOP(op, { --numargs; val; args[numargs].cleanup(); })
 
-            RETPOP(CODE_NOT | RET_STR, result.set_str(dup_ostr(getbool(args[numargs]) ? "0" : "1")))
+            RETPOP(CODE_NOT | RET_STR, result.set_str(cs_dup_ostr(getbool(args[numargs]) ? "0" : "1")))
         case CODE_NOT|RET_NULL:
                 RETPOP(CODE_NOT | RET_INT, result.set_int(getbool(args[numargs]) ? 0 : 1))
                 RETPOP(CODE_NOT | RET_FLOAT, result.set_float(getbool(args[numargs]) ? 0.0f : 1.0f))
@@ -2657,13 +2722,13 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
 
         case CODE_VAL|RET_STR: {
             ostd::Uint32 len = op >> 8;
-            args[numargs++].set_str(dup_ostr(ostd::ConstCharRange((const char *)code, len)));
+            args[numargs++].set_str(cs_dup_ostr(ostd::ConstCharRange((const char *)code, len)));
             code += len / sizeof(ostd::Uint32) + 1;
             continue;
         }
         case CODE_VALI|RET_STR: {
             char s[4] = { char((op >> 8) & 0xFF), char((op >> 16) & 0xFF), char((op >> 24) & 0xFF), '\0' };
-            args[numargs++].set_str(dup_ostr(s));
+            args[numargs++].set_str(cs_dup_ostr(s));
             continue;
         }
         case CODE_VAL|RET_NULL:
@@ -2696,7 +2761,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             numargs++;
             continue;
         case CODE_DUP|RET_STR:
-            args[numargs].set_str(dup_ostr(args[numargs - 1].get_str()));
+            args[numargs].set_str(cs_dup_ostr(args[numargs - 1].get_str()));
             numargs++;
             continue;
 
@@ -2852,11 +2917,11 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                     nval; \
                     continue; \
                 }
-            LOOKUPU(arg.set_str(dup_ostr(id->get_str())),
-                    arg.set_str(dup_ostr(*id->storage.s)),
-                    arg.set_str(dup_ostr(intstr(*id->storage.i))),
-                    arg.set_str(dup_ostr(floatstr(*id->storage.f))),
-                    arg.set_str(dup_ostr("")));
+            LOOKUPU(arg.set_str(cs_dup_ostr(id->get_str())),
+                    arg.set_str(cs_dup_ostr(*id->storage.s)),
+                    arg.set_str(cs_dup_ostr(intstr(*id->storage.i))),
+                    arg.set_str(cs_dup_ostr(floatstr(*id->storage.f))),
+                    arg.set_str(cs_dup_ostr("")));
         case CODE_LOOKUP|RET_STR:
 #define LOOKUP(aval) { \
                     Ident *id = cs.identmap[op>>8]; \
@@ -2864,7 +2929,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                     aval; \
                     continue; \
                 }
-            LOOKUP(args[numargs++].set_str(dup_ostr(id->get_str())));
+            LOOKUP(args[numargs++].set_str(cs_dup_ostr(id->get_str())));
         case CODE_LOOKUPARG|RET_STR:
 #define LOOKUPARG(aval, nval) { \
                     Ident *id = cs.identmap[op>>8]; \
@@ -2872,7 +2937,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                     aval; \
                     continue; \
                 }
-            LOOKUPARG(args[numargs++].set_str(dup_ostr(id->get_str())), args[numargs++].set_str(dup_ostr("")));
+            LOOKUPARG(args[numargs++].set_str(cs_dup_ostr(id->get_str())), args[numargs++].set_str(cs_dup_ostr("")));
         case CODE_LOOKUPU|RET_INT:
             LOOKUPU(arg.set_int(id->get_int()),
                     arg.set_int(parseint(*id->storage.s)),
@@ -2895,7 +2960,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             LOOKUPARG(args[numargs++].set_float(id->get_float()), args[numargs++].set_float(0.0f));
         case CODE_LOOKUPU|RET_NULL:
             LOOKUPU(id->get_val(arg),
-                    arg.set_str(dup_ostr(*id->storage.s)),
+                    arg.set_str(cs_dup_ostr(*id->storage.s)),
                     arg.set_int(*id->storage.i),
                     arg.set_float(*id->storage.f),
                     arg.set_null());
@@ -2907,8 +2972,8 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
         case CODE_LOOKUPMU|RET_STR:
             LOOKUPU(id->get_cstr(arg),
                     arg.set_cstr(*id->storage.s),
-                    arg.set_str(dup_ostr(intstr(*id->storage.i))),
-                    arg.set_str(dup_ostr(floatstr(*id->storage.f))),
+                    arg.set_str(cs_dup_ostr(intstr(*id->storage.i))),
+                    arg.set_str(cs_dup_ostr(floatstr(*id->storage.f))),
                     arg.set_cstr(""));
         case CODE_LOOKUPM|RET_STR:
             LOOKUP(id->get_cstr(args[numargs++]));
@@ -2927,7 +2992,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
 
         case CODE_SVAR|RET_STR:
         case CODE_SVAR|RET_NULL:
-            args[numargs++].set_str(dup_ostr(*cs.identmap[op >> 8]->storage.s));
+            args[numargs++].set_str(cs_dup_ostr(*cs.identmap[op >> 8]->storage.s));
             continue;
         case CODE_SVAR|RET_INT:
             args[numargs++].set_int(parseint(*cs.identmap[op >> 8]->storage.s));
@@ -2948,7 +3013,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             args[numargs++].set_int(*cs.identmap[op >> 8]->storage.i);
             continue;
         case CODE_IVAR|RET_STR:
-            args[numargs++].set_str(dup_ostr(intstr(*cs.identmap[op >> 8]->storage.i)));
+            args[numargs++].set_str(cs_dup_ostr(intstr(*cs.identmap[op >> 8]->storage.i)));
             continue;
         case CODE_IVAR|RET_FLOAT:
             args[numargs++].set_float(float(*cs.identmap[op >> 8]->storage.i));
@@ -2970,7 +3035,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             args[numargs++].set_float(*cs.identmap[op >> 8]->storage.f);
             continue;
         case CODE_FVAR|RET_STR:
-            args[numargs++].set_str(dup_ostr(floatstr(*cs.identmap[op >> 8]->storage.f)));
+            args[numargs++].set_str(cs_dup_ostr(floatstr(*cs.identmap[op >> 8]->storage.f)));
             continue;
         case CODE_FVAR|RET_INT:
             args[numargs++].set_int(int(*cs.identmap[op >> 8]->storage.f));
@@ -3877,13 +3942,13 @@ void init_lib_list(CsState &cs) {
         if (len < 0) {
             if (offset > 0)
                 skiplist(s);
-            cs.result->set_str(dup_ostr(s));
+            cs.result->set_str(cs_dup_ostr(s));
             return;
         }
         const char *list = s, *start, *end, *qstart, *qend = s;
         if (len > 0 && parselist(s, start, end, list, qend))
             while (--len > 0 && parselist(s, start, end, qstart, qend));
-        cs.result->set_str(dup_ostr(ostd::ConstCharRange(list, qend - list)));
+        cs.result->set_str(cs_dup_ostr(ostd::ConstCharRange(list, qend - list)));
     });
 
     cs.add_command("listfind", "rse", [](CsState &cs, Ident *id,
@@ -3897,7 +3962,7 @@ void init_lib_list(CsState &cs) {
         int n = -1;
         for (const char *s = list, *start, *end; parselist(s, start, end);) {
             ++n;
-            cs_set_iter(*id, dup_ostr(ostd::ConstCharRange(start,
+            cs_set_iter(*id, cs_dup_ostr(ostd::ConstCharRange(start,
                 end - start)), stack);
             if (cs.run_bool(body)) {
                 cs.result->set_int(n);
@@ -3920,7 +3985,7 @@ found:
         const char *s = list, *start, *end, *qstart;
         while (parselist(s, start, end)) {
             ++n;
-            cs_set_iter(*id, dup_ostr(ostd::ConstCharRange(start,
+            cs_set_iter(*id, cs_dup_ostr(ostd::ConstCharRange(start,
                 end - start)), stack);
             if (cs.run_bool(body)) {
                 if (parselist(s, start, end, qstart))
@@ -4012,7 +4077,7 @@ found:
             cs_set_iter(*id, listelem(start, end, qstart).disown(), stack);
             cs_set_iter(*id2, parselist(s, start, end, qstart)
                         ? listelem(start, end, qstart).disown()
-                        : dup_ostr(""), stack2);
+                        : cs_dup_ostr(""), stack2);
             cs.run_int(body);
         }
         if (n >= 0) {
@@ -4036,10 +4101,10 @@ found:
             cs_set_iter(*id, listelem(start, end, qstart).disown(), stack);
             cs_set_iter(*id2, parselist(s, start, end, qstart)
                         ? listelem(start, end, qstart).disown()
-                        : dup_ostr(""), stack2);
+                        : cs_dup_ostr(""), stack2);
             cs_set_iter(*id3, parselist(s, start, end, qstart)
                         ? listelem(start, end, qstart).disown()
-                        : dup_ostr(""), stack3);
+                        : cs_dup_ostr(""), stack3);
             cs.run_int(body);
         }
         if (n >= 0) {
@@ -4071,7 +4136,7 @@ found:
         int n = 0;
         const char *s = list, *start, *end, *qstart, *qend;
         for (; parselist(s, start, end, qstart, qend); ++n) {
-            char *val = dup_ostr(ostd::ConstCharRange(start, end - start));
+            char *val = cs_dup_ostr(ostd::ConstCharRange(start, end - start));
             cs_set_iter(*id, val, stack);
             if (cs.run_bool(body)) {
                 if (r.size()) r.push(' ');
@@ -4093,7 +4158,7 @@ found:
         int n = 0, r = 0;
         const char *s = list, *start, *end;
         for (; parselist(s, start, end); ++n) {
-            char *val = dup_ostr(ostd::ConstCharRange(start, end - start));
+            char *val = cs_dup_ostr(ostd::ConstCharRange(start, end - start));
             cs_set_iter(*id, val, stack);
             if (cs.run_bool(body))
                 r++;
@@ -4232,7 +4297,7 @@ void cs_list_sort(CsState &cs, char *list, Ident *x, Ident *y,
     ostd::Size clen = strlen(list);
     ostd::Size total = 0;
 
-    char *cstr = dup_ostr(ostd::ConstCharRange(list, clen));
+    char *cstr = cs_dup_ostr(ostd::ConstCharRange(list, clen));
 
     const char *curlist = list, *start, *end, *quotestart, *quoteend;
     while (parselist(curlist, start, end, quotestart, quoteend)) {
@@ -4619,7 +4684,7 @@ void init_lib_string(CsState &cs) {
     cs.add_command("substr", "siiN", [](CsState &cs, char *s, int *start,
                                         int *count, int *numargs) {
         int len = strlen(s), offset = ostd::clamp(*start, 0, len);
-        cs.result->set_str(dup_ostr(ostd::ConstCharRange(
+        cs.result->set_str(cs_dup_ostr(ostd::ConstCharRange(
             &s[offset],
             (*numargs >= 3) ? ostd::clamp(*count, 0, len - offset)
                             : (len - offset))));
@@ -4656,7 +4721,7 @@ void init_lib_string(CsState &cs) {
         ostd::Vector<char> buf;
         int oldlen = strlen(oldval);
         if (!oldlen) {
-            cs.result->set_str(dup_ostr(s));
+            cs.result->set_str(cs_dup_ostr(s));
             return;
         }
         for (int i = 0;; ++i) {
@@ -4670,7 +4735,7 @@ void init_lib_string(CsState &cs) {
                 while (*s)
                     buf.push(*s++);
                 buf.push('\0');
-                cs.result->set_str(dup_ostr(ostd::ConstCharRange(buf.data(),
+                cs.result->set_str(cs_dup_ostr(ostd::ConstCharRange(buf.data(),
                     buf.size())));
                 return;
             }
