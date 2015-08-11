@@ -9,6 +9,40 @@
 
 namespace cscript {
 
+static inline int parseint(const char *s) {
+    return int(strtoul(s, nullptr, 0));
+}
+
+static inline float parsefloat(const char *s)
+{
+    /* not all platforms (windows) can parse hexadecimal integers via strtod */
+    char *end;
+    double val = strtod(s, &end);
+    return val || end==s || (*end!='x' && *end!='X') ? float(val) : float(parseint(s));
+}
+
+static inline void intformat(char *buf, int v, int len = 20) {
+    snprintf(buf, len, "%d", v);
+}
+static inline void floatformat(char *buf, float v, int len = 20) {
+    snprintf(buf, len, v == int(v) ? "%.1f" : "%.7g", v);
+}
+
+static char retbuf[4][256];
+static int retidx = 0;
+
+const char *intstr(int v) {
+    retidx = (retidx + 1) % 4;
+    intformat(retbuf[retidx], v);
+    return retbuf[retidx];
+}
+
+const char *floatstr(float v) {
+    retidx = (retidx + 1) % 4;
+    floatformat(retbuf[retidx], v);
+    return retbuf[retidx];
+}
+
 static inline bool cs_check_num(ostd::ConstCharRange s) {
     if (isdigit(s[0]))
         return true;
@@ -345,6 +379,28 @@ inline float TaggedValue::get_float() const {
 
 inline float Ident::get_float() const {
     return cs_get_float(val, valtype);
+}
+
+static inline ostd::ConstCharRange cs_get_str(const IdentValue &v, int type) {
+    switch (type) {
+    case VAL_STR:
+    case VAL_MACRO:
+    case VAL_CSTR:
+        return v.s;
+    case VAL_INT:
+        return intstr(v.i);
+    case VAL_FLOAT:
+        return floatstr(v.f);
+    }
+    return "";
+}
+
+inline ostd::ConstCharRange TaggedValue::get_str() const {
+    return cs_get_str(*this, type);
+}
+
+inline ostd::ConstCharRange Ident::get_str() const {
+    return cs_get_str(val, valtype);
 }
 
 static inline void cs_get_val(const IdentValue &v, int type, TaggedValue &r) {
@@ -687,7 +743,7 @@ CsState::get_alias(ostd::ConstCharRange name) {
         return ostd::nothing;
     if ((id->index < MAX_ARGUMENTS) && !(stack->usedargs & (1 << id->index)))
         return ostd::nothing;
-    return ostd::ConstCharRange(id->get_str());
+    return id->get_str();
 }
 
 int cs_clamp_var(CsState &cs, Ident *id, int v) {
@@ -3447,9 +3503,9 @@ void init_lib_base(CsState &cs) {
                     ((args[i].type == VAL_NULL) ||
                      (args[i].get_float() == val)));
 
-    CS_CMD_CASE("cases", "s", const char *, args[0].get_str(),
+    CS_CMD_CASE("cases", "s", ostd::ConstCharRange, args[0].get_str(),
                     ((args[i].type == VAL_NULL) ||
-                     !strcmp(args[i].get_str(), val)));
+                     (args[i].get_str() == val)));
 
 #undef CS_CMD_CASE
 
@@ -3510,9 +3566,9 @@ static inline void cs_loop_conc(CsState &cs, Ident &id, int offset, int n,
         cs_set_iter(id, offset + i * step, stack);
         TaggedValue v;
         cs.run_ret(body, v);
-        const char *vstr = v.get_str();
+        ostd::ConstCharRange vstr = v.get_str();
         if (space && i) s.push(' ');
-        s.push_n(vstr, strlen(vstr));
+        s.push_n(vstr.data(), vstr.size());
         v.cleanup();
     }
     if (n > 0) id.pop_arg();
@@ -3618,21 +3674,6 @@ void cs_init_lib_base_loops(CsState &cs) {
                                                    int *n, ostd::Uint32 *body) {
         cs_loop_conc(cs, *id, *offset, *n, *step, body, false);
     });
-}
-
-static char retbuf[4][256];
-static int retidx = 0;
-
-const char *intstr(int v) {
-    retidx = (retidx + 1) % 4;
-    intformat(retbuf[retidx], v);
-    return retbuf[retidx];
-}
-
-const char *floatstr(float v) {
-    retidx = (retidx + 1) % 4;
-    floatformat(retbuf[retidx], v);
-    return retbuf[retidx];
 }
 
 static const char *liststart = nullptr, *listend = nullptr, *listquotestart = nullptr, *listquoteend = nullptr;
@@ -3780,9 +3821,8 @@ static void cs_loop_list_conc(CsState &cs, Ident *id, const char *list,
             r.push(' ');
         TaggedValue v;
         cs.run_ret(body, v);
-        const char *vstr = v.get_str();
-        int len = strlen(vstr);
-        r.push_n(vstr, len);
+        ostd::ConstCharRange vstr = v.get_str();
+        r.push_n(vstr.data(), vstr.size());
         v.cleanup();
     }
     if (n >= 0)
@@ -3813,8 +3853,9 @@ void init_lib_list(CsState &cs) {
                                     int numargs) {
         if (!numargs)
             return;
-        const char *start = args[0].get_str(),
-                   *end = start + strlen(start),
+        ostd::ConstCharRange str = args[0].get_str();
+        const char *start = str.data(),
+                   *end = &str[str.size()],
                    *qstart = "";
         for (int i = 1; i < numargs; ++i) {
             const char *list = start;
@@ -4550,15 +4591,17 @@ void init_lib_string(CsState &cs) {
         if (n <= 0)
             return;
         ostd::Vector<char> s;
-        const char *f = v[0].get_str();
-        while (*f) {
-            char c = *f++;
-            if (c == '%') {
-                char ic = *f++;
+        ostd::ConstCharRange f = v[0].get_str();
+        while (!f.empty()) {
+            char c = f.front();
+            f.pop_front();
+            if ((c == '%') && !f.empty()) {
+                char ic = f.front();
+                f.pop_front();
                 if (ic >= '1' && ic <= '9') {
                     int i = ic - '0';
-                    const char *sub = (i < n) ? v[i].get_str() : "";
-                    s.push_n(sub, strlen(sub));
+                    ostd::ConstCharRange sub = (i < n) ? v[i].get_str() : "";
+                    s.push_n(sub.data(), sub.size());
                 } else s.push(ic);
             } else s.push(c);
         }

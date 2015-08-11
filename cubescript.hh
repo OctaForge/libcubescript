@@ -142,7 +142,7 @@ struct TaggedValue: IdentValue {
         tv.type = VAL_NULL;
     }
 
-    const char *get_str() const;
+    ostd::ConstCharRange get_str() const;
     int get_int() const;
     float get_float() const;
     void get_val(TaggedValue &r) const;
@@ -270,7 +270,7 @@ struct Ident {
 
     float get_float() const;
     int get_int() const;
-    const char *get_str() const;
+    ostd::ConstCharRange get_str() const;
     void get_val(TaggedValue &r) const;
     void get_cstr(TaggedValue &v) const;
     void get_cval(TaggedValue &v) const;
@@ -449,49 +449,6 @@ private:
                                     ostd::ConstCharRange fmt,
                                     ostd::CharRange buf);
 };
-
-extern const char *intstr(int v);
-extern const char *floatstr(float v);
-
-static inline int parseint(const char *s) {
-    return int(strtoul(s, nullptr, 0));
-}
-
-static inline float parsefloat(const char *s)
-{
-    /* not all platforms (windows) can parse hexadecimal integers via strtod */
-    char *end;
-    double val = strtod(s, &end);
-    return val || end==s || (*end!='x' && *end!='X') ? float(val) : float(parseint(s));
-}
-
-static inline void intformat(char *buf, int v, int len = 20) {
-    snprintf(buf, len, "%d", v);
-}
-static inline void floatformat(char *buf, float v, int len = 20) {
-    snprintf(buf, len, v == int(v) ? "%.1f" : "%.7g", v);
-}
-
-static inline const char *get_str(const IdentValue &v, int type) {
-    switch (type) {
-    case VAL_STR:
-    case VAL_MACRO:
-    case VAL_CSTR:
-        return v.s;
-    case VAL_INT:
-        return intstr(v.i);
-    case VAL_FLOAT:
-        return floatstr(v.f);
-    default:
-        return "";
-    }
-}
-inline const char *TaggedValue::get_str() const {
-    return cscript::get_str(*this, type);
-}
-inline const char *Ident::get_str() const {
-    return cscript::get_str(val, valtype);
-}
 
 void bcode_ref(ostd::Uint32 *p);
 void bcode_unref(ostd::Uint32 *p);
