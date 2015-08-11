@@ -367,7 +367,7 @@ inline int TaggedValue::force_int() {
     return ri;
 }
 
-inline const char *TaggedValue::force_str() {
+inline ostd::ConstCharRange TaggedValue::force_str() {
     const char *rs = "";
     switch (type) {
     case VAL_FLOAT:
@@ -385,7 +385,7 @@ inline const char *TaggedValue::force_str() {
     }
     cleanup();
     set_str(cs_dup_ostr(rs));
-    return rs;
+    return s;
 }
 
 inline void TaggedValue::force(int type) {
@@ -1331,6 +1331,10 @@ struct GenState {
     }
 
     void gen_main(ostd::ConstCharRange s, int ret_type = VAL_ANY);
+
+    char next_char() {
+        return *source++;
+    }
 };
 
 static inline void compileblock(GenState &gs) {
@@ -1359,7 +1363,7 @@ static inline const char *compileblock(GenState &gs, const char *p, int rettype,
 }
 
 static inline void compileunescapestr(GenState &gs, bool macro = false) {
-    gs.source++;
+    gs.next_char();
     const char *end = parsestring(gs.source);
     gs.code.push(macro ? CODE_MACRO : CODE_VAL | RET_STR);
     gs.code.reserve(gs.code.size() + (end - gs.source) / sizeof(ostd::Uint32) + 1);
@@ -1371,7 +1375,7 @@ static inline void compileunescapestr(GenState &gs, bool macro = false) {
     gs.code.back() |= len << 8;
     gs.code.advance(len / sizeof(ostd::Uint32) + 1);
     gs.source = end;
-    if (*gs.source == '\"') gs.source++;
+    if (*gs.source == '\"') gs.next_char();
 }
 
 static ostd::Uint32 emptyblock[VAL_ANY][2] = {
@@ -1735,7 +1739,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
     int concs = 0;
     for (int brak = 1; brak;) {
         gs.source += strcspn(gs.source, "@\"/[]\0");
-        int c = *gs.source++;
+        char c = gs.next_char();
         switch (c) {
         case '\0':
             gs.cs.debug_code_line(line, "missing \"]\"");
@@ -1743,7 +1747,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
             goto done;
         case '\"':
             gs.source = parsestring(gs.source);
-            if (*gs.source == '\"') gs.source++;
+            if (*gs.source == '\"') gs.next_char();
             break;
         case '/':
             if (*gs.source == '/') gs.source += strcspn(gs.source, "\n\0");
@@ -1756,7 +1760,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
             break;
         case '@': {
             const char *esc = gs.source;
-            while (*gs.source == '@') gs.source++;
+            while (*gs.source == '@') gs.next_char();
             int level = gs.source - (esc - 1);
             if (brak > level) continue;
             else if (brak < level) gs.cs.debug_code_line(line, "too many @s");
@@ -1849,7 +1853,7 @@ static bool compilearg(GenState &gs, int wordtype, int prevargs, ostd::ConstChar
         switch (wordtype) {
         case VAL_POP:
             gs.source = parsestring(gs.source + 1);
-            if (*gs.source == '\"') gs.source++;
+            if (*gs.source == '\"') gs.next_char();
             break;
         case VAL_COND: {
             char *s = cutstring(gs.source);
@@ -1887,7 +1891,7 @@ static bool compilearg(GenState &gs, int wordtype, int prevargs, ostd::ConstChar
         compilelookup(gs, wordtype, prevargs);
         return true;
     case '(':
-        gs.source++;
+        gs.next_char();
         if (prevargs >= MAX_RESULTS) {
             gs.code.push(CODE_ENTER);
             compilestatements(gs, wordtype > VAL_ANY ? VAL_CANY : VAL_ANY, ')');
@@ -1917,7 +1921,7 @@ static bool compilearg(GenState &gs, int wordtype, int prevargs, ostd::ConstChar
         }
         return true;
     case '[':
-        gs.source++;
+        gs.next_char();
         compileblockmain(gs, wordtype, prevargs);
         return true;
     default:
@@ -1974,7 +1978,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
             case '\r':
             case '\n':
             case '\0':
-                gs.source++;
+                gs.next_char();
                 if (idname.data()) {
                     Ident *id = gs.cs.new_ident(idname, IDF_UNKNOWN);
                     if (id) switch (id->type) {
@@ -2278,7 +2282,7 @@ compilecomv:
 endstatement:
         if (more) while (compilearg(gs, VAL_POP));
         gs.source += strcspn(gs.source, ")];/\n\0");
-        int c = *gs.source++;
+        char c = gs.next_char();
         switch (c) {
         case '\0':
             if (c != brak) gs.cs.debug_code_line(line, "missing \"%c\"", brak);

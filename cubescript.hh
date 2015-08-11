@@ -143,7 +143,7 @@ struct TaggedValue: IdentValue {
     void force_null();
     float force_float();
     int force_int();
-    const char *force_str();
+    ostd::ConstCharRange force_str();
     void force(int type);
 
     void cleanup();
