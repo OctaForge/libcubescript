@@ -6,6 +6,7 @@
 
 #include <ostd/algorithm.hh>
 #include <ostd/format.hh>
+#include <ostd/array.hh>
 
 namespace cscript {
 
@@ -159,6 +160,68 @@ CsState::~CsState() {
     }
 }
 
+ostd::ConstCharRange cs_debug_line(CsState &cs,
+                                   ostd::ConstCharRange p,
+                                   ostd::ConstCharRange fmt,
+                                   ostd::CharRange buf) {
+    if (cs.src_str.empty()) return fmt;
+    ostd::Size num = 1;
+    ostd::ConstCharRange line(cs.src_str);
+    for (;;) {
+        ostd::ConstCharRange end = ostd::find(line, '\n');
+        if (!end.empty())
+            line = line.slice(0, line.distance_front(end));
+        if (&p[0] >= &line[0] && &p[0] <= &line[line.size()]) {
+            ostd::CharRange r(buf);
+            if (!cs.src_file.empty())
+                ostd::format(r, "%s:%d: %s", cs.src_file, num, fmt);
+            else
+                ostd::format(r, "%d: %s", num, fmt);
+            r.put('\0');
+            return buf;
+        }
+        if (end.empty()) break;
+        line = end;
+        line.pop_front();
+        ++num;
+    }
+    return fmt;
+}
+
+void cs_debug_alias(CsState &cs) {
+    if (!cs.dbgalias) return;
+    int total = 0, depth = 0;
+    for (IdentLink *l = cs.stack; l != &cs.noalias; l = l->next) total++;
+    for (IdentLink *l = cs.stack; l != &cs.noalias; l = l->next) {
+        Ident *id = l->id;
+        ++depth;
+        if (depth < cs.dbgalias)
+            ostd::err.writefln("  %d) %s", total - depth + 1, id->name);
+        else if (l->next == &cs.noalias)
+            ostd::err.writefln(depth == cs.dbgalias ? "  %d) %s"
+                                                    : "  ..%d) %s",
+                               total - depth + 1, id->name);
+    }
+}
+
+template<typename ...A>
+void cs_debug_code(CsState &cs, ostd::ConstCharRange fmt, A &&...args) {
+    if (cs.nodebug) return;
+    ostd::err.writefln(fmt, ostd::forward<A>(args)...);
+    cs_debug_alias(cs);
+}
+
+template<typename ...A>
+void cs_debug_code_line(CsState &cs, ostd::ConstCharRange p,
+                        ostd::ConstCharRange fmt, A &&...args) {
+    if (cs.nodebug) return;
+    ostd::Array<char, 256> buf;
+    ostd::err.writefln(cs_debug_line(cs, p, fmt, ostd::CharRange(buf.data(),
+                                                                 buf.size())),
+                       ostd::forward<A>(args)...);
+    cs_debug_alias(cs);
+}
+
 void CsState::clear_override(Ident &id) {
     if (!(id.flags & IDF_OVERRIDDEN)) return;
     switch (id.type) {
@@ -197,7 +260,8 @@ Ident *CsState::new_ident(ostd::ConstCharRange name, int flags) {
     Ident *id = idents.at(name);
     if (!id) {
         if (cs_check_num(name)) {
-            debug_code("number %s is not a valid identifier name", name);
+            cs_debug_code(*this, "number %s is not a valid identifier name",
+                          name);
             return dummy;
         }
         id = add_ident(ID_ALIAS, name, flags);
@@ -231,7 +295,7 @@ bool CsState::reset_var(ostd::ConstCharRange name) {
     Ident *id = idents.at(name);
     if (!id) return false;
     if (id->flags & IDF_READONLY) {
-        debug_code("variable %s is read only", id->name);
+        cs_debug_code(*this, "variable %s is read only", id->name);
         return false;
     }
     clear_override(*id);
@@ -269,12 +333,13 @@ void CsState::set_alias(ostd::ConstCharRange name, TaggedValue &v) {
             set_var_str_checked(id, v.get_str());
             break;
         default:
-            debug_code("cannot redefine builtin %s with an alias", id->name);
+            cs_debug_code(*this, "cannot redefine builtin %s with an alias",
+                          id->name);
             break;
         }
         v.cleanup();
     } else if (cs_check_num(name)) {
-        debug_code("cannot alias number %s", name);
+        cs_debug_code(*this, "cannot alias number %s", name);
         v.cleanup();
     } else {
         add_ident(ID_ALIAS, name, v, identflags);
@@ -560,49 +625,6 @@ void Ident::clean_code() {
     }
 }
 
-ostd::ConstCharRange CsState::debug_line(ostd::ConstCharRange p,
-                                         ostd::ConstCharRange fmt,
-                                         ostd::CharRange buf) {
-    if (src_str.empty()) return fmt;
-    ostd::Size num = 1;
-    ostd::ConstCharRange line(src_str);
-    for (;;) {
-        ostd::ConstCharRange end = ostd::find(line, '\n');
-        if (!end.empty())
-            line = line.slice(0, line.distance_front(end));
-        if (&p[0] >= &line[0] && &p[0] <= &line[line.size()]) {
-            ostd::CharRange r(buf);
-            if (!src_file.empty())
-                ostd::format(r, "%s:%d: %s", src_file, num, fmt);
-            else
-                ostd::format(r, "%d: %s", num, fmt);
-            r.put('\0');
-            return buf;
-        }
-        if (end.empty()) break;
-        line = end;
-        line.pop_front();
-        ++num;
-    }
-    return fmt;
-}
-
-void CsState::debug_alias() {
-    if (!dbgalias) return;
-    int total = 0, depth = 0;
-    for (IdentLink *l = stack; l != &noalias; l = l->next) total++;
-    for (IdentLink *l = stack; l != &noalias; l = l->next) {
-        Ident *id = l->id;
-        ++depth;
-        if (depth < dbgalias)
-            ostd::err.writefln("  %d) %s", total - depth + 1, id->name);
-        else if (l->next == &noalias)
-            ostd::err.writefln(depth == dbgalias ? "  %d) %s"
-                                                 : "  ..%d) %s",
-                               total - depth + 1, id->name);
-    }
-}
-
 void Ident::push_arg(const TaggedValue &v, IdentStack &st) {
     st.val = val;
     st.valtype = valtype;
@@ -692,7 +714,7 @@ template<typename SF, typename RF, typename CF>
 bool cs_override_var(CsState &cs, Ident *id, SF sf, RF rf, CF cf) {
     if ((cs.identflags & IDF_OVERRIDDEN) || (id->flags & IDF_OVERRIDE)) {
         if (id->flags & IDF_PERSIST) {
-            cs.debug_code("cannot override persistent variable '%s'",
+            cs_debug_code(cs, "cannot override persistent variable '%s'",
                           id->name);
             return false;
         }
@@ -828,18 +850,18 @@ int cs_clamp_var(CsState &cs, Ident *id, int v) {
         v = id->maxval;
     else
         return v;
-    cs.debug_code((id->flags & IDF_HEX)
-                  ? ((id->minval <= 255)
-                     ? "valid range for '%s' is %d..0x%X"
-                     : "valid range for '%s' is 0x%X..0x%X")
-                  : "valid range for '%s' is %d..%d",
+    cs_debug_code(cs, (id->flags & IDF_HEX)
+                       ? ((id->minval <= 255)
+                          ? "valid range for '%s' is %d..0x%X"
+                          : "valid range for '%s' is 0x%X..0x%X")
+                       : "valid range for '%s' is %d..%d",
                   id->name, id->minval, id->maxval);
     return v;
 }
 
 void CsState::set_var_int_checked(Ident *id, int v) {
     if (id->flags & IDF_READONLY) {
-        debug_code("variable '%s' is read only", id->name);
+        cs_debug_code(*this, "variable '%s' is read only", id->name);
         return;
     }
     bool success = cs_override_var(*this, id,
@@ -871,14 +893,14 @@ float cs_clamp_fvar(CsState &cs, Ident *id, float v) {
         v = id->maxvalf;
     else
         return v;
-    cs.debug_code("valid range for '%s' is %s..%s", floatstr(id->minvalf),
+    cs_debug_code(cs, "valid range for '%s' is %s..%s", floatstr(id->minvalf),
                   floatstr(id->maxvalf));
     return v;
 }
 
 void CsState::set_var_float_checked(Ident *id, float v) {
     if (id->flags & IDF_READONLY) {
-        debug_code("variable '%s' is read only", id->name);
+        cs_debug_code(*this, "variable '%s' is read only", id->name);
         return;
     }
     bool success = cs_override_var(*this, id,
@@ -894,7 +916,7 @@ void CsState::set_var_float_checked(Ident *id, float v) {
 
 void CsState::set_var_str_checked(Ident *id, ostd::ConstCharRange v) {
     if (id->flags & IDF_READONLY) {
-        debug_code("variable '%s' is read only", id->name);
+        cs_debug_code(*this, "variable '%s' is read only", id->name);
         return;
     }
     bool success = cs_override_var(*this, id,
@@ -1776,7 +1798,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
         char c = gs.next_char();
         switch (c) {
         case '\0':
-            gs.cs.debug_code_line(line, "missing \"]\"");
+            cs_debug_code_line(gs.cs, line, "missing \"]\"");
             gs.source--;
             goto done;
         case '\"':
@@ -1797,7 +1819,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
             while (gs.current() == '@') gs.next_char();
             int level = gs.source - (esc - 1);
             if (brak > level) continue;
-            else if (brak < level) gs.cs.debug_code_line(line, "too many @s");
+            else if (brak < level) cs_debug_code_line(gs.cs, line, "too many @s");
             if (!concs && prevargs >= MAX_RESULTS) gs.code.push(CODE_ENTER);
             if (concs + 2 > MAX_ARGUMENTS) {
                 gs.code.push(CODE_CONCW | RET_STR | (concs << 8));
@@ -2319,14 +2341,14 @@ endstatement:
         char c = gs.next_char();
         switch (c) {
         case '\0':
-            if (c != brak) gs.cs.debug_code_line(line, "missing \"%c\"", brak);
+            if (c != brak) cs_debug_code_line(gs.cs, line, "missing \"%c\"", brak);
             gs.source--;
             return;
 
         case ')':
         case ']':
             if (c == brak) return;
-            gs.cs.debug_code_line(line, "unexpected \"%c\"", c);
+            cs_debug_code_line(gs.cs, line, "unexpected \"%c\"", c);
             break;
 
         case '/':
@@ -2604,7 +2626,7 @@ static int rundepth = 0;
 static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, TaggedValue &result) {
     result.set_null();
     if (rundepth >= MAXRUNDEPTH) {
-        cs.debug_code("exceeded recursion limit");
+        cs_debug_code(cs, "exceeded recursion limit");
         return skipcode(code, result);
     }
     ++rundepth;
@@ -2950,7 +2972,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                         } \
                         default: arg.cleanup(); nval; continue; \
                     } \
-                    cs.debug_code("unknown alias lookup: %s", arg.s); \
+                    cs_debug_code(cs, "unknown alias lookup: %s", arg.s); \
                     arg.cleanup(); \
                     nval; \
                     continue; \
@@ -2963,7 +2985,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
         case CODE_LOOKUP|RET_STR:
 #define LOOKUP(aval) { \
                     Ident *id = cs.identmap[op>>8]; \
-                    if(id->flags&IDF_UNKNOWN) cs.debug_code("unknown alias lookup: %s", id->name); \
+                    if(id->flags&IDF_UNKNOWN) cs_debug_code(cs, "unknown alias lookup: %s", id->name); \
                     aval; \
                     continue; \
                 }
@@ -3207,7 +3229,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             Ident *id = cs.identmap[op >> 13];
             int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
             if (id->flags & IDF_UNKNOWN) {
-                cs.debug_code("unknown command: %s", id->name);
+                cs_debug_code(cs, "unknown command: %s", id->name);
                 FORCERESULT;
             }
             CALLALIAS(cs, result);
@@ -3245,7 +3267,7 @@ litval:
             if (!id) {
 noid:
                 if (cs_check_num(idarg.s)) goto litval;
-                cs.debug_code("unknown command: %s", idarg.s);
+                cs_debug_code(cs, "unknown command: %s", idarg.s);
                 result.force_null();
                 FORCERESULT;
             }
@@ -3319,7 +3341,7 @@ void CsState::run_ret(Ident *id, ostd::PointerRange<TaggedValue> args,
     ++rundepth;
     TaggedValue *prevret = result;
     result = &ret;
-    if (rundepth > MAXRUNDEPTH) debug_code("exceeded recursion limit");
+    if (rundepth > MAXRUNDEPTH) cs_debug_code(*this, "exceeded recursion limit");
     else if (id) switch (id->type) {
         default:
             if (!id->fun) break;

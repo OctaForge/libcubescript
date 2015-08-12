@@ -4,7 +4,6 @@
 #include <ostd/types.hh>
 #include <ostd/string.hh>
 #include <ostd/vector.hh>
-#include <ostd/array.hh>
 #include <ostd/keyset.hh>
 #include <ostd/range.hh>
 #include <ostd/utility.hh>
@@ -370,24 +369,6 @@ struct CsState {
 
     bool run_file(ostd::ConstCharRange fname, bool msg = true);
 
-    template<typename ...A>
-    void debug_code(ostd::ConstCharRange fmt, A &&...args) {
-        if (nodebug) return;
-        ostd::err.writefln(fmt, ostd::forward<A>(args)...);
-        debug_alias();
-    }
-
-    template<typename ...A>
-    void debug_code_line(ostd::ConstCharRange p,
-                         ostd::ConstCharRange fmt, A &&...args) {
-        if (nodebug) return;
-        ostd::Array<char, 256> buf;
-        ostd::err.writefln(debug_line(p, fmt, ostd::CharRange(buf.data(),
-                                                              buf.size())),
-                           ostd::forward<A>(args)...);
-        debug_alias();
-    }
-
     void set_alias(ostd::ConstCharRange name, TaggedValue &v);
 
     void set_var_int(ostd::ConstCharRange name, int v,
@@ -420,12 +401,6 @@ struct CsState {
     void print_var_str(Ident *id, ostd::ConstCharRange s);
 
     ostd::Uint32 *compile(ostd::ConstCharRange code);
-
-private:
-    void debug_alias();
-    ostd::ConstCharRange debug_line(ostd::ConstCharRange p,
-                                    ostd::ConstCharRange fmt,
-                                    ostd::CharRange buf);
 };
 
 void bcode_ref(ostd::Uint32 *p);
