@@ -4004,23 +4004,24 @@ endblock:
 };
 
 namespace util {
-    ostd::Size list_length(const char *str) {
-        ListParser p(str);
+    ostd::Size list_length(ostd::ConstCharRange s) {
+        ListParser p(s);
         ostd::Size ret = 0;
         while (p.parse()) ++ret;
         return ret;
     }
 
-    ostd::Maybe<ostd::String> list_index(const char *s, ostd::Size idx) {
+    ostd::Maybe<ostd::String> list_index(ostd::ConstCharRange s,
+                                         ostd::Size idx) {
+        ListParser p(s);
         for (ostd::Size i = 0; i < idx; ++i)
-            if (!parselist(s)) return ostd::nothing;
-        const char *start, *end, *qstart;
-        if (!parselist(s, start, end, qstart))
+            if (!p.parse()) return ostd::nothing;
+        if (!p.parse())
             return ostd::nothing;
-        return ostd::move(listelem(start, end, qstart));
+        return ostd::move(p.element());
     }
 
-    ostd::Vector<ostd::String> list_explode(const char *s,
+    ostd::Vector<ostd::String> list_explode(ostd::ConstCharRange s,
                                             ostd::Size limit) {
         ostd::Vector<ostd::String> ret;
         ListParser p(s);

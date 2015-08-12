@@ -470,9 +470,10 @@ namespace util {
         return ret;
     }
 
-    ostd::Size list_length(const char *str);
-    ostd::Maybe<ostd::String> list_index(const char *s, ostd::Size idx);
-    ostd::Vector<ostd::String> list_explode(const char *s,
+    ostd::Size list_length(ostd::ConstCharRange s);
+    ostd::Maybe<ostd::String> list_index(ostd::ConstCharRange s,
+                                         ostd::Size idx);
+    ostd::Vector<ostd::String> list_explode(ostd::ConstCharRange s,
                                             ostd::Size limit = -1);
 }
 
