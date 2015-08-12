@@ -1016,6 +1016,21 @@ const char *parsestring(const char *p) {
     return p;
 }
 
+ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
+    for (; !str.empty(); str.pop_front())
+        switch (str.front()) {
+        case '\r':
+        case '\n':
+        case '\"':
+            return str;
+        case '^':
+            str.pop_front();
+            if (!str.empty()) break;
+            return str;
+        }
+    return str;
+}
+
 static char *conc(ostd::Vector<char> &buf, TaggedValue *v, int n, bool space, const char *prefix = nullptr, int prefixlen = 0) {
     if (prefix) {
         buf.push_n(prefix, prefixlen);
@@ -1665,12 +1680,15 @@ static bool compileblockstr(GenState &gs, ostd::ConstCharRange str, bool macro) 
             str.pop_front();
             break;
         case '\"': {
-            const char *start = str.data();
-            const char *end = parsestring(start + 1);
-            if (*end == '\"') end++;
-            memcpy(&buf[len], start, end - start);
-            len += end - start;
-            str.pop_front_n(end - start);
+            ostd::ConstCharRange start = str;
+            start.pop_front();
+            ostd::ConstCharRange end = cs_parse_str(start);
+            if (!end.empty() && (end.front() == '\"'))
+                end.pop_front();
+            ostd::Size slen = str.distance_front(end);
+            memcpy(&buf[len], str.data(), slen);
+            len += slen;
+            str = end;
             break;
         }
         case '/':
