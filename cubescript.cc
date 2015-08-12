@@ -3990,7 +3990,7 @@ endblock:
     ostd::String element() {
         ostd::String s;
         s.reserve(item.size());
-        if (quote.front() == '"') {
+        if (!quote.empty() && (quote.front() == '"')) {
             auto writer = s.iter_cap();
             util::unescape_string(writer, item);
             writer.put('\0');
@@ -4054,9 +4054,8 @@ static void cs_loop_list_conc(CsState &cs, Ident *id, const char *list,
     IdentStack stack;
     ostd::Vector<char> r;
     int n = 0;
-    const char *s = list, *start, *end, *qstart;
-    for (; parselist(s, start, end, qstart); ++n) {
-        char *val = listelem(start, end, qstart).disown();
+    for (ListParser p(list); p.parse(); ++n) {
+        char *val = p.element().disown();
         cs_set_iter(*id, val, stack);
         if (n && space)
             r.push(' ');
@@ -4074,9 +4073,8 @@ static void cs_loop_list_conc(CsState &cs, Ident *id, const char *list,
 
 int cs_list_includes(const char *list, ostd::ConstCharRange needle) {
     int offset = 0;
-    const char *s = list, *start, *end;
-    while (parselist(s, start, end)) {
-        if (ostd::ConstCharRange(start, end) == needle)
+    for (ListParser p(list); p.parse();) {
+        if (p.item == needle)
             return offset;
         ++offset;
     }
@@ -4136,10 +4134,9 @@ void init_lib_list(CsState &cs) {
         }
         IdentStack stack;
         int n = -1;
-        for (const char *s = list, *start, *end; parselist(s, start, end);) {
+        for (ListParser p(list); p.parse();) {
             ++n;
-            cs_set_iter(*id, cs_dup_ostr(ostd::ConstCharRange(start,
-                end - start)), stack);
+            cs_set_iter(*id, cs_dup_ostr(p.item), stack);
             if (cs.run_bool(body)) {
                 cs.result->set_int(n);
                 goto found;
@@ -4158,17 +4155,15 @@ found:
             return;
         IdentStack stack;
         int n = -1;
-        const char *s = list, *start, *end, *qstart;
-        while (parselist(s, start, end)) {
+        for (ListParser p(list); p.parse();) {
             ++n;
-            cs_set_iter(*id, cs_dup_ostr(ostd::ConstCharRange(start,
-                end - start)), stack);
+            cs_set_iter(*id, cs_dup_ostr(p.item), stack);
             if (cs.run_bool(body)) {
-                if (parselist(s, start, end, qstart))
-                    cs.result->set_str(listelem(start, end, qstart).disown());
+                if (p.parse())
+                    cs.result->set_str(p.element().disown());
                 break;
             }
-            if (!parselist(s))
+            if (!p.parse())
                 break;
         }
         if (n >= 0)
@@ -4180,14 +4175,13 @@ found:
                                          type *val, int *skip) { \
         int n = 0; \
         init; \
-        const char *s = list, *start, *end, *qstart; \
-        for (; parselist(s, start, end, qstart); ++n) { \
+        for (ListParser p(list); p.parse(); ++n) { \
             if (cmp) { \
                 cs.result->set_int(n); \
                 return; \
             } \
             for (int i = 0; i < *skip; ++i) { \
-                if (!parselist(s)) \
+                if (!p.parse()) \
                     goto notfound; \
                 ++n; \
             } \
@@ -4196,32 +4190,31 @@ found:
         cs.result->set_int(-1); \
     });
 
-    CS_CMD_LIST_FIND("listfind=", "i", int, {}, parseint(start) == *val);
-    CS_CMD_LIST_FIND("listfind=f", "f", float, {}, parsefloat(start) == *val);
-    CS_CMD_LIST_FIND("listfind=s", "s", char, int len = (int)strlen(val),
-        int(end - start) == len && !memcmp(start, val, len));
+    CS_CMD_LIST_FIND("listfind=", "i", int, {}, cs_parse_int(p.item) == *val);
+    CS_CMD_LIST_FIND("listfind=f", "f", float, {}, cs_parse_float(p.item) == *val);
+    CS_CMD_LIST_FIND("listfind=s", "s", char, ostd::Size len = strlen(val),
+        p.item == ostd::ConstCharRange(val, len));
 
 #undef CS_CMD_LIST_FIND
 
 #define CS_CMD_LIST_ASSOC(name, fmt, type, init, cmp) \
     cs.add_command(name, "s" fmt, [](CsState &cs, char *list, type *val) { \
         init; \
-        const char *s = list, *start, *end, *qstart; \
-        while (parselist(s, start, end)) { \
+        for (ListParser p(list); p.parse();) { \
             if (cmp) { \
-                if (parselist(s, start, end, qstart)) \
-                    cs.result->set_str(listelem(start, end, qstart).disown()); \
+                if (p.parse()) \
+                    cs.result->set_str(p.element().disown()); \
                 return; \
             } \
-            if (!parselist(s)) \
+            if (!p.parse()) \
                 break; \
         } \
     });
 
-    CS_CMD_LIST_ASSOC("listassoc=", "i", int, {}, parseint(start) == *val);
-    CS_CMD_LIST_ASSOC("listassoc=f", "f", float, {}, parsefloat(start) == *val);
-    CS_CMD_LIST_ASSOC("listassoc=s", "s", char, int len = (int)strlen(val),
-        int(end - start) == len && !memcmp(start, val, len));
+    CS_CMD_LIST_ASSOC("listassoc=", "i", int, {}, cs_parse_int(p.item) == *val);
+    CS_CMD_LIST_ASSOC("listassoc=f", "f", float, {}, cs_parse_float(p.item) == *val);
+    CS_CMD_LIST_ASSOC("listassoc=s", "s", char, ostd::Size len = strlen(val),
+        p.item == ostd::ConstCharRange(val, len));
 
 #undef CS_CMD_LIST_ASSOC
 
@@ -4232,9 +4225,8 @@ found:
             return;
         IdentStack stack;
         int n = 0;
-        const char *s = list, *start, *end, *qstart;
-        for (; parselist(s, start, end, qstart); ++n) {
-            cs_set_iter(*id, listelem(start, end, qstart).disown(), stack);
+        for (ListParser p(list); p.parse(); ++n) {
+            cs_set_iter(*id, p.element().disown(), stack);
             cs.run_int(body);
         }
         if (n >= 0)
@@ -4248,12 +4240,10 @@ found:
             return;
         IdentStack stack, stack2;
         int n = 0;
-        const char *s = list, *start, *end, *qstart;
-        for (; parselist(s, start, end, qstart); n += 2) {
-            cs_set_iter(*id, listelem(start, end, qstart).disown(), stack);
-            cs_set_iter(*id2, parselist(s, start, end, qstart)
-                        ? listelem(start, end, qstart).disown()
-                        : cs_dup_ostr(""), stack2);
+        for (ListParser p(list); p.parse(); n += 2) {
+            cs_set_iter(*id, p.element().disown(), stack);
+            cs_set_iter(*id2, p.parse() ? p.element().disown()
+                                        : cs_dup_ostr(""), stack2);
             cs.run_int(body);
         }
         if (n >= 0) {
@@ -4272,15 +4262,12 @@ found:
             return;
         IdentStack stack, stack2, stack3;
         int n = 0;
-        const char *s = list, *start, *end, *qstart;
-        for (; parselist(s, start, end, qstart); n += 3) {
-            cs_set_iter(*id, listelem(start, end, qstart).disown(), stack);
-            cs_set_iter(*id2, parselist(s, start, end, qstart)
-                        ? listelem(start, end, qstart).disown()
-                        : cs_dup_ostr(""), stack2);
-            cs_set_iter(*id3, parselist(s, start, end, qstart)
-                        ? listelem(start, end, qstart).disown()
-                        : cs_dup_ostr(""), stack3);
+        for (ListParser p(list); p.parse(); n += 3) {
+            cs_set_iter(*id, p.element().disown(), stack);
+            cs_set_iter(*id2, p.parse() ? p.element().disown()
+                                        : cs_dup_ostr(""), stack2);
+            cs_set_iter(*id3, p.parse() ? p.element().disown()
+                                        : cs_dup_ostr(""), stack3);
             cs.run_int(body);
         }
         if (n >= 0) {
@@ -4310,13 +4297,12 @@ found:
         IdentStack stack;
         ostd::Vector<char> r;
         int n = 0;
-        const char *s = list, *start, *end, *qstart, *qend;
-        for (; parselist(s, start, end, qstart, qend); ++n) {
-            char *val = cs_dup_ostr(ostd::ConstCharRange(start, end - start));
+        for (ListParser p(list); p.parse(); ++n) {
+            char *val = cs_dup_ostr(p.item);
             cs_set_iter(*id, val, stack);
             if (cs.run_bool(body)) {
                 if (r.size()) r.push(' ');
-                r.push_n(qstart, qend - qstart);
+                r.push_n(p.quote.data(), p.quote.size());
             }
         }
         if (n >= 0)
@@ -4332,9 +4318,8 @@ found:
             return;
         IdentStack stack;
         int n = 0, r = 0;
-        const char *s = list, *start, *end;
-        for (; parselist(s, start, end); ++n) {
-            char *val = cs_dup_ostr(ostd::ConstCharRange(start, end - start));
+        for (ListParser p(list); p.parse(); ++n) {
+            char *val = cs_dup_ostr(p.item);
             cs_set_iter(*id, val, stack);
             if (cs.run_bool(body))
                 r++;
