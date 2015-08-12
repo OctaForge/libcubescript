@@ -13,12 +13,22 @@ static inline int parseint(const char *s) {
     return int(strtoul(s, nullptr, 0));
 }
 
+static inline int cs_parse_int(ostd::ConstCharRange s) {
+    if (s.empty()) return 0;
+    return parseint(s.data());
+}
+
 static inline float parsefloat(const char *s)
 {
     /* not all platforms (windows) can parse hexadecimal integers via strtod */
     char *end;
     double val = strtod(s, &end);
     return val || end==s || (*end!='x' && *end!='X') ? float(val) : float(parseint(s));
+}
+
+static inline float cs_parse_float(ostd::ConstCharRange s) {
+    if (s.empty()) return 0.0f;
+    return parsefloat(s.data());
 }
 
 static inline void intformat(char *buf, int v, int len = 20) {
@@ -1266,7 +1276,7 @@ struct GenState {
     }
 
     void gen_int(ostd::ConstCharRange word) {
-        gen_int(!word.empty() ? parseint(word.data()) : 0);
+        gen_int(cs_parse_int(word));
     }
 
     void gen_float(float f = 0.0f) {
@@ -1284,7 +1294,7 @@ struct GenState {
     }
 
     void gen_float(ostd::ConstCharRange word) {
-        gen_float(!word.empty() ? parsefloat(word.data()) : 0.0f);
+        gen_float(cs_parse_float(word));
     }
 
     void gen_ident(Ident *id) {
@@ -1404,41 +1414,42 @@ static ostd::Uint32 emptyblock[VAL_ANY][2] = {
     { CODE_START + 0x100, CODE_EXIT | RET_STR }
 };
 
-static inline bool getbool(const char *s) {
-    switch (s[0]) {
+static inline bool cs_get_bool(ostd::ConstCharRange s) {
+    if (s.empty())
+        return false;
+    switch (s.front()) {
     case '+':
     case '-':
         switch (s[1]) {
         case '0':
             break;
         case '.':
-            return !isdigit(s[2]) || parsefloat(s) != 0;
+            return !isdigit(s[2]) || (cs_parse_float(s) != 0);
         default:
             return true;
         }
     /* fallthrough */
     case '0': {
         char *end;
-        int val = int(strtoul((char *)s, &end, 0));
+        int val = int(strtoul(s.data(), &end, 0));
         if (val) return true;
         switch (*end) {
         case 'e':
         case '.':
-            return parsefloat(s) != 0;
+            return (cs_parse_float(s) != 0);
         default:
             return false;
         }
     }
     case '.':
-        return !isdigit(s[1]) || parsefloat(s) != 0;
+        return !isdigit(s[1]) || (cs_parse_float(s) != 0);
     case '\0':
         return false;
-    default:
-        return true;
     }
+    return true;
 }
 
-static inline bool getbool(const TaggedValue &v) {
+static inline bool cs_get_bool(const TaggedValue &v) {
     switch (v.type) {
     case VAL_FLOAT:
         return v.f != 0;
@@ -1447,7 +1458,7 @@ static inline bool getbool(const TaggedValue &v) {
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR:
-        return getbool(v.s);
+        return cs_get_bool(v.s);
     default:
         return false;
     }
@@ -2631,10 +2642,10 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
 #define RETPOP(op, val) \
                 RETOP(op, { --numargs; val; args[numargs].cleanup(); })
 
-            RETPOP(CODE_NOT | RET_STR, result.set_str(cs_dup_ostr(getbool(args[numargs]) ? "0" : "1")))
+            RETPOP(CODE_NOT | RET_STR, result.set_str(cs_dup_ostr(cs_get_bool(args[numargs]) ? "0" : "1")))
         case CODE_NOT|RET_NULL:
-                RETPOP(CODE_NOT | RET_INT, result.set_int(getbool(args[numargs]) ? 0 : 1))
-                RETPOP(CODE_NOT | RET_FLOAT, result.set_float(getbool(args[numargs]) ? 0.0f : 1.0f))
+                RETPOP(CODE_NOT | RET_INT, result.set_int(cs_get_bool(args[numargs]) ? 0 : 1))
+                RETPOP(CODE_NOT | RET_FLOAT, result.set_float(cs_get_bool(args[numargs]) ? 0.0f : 1.0f))
 
             case CODE_POP:
                     args[--numargs].cleanup();
@@ -2707,13 +2718,13 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
         }
         case CODE_JUMP_TRUE: {
             ostd::Uint32 len = op >> 8;
-            if (getbool(args[--numargs])) code += len;
+            if (cs_get_bool(args[--numargs])) code += len;
             args[numargs].cleanup();
             continue;
         }
         case CODE_JUMP_FALSE: {
             ostd::Uint32 len = op >> 8;
-            if (!getbool(args[--numargs])) code += len;
+            if (!cs_get_bool(args[--numargs])) code += len;
             args[numargs].cleanup();
             continue;
         }
@@ -2725,7 +2736,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                 runcode(cs, args[numargs].code, result);
                 args[numargs].cleanup();
             } else result = args[numargs];
-            if (getbool(result)) code += len;
+            if (cs_get_bool(result)) code += len;
             continue;
         }
         case CODE_JUMP_RESULT_FALSE: {
@@ -2736,7 +2747,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                 runcode(cs, args[numargs].code, result);
                 args[numargs].cleanup();
             } else result = args[numargs];
-            if (!getbool(result)) code += len;
+            if (!cs_get_bool(result)) code += len;
             continue;
         }
 
@@ -3438,7 +3449,7 @@ float CsState::run_float(Ident *id, ostd::PointerRange<TaggedValue> args) {
 bool CsState::run_bool(const ostd::Uint32 *code) {
     TaggedValue result;
     runcode(*this, code, result);
-    bool b = getbool(result);
+    bool b = cs_get_bool(result);
     result.cleanup();
     return b;
 }
@@ -3446,7 +3457,7 @@ bool CsState::run_bool(const ostd::Uint32 *code) {
 bool CsState::run_bool(ostd::ConstCharRange code) {
     TaggedValue result;
     run_ret(code, result);
-    bool b = getbool(result);
+    bool b = cs_get_bool(result);
     result.cleanup();
     return b;
 }
@@ -3454,7 +3465,7 @@ bool CsState::run_bool(ostd::ConstCharRange code) {
 bool CsState::run_bool(Ident *id, ostd::PointerRange<TaggedValue> args) {
     TaggedValue result;
     run_ret(id, args, result);
-    bool b = getbool(result);
+    bool b = cs_get_bool(result);
     result.cleanup();
     return b;
 }
@@ -3514,7 +3525,7 @@ void init_lib_base(CsState &cs) {
 
     cs.add_command("if", "tee", [](CsState &cs, TaggedValue *cond,
                                    ostd::Uint32 *t, ostd::Uint32 *f) {
-        cs.run_ret(getbool(*cond) ? t : f);
+        cs.run_ret(cs_get_bool(*cond) ? t : f);
     }, ID_IF);
 
     cs.add_command("result", "T", [](CsState &cs, TaggedValue *v) {
@@ -3523,7 +3534,7 @@ void init_lib_base(CsState &cs) {
     }, ID_RESULT);
 
     cs.add_command("!", "t", [](CsState &cs, TaggedValue *a) {
-        cs.result->set_int(!getbool(*a));
+        cs.result->set_int(!cs_get_bool(*a));
     }, ID_NOT);
 
     cs.add_command("&&", "E1V", [](CsState &cs, TaggedValue *args,
@@ -3536,7 +3547,7 @@ void init_lib_base(CsState &cs) {
                 cs.run_ret(args[i].code);
             else
                 *cs.result = args[i];
-            if (!getbool(*cs.result)) break;
+            if (!cs_get_bool(*cs.result)) break;
         }
     }, ID_AND);
 
@@ -3550,13 +3561,13 @@ void init_lib_base(CsState &cs) {
                 cs.run_ret(args[i].code);
             else
                 *cs.result = args[i];
-            if (getbool(*cs.result)) break;
+            if (cs_get_bool(*cs.result)) break;
         }
     }, ID_OR);
 
     cs.add_command("?", "tTT", [](CsState &cs, TaggedValue *cond,
                                   TaggedValue *t, TaggedValue *f) {
-        cs.result->set(*(getbool(*cond) ? t : f));
+        cs.result->set(*(cs_get_bool(*cond) ? t : f));
     });
 
     cs.add_command("cond", "ee2V", [](CsState &cs, TaggedValue *args,
@@ -3605,7 +3616,7 @@ void init_lib_base(CsState &cs) {
                                        TaggedValue *v, ostd::Uint32 *code) {
         if ((id->type != ID_ALIAS) || (id->index < MAX_ARGUMENTS))
             return;
-        if (getbool(*v)) {
+        if (cs_get_bool(*v)) {
             IdentStack stack;
             id->push_arg(*v, stack);
             v->type = VAL_NULL;
