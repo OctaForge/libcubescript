@@ -4331,31 +4331,31 @@ found:
 
     cs.add_command("prettylist", "ss", [](CsState &cs, const char *s,
                                           const char *conj) {
-        ostd::Vector<char> p;
+        ostd::Vector<char> buf;
         ostd::Size len = util::list_length(s);
         ostd::Size n = 0;
-        const char *start, *end, *qstart;
-        for (; parselist(s, start, end, qstart); ++n) {
-            if (*qstart == '"') {
-                p.reserve(p.size() + end - start);
-                auto writer = ostd::CharRange(&p[p.size()], p.capacity() - p.size());
-                ostd::Size adv = util::unescape_string(writer, ostd::ConstCharRange(start, end));
+        for (ListParser p(s); p.parse(); ++n) {
+            if (!p.quote.empty() && (p.quote.front() == '"')) {
+                buf.reserve(buf.size() + p.item.size());
+                auto writer = ostd::CharRange(&buf[buf.size()],
+                    buf.capacity() - buf.size());
+                ostd::Size adv = util::unescape_string(writer, p.item);
                 writer.put('\0');
-                p.advance(adv);
+                buf.advance(adv);
             } else
-                p.push_n(start, end - start);
+                buf.push_n(p.item.data(), p.item.size());
             if ((n + 1) < len) {
                 if ((len > 2) || !conj[0])
-                    p.push(',');
+                    buf.push(',');
                 if ((n + 2 == len) && conj[0]) {
-                    p.push(' ');
-                    p.push_n(conj, strlen(conj));
+                    buf.push(' ');
+                    buf.push_n(conj, strlen(conj));
                 }
-                p.push(' ');
+                buf.push(' ');
             }
         }
-        p.push('\0');
-        cs.result->set_str(p.disown());
+        buf.push('\0');
+        cs.result->set_str(buf.disown());
     });
 
     cs.add_command("indexof", "ss", [](CsState &cs, char *list, char *elem) {
@@ -4365,24 +4365,22 @@ found:
 #define CS_CMD_LIST_MERGE(name, init, iter, filter, dir) \
     cs.add_command(name, "ss", [](CsState &cs, const char *list, \
                                   const char *elems) { \
-        ostd::Vector<char> p; \
+        ostd::Vector<char> buf; \
         init; \
-        const char *start, *end, *qstart, *qend; \
-        while (parselist(iter, start, end, qstart, qend)) { \
-            auto needle = ostd::ConstCharRange(start, end); \
-            if (cs_list_includes(filter, needle) dir 0) { \
-                if (!p.empty()) \
-                    p.push(' '); \
-                p.push_n(qstart, qend - qstart); \
+        for (ListParser p(iter); p.parse();) { \
+            if (cs_list_includes(filter, p.item) dir 0) { \
+                if (!buf.empty()) \
+                    buf.push(' '); \
+                buf.push_n(p.quote.data(), p.quote.size()); \
             } \
         } \
-        p.push('\0'); \
-        cs.result->set_str(p.disown()); \
+        buf.push('\0'); \
+        cs.result->set_str(buf.disown()); \
     });
 
     CS_CMD_LIST_MERGE("listdel", {}, list, elems, <);
     CS_CMD_LIST_MERGE("listintersect", {}, list, elems, >=);
-    CS_CMD_LIST_MERGE("listunion", p.push_n(list, strlen(list)), elems,
+    CS_CMD_LIST_MERGE("listunion", buf.push_n(list, strlen(list)), elems,
         list, <);
 
 #undef CS_CMD_LIST_MERGE
@@ -4459,14 +4457,9 @@ void cs_list_sort(CsState &cs, char *list, Ident *x, Ident *y,
     ostd::Size total = 0;
 
     char *cstr = cs_dup_ostr(ostd::ConstCharRange(list, clen));
-
-    const char *curlist = list, *start, *end, *quotestart, *quoteend;
-    while (parselist(curlist, start, end, quotestart, quoteend)) {
-        cstr[end - list] = '\0';
-        ListSortItem item = {
-            &cstr[start - list],
-            ostd::ConstCharRange(quotestart, quoteend)
-        };
+    for (ListParser p(list); p.parse();) {
+        cstr[&p.item[p.item.size()] - list] = '\0';
+        ListSortItem item = { &cstr[p.item.data() - list], p.quote };
         items.push(item);
         total += item.quote.size();
     }
