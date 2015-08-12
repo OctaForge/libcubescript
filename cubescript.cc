@@ -3872,7 +3872,107 @@ endblock:
     return true;
 }
 
-static inline ostd::String listelem(const char *start = liststart, const char *end = listend, const char *quotestart = listquotestart) {
+struct ListParser {
+    ostd::ConstCharRange input;
+    ostd::ConstCharRange quote = ostd::ConstCharRange();
+    ostd::ConstCharRange item = ostd::ConstCharRange();
+
+    ListParser() = delete;
+    ListParser(ostd::ConstCharRange src): input(src) {}
+
+    void skip() {
+        for (;;) {
+            while (!input.empty()) {
+                char c = input.front();
+                if ((c == ' ') || (c == '\t') || (c == '\r') || (c == '\n'))
+                    input.pop_front();
+                else
+                    break;
+            }
+            if ((input.size() < 2) || (input[0] != '/') || (input[1] != '/'))
+                break;
+            input = ostd::find(input, '\n');
+        }
+    }
+
+    bool parse() {
+        skip();
+        if (input.empty())
+            return false;
+        switch (input.front()) {
+        case '"':
+            quote = input;
+            input.pop_front();
+            item = input;
+            input = cs_parse_str(input);
+            item = item.slice(0, item.distance_front(input));
+            if (!input.empty() && (input.front() == '"'))
+                input.pop_front();
+            quote = quote.slice(0, quote.distance_front(input));
+            break;
+        case '(':
+        case '[': {
+            quote = input;
+            input.pop_front();
+            item = input;
+            char btype = quote.front();
+            int brak = 1;
+            for (;;) {
+                input = ostd::find_one_of(input,
+                    ostd::ConstCharRange("\"/;()[]"));
+                if (input.empty())
+                    return true;
+                char c = input.front();
+                input.pop_front();
+                switch (c) {
+                case '"':
+                    input = cs_parse_str(input);
+                    if (!input.empty() && (input.front() == '"'))
+                        input.pop_front();
+                    break;
+                case '/':
+                    if (!input.empty() && (input.front() == '/'))
+                        input = ostd::find(input, '\n');
+                    break;
+                case '(':
+                case '[':
+                    brak += (c == btype);
+                    break;
+                case ')':
+                    if ((btype == '(') && (--brak <= 0))
+                        goto endblock;
+                    break;
+                case ']':
+                    if ((btype == '[') && (--brak <= 0))
+                        goto endblock;
+                    break;
+                }
+            }
+endblock:
+            item = item.slice(0, item.distance_front(input) - 1);
+            quote = quote.slice(0, quote.distance_front(input));
+            break;
+        }
+        case ')':
+        case ']':
+            return false;
+        default: {
+            const char *e = parseword(input.data());
+            item = input;
+            input.pop_front_n(e - input.data());
+            item = item.slice(0, item.distance_front(input));
+            quote = item;
+            break;
+        }
+        }
+        skip();
+        if (!input.empty() && (input.front() == ';'))
+            input.pop_front();
+        return true;
+    }
+};
+
+static inline ostd::String listelem(const char *start, const char *end, const char *quotestart) {
     ostd::Size len = end - start;
     ostd::String s;
     s.reserve(len);
@@ -3890,8 +3990,9 @@ static inline ostd::String listelem(const char *start = liststart, const char *e
 
 namespace util {
     ostd::Size list_length(const char *str) {
+        ListParser p(str);
         ostd::Size ret = 0;
-        while (parselist(str)) ++ret;
+        while (p.parse()) ++ret;
         return ret;
     }
 
@@ -3907,9 +4008,10 @@ namespace util {
     ostd::Vector<ostd::String> list_explode(const char *s,
                                             ostd::Size limit) {
         ostd::Vector<ostd::String> ret;
-        const char *start, *end, *qstart;
-        while ((ret.size() < limit) && parselist(s, start, end, qstart)) {
-            ret.push(ostd::move(listelem(start, end, qstart)));
+        ListParser p(s);
+        while ((ret.size() < limit) && p.parse()) {
+            ret.push(ostd::move(listelem(p.item.data(),
+                &p.item[p.item.size()], p.quote.data())));
         }
         return ret;
     }
