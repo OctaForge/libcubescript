@@ -3872,6 +3872,22 @@ endblock:
     return true;
 }
 
+static inline ostd::String listelem(const char *start, const char *end, const char *quotestart) {
+    ostd::Size len = end - start;
+    ostd::String s;
+    s.reserve(len);
+    if (*quotestart == '"') {
+        auto writer = s.iter_cap();
+        util::unescape_string(writer, ostd::ConstCharRange(start, end));
+        writer.put('\0');
+    } else {
+        memcpy(s.data(), start, len);
+        s[len] = '\0';
+    }
+    s.advance(len);
+    return s;
+}
+
 struct ListParser {
     ostd::ConstCharRange input;
     ostd::ConstCharRange quote = ostd::ConstCharRange();
@@ -3970,23 +3986,22 @@ endblock:
             input.pop_front();
         return true;
     }
-};
 
-static inline ostd::String listelem(const char *start, const char *end, const char *quotestart) {
-    ostd::Size len = end - start;
-    ostd::String s;
-    s.reserve(len);
-    if (*quotestart == '"') {
-        auto writer = s.iter_cap();
-        util::unescape_string(writer, ostd::ConstCharRange(start, end));
-        writer.put('\0');
-    } else {
-        memcpy(s.data(), start, len);
-        s[len] = '\0';
+    ostd::String element() {
+        ostd::String s;
+        s.reserve(item.size());
+        if (quote.front() == '"') {
+            auto writer = s.iter_cap();
+            util::unescape_string(writer, item);
+            writer.put('\0');
+        } else {
+            memcpy(s.data(), item.data(), item.size());
+            s[item.size()] = '\0';
+        }
+        s.advance(item.size());
+        return s;
     }
-    s.advance(len);
-    return s;
-}
+};
 
 namespace util {
     ostd::Size list_length(const char *str) {
@@ -4009,10 +4024,8 @@ namespace util {
                                             ostd::Size limit) {
         ostd::Vector<ostd::String> ret;
         ListParser p(s);
-        while ((ret.size() < limit) && p.parse()) {
-            ret.push(ostd::move(listelem(p.item.data(),
-                &p.item[p.item.size()], p.quote.data())));
-        }
+        while ((ret.size() < limit) && p.parse())
+            ret.push(ostd::move(p.element()));
         return ret;
     }
 }
