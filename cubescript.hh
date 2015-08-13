@@ -258,7 +258,7 @@ struct Ident {
 
     void clean_code();
 
-    void push_arg(const TaggedValue &v, IdentStack &st);
+    void push_arg(const TaggedValue &v, IdentStack &st, bool um = true);
     void pop_arg();
     void undo_arg(IdentStack &st);
     void redo_arg(const IdentStack &st);

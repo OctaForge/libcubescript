@@ -625,13 +625,15 @@ void Ident::clean_code() {
     }
 }
 
-void Ident::push_arg(const TaggedValue &v, IdentStack &st) {
+void Ident::push_arg(const TaggedValue &v, IdentStack &st, bool um) {
     st.val = val;
     st.valtype = valtype;
     st.next = stack;
     stack = &st;
     set_value(v);
     clean_code();
+    if (um)
+        flags &= ~IDF_UNKNOWN;
 }
 
 void Ident::pop_arg() {
@@ -663,10 +665,8 @@ void Ident::redo_arg(const IdentStack &st) {
 }
 
 void Ident::push_alias(IdentStack &stack) {
-    if (type == ID_ALIAS && index >= MAX_ARGUMENTS) {
+    if (type == ID_ALIAS && index >= MAX_ARGUMENTS)
         push_arg(null_value, stack);
-        flags &= ~IDF_UNKNOWN;
-    }
 }
 
 void Ident::pop_alias() {
@@ -679,7 +679,7 @@ void Ident::set_arg(CsState &cs, TaggedValue &v) {
         set_value(v);
         clean_code();
     } else {
-        push_arg(v, cs.stack->argstack[index]);
+        push_arg(v, cs.stack->argstack[index], false);
         cs.stack->usedargs |= 1 << index;
     }
 }
@@ -996,7 +996,6 @@ static void cs_init_lib_base_var(CsState &cs) {
         IdentStack stack;
         id->push_arg(*v, stack);
         v->type = VAL_NULL;
-        id->flags &= ~IDF_UNKNOWN;
         cs.run_ret(code);
         id->pop_arg();
     });
@@ -2925,7 +2924,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
         case CODE_IDENTARG: {
             Ident *id = cs.identmap[op >> 8];
             if (!(cs.stack->usedargs & (1 << id->index))) {
-                id->push_arg(null_value, cs.stack->argstack[id->index]);
+                id->push_arg(null_value, cs.stack->argstack[id->index], false);
                 cs.stack->usedargs |= 1 << id->index;
             }
             args[numargs++].set_ident(id);
@@ -2935,7 +2934,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             TaggedValue &arg = args[numargs - 1];
             Ident *id = arg.type == VAL_STR || arg.type == VAL_MACRO || arg.type == VAL_CSTR ? cs.new_ident(arg.cstr, IDF_UNKNOWN) : cs.dummy;
             if (id->index < MAX_ARGUMENTS && !(cs.stack->usedargs & (1 << id->index))) {
-                id->push_arg(null_value, cs.stack->argstack[id->index]);
+                id->push_arg(null_value, cs.stack->argstack[id->index], false);
                 cs.stack->usedargs |= 1 << id->index;
             }
             arg.cleanup();
@@ -3202,7 +3201,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
 #define CALLALIAS(cs, result) { \
                 IdentStack argstack[MAX_ARGUMENTS]; \
                 for(int i = 0; i < callargs; i++) \
-                    (cs).identmap[i]->push_arg(args[offset + i], argstack[i]); \
+                    (cs).identmap[i]->push_arg(args[offset + i], argstack[i], false); \
                 int oldargs = (cs).numargs; \
                 (cs).numargs = callargs; \
                 int oldflags = (cs).identflags; \
@@ -3642,7 +3641,6 @@ void init_lib_base(CsState &cs) {
             IdentStack stack;
             id->push_arg(*v, stack);
             v->type = VAL_NULL;
-            id->flags &= ~IDF_UNKNOWN;
             cs.run_ret(code);
             id->pop_arg();
         }
@@ -3665,7 +3663,6 @@ static inline void cs_set_iter(Ident &id, int i, IdentStack &stack) {
     TaggedValue v;
     v.set_int(i);
     id.push_arg(v, stack);
-    id.flags &= ~IDF_UNKNOWN;
 }
 
 static inline void cs_do_loop(CsState &cs, Ident &id, int offset, int n,
@@ -3957,7 +3954,6 @@ static inline void cs_set_iter(Ident &id, char *val, IdentStack &stack) {
     TaggedValue v;
     v.set_str(val);
     id.push_arg(v, stack);
-    id.flags &= ~IDF_UNKNOWN;
 }
 
 static void cs_loop_list_conc(CsState &cs, Ident *id, const char *list,
@@ -4388,9 +4384,7 @@ void cs_list_sort(CsState &cs, char *list, Ident *x, Ident *y,
 
     IdentStack xstack, ystack;
     x->push_arg(null_value, xstack);
-    x->flags &= ~IDF_UNKNOWN;
     y->push_arg(null_value, ystack);
-    y->flags &= ~IDF_UNKNOWN;
 
     ostd::Size totaluniq = total;
     ostd::Size nuniq = items.size();
