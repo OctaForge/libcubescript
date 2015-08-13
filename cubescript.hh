@@ -412,6 +412,38 @@ void init_lib_math(CsState &cs);
 void init_lib_string(CsState &cs);
 void init_lib_list(CsState &cs);
 
+inline bool check_alias(Ident *id) {
+    return id && (id->type == ID_ALIAS);
+}
+
+struct StackedValue: TaggedValue {
+    IdentStack stack;
+    Ident *id;
+    bool pushed;
+
+    StackedValue(Ident *id = nullptr):
+        TaggedValue(), stack(), id(id), pushed(false) {}
+
+    ~StackedValue() {
+        pop();
+    }
+
+    bool push() {
+        if (pushed || !id) return false;
+        id->push_arg(*this, stack);
+        pushed = true;
+        return true;
+    }
+
+    bool pop() {
+        printf("pop\n");
+        if (!pushed || !id) return false;
+        id->pop_arg();
+        pushed = false;
+        return true;
+    }
+};
+
 namespace util {
     template<typename R>
     inline ostd::Size escape_string(R &&writer, ostd::ConstCharRange str) {
