@@ -143,7 +143,7 @@ CsState::CsState(): result(&no_ret) {
         snprintf(buf, sizeof(buf), "arg%d", i + 1);
         new_ident((const char *)buf, IDF_ARG);
     }
-    dummy = new_ident("//dummy", IDF_UNKNOWN);
+    dummy = new_ident("//dummy");
     add_ident(ID_VAR, "numargs", MAX_ARGUMENTS, 0, &numargs);
     add_ident(ID_VAR, "dbgalias", 0, 1000, &dbgalias); 
 }
@@ -275,12 +275,12 @@ Ident *CsState::force_ident(TaggedValue &v) {
         return v.id;
     case VAL_MACRO:
     case VAL_CSTR: {
-        Ident *id = new_ident(v.s, IDF_UNKNOWN);
+        Ident *id = new_ident(v.s);
         v.set_ident(id);
         return id;
     }
     case VAL_STR: {
-        Ident *id = new_ident(v.s, IDF_UNKNOWN);
+        Ident *id = new_ident(v.s);
         delete[] v.s;
         v.set_ident(id);
         return id;
@@ -1329,7 +1329,7 @@ struct GenState {
     }
 
     void gen_ident(ostd::ConstCharRange word) {
-        gen_ident(cs.new_ident(word, IDF_UNKNOWN));
+        gen_ident(cs.new_ident(word));
     }
 
     void gen_value(int wordtype, ostd::ConstCharRange word
@@ -1506,7 +1506,7 @@ static void compilelookup(GenState &gs, int ltype, int prevargs = MAX_RESULTS) {
         cutword(gs.source, lookup);
         if (!lookup.size()) goto invalid;
 lookupid:
-        Ident *id = gs.cs.new_ident(lookup, IDF_UNKNOWN);
+        Ident *id = gs.cs.new_ident(lookup);
         if (id) switch (id->type) {
             case ID_VAR:
                 gs.code.push(CODE_IVAR | cs_ret_code(ltype, RET_INT) | (id->index << 8));
@@ -1765,7 +1765,7 @@ static bool compileblocksub(GenState &gs, int prevargs) {
         lookup = ostd::ConstCharRange(op, gs.source - op);
         if (lookup.empty()) return false;
 lookupid:
-        Ident *id = gs.cs.new_ident(lookup, IDF_UNKNOWN);
+        Ident *id = gs.cs.new_ident(lookup);
         if (id) switch (id->type) {
             case ID_VAR:
                 gs.code.push(CODE_IVAR | (id->index << 8));
@@ -2035,7 +2035,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
             case '\0':
                 gs.next_char();
                 if (idname.data()) {
-                    Ident *id = gs.cs.new_ident(idname, IDF_UNKNOWN);
+                    Ident *id = gs.cs.new_ident(idname);
                     if (id) switch (id->type) {
                         case ID_ALIAS:
                             if (!(more = compilearg(gs, VAL_ANY, prevargs))) gs.gen_str();
@@ -2932,7 +2932,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
         }
         case CODE_IDENTU: {
             TaggedValue &arg = args[numargs - 1];
-            Ident *id = arg.type == VAL_STR || arg.type == VAL_MACRO || arg.type == VAL_CSTR ? cs.new_ident(arg.cstr, IDF_UNKNOWN) : cs.dummy;
+            Ident *id = arg.type == VAL_STR || arg.type == VAL_MACRO || arg.type == VAL_CSTR ? cs.new_ident(arg.cstr) : cs.dummy;
             if (id->index < MAX_ARGUMENTS && !(cs.stack->usedargs & (1 << id->index))) {
                 id->push_arg(null_value, cs.stack->argstack[id->index], false);
                 cs.stack->usedargs |= 1 << id->index;

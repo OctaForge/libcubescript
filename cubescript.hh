@@ -310,7 +310,7 @@ struct CsState {
         return identmap.push(&def);
     }
 
-    Ident *new_ident(ostd::ConstCharRange name, int flags = 0);
+    Ident *new_ident(ostd::ConstCharRange name, int flags = IDF_UNKNOWN);
     Ident *force_ident(TaggedValue &v);
 
     Ident *get_ident(ostd::ConstCharRange name) {
@@ -436,7 +436,6 @@ struct StackedValue: TaggedValue {
     }
 
     bool pop() {
-        printf("pop\n");
         if (!pushed || !id) return false;
         id->pop_arg();
         pushed = false;
