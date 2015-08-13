@@ -108,9 +108,9 @@ struct TaggedValue: IdentValue {
         p_type = VAL_FLOAT;
         f = val;
     }
-    void set_str(char *val) {
-        p_type = VAL_STR | (strlen(val) << 4);
-        s = val;
+    void set_str(ostd::CharRange val) {
+        p_type = VAL_STR | (val.size() << 4);
+        s = val.data();
     }
     void set_null() {
         p_type = VAL_NULL;
@@ -124,9 +124,9 @@ struct TaggedValue: IdentValue {
         p_type = VAL_MACRO | (strlen((const char *)val) << 4);
         code = val;
     }
-    void set_cstr(const char *val) {
-        p_type = VAL_CSTR | (strlen(val) << 4);
-        cstr = val;
+    void set_cstr(ostd::ConstCharRange val) {
+        p_type = VAL_CSTR | (val.size() << 4);
+        cstr = val.data();
     }
     void set_ident(Ident *val) {
         p_type = VAL_IDENT;
