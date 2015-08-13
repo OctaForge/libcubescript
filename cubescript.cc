@@ -118,7 +118,7 @@ Ident::Ident(int t, ostd::ConstCharRange n, int flags)
       stack(nullptr) {
 }
 Ident::Ident(int t, ostd::ConstCharRange n, const TaggedValue &v, int flags)
-    : type(t), valtype(v.type), flags(flags), name(n), code(nullptr),
+    : type(t), valtype(v.get_type()), flags(flags), name(n), code(nullptr),
       stack(nullptr) {
     val = v;
 }
@@ -270,7 +270,7 @@ Ident *CsState::new_ident(ostd::ConstCharRange name, int flags) {
 }
 
 Ident *CsState::force_ident(TaggedValue &v) {
-    switch (v.type) {
+    switch (v.get_type()) {
     case VAL_IDENT:
         return v.id;
     case VAL_MACRO:
@@ -388,7 +388,7 @@ void CsState::print_var(Ident *id) {
 }
 
 inline void TaggedValue::cleanup() {
-    switch (type) {
+    switch (get_type()) {
     case VAL_STR:
         delete[] s;
         break;
@@ -399,14 +399,14 @@ inline void TaggedValue::cleanup() {
 }
 
 inline void TaggedValue::force_null() {
-    if (type == VAL_NULL) return;
+    if (get_type() == VAL_NULL) return;
     cleanup();
     set_null();
 }
 
 inline float TaggedValue::force_float() {
     float rf = 0.0f;
-    switch (type) {
+    switch (get_type()) {
     case VAL_INT:
         rf = i;
         break;
@@ -425,7 +425,7 @@ inline float TaggedValue::force_float() {
 
 inline int TaggedValue::force_int() {
     int ri = 0;
-    switch (type) {
+    switch (get_type()) {
     case VAL_FLOAT:
         ri = f;
         break;
@@ -444,7 +444,7 @@ inline int TaggedValue::force_int() {
 
 inline ostd::ConstCharRange TaggedValue::force_str() {
     const char *rs = "";
-    switch (type) {
+    switch (get_type()) {
     case VAL_FLOAT:
         rs = floatstr(f);
         break;
@@ -464,7 +464,7 @@ inline ostd::ConstCharRange TaggedValue::force_str() {
 }
 
 inline void TaggedValue::force(int type) {
-    switch (type) {
+    switch (get_type()) {
     case RET_STR:
         if (type != VAL_STR) force_str();
         break;
@@ -492,7 +492,7 @@ static inline int cs_get_int(const IdentValue &v, int type) {
 }
 
 inline int TaggedValue::get_int() const {
-    return cs_get_int(*this, type);
+    return cs_get_int(*this, get_type());
 }
 
 inline int Ident::get_int() const {
@@ -514,7 +514,7 @@ static inline float cs_get_float(const IdentValue &v, int type) {
 }
 
 inline float TaggedValue::get_float() const {
-    return cs_get_float(*this, type);
+    return cs_get_float(*this, get_type());
 }
 
 inline float Ident::get_float() const {
@@ -536,7 +536,7 @@ static inline ostd::ConstCharRange cs_get_str(const IdentValue &v, int type) {
 }
 
 inline ostd::ConstCharRange TaggedValue::get_str() const {
-    return cs_get_str(*this, type);
+    return cs_get_str(*this, get_type());
 }
 
 inline ostd::ConstCharRange Ident::get_str() const {
@@ -563,7 +563,7 @@ static inline void cs_get_val(const IdentValue &v, int type, TaggedValue &r) {
 }
 
 inline void TaggedValue::get_val(TaggedValue &r) const {
-    cs_get_val(*this, type, r);
+    cs_get_val(*this, get_type(), r);
 }
 
 inline void Ident::get_val(TaggedValue &r) const {
@@ -995,7 +995,7 @@ static void cs_init_lib_base_var(CsState &cs) {
         if (id->type != ID_ALIAS || id->index < MAX_ARGUMENTS) return;
         IdentStack stack;
         id->push_arg(*v, stack);
-        v->type = VAL_NULL;
+        v->set_null();
         cs.run_ret(code);
         id->pop_arg();
     });
@@ -1009,7 +1009,7 @@ static void cs_init_lib_base_var(CsState &cs) {
     cs.add_command("alias", "sT", [](CsState &cs, const char *name,
                                      TaggedValue *v) {
         cs.set_alias(name, *v);
-        v->type = VAL_NULL;
+        v->set_null();
     });
 
     cs.add_command("getvarmin", "s", [](CsState &cs, const char *name) {
@@ -1070,7 +1070,7 @@ static char *conc(ostd::Vector<char> &buf, TaggedValue *v, int n, bool space, co
     for (int i = 0; i < n; ++i) {
         const char *s = "";
         int len = 0;
-        switch (v[i].type) {
+        switch (v[i].get_type()) {
         case VAL_INT:
             s = intstr(v[i].i);
             break;
@@ -1100,7 +1100,7 @@ static char *conc(TaggedValue *v, int n, bool space, const char *prefix, int pre
     static int vlen[MAX_ARGUMENTS];
     static char numbuf[3 * 256];
     int len = prefixlen, numlen = 0, i = 0;
-    for (; i < n; i++) switch (v[i].type) {
+    for (; i < n; i++) switch (v[i].get_type()) {
         case VAL_MACRO:
             len += (vlen[i] = v[i].code[-1] >> 8);
             break;
@@ -1132,7 +1132,7 @@ overflow:
         if (space && i) buf[offset++] = ' ';
     }
     for (ostd::Size j = 0; j < ostd::Size(i); ++j) {
-        if (v[j].type == VAL_INT || v[j].type == VAL_FLOAT) {
+        if (v[j].get_type() == VAL_INT || v[j].get_type() == VAL_FLOAT) {
             memcpy(&buf[offset], &numbuf[numoffset], vlen[j]);
             numoffset += vlen[j];
         } else if (vlen[j]) memcpy(&buf[offset], v[j].s, vlen[j]);
@@ -1471,7 +1471,7 @@ static inline bool cs_get_bool(ostd::ConstCharRange s) {
 }
 
 static inline bool cs_get_bool(const TaggedValue &v) {
-    switch (v.type) {
+    switch (v.get_type()) {
     case VAL_FLOAT:
         return v.f != 0;
     case VAL_INT:
@@ -2375,7 +2375,7 @@ ostd::Uint32 *CsState::compile(ostd::ConstCharRange str) {
 }
 
 static inline const ostd::Uint32 *forcecode(CsState &cs, TaggedValue &v) {
-    if (v.type != VAL_CODE) {
+    if (v.get_type() != VAL_CODE) {
         GenState gs(cs);
         gs.code.reserve(64);
         gs.gen_main(v.get_str());
@@ -2386,7 +2386,7 @@ static inline const ostd::Uint32 *forcecode(CsState &cs, TaggedValue &v) {
 }
 
 static inline void forcecond(CsState &cs, TaggedValue &v) {
-    switch (v.type) {
+    switch (v.get_type()) {
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR:
@@ -2753,7 +2753,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             ostd::Uint32 len = op >> 8;
             result.cleanup();
             --numargs;
-            if (args[numargs].type == VAL_CODE) {
+            if (args[numargs].get_type() == VAL_CODE) {
                 runcode(cs, args[numargs].code, result);
                 args[numargs].cleanup();
             } else result = args[numargs];
@@ -2764,7 +2764,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             ostd::Uint32 len = op >> 8;
             result.cleanup();
             --numargs;
-            if (args[numargs].type == VAL_CODE) {
+            if (args[numargs].get_type() == VAL_CODE) {
                 runcode(cs, args[numargs].code, result);
                 args[numargs].cleanup();
             } else result = args[numargs];
@@ -2867,7 +2867,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
         case CODE_COMPILE: {
             TaggedValue &arg = args[numargs - 1];
             GenState gs(cs);
-            switch (arg.type) {
+            switch (arg.get_type()) {
             case VAL_INT:
                 gs.code.reserve(8);
                 gs.code.push(CODE_START);
@@ -2902,7 +2902,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
         }
         case CODE_COND: {
             TaggedValue &arg = args[numargs - 1];
-            switch (arg.type) {
+            switch (arg.get_type()) {
             case VAL_STR:
             case VAL_MACRO:
             case VAL_CSTR:
@@ -2932,7 +2932,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
         }
         case CODE_IDENTU: {
             TaggedValue &arg = args[numargs - 1];
-            Ident *id = arg.type == VAL_STR || arg.type == VAL_MACRO || arg.type == VAL_CSTR ? cs.new_ident(arg.cstr) : cs.dummy;
+            Ident *id = arg.get_type() == VAL_STR || arg.get_type() == VAL_MACRO || arg.get_type() == VAL_CSTR ? cs.new_ident(arg.cstr) : cs.dummy;
             if (id->index < MAX_ARGUMENTS && !(cs.stack->usedargs & (1 << id->index))) {
                 id->push_arg(null_value, cs.stack->argstack[id->index], false);
                 cs.stack->usedargs |= 1 << id->index;
@@ -2945,7 +2945,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
         case CODE_LOOKUPU|RET_STR:
 #define LOOKUPU(aval, sval, ival, fval, nval) { \
                     TaggedValue &arg = args[numargs-1]; \
-                    if(arg.type != VAL_STR && arg.type != VAL_MACRO && arg.type != VAL_CSTR) continue; \
+                    if(arg.get_type() != VAL_STR && arg.get_type() != VAL_MACRO && arg.get_type() != VAL_CSTR) continue; \
                     Ident *id = cs.idents.at(arg.s); \
                     if(id) switch(id->type) \
                     { \
@@ -3254,7 +3254,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
         case CODE_CALLU|RET_INT: {
             int callargs = op >> 8, offset = numargs - callargs;
             TaggedValue &idarg = args[offset - 1];
-            if (idarg.type != VAL_STR && idarg.type != VAL_MACRO && idarg.type != VAL_CSTR) {
+            if (idarg.get_type() != VAL_STR && idarg.get_type() != VAL_MACRO && idarg.get_type() != VAL_CSTR) {
 litval:
                 result.cleanup();
                 result = idarg;
@@ -3387,7 +3387,7 @@ void CsState::run_ret(Ident *id, ostd::PointerRange<TaggedValue> args,
 ostd::String CsState::run_str(const ostd::Uint32 *code) {
     TaggedValue result;
     runcode(*this, code, result);
-    if (result.type == VAL_NULL) return ostd::String();
+    if (result.get_type() == VAL_NULL) return ostd::String();
     result.force_str();
     ostd::String ret(result.s);
     delete[] result.s;
@@ -3398,7 +3398,7 @@ ostd::String CsState::run_str(ostd::ConstCharRange code) {
     TaggedValue result;
     /* FIXME range */
     run_ret(code, result);
-    if (result.type == VAL_NULL) return ostd::String();
+    if (result.get_type() == VAL_NULL) return ostd::String();
     result.force_str();
     ostd::String ret(result.s);
     delete[] result.s;
@@ -3408,7 +3408,7 @@ ostd::String CsState::run_str(ostd::ConstCharRange code) {
 ostd::String CsState::run_str(Ident *id, ostd::PointerRange<TaggedValue> args) {
     TaggedValue result;
     run_ret(id, args, result);
-    if (result.type == VAL_NULL) return nullptr;
+    if (result.get_type() == VAL_NULL) return nullptr;
     result.force_str();
     ostd::String ret(result.s);
     delete[] result.s;
@@ -3551,7 +3551,7 @@ void init_lib_base(CsState &cs) {
 
     cs.add_command("result", "T", [](CsState &cs, TaggedValue *v) {
         *cs.result = *v;
-        v->type = VAL_NULL;
+        v->set_null();
     }, ID_RESULT);
 
     cs.add_command("!", "t", [](CsState &cs, TaggedValue *a) {
@@ -3564,7 +3564,7 @@ void init_lib_base(CsState &cs) {
             cs.result->set_int(1);
         else for (int i = 0; i < numargs; ++i) {
             if (i) cs.result->cleanup();
-            if (args[i].type == VAL_CODE)
+            if (args[i].get_type() == VAL_CODE)
                 cs.run_ret(args[i].code);
             else
                 *cs.result = args[i];
@@ -3578,7 +3578,7 @@ void init_lib_base(CsState &cs) {
             cs.result->set_int(0);
         else for (int i = 0; i < numargs; ++i) {
             if (i) cs.result->cleanup();
-            if (args[i].type == VAL_CODE)
+            if (args[i].get_type() == VAL_CODE)
                 cs.run_ret(args[i].code);
             else
                 *cs.result = args[i];
@@ -3620,15 +3620,15 @@ void init_lib_base(CsState &cs) {
     });
 
     CS_CMD_CASE("case", "i", int, args[0].get_int(),
-                    ((args[i].type == VAL_NULL) ||
+                    ((args[i].get_type() == VAL_NULL) ||
                      (args[i].get_int() == val)));
 
     CS_CMD_CASE("casef", "f", float, args[0].get_float(),
-                    ((args[i].type == VAL_NULL) ||
+                    ((args[i].get_type() == VAL_NULL) ||
                      (args[i].get_float() == val)));
 
     CS_CMD_CASE("cases", "s", ostd::ConstCharRange, args[0].get_str(),
-                    ((args[i].type == VAL_NULL) ||
+                    ((args[i].get_type() == VAL_NULL) ||
                      (args[i].get_str() == val)));
 
 #undef CS_CMD_CASE
@@ -3640,7 +3640,7 @@ void init_lib_base(CsState &cs) {
         if (cs_get_bool(*v)) {
             IdentStack stack;
             id->push_arg(*v, stack);
-            v->type = VAL_NULL;
+            v->set_null();
             cs.run_ret(code);
             id->pop_arg();
         }
@@ -4572,7 +4572,7 @@ void init_lib_math(CsState &cs) {
     CS_CMD_MATH(#name "f", f, float, val = val op val2, initval, unaryop)
 
 #define CS_CMD_MATHF(name, initval, unaryop) \
-    CS_CMD_MATHIN(name, name, initval, unaryop)
+    CS_CMD_MATHFN(name, name, initval, unaryop)
 
     CS_CMD_MATHI(+, 0, {});
     CS_CMD_MATHI(*, 1, {});

@@ -94,44 +94,46 @@ struct IdentValue {
 };
 
 struct TaggedValue: IdentValue {
-    int type;
+    int get_type() const {
+        return p_type;
+    }
 
     void set_int(int val) {
-        type = VAL_INT;
+        p_type = VAL_INT;
         i = val;
     }
     void set_float(float val) {
-        type = VAL_FLOAT;
+        p_type = VAL_FLOAT;
         f = val;
     }
     void set_str(char *val) {
-        type = VAL_STR;
+        p_type = VAL_STR;
         s = val;
     }
     void set_null() {
-        type = VAL_NULL;
+        p_type = VAL_NULL;
         i = 0;
     }
     void set_code(const ostd::Uint32 *val) {
-        type = VAL_CODE;
+        p_type = VAL_CODE;
         code = val;
     }
     void set_macro(const ostd::Uint32 *val) {
-        type = VAL_MACRO;
+        p_type = VAL_MACRO;
         code = val;
     }
     void set_cstr(const char *val) {
-        type = VAL_CSTR;
+        p_type = VAL_CSTR;
         cstr = val;
     }
     void set_ident(Ident *val) {
-        type = VAL_IDENT;
+        p_type = VAL_IDENT;
         id = val;
     }
 
     void set(TaggedValue &tv) {
         *this = tv;
-        tv.type = VAL_NULL;
+        tv.p_type = VAL_NULL;
     }
 
     ostd::ConstCharRange get_str() const;
@@ -146,6 +148,9 @@ struct TaggedValue: IdentValue {
     void force(int type);
 
     void cleanup();
+
+private:
+    int p_type;
 };
 
 struct IdentStack {
@@ -229,7 +234,7 @@ struct Ident {
     }
 
     void set_value(const TaggedValue &v) {
-        valtype = v.type;
+        valtype = v.get_type();
         val = v;
     }
 
