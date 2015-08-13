@@ -3801,93 +3801,6 @@ void cs_init_lib_base_loops(CsState &cs) {
     });
 }
 
-static const char *liststart = nullptr, *listend = nullptr, *listquotestart = nullptr, *listquoteend = nullptr;
-
-static inline void skiplist(const char *&p) {
-    for (;;) {
-        p += strspn(p, " \t\r\n");
-        if (p[0] != '/' || p[1] != '/') break;
-        p += strcspn(p, "\n\0");
-    }
-}
-
-static bool parselist(const char *&s, const char *&start = liststart, const char *&end = listend, const char *&quotestart = listquotestart, const char *&quoteend = listquoteend) {
-    skiplist(s);
-    switch (*s) {
-    case '"':
-        quotestart = s++;
-        start = s;
-        s = parsestring(s);
-        end = s;
-        if (*s == '"') s++;
-        quoteend = s;
-        break;
-    case '(':
-    case '[':
-        quotestart = s;
-        start = s + 1;
-        for (int braktype = *s++, brak = 1;;) {
-            s += strcspn(s, "\"/;()[]\0");
-            int c = *s++;
-            switch (c) {
-            case '\0':
-                s--;
-                quoteend = end = s;
-                return true;
-            case '"':
-                s = parsestring(s);
-                if (*s == '"') s++;
-                break;
-            case '/':
-                if (*s == '/') s += strcspn(s, "\n\0");
-                break;
-            case '(':
-            case '[':
-                if (c == braktype) brak++;
-                break;
-            case ')':
-                if (braktype == '(' && --brak <= 0) goto endblock;
-                break;
-            case ']':
-                if (braktype == '[' && --brak <= 0) goto endblock;
-                break;
-            }
-        }
-endblock:
-        end = s - 1;
-        quoteend = s;
-        break;
-    case '\0':
-    case ')':
-    case ']':
-        return false;
-    default:
-        quotestart = start = s;
-        s = parseword(s);
-        quoteend = end = s;
-        break;
-    }
-    skiplist(s);
-    if (*s == ';') s++;
-    return true;
-}
-
-static inline ostd::String listelem(const char *start, const char *end, const char *quotestart) {
-    ostd::Size len = end - start;
-    ostd::String s;
-    s.reserve(len);
-    if (*quotestart == '"') {
-        auto writer = s.iter_cap();
-        util::unescape_string(writer, ostd::ConstCharRange(start, end));
-        writer.put('\0');
-    } else {
-        memcpy(s.data(), start, len);
-        s[len] = '\0';
-    }
-    s.advance(len);
-    return s;
-}
-
 struct ListParser {
     ostd::ConstCharRange input;
     ostd::ConstCharRange quote = ostd::ConstCharRange();
@@ -4093,35 +4006,38 @@ void init_lib_list(CsState &cs) {
         if (!numargs)
             return;
         ostd::ConstCharRange str = args[0].get_str();
-        const char *start = str.data(),
-                   *end = &str[str.size()],
-                   *qstart = "";
+        ListParser p(str);
+        p.item = str;
         for (int i = 1; i < numargs; ++i) {
-            const char *list = start;
+            p.input = str;
             int pos = args[i].get_int();
             for (; pos > 0; --pos)
-                if (!parselist(list)) break;
-            if (pos > 0 || !parselist(list, start, end, qstart))
-                start = end = qstart = "";
+                if (!p.parse()) break;
+            if (pos > 0 || !p.parse())
+                p.item = p.quote = ostd::ConstCharRange();
         }
-        cs.result->set_str(listelem(start, end, qstart).disown());
+        cs.result->set_str(p.element().disown());
     });
 
     cs.add_command("sublist", "siiN", [](CsState &cs, const char *s,
                                          int *skip, int *count, int *numargs) {
         int offset = ostd::max(*skip, 0),
             len = (*numargs >= 3) ? ostd::max(*count, 0) : -1;
+        ListParser p(s);
         for (int i = 0; i < offset; ++i)
-            if (!parselist(s)) break;
+            if (!p.parse()) break;
         if (len < 0) {
             if (offset > 0)
-                skiplist(s);
-            cs.result->set_str(cs_dup_ostr(s));
+                p.skip();
+            cs.result->set_str(cs_dup_ostr(p.input));
             return;
         }
-        const char *list = s, *start, *end, *qstart, *qend = s;
-        if (len > 0 && parselist(s, start, end, list, qend))
-            while (--len > 0 && parselist(s, start, end, qstart, qend));
+
+        const char *list = p.input.data();
+        p.quote = ostd::ConstCharRange();
+        if (len > 0 && p.parse())
+            while (--len > 0 && p.parse());
+        const char *qend = !p.quote.empty() ? &p.quote[p.quote.size()] : list;
         cs.result->set_str(cs_dup_ostr(ostd::ConstCharRange(list, qend - list)));
     });
 
@@ -4390,35 +4306,36 @@ found:
                                             int *count) {
         int offset = ostd::max(*skip, 0);
         int len    = ostd::max(*count, 0);
-        const char *list = s, *start, *end, *qstart, *qend = s;
+        const char *list = s;
+        ListParser p(s);
         for (int i = 0; i < offset; ++i)
-            if (!parselist(s, start, end, qstart, qend))
+            if (!p.parse())
                 break;
-        ostd::Vector<char> p;
+        const char *qend = !p.quote.empty() ? &p.quote[p.quote.size()] : list;
+        ostd::Vector<char> buf;
         if (qend > list)
-            p.push_n(list, qend - list);
+            buf.push_n(list, qend - list);
         if (*vals) {
-            if (!p.empty())
-                p.push(' ');
-            p.push_n(vals, strlen(vals));
+            if (!buf.empty())
+                buf.push(' ');
+            buf.push_n(vals, strlen(vals));
         }
         for (int i = 0; i < len; ++i)
-            if (!parselist(s))
+            if (!p.parse())
                 break;
-        skiplist(s);
-        switch (*s) {
-        case '\0':
+        p.skip();
+        if (!p.input.empty()) switch (p.input.front()) {
         case ')':
         case ']':
             break;
         default:
-            if (!p.empty())
-                p.push(' ');
-            p.push_n(s, strlen(s));
+            if (!buf.empty())
+                buf.push(' ');
+            buf.push_n(p.input.data(), p.input.size());
             break;
         }
-        p.push('\0');
-        cs.result->set_str(p.disown());
+        buf.push('\0');
+        cs.result->set_str(buf.disown());
     });
 
     cs_init_lib_list_sort(cs);
