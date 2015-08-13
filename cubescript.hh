@@ -155,10 +155,9 @@ struct IdentStack {
 };
 
 union IdentValuePtr {
-    void *p;
-    int *i;   /* ID_VAR */
-    float *f; /* ID_FVAR */
-    char **s; /* ID_SVAR */
+    int *ip;   /* ID_VAR */
+    float *fp; /* ID_FVAR */
+    char **sp; /* ID_SVAR */
 };
 
 struct CsState;

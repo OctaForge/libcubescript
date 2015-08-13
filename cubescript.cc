@@ -80,7 +80,7 @@ Ident::Ident(int t, ostd::ConstCharRange n, int m, int x, int *s,
              IdentFunc f, int flags)
     : type(t), flags(flags | (m > x ? IDF_READONLY : 0)), name(n),
       minval(m), maxval(x), fun(f) {
-    storage.i = s;
+    storage.ip = s;
 }
 
 /* ID_FVAR */
@@ -88,13 +88,13 @@ Ident::Ident(int t, ostd::ConstCharRange n, float m, float x, float *s,
              IdentFunc f, int flags)
     : type(t), flags(flags | (m > x ? IDF_READONLY : 0)), name(n),
       minvalf(m), maxvalf(x), fun(f) {
-    storage.f = s;
+    storage.fp = s;
 }
 
 /* ID_SVAR */
 Ident::Ident(int t, ostd::ConstCharRange n, char **s, IdentFunc f, int flags)
     : type(t), flags(flags), name(n), fun(f) {
-    storage.s = s;
+    storage.sp = s;
 }
 
 /* ID_ALIAS */
@@ -235,16 +235,16 @@ void CsState::clear_override(Ident &id) {
         id.val.s = cs_dup_ostr("");
         break;
     case ID_VAR:
-        *id.storage.i = id.overrideval.i;
+        *id.storage.ip = id.overrideval.i;
         id.changed(*this);
         break;
     case ID_FVAR:
-        *id.storage.f = id.overrideval.f;
+        *id.storage.fp = id.overrideval.f;
         id.changed(*this);
         break;
     case ID_SVAR:
-        delete[] *id.storage.s;
-        *id.storage.s = id.overrideval.s;
+        delete[] *id.storage.sp;
+        *id.storage.sp = id.overrideval.s;
         id.changed(*this);
         break;
     }
@@ -376,13 +376,13 @@ void CsState::print_var_str(Ident *id, ostd::ConstCharRange s) {
 void CsState::print_var(Ident *id) {
     switch (id->type) {
     case ID_VAR:
-        print_var_int(id, *id->storage.i);
+        print_var_int(id, *id->storage.ip);
         break;
     case ID_FVAR:
-        print_var_float(id, *id->storage.f);
+        print_var_float(id, *id->storage.fp);
         break;
     case ID_SVAR:
-        print_var_str(id, *id->storage.s);
+        print_var_str(id, *id->storage.sp);
         break;
     }
 }
@@ -738,14 +738,14 @@ void CsState::set_var_int(ostd::ConstCharRange name, int v,
     if (!id || id->type != ID_VAR)
         return;
     bool success = cs_override_var(*this, id,
-        [&id]() { id->overrideval.i = *id->storage.i; },
+        [&id]() { id->overrideval.i = *id->storage.ip; },
         []() {}, []() {});
     if (!success)
         return;
     if (doclamp)
-        *id->storage.i = ostd::clamp(v, id->minval, id->maxval);
+        *id->storage.ip = ostd::clamp(v, id->minval, id->maxval);
     else
-        *id->storage.i = v;
+        *id->storage.ip = v;
     if (dofunc)
         id->changed(*this);
 }
@@ -756,14 +756,14 @@ void CsState::set_var_float(ostd::ConstCharRange name, float v,
     if (!id || id->type != ID_FVAR)
         return;
     bool success = cs_override_var(*this, id,
-        [&id]() { id->overrideval.f = *id->storage.f; },
+        [&id]() { id->overrideval.f = *id->storage.fp; },
         []() {}, []() {});
     if (!success)
         return;
     if (doclamp)
-        *id->storage.f = ostd::clamp(v, id->minvalf, id->maxvalf);
+        *id->storage.fp = ostd::clamp(v, id->minvalf, id->maxvalf);
     else
-        *id->storage.f = v;
+        *id->storage.fp = v;
     if (dofunc)
         id->changed(*this);
 }
@@ -774,12 +774,12 @@ void CsState::set_var_str(ostd::ConstCharRange name, ostd::ConstCharRange v,
     if (!id || id->type != ID_SVAR)
         return;
     bool success = cs_override_var(*this, id,
-        [&id]() { id->overrideval.s = *id->storage.s; },
+        [&id]() { id->overrideval.s = *id->storage.sp; },
         [&id]() { delete[] id->overrideval.s; },
-        [&id]() { delete[] *id->storage.s; });
+        [&id]() { delete[] *id->storage.sp; });
     if (!success)
         return;
-    *id->storage.s = cs_dup_ostr(v);
+    *id->storage.sp = cs_dup_ostr(v);
     if (dofunc)
         id->changed(*this);
 }
@@ -788,21 +788,21 @@ ostd::Maybe<int> CsState::get_var_int(ostd::ConstCharRange name) {
     Ident *id = idents.at(name);
     if (!id || id->type != ID_VAR)
         return ostd::nothing;
-    return *id->storage.i;
+    return *id->storage.ip;
 }
 
 ostd::Maybe<float> CsState::get_var_float(ostd::ConstCharRange name) {
     Ident *id = idents.at(name);
     if (!id || id->type != ID_FVAR)
         return ostd::nothing;
-    return *id->storage.f;
+    return *id->storage.fp;
 }
 
 ostd::Maybe<ostd::String> CsState::get_var_str(ostd::ConstCharRange name) {
     Ident *id = idents.at(name);
     if (!id || id->type != ID_SVAR)
         return ostd::nothing;
-    return ostd::String(*id->storage.s);
+    return ostd::String(*id->storage.sp);
 }
 
 ostd::Maybe<int> CsState::get_var_min_int(ostd::ConstCharRange name) {
@@ -865,13 +865,13 @@ void CsState::set_var_int_checked(Ident *id, int v) {
         return;
     }
     bool success = cs_override_var(*this, id,
-        [&id]() { id->overrideval.i = *id->storage.i; },
+        [&id]() { id->overrideval.i = *id->storage.ip; },
         []() {}, []() {});
     if (!success)
         return;
     if (v < id->minval || v > id->maxval)
         v = cs_clamp_var(*this, id, v);
-    *id->storage.i = v;
+    *id->storage.ip = v;
     id->changed(*this);
 }
 
@@ -904,13 +904,13 @@ void CsState::set_var_float_checked(Ident *id, float v) {
         return;
     }
     bool success = cs_override_var(*this, id,
-        [&id]() { id->overrideval.f = *id->storage.f; },
+        [&id]() { id->overrideval.f = *id->storage.fp; },
         []() {}, []() {});
     if (!success)
         return;
     if (v < id->minvalf || v > id->maxvalf)
         v = cs_clamp_fvar(*this, id, v);
-    *id->storage.f = v;
+    *id->storage.fp = v;
     id->changed(*this);
 }
 
@@ -920,11 +920,11 @@ void CsState::set_var_str_checked(Ident *id, ostd::ConstCharRange v) {
         return;
     }
     bool success = cs_override_var(*this, id,
-        [&id]() { id->overrideval.s = *id->storage.s; },
+        [&id]() { id->overrideval.s = *id->storage.sp; },
         [&id]() { delete[] id->overrideval.s; },
-        [&id]() { delete[] *id->storage.s; });
+        [&id]() { delete[] *id->storage.sp; });
     if (!success) return;
-    *id->storage.s = cs_dup_ostr(v);
+    *id->storage.sp = cs_dup_ostr(v);
     id->changed(*this);
 }
 
@@ -2977,9 +2977,9 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                     continue; \
                 }
             LOOKUPU(arg.set_str(cs_dup_ostr(id->get_str())),
-                    arg.set_str(cs_dup_ostr(*id->storage.s)),
-                    arg.set_str(cs_dup_ostr(intstr(*id->storage.i))),
-                    arg.set_str(cs_dup_ostr(floatstr(*id->storage.f))),
+                    arg.set_str(cs_dup_ostr(*id->storage.sp)),
+                    arg.set_str(cs_dup_ostr(intstr(*id->storage.ip))),
+                    arg.set_str(cs_dup_ostr(floatstr(*id->storage.fp))),
                     arg.set_str(cs_dup_ostr("")));
         case CODE_LOOKUP|RET_STR:
 #define LOOKUP(aval) { \
@@ -2999,9 +2999,9 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             LOOKUPARG(args[numargs++].set_str(cs_dup_ostr(id->get_str())), args[numargs++].set_str(cs_dup_ostr("")));
         case CODE_LOOKUPU|RET_INT:
             LOOKUPU(arg.set_int(id->get_int()),
-                    arg.set_int(parseint(*id->storage.s)),
-                    arg.set_int(*id->storage.i),
-                    arg.set_int(int(*id->storage.f)),
+                    arg.set_int(parseint(*id->storage.sp)),
+                    arg.set_int(*id->storage.ip),
+                    arg.set_int(int(*id->storage.fp)),
                     arg.set_int(0));
         case CODE_LOOKUP|RET_INT:
             LOOKUP(args[numargs++].set_int(id->get_int()));
@@ -3009,9 +3009,9 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             LOOKUPARG(args[numargs++].set_int(id->get_int()), args[numargs++].set_int(0));
         case CODE_LOOKUPU|RET_FLOAT:
             LOOKUPU(arg.set_float(id->get_float()),
-                    arg.set_float(parsefloat(*id->storage.s)),
-                    arg.set_float(float(*id->storage.i)),
-                    arg.set_float(*id->storage.f),
+                    arg.set_float(parsefloat(*id->storage.sp)),
+                    arg.set_float(float(*id->storage.ip)),
+                    arg.set_float(*id->storage.fp),
                     arg.set_float(0.0f));
         case CODE_LOOKUP|RET_FLOAT:
             LOOKUP(args[numargs++].set_float(id->get_float()));
@@ -3019,9 +3019,9 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             LOOKUPARG(args[numargs++].set_float(id->get_float()), args[numargs++].set_float(0.0f));
         case CODE_LOOKUPU|RET_NULL:
             LOOKUPU(id->get_val(arg),
-                    arg.set_str(cs_dup_ostr(*id->storage.s)),
-                    arg.set_int(*id->storage.i),
-                    arg.set_float(*id->storage.f),
+                    arg.set_str(cs_dup_ostr(*id->storage.sp)),
+                    arg.set_int(*id->storage.ip),
+                    arg.set_float(*id->storage.fp),
                     arg.set_null());
         case CODE_LOOKUP|RET_NULL:
             LOOKUP(id->get_val(args[numargs++]));
@@ -3030,9 +3030,9 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
 
         case CODE_LOOKUPMU|RET_STR:
             LOOKUPU(id->get_cstr(arg),
-                    arg.set_cstr(*id->storage.s),
-                    arg.set_str(cs_dup_ostr(intstr(*id->storage.i))),
-                    arg.set_str(cs_dup_ostr(floatstr(*id->storage.f))),
+                    arg.set_cstr(*id->storage.sp),
+                    arg.set_str(cs_dup_ostr(intstr(*id->storage.ip))),
+                    arg.set_str(cs_dup_ostr(floatstr(*id->storage.fp))),
                     arg.set_cstr(""));
         case CODE_LOOKUPM|RET_STR:
             LOOKUP(id->get_cstr(args[numargs++]));
@@ -3040,9 +3040,9 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             LOOKUPARG(id->get_cstr(args[numargs++]), args[numargs++].set_cstr(""));
         case CODE_LOOKUPMU|RET_NULL:
             LOOKUPU(id->get_cval(arg),
-                    arg.set_cstr(*id->storage.s),
-                    arg.set_int(*id->storage.i),
-                    arg.set_float(*id->storage.f),
+                    arg.set_cstr(*id->storage.sp),
+                    arg.set_int(*id->storage.ip),
+                    arg.set_float(*id->storage.fp),
                     arg.set_null());
         case CODE_LOOKUPM|RET_NULL:
             LOOKUP(id->get_cval(args[numargs++]));
@@ -3051,16 +3051,16 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
 
         case CODE_SVAR|RET_STR:
         case CODE_SVAR|RET_NULL:
-            args[numargs++].set_str(cs_dup_ostr(*cs.identmap[op >> 8]->storage.s));
+            args[numargs++].set_str(cs_dup_ostr(*cs.identmap[op >> 8]->storage.sp));
             continue;
         case CODE_SVAR|RET_INT:
-            args[numargs++].set_int(parseint(*cs.identmap[op >> 8]->storage.s));
+            args[numargs++].set_int(parseint(*cs.identmap[op >> 8]->storage.sp));
             continue;
         case CODE_SVAR|RET_FLOAT:
-            args[numargs++].set_float(parsefloat(*cs.identmap[op >> 8]->storage.s));
+            args[numargs++].set_float(parsefloat(*cs.identmap[op >> 8]->storage.sp));
             continue;
         case CODE_SVARM:
-            args[numargs++].set_cstr(*cs.identmap[op >> 8]->storage.s);
+            args[numargs++].set_cstr(*cs.identmap[op >> 8]->storage.sp);
             continue;
         case CODE_SVAR1:
             cs.set_var_str_checked(cs.identmap[op >> 8], args[--numargs].s);
@@ -3069,13 +3069,13 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
 
         case CODE_IVAR|RET_INT:
         case CODE_IVAR|RET_NULL:
-            args[numargs++].set_int(*cs.identmap[op >> 8]->storage.i);
+            args[numargs++].set_int(*cs.identmap[op >> 8]->storage.ip);
             continue;
         case CODE_IVAR|RET_STR:
-            args[numargs++].set_str(cs_dup_ostr(intstr(*cs.identmap[op >> 8]->storage.i)));
+            args[numargs++].set_str(cs_dup_ostr(intstr(*cs.identmap[op >> 8]->storage.ip)));
             continue;
         case CODE_IVAR|RET_FLOAT:
-            args[numargs++].set_float(float(*cs.identmap[op >> 8]->storage.i));
+            args[numargs++].set_float(float(*cs.identmap[op >> 8]->storage.ip));
             continue;
         case CODE_IVAR1:
             cs.set_var_int_checked(cs.identmap[op >> 8], args[--numargs].i);
@@ -3091,13 +3091,13 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
 
         case CODE_FVAR|RET_FLOAT:
         case CODE_FVAR|RET_NULL:
-            args[numargs++].set_float(*cs.identmap[op >> 8]->storage.f);
+            args[numargs++].set_float(*cs.identmap[op >> 8]->storage.fp);
             continue;
         case CODE_FVAR|RET_STR:
-            args[numargs++].set_str(cs_dup_ostr(floatstr(*cs.identmap[op >> 8]->storage.f)));
+            args[numargs++].set_str(cs_dup_ostr(floatstr(*cs.identmap[op >> 8]->storage.fp)));
             continue;
         case CODE_FVAR|RET_INT:
-            args[numargs++].set_int(int(*cs.identmap[op >> 8]->storage.f));
+            args[numargs++].set_int(int(*cs.identmap[op >> 8]->storage.fp));
             continue;
         case CODE_FVAR1:
             cs.set_var_float_checked(cs.identmap[op >> 8], args[--numargs].f);
