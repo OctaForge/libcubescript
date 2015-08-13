@@ -170,7 +170,7 @@ ostd::ConstCharRange cs_debug_line(CsState &cs,
     for (;;) {
         ostd::ConstCharRange end = ostd::find(line, '\n');
         if (!end.empty())
-            line = line.slice(0, line.distance_front(end));
+            line = ostd::slice_until(line, end);
         if (&p[0] >= &line[0] && &p[0] <= &line[line.size()]) {
             ostd::CharRange r(buf);
             if (!cs.src_file.empty())
@@ -3833,10 +3833,10 @@ struct ListParser {
             input.pop_front();
             item = input;
             input = cs_parse_str(input);
-            item = item.slice(0, item.distance_front(input));
+            item = ostd::slice_until(item, input);
             if (!input.empty() && (input.front() == '"'))
                 input.pop_front();
-            quote = quote.slice(0, quote.distance_front(input));
+            quote = ostd::slice_until(quote, input);
             break;
         case '(':
         case '[': {
@@ -3877,8 +3877,9 @@ struct ListParser {
                 }
             }
 endblock:
-            item = item.slice(0, item.distance_front(input) - 1);
-            quote = quote.slice(0, quote.distance_front(input));
+            item = ostd::slice_until(item, input);
+            item.pop_back();
+            quote = ostd::slice_until(quote, input);
             break;
         }
         case ')':
@@ -3888,7 +3889,7 @@ endblock:
             const char *e = parseword(input.data());
             item = input;
             input.pop_front_n(e - input.data());
-            item = item.slice(0, item.distance_front(input));
+            item = ostd::slice_until(item, input);
             quote = item;
             break;
         }
