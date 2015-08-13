@@ -4714,7 +4714,7 @@ void init_lib_string(CsState &cs) {
     cs.add_command("escape", "s", [](CsState &cs, char *s) {
         auto x = ostd::appender<ostd::String>();
         util::escape_string(x, s);
-        ostd::Size len = x.get().size();
+        ostd::Size len = x.size();
         cs.result->set_str(ostd::CharRange(x.get().disown(), len));
     });
 
@@ -4763,7 +4763,7 @@ void init_lib_string(CsState &cs) {
         auto r = ostd::appender<ostd::Vector<char>>();
         ostd::format(r, "0x%.*X", ostd::max(*p, 1), *n);
         r.put('\0');
-        ostd::Size len = r.get().size() - 1;
+        ostd::Size len = r.size() - 1;
         cs.result->set_str(ostd::CharRange(r.get().disown(), len));
     });
 

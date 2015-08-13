@@ -433,30 +433,32 @@ inline bool check_alias(Ident *id) {
 }
 
 struct StackedValue: TaggedValue {
-    IdentStack stack;
     Ident *id;
-    bool pushed;
 
     StackedValue(Ident *id = nullptr):
-        TaggedValue(), stack(), id(id), pushed(false) {}
+        TaggedValue(), id(id), p_stack(), p_pushed(false) {}
 
     ~StackedValue() {
         pop();
     }
 
     bool push() {
-        if (pushed || !id) return false;
-        id->push_arg(*this, stack);
-        pushed = true;
+        if (p_pushed || !id) return false;
+        id->push_arg(*this, p_stack);
+        p_pushed = true;
         return true;
     }
 
     bool pop() {
-        if (!pushed || !id) return false;
+        if (!p_pushed || !id) return false;
         id->pop_arg();
-        pushed = false;
+        p_pushed = false;
         return true;
     }
+
+private:
+    IdentStack p_stack;
+    bool p_pushed;
 };
 
 namespace util {
