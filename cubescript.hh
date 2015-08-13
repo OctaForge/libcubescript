@@ -94,8 +94,10 @@ struct IdentValue {
 };
 
 struct TaggedValue: IdentValue {
+    friend struct Ident;
+
     int get_type() const {
-        return p_type;
+        return p_type & 0xF;
     }
 
     void set_int(int val) {
@@ -107,7 +109,7 @@ struct TaggedValue: IdentValue {
         f = val;
     }
     void set_str(char *val) {
-        p_type = VAL_STR;
+        p_type = VAL_STR | (strlen(val) << 4);
         s = val;
     }
     void set_null() {
@@ -119,11 +121,11 @@ struct TaggedValue: IdentValue {
         code = val;
     }
     void set_macro(const ostd::Uint32 *val) {
-        p_type = VAL_MACRO;
+        p_type = VAL_MACRO | (strlen((const char *)val) << 4);
         code = val;
     }
     void set_cstr(const char *val) {
-        p_type = VAL_CSTR;
+        p_type = VAL_CSTR | (strlen(val) << 4);
         cstr = val;
     }
     void set_ident(Ident *val) {
@@ -272,6 +274,10 @@ struct Ident {
 
     void set_arg(CsState &cs, TaggedValue &v);
     void set_alias(CsState &cs, TaggedValue &v);
+
+    int get_valtype() const {
+        return valtype & 0xF;
+    }
 };
 
 struct IdentLink {

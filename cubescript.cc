@@ -99,7 +99,7 @@ Ident::Ident(int t, ostd::ConstCharRange n, char **s, IdentFunc f, int flags)
 
 /* ID_ALIAS */
 Ident::Ident(int t, ostd::ConstCharRange n, char *a, int flags)
-    : type(t), valtype(VAL_STR), flags(flags), name(n), code(nullptr),
+    : type(t), valtype(VAL_STR | (n.size() << 4)), flags(flags), name(n), code(nullptr),
       stack(nullptr) {
     val.s = a;
 }
@@ -118,7 +118,7 @@ Ident::Ident(int t, ostd::ConstCharRange n, int flags)
       stack(nullptr) {
 }
 Ident::Ident(int t, ostd::ConstCharRange n, const TaggedValue &v, int flags)
-    : type(t), valtype(v.get_type()), flags(flags), name(n), code(nullptr),
+    : type(t), valtype(v.p_type), flags(flags), name(n), code(nullptr),
       stack(nullptr) {
     val = v;
 }
@@ -226,7 +226,7 @@ void CsState::clear_override(Ident &id) {
     if (!(id.flags & IDF_OVERRIDDEN)) return;
     switch (id.type) {
     case ID_ALIAS:
-        if (id.valtype == VAL_STR) {
+        if (id.get_valtype() == VAL_STR) {
             if (!id.val.s[0]) break;
             delete[] id.val.s;
         }
@@ -496,7 +496,7 @@ inline int TaggedValue::get_int() const {
 }
 
 inline int Ident::get_int() const {
-    return cs_get_int(val, valtype);
+    return cs_get_int(val, get_valtype());
 }
 
 static inline float cs_get_float(const IdentValue &v, int type) {
@@ -518,15 +518,15 @@ inline float TaggedValue::get_float() const {
 }
 
 inline float Ident::get_float() const {
-    return cs_get_float(val, valtype);
+    return cs_get_float(val, get_valtype());
 }
 
-static inline ostd::ConstCharRange cs_get_str(const IdentValue &v, int type) {
+static inline ostd::ConstCharRange cs_get_str(const IdentValue &v, int type, int len) {
     switch (type) {
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR:
-        return v.s;
+        return ostd::ConstCharRange(v.s, len);
     case VAL_INT:
         return intstr(v.i);
     case VAL_FLOAT:
@@ -536,11 +536,11 @@ static inline ostd::ConstCharRange cs_get_str(const IdentValue &v, int type) {
 }
 
 inline ostd::ConstCharRange TaggedValue::get_str() const {
-    return cs_get_str(*this, get_type());
+    return cs_get_str(*this, get_type(), p_type >> 4);
 }
 
 inline ostd::ConstCharRange Ident::get_str() const {
-    return cs_get_str(val, valtype);
+    return cs_get_str(val, get_valtype(), valtype >> 4);
 }
 
 static inline void cs_get_val(const IdentValue &v, int type, TaggedValue &r) {
@@ -567,11 +567,11 @@ inline void TaggedValue::get_val(TaggedValue &r) const {
 }
 
 inline void Ident::get_val(TaggedValue &r) const {
-    cs_get_val(val, valtype, r);
+    cs_get_val(val, get_valtype(), r);
 }
 
 inline void Ident::get_cstr(TaggedValue &v) const {
-    switch (valtype) {
+    switch (get_valtype()) {
     case VAL_MACRO:
         v.set_macro(val.code);
         break;
@@ -592,7 +592,7 @@ inline void Ident::get_cstr(TaggedValue &v) const {
 }
 
 inline void Ident::get_cval(TaggedValue &v) const {
-    switch (valtype) {
+    switch (get_valtype()) {
     case VAL_MACRO:
         v.set_macro(val.code);
         break;
@@ -639,7 +639,7 @@ void Ident::push_arg(const TaggedValue &v, IdentStack &st, bool um) {
 void Ident::pop_arg() {
     if (!stack) return;
     IdentStack *st = stack;
-    if (valtype == VAL_STR) delete[] val.s;
+    if (get_valtype() == VAL_STR) delete[] val.s;
     set_value(*stack);
     clean_code();
     stack = st->next;
@@ -675,7 +675,7 @@ void Ident::pop_alias() {
 
 void Ident::set_arg(CsState &cs, TaggedValue &v) {
     if (cs.stack->usedargs & (1 << index)) {
-        if (valtype == VAL_STR) delete[] val.s;
+        if (get_valtype() == VAL_STR) delete[] val.s;
         set_value(v);
         clean_code();
     } else {
@@ -685,7 +685,7 @@ void Ident::set_arg(CsState &cs, TaggedValue &v) {
 }
 
 void Ident::set_alias(CsState &cs, TaggedValue &v) {
-    if (valtype == VAL_STR) delete[] val.s;
+    if (get_valtype() == VAL_STR) delete[] val.s;
     set_value(v);
     clean_code();
     flags = (flags & cs.identflags) | cs.identflags;
@@ -3303,7 +3303,7 @@ noid:
                 FORCERESULT;
             case ID_ALIAS:
                 if (id->index < MAX_ARGUMENTS && !(cs.stack->usedargs & (1 << id->index))) FORCERESULT;
-                if (id->valtype == VAL_NULL) goto noid;
+                if (id->get_valtype() == VAL_NULL) goto noid;
                 idarg.cleanup();
                 CALLALIAS(cs, result);
                 continue;
@@ -3367,7 +3367,7 @@ void CsState::run_ret(Ident *id, ostd::PointerRange<TaggedValue> args,
             break;
         case ID_ALIAS:
             if (id->index < MAX_ARGUMENTS && !(stack->usedargs & (1 << id->index))) break;
-            if (id->valtype == VAL_NULL) break;
+            if (id->get_valtype() == VAL_NULL) break;
 #define callargs numargs
 #define offset 0
 #define op RET_NULL
@@ -3652,8 +3652,8 @@ void init_lib_base(CsState &cs) {
 
 static inline void cs_set_iter(Ident &id, int i, IdentStack &stack) {
     if (id.stack == &stack) {
-        if (id.valtype != VAL_INT) {
-            if (id.valtype == VAL_STR) delete[] id.val.s;
+        if (id.get_valtype() != VAL_INT) {
+            if (id.get_valtype() == VAL_STR) delete[] id.val.s;
             id.clean_code();
             id.valtype = VAL_INT;
         }
@@ -3943,10 +3943,10 @@ namespace util {
 
 static inline void cs_set_iter(Ident &id, char *val, IdentStack &stack) {
     if (id.stack == &stack) {
-        if (id.valtype == VAL_STR)
+        if (id.get_valtype() == VAL_STR)
             delete[] id.val.s;
         else
-            id.valtype = VAL_STR;
+            id.valtype = VAL_STR | (strlen(val) << 4);
         id.clean_code();
         id.val.s = val;
         return;
@@ -4348,14 +4348,14 @@ struct ListSortFun {
     ostd::Uint32 *body;
 
     bool operator()(const ListSortItem &xval, const ListSortItem &yval) {
-        if (x->valtype != VAL_CSTR)
-            x->valtype = VAL_CSTR;
         x->clean_code();
-        x->val.code = (const ostd::Uint32 *)xval.str;
-        if (y->valtype != VAL_CSTR)
-            y->valtype = VAL_CSTR;
+        if (x->get_valtype() != VAL_CSTR)
+            x->valtype = VAL_CSTR | (strlen(xval.str) << 4);
+        x->val.cstr = xval.str;
         y->clean_code();
-        y->val.code = (const ostd::Uint32 *)yval.str;
+        if (y->get_valtype() != VAL_CSTR)
+            y->valtype = VAL_CSTR | (strlen(xval.str) << 4);
+        y->val.cstr = yval.str;
         return cs.run_bool(body);
     }
 };
