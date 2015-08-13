@@ -112,6 +112,12 @@ struct TaggedValue: IdentValue {
         p_type = VAL_STR | (val.size() << 4);
         s = val.data();
     }
+    void set_str_dup(ostd::ConstCharRange val) {
+        s = new char[val.size() + 1];
+        memcpy(s, val.data(), val.size());
+        s[val.size()] = '\0';
+        p_type = VAL_STR | (val.size() << 4);
+    }
     void set_null() {
         p_type = VAL_NULL;
         i = 0;

@@ -459,8 +459,7 @@ inline ostd::ConstCharRange TaggedValue::force_str() {
         return s;
     }
     cleanup();
-    ostd::ConstCharRange cs(rs);
-    set_str(ostd::CharRange(cs_dup_ostr(cs), cs.size()));
+    set_str_dup(rs);
     return s;
 }
 
@@ -549,7 +548,7 @@ static inline void cs_get_val(const IdentValue &v, int type, int len, TaggedValu
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR: {
-        r.set_str(ostd::CharRange(cs_dup_ostr(v.s), len));
+        r.set_str_dup(ostd::ConstCharRange(v.s, len));
         break;
     }
     case VAL_INT:
@@ -573,7 +572,6 @@ inline void Ident::get_val(TaggedValue &r) const {
 }
 
 inline void Ident::get_cstr(TaggedValue &v) const {
-    ostd::ConstCharRange cs;
     switch (get_valtype()) {
     case VAL_MACRO:
         v.set_macro(val.code);
@@ -583,12 +581,10 @@ inline void Ident::get_cstr(TaggedValue &v) const {
         v.set_cstr(ostd::ConstCharRange(val.s, valtype >> 4));
         break;
     case VAL_INT:
-        cs = intstr(val.i);
-        v.set_str(ostd::CharRange(cs_dup_ostr(cs), cs.size()));
+        v.set_str_dup(intstr(val.i));
         break;
     case VAL_FLOAT:
-        cs = floatstr(val.f);
-        v.set_str(ostd::CharRange(cs_dup_ostr(cs), cs.size()));
+        v.set_str_dup(floatstr(val.f));
         break;
     default:
         v.set_cstr("");
@@ -1035,8 +1031,7 @@ static void cs_init_lib_base_var(CsState &cs) {
     });
 
     cs.add_command("getalias", "s", [](CsState &cs, const char *name) {
-        auto r = cs.get_alias(name).value_or("");
-        cs.result->set_str(ostd::CharRange(cs_dup_ostr(r), r.size()));
+        cs.result->set_str_dup(cs.get_alias(name).value_or(""));
     });
 }
 
@@ -2530,7 +2525,7 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
         case 'S':
             if (++i >= numargs) {
                 if (rep) break;
-                args[i].set_str(cs_dup_ostr(""));
+                args[i].set_str_dup("");
                 fakeargs++;
             } else args[i].force_str();
             break;
@@ -2652,16 +2647,16 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                     continue;
 
             RETOP(CODE_NULL | RET_NULL, result.set_null())
-            RETOP(CODE_NULL | RET_STR, result.set_str(cs_dup_ostr("")))
+            RETOP(CODE_NULL | RET_STR, result.set_str_dup(""))
             RETOP(CODE_NULL | RET_INT, result.set_int(0))
             RETOP(CODE_NULL | RET_FLOAT, result.set_float(0.0f))
 
-            RETOP(CODE_FALSE | RET_STR, result.set_str(cs_dup_ostr("0")))
+            RETOP(CODE_FALSE | RET_STR, result.set_str_dup("0"))
         case CODE_FALSE|RET_NULL:
             RETOP(CODE_FALSE | RET_INT, result.set_int(0))
             RETOP(CODE_FALSE | RET_FLOAT, result.set_float(0.0f))
 
-            RETOP(CODE_TRUE | RET_STR, result.set_str(cs_dup_ostr("1")))
+            RETOP(CODE_TRUE | RET_STR, result.set_str_dup("1"))
         case CODE_TRUE|RET_NULL:
             RETOP(CODE_TRUE | RET_INT, result.set_int(1))
             RETOP(CODE_TRUE | RET_FLOAT, result.set_float(1.0f))
@@ -2669,7 +2664,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
 #define RETPOP(op, val) \
                 RETOP(op, { --numargs; val; args[numargs].cleanup(); })
 
-            RETPOP(CODE_NOT | RET_STR, result.set_str(cs_dup_ostr(cs_get_bool(args[numargs]) ? "0" : "1")))
+            RETPOP(CODE_NOT | RET_STR, result.set_str_dup(cs_get_bool(args[numargs]) ? "0" : "1"))
         case CODE_NOT|RET_NULL:
                 RETPOP(CODE_NOT | RET_INT, result.set_int(cs_get_bool(args[numargs]) ? 0 : 1))
                 RETPOP(CODE_NOT | RET_FLOAT, result.set_float(cs_get_bool(args[numargs]) ? 0.0f : 1.0f))
@@ -2787,13 +2782,13 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
 
         case CODE_VAL|RET_STR: {
             ostd::Uint32 len = op >> 8;
-            args[numargs++].set_str(ostd::CharRange(cs_dup_ostr(ostd::ConstCharRange((const char *)code, len)), len));
+            args[numargs++].set_str_dup(ostd::ConstCharRange((const char *)code, len));
             code += len / sizeof(ostd::Uint32) + 1;
             continue;
         }
         case CODE_VALI|RET_STR: {
             char s[4] = { char((op >> 8) & 0xFF), char((op >> 16) & 0xFF), char((op >> 24) & 0xFF), '\0' };
-            args[numargs++].set_str(ostd::CharRange(cs_dup_ostr(s), 3));
+            args[numargs++].set_str_dup(s);
             continue;
         }
         case CODE_VAL|RET_NULL:
@@ -2825,12 +2820,10 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             args[numargs].set_float(args[numargs - 1].get_float());
             numargs++;
             continue;
-        case CODE_DUP|RET_STR: {
-            ostd::ConstCharRange cr = args[numargs - 1].get_str();
-            args[numargs].set_str(ostd::CharRange(cs_dup_ostr(cr), cr.size()));
+        case CODE_DUP|RET_STR:
+            args[numargs].set_str_dup(args[numargs - 1].get_str());
             numargs++;
             continue;
-        }
 
         case CODE_FORCE|RET_STR:
             args[numargs - 1].force_str();
@@ -2984,11 +2977,11 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                     nval; \
                     continue; \
                 }
-            LOOKUPU(arg.set_str(cs_dup_ostr(id->get_str())),
-                    arg.set_str(cs_dup_ostr(*id->storage.sp)),
-                    arg.set_str(cs_dup_ostr(intstr(*id->storage.ip))),
-                    arg.set_str(cs_dup_ostr(floatstr(*id->storage.fp))),
-                    arg.set_str(cs_dup_ostr("")));
+            LOOKUPU(arg.set_str_dup(id->get_str()),
+                    arg.set_str_dup(*id->storage.sp),
+                    arg.set_str_dup(intstr(*id->storage.ip)),
+                    arg.set_str_dup(floatstr(*id->storage.fp)),
+                    arg.set_str_dup(""));
         case CODE_LOOKUP|RET_STR:
 #define LOOKUP(aval) { \
                     Ident *id = cs.identmap[op>>8]; \
@@ -2996,7 +2989,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                     aval; \
                     continue; \
                 }
-            LOOKUP(args[numargs++].set_str(cs_dup_ostr(id->get_str())));
+            LOOKUP(args[numargs++].set_str_dup(id->get_str()));
         case CODE_LOOKUPARG|RET_STR:
 #define LOOKUPARG(aval, nval) { \
                     Ident *id = cs.identmap[op>>8]; \
@@ -3004,7 +2997,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                     aval; \
                     continue; \
                 }
-            LOOKUPARG(args[numargs++].set_str(cs_dup_ostr(id->get_str())), args[numargs++].set_str(cs_dup_ostr("")));
+            LOOKUPARG(args[numargs++].set_str_dup(id->get_str()), args[numargs++].set_str_dup(""));
         case CODE_LOOKUPU|RET_INT:
             LOOKUPU(arg.set_int(id->get_int()),
                     arg.set_int(parseint(*id->storage.sp)),
@@ -3027,7 +3020,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             LOOKUPARG(args[numargs++].set_float(id->get_float()), args[numargs++].set_float(0.0f));
         case CODE_LOOKUPU|RET_NULL:
             LOOKUPU(id->get_val(arg),
-                    arg.set_str(cs_dup_ostr(*id->storage.sp)),
+                    arg.set_str_dup(*id->storage.sp),
                     arg.set_int(*id->storage.ip),
                     arg.set_float(*id->storage.fp),
                     arg.set_null());
@@ -3039,8 +3032,8 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
         case CODE_LOOKUPMU|RET_STR:
             LOOKUPU(id->get_cstr(arg),
                     arg.set_cstr(*id->storage.sp),
-                    arg.set_str(cs_dup_ostr(intstr(*id->storage.ip))),
-                    arg.set_str(cs_dup_ostr(floatstr(*id->storage.fp))),
+                    arg.set_str_dup(intstr(*id->storage.ip)),
+                    arg.set_str_dup(floatstr(*id->storage.fp)),
                     arg.set_cstr(""));
         case CODE_LOOKUPM|RET_STR:
             LOOKUP(id->get_cstr(args[numargs++]));
@@ -3059,7 +3052,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
 
         case CODE_SVAR|RET_STR:
         case CODE_SVAR|RET_NULL:
-            args[numargs++].set_str(cs_dup_ostr(*cs.identmap[op >> 8]->storage.sp));
+            args[numargs++].set_str_dup(*cs.identmap[op >> 8]->storage.sp);
             continue;
         case CODE_SVAR|RET_INT:
             args[numargs++].set_int(parseint(*cs.identmap[op >> 8]->storage.sp));
@@ -3080,7 +3073,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             args[numargs++].set_int(*cs.identmap[op >> 8]->storage.ip);
             continue;
         case CODE_IVAR|RET_STR:
-            args[numargs++].set_str(cs_dup_ostr(intstr(*cs.identmap[op >> 8]->storage.ip)));
+            args[numargs++].set_str_dup(intstr(*cs.identmap[op >> 8]->storage.ip));
             continue;
         case CODE_IVAR|RET_FLOAT:
             args[numargs++].set_float(float(*cs.identmap[op >> 8]->storage.ip));
@@ -3102,7 +3095,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             args[numargs++].set_float(*cs.identmap[op >> 8]->storage.fp);
             continue;
         case CODE_FVAR|RET_STR:
-            args[numargs++].set_str(cs_dup_ostr(floatstr(*cs.identmap[op >> 8]->storage.fp)));
+            args[numargs++].set_str_dup(floatstr(*cs.identmap[op >> 8]->storage.fp));
             continue;
         case CODE_FVAR|RET_INT:
             args[numargs++].set_int(int(*cs.identmap[op >> 8]->storage.fp));
@@ -4038,7 +4031,7 @@ void init_lib_list(CsState &cs) {
         if (len < 0) {
             if (offset > 0)
                 p.skip();
-            cs.result->set_str(cs_dup_ostr(p.input));
+            cs.result->set_str_dup(p.input);
             return;
         }
 
@@ -4047,7 +4040,7 @@ void init_lib_list(CsState &cs) {
         if (len > 0 && p.parse())
             while (--len > 0 && p.parse());
         const char *qend = !p.quote.empty() ? &p.quote[p.quote.size()] : list;
-        cs.result->set_str(cs_dup_ostr(ostd::ConstCharRange(list, qend - list)));
+        cs.result->set_str_dup(ostd::ConstCharRange(list, qend - list));
     });
 
     cs.add_command("listfind", "rse", [](CsState &cs, Ident *id,
@@ -4777,10 +4770,10 @@ void init_lib_string(CsState &cs) {
     cs.add_command("substr", "siiN", [](CsState &cs, char *s, int *start,
                                         int *count, int *numargs) {
         int len = strlen(s), offset = ostd::clamp(*start, 0, len);
-        cs.result->set_str(cs_dup_ostr(ostd::ConstCharRange(
+        cs.result->set_str_dup(ostd::ConstCharRange(
             &s[offset],
             (*numargs >= 3) ? ostd::clamp(*count, 0, len - offset)
-                            : (len - offset))));
+                            : (len - offset)));
     });
 
 #define CS_CMD_CMPS(name, op) \
@@ -4814,7 +4807,7 @@ void init_lib_string(CsState &cs) {
         ostd::Vector<char> buf;
         int oldlen = strlen(oldval);
         if (!oldlen) {
-            cs.result->set_str(cs_dup_ostr(s));
+            cs.result->set_str_dup(s);
             return;
         }
         for (int i = 0;; ++i) {
