@@ -2450,6 +2450,7 @@ using CommandFunc10 = void (__cdecl *)(CsState &, void *, void *, void *, void *
 using CommandFunc11 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
 using CommandFunc12 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
 using CommandFuncTv = void (__cdecl *)(CsState &, ostd::PointerRange<TaggedValue>);
+using CommandFuncS = void (__cdecl *)(CsState &, ostd::ConstCharRange);
 
 static const ostd::Uint32 *skipcode(const ostd::Uint32 *code, TaggedValue &result = no_ret) {
     int depth = 0;
@@ -2576,7 +2577,7 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
         case 'C': {
             i = ostd::max(i + 1, numargs);
             ostd::Vector<char> buf;
-            ((CommandFunc1)id->fun)(cs, conc(buf, ostd::iter(args, i), true));
+            ((CommandFuncS)id->fun)(cs, conc(buf, ostd::iter(args, i), true));
             goto cleanup;
         }
         case 'V':
@@ -3141,7 +3142,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             {
                 ostd::Vector<char> buf;
                 buf.reserve(256);
-                ((CommandFunc1)id->fun)(cs, conc(buf, ostd::iter(&args[offset], callargs), true));
+                ((CommandFuncS)id->fun)(cs, conc(buf, ostd::iter(&args[offset], callargs), true));
             }
             result.force(op & CODE_RET_MASK);
             free_args(args, numargs, offset);
@@ -3526,7 +3527,7 @@ void init_lib_io(CsState &cs) {
         cs.result->set_int(cs.run_file(file, *msg != 0) ? 1 : 0);
     });
 
-    cs.add_command("echo", "C", [](CsState &, char *s) {
+    cs.add_command("echo", "C", [](CsState &, ostd::ConstCharRange s) {
         ostd::writeln(s);
     });
 }
