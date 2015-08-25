@@ -1001,7 +1001,7 @@ static void cs_init_lib_base_var(CsState &cs) {
         id->pop_arg();
     });
 
-    cs.add_command("local", ostd::ConstCharRange(), nullptr, ID_LOCAL);
+    cs.add_command("local", nullptr, nullptr, ID_LOCAL);
 
     cs.add_command("resetvar", "s", [](CsState &cs, char *name) {
         cs.result->set_int(cs.reset_var(name));
@@ -1063,12 +1063,12 @@ ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
     return str;
 }
 
-static char *conc(ostd::Vector<char> &buf, TaggedValue *v, int n, bool space, const char *prefix = nullptr, int prefixlen = 0) {
+static char *conc(ostd::Vector<char> &buf, ostd::PointerRange<TaggedValue> v, bool space, const char *prefix = nullptr, int prefixlen = 0) {
     if (prefix) {
         buf.push_n(prefix, prefixlen);
-        if (space && n) buf.push(' ');
+        if (space && !v.empty()) buf.push(' ');
     }
-    for (int i = 0; i < n; ++i) {
+    for (ostd::Size i = 0; i < v.size(); ++i) {
         const char *s = "";
         int len = 0;
         switch (v[i].get_type()) {
@@ -1090,18 +1090,18 @@ static char *conc(ostd::Vector<char> &buf, TaggedValue *v, int n, bool space, co
         len = int(strlen(s));
 haslen:
         buf.push_n(s, len);
-        if (i == n - 1) break;
+        if (i == v.size() - 1) break;
         if (space) buf.push(' ');
     }
     buf.push('\0');
     return buf.data();
 }
 
-static char *conc(TaggedValue *v, int n, bool space, const char *prefix, int prefixlen) {
+static char *conc(ostd::PointerRange<TaggedValue> v, bool space, const char *prefix, int prefixlen) {
     static int vlen[MAX_ARGUMENTS];
     static char numbuf[3 * 256];
     int len = prefixlen, numlen = 0, i = 0;
-    for (; i < n; i++) switch (v[i].get_type()) {
+    for (; i < int(v.size()); i++) switch (v[i].get_type()) {
         case VAL_MACRO:
             len += (vlen[i] = v[i].code[-1] >> 8);
             break;
@@ -1142,16 +1142,16 @@ overflow:
         if (space) buf[offset++] = ' ';
     }
     buf[offset] = '\0';
-    if (i < n) {
-        char *morebuf = conc(&v[i], n - i, space, buf, offset);
+    if (i < int(v.size())) {
+        char *morebuf = conc(ostd::iter(&v[i], v.size() - i), space, buf, offset);
         delete[] buf;
         return morebuf;
     }
     return buf;
 }
 
-static inline char *conc(TaggedValue *v, int n, bool space) {
-    return conc(v, n, space, nullptr, 0);
+static inline char *conc(ostd::PointerRange<TaggedValue> v, bool space) {
+    return conc(v, space, nullptr, 0);
 }
 
 static inline void skipcomments(const char *&p) {
@@ -2449,7 +2449,7 @@ using CommandFunc9 = void (__cdecl *)(CsState &, void *, void *, void *, void *,
 using CommandFunc10 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
 using CommandFunc11 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
 using CommandFunc12 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
-using CommandFuncTv = void (__cdecl *)(CsState &, TaggedValue *, int);
+using CommandFuncTv = void (__cdecl *)(CsState &, ostd::PointerRange<TaggedValue>);
 
 static const ostd::Uint32 *skipcode(const ostd::Uint32 *code, TaggedValue &result = no_ret) {
     int depth = 0;
@@ -2576,12 +2576,12 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
         case 'C': {
             i = ostd::max(i + 1, numargs);
             ostd::Vector<char> buf;
-            ((CommandFunc1)id->fun)(cs, conc(buf, args, i, true));
+            ((CommandFunc1)id->fun)(cs, conc(buf, ostd::iter(args, i), true));
             goto cleanup;
         }
         case 'V':
             i = ostd::max(i + 1, numargs);
-            ((CommandFuncTv)id->fun)(cs, args, i);
+            ((CommandFuncTv)id->fun)(cs, ostd::iter(args, i));
             goto cleanup;
         case '1':
         case '2':
@@ -3126,7 +3126,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             Ident *id = cs.identmap[op >> 13];
             int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
             result.force_null();
-            ((CommandFuncTv)id->fun)(cs, &args[offset], callargs);
+            ((CommandFuncTv)id->fun)(cs, ostd::iter(&args[offset], callargs));
             result.force(op & CODE_RET_MASK);
             free_args(args, numargs, offset);
             continue;
@@ -3141,7 +3141,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             {
                 ostd::Vector<char> buf;
                 buf.reserve(256);
-                ((CommandFunc1)id->fun)(cs, conc(buf, &args[offset], callargs, true));
+                ((CommandFunc1)id->fun)(cs, conc(buf, ostd::iter(&args[offset], callargs), true));
             }
             result.force(op & CODE_RET_MASK);
             free_args(args, numargs, offset);
@@ -3157,7 +3157,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
         case CODE_CONCW|RET_FLOAT:
         case CODE_CONCW|RET_INT: {
             int numconc = op >> 8;
-            char *s = conc(&args[numargs - numconc], numconc, (op & CODE_OP_MASK) == CODE_CONC);
+            char *s = conc(ostd::iter(&args[numargs - numconc], numconc), (op & CODE_OP_MASK) == CODE_CONC);
             free_args(args, numargs, numargs - numconc);
             args[numargs].set_str(s);
             args[numargs].force(op & CODE_RET_MASK);
@@ -3170,7 +3170,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
         case CODE_CONCM|RET_FLOAT:
         case CODE_CONCM|RET_INT: {
             int numconc = op >> 8;
-            char *s = conc(&args[numargs - numconc], numconc, false);
+            char *s = conc(ostd::iter(&args[numargs - numconc], numconc), false);
             free_args(args, numargs, numargs - numconc);
             result.set_str(s);
             result.force(op & CODE_RET_MASK);
@@ -3559,11 +3559,11 @@ void init_lib_base(CsState &cs) {
         cs.result->set_int(!cs_get_bool(*a));
     }, ID_NOT);
 
-    cs.add_command("&&", "E1V", [](CsState &cs, TaggedValue *args,
-                                   int numargs) {
-        if (!numargs)
+    cs.add_command("&&", "E1V", [](CsState &cs,
+                                   ostd::PointerRange<TaggedValue> args) {
+        if (args.empty())
             cs.result->set_int(1);
-        else for (int i = 0; i < numargs; ++i) {
+        else for (ostd::Size i = 0; i < args.size(); ++i) {
             if (i) cs.result->cleanup();
             if (args[i].get_type() == VAL_CODE)
                 cs.run_ret(args[i].code);
@@ -3573,11 +3573,11 @@ void init_lib_base(CsState &cs) {
         }
     }, ID_AND);
 
-    cs.add_command("||", "E1V", [](CsState &cs, TaggedValue *args,
-                                   int numargs) {
-        if (!numargs)
+    cs.add_command("||", "E1V", [](CsState &cs,
+                                   ostd::PointerRange<TaggedValue> args) {
+        if (args.empty())
             cs.result->set_int(0);
-        else for (int i = 0; i < numargs; ++i) {
+        else for (ostd::Size i = 0; i < args.size(); ++i) {
             if (i) cs.result->cleanup();
             if (args[i].get_type() == VAL_CODE)
                 cs.run_ret(args[i].code);
@@ -3592,10 +3592,10 @@ void init_lib_base(CsState &cs) {
         cs.result->set(*(cs_get_bool(*cond) ? t : f));
     });
 
-    cs.add_command("cond", "ee2V", [](CsState &cs, TaggedValue *args,
-                                      int numargs) {
-        for (int i = 0; i < numargs; i += 2) {
-            if ((i + 1) < numargs) {
+    cs.add_command("cond", "ee2V", [](CsState &cs,
+                                      ostd::PointerRange<TaggedValue> args) {
+        for (ostd::Size i = 0; i < args.size(); i += 2) {
+            if ((i + 1) < args.size()) {
                 if (cs.run_bool(args[i].code)) {
                     cs.run_ret(args[i + 1].code);
                     break;
@@ -3608,11 +3608,11 @@ void init_lib_base(CsState &cs) {
     });
 
 #define CS_CMD_CASE(name, fmt, type, acc, compare) \
-    cs.add_command(name, fmt "te2V", [](CsState &cs, TaggedValue *args, \
-                                        int numargs) { \
+    cs.add_command(name, fmt "te2V", [](CsState &cs, \
+                                        ostd::PointerRange<TaggedValue> args) { \
         type val = acc; \
-        int i; \
-        for (i = 1; (i + 1) < numargs; i += 2) { \
+        ostd::Size i; \
+        for (i = 1; (i + 1) < args.size(); i += 2) { \
             if (compare) { \
                 cs.run_ret(args[i + 1].code); \
                 return; \
@@ -4001,14 +4001,14 @@ void init_lib_list(CsState &cs) {
         cs.result->set_int(int(util::list_length(s)));
     });
 
-    cs.add_command("at", "si1V", [](CsState &cs, TaggedValue *args,
-                                    int numargs) {
-        if (!numargs)
+    cs.add_command("at", "si1V", [](CsState &cs,
+                                    ostd::PointerRange<TaggedValue> args) {
+        if (args.empty())
             return;
         ostd::ConstCharRange str = args[0].get_str();
         ListParser p(str);
         p.item = str;
-        for (int i = 1; i < numargs; ++i) {
+        for (ostd::Size i = 1; i < args.size(); ++i) {
             p.input = str;
             int pos = args[i].get_int();
             for (; pos > 0; --pos)
@@ -4523,10 +4523,10 @@ void init_lib_math(CsState &cs) {
     });
 
 #define CS_CMD_MIN_MAX(name, fmt, type, op) \
-    cs.add_command(#name, #fmt "1V", [](CsState &cs, TaggedValue *args, \
-                   int nargs) { \
-        type v = (nargs > 0) ? args[0].fmt : 0; \
-        for (int i = 1; i < nargs; ++i) v = op(v, args[i].fmt); \
+    cs.add_command(#name, #fmt "1V", [](CsState &cs, \
+                                        ostd::PointerRange<TaggedValue> args) { \
+        type v = !args.empty() ? args[0].fmt : 0; \
+        for (ostd::Size i = 1; i < args.size(); ++i) v = op(v, args[i].fmt); \
         cs.result->set_##type(v); \
     })
 
@@ -4564,19 +4564,19 @@ void init_lib_math(CsState &cs) {
     });
 
 #define CS_CMD_MATH(name, fmt, type, op, initval, unaryop) \
-    cs.add_command(name, #fmt "1V", [](CsState &, TaggedValue *args, \
-                                       int numargs) { \
+    cs.add_command(name, #fmt "1V", [](CsState &, \
+                                       ostd::PointerRange<TaggedValue> args) { \
         type val; \
-        if (numargs >= 2) { \
+        if (args.size() >= 2) { \
             val = args[0].fmt; \
             type val2 = args[1].fmt; \
             op; \
-            for (int i = 2; i < numargs; ++i) { \
+            for (ostd::Size i = 2; i < args.size(); ++i) { \
                 val2 = args[i].fmt; \
                 op; \
             } \
         } else { \
-            val = (numargs > 0) ? args[0].fmt : initval; \
+            val = (args.size() > 0) ? args[0].fmt : initval; \
             unaryop; \
         } \
     });
@@ -4633,15 +4633,15 @@ void init_lib_math(CsState &cs) {
 #undef CS_CMD_MATH
 
 #define CS_CMD_CMP(name, fmt, type, op) \
-    cs.add_command(name, #fmt "1V", [](CsState &cs, TaggedValue *args, \
-                                       int numargs) { \
+    cs.add_command(name, #fmt "1V", [](CsState &cs, \
+                                       ostd::PointerRange<TaggedValue> args) { \
         bool val; \
-        if (numargs >= 2) { \
+        if (args.size() >= 2) { \
             val = args[0].fmt op args[1].fmt; \
-            for (int i = 2; i < numargs && val; ++i) \
+            for (ostd::Size i = 2; i < args.size() && val; ++i) \
                 val = args[i-1].fmt op args[i].fmt; \
         } else \
-            val = ((numargs > 0) ? args[0].fmt : 0) op 0; \
+            val = ((args.size() > 0) ? args[0].fmt : 0) op 0; \
         cs.result->set_int(int(val)); \
     })
 
@@ -4728,20 +4728,22 @@ void init_lib_string(CsState &cs) {
         cs.result->set_str(ostd::CharRange(buf, len));
     });
 
-    cs.add_command("concat", "V", [](CsState &cs, TaggedValue *v, int n) {
-        cs.result->set_str(conc(v, n, true));
+    cs.add_command("concat", "V", [](CsState &cs,
+                                     ostd::PointerRange<TaggedValue> args) {
+        cs.result->set_str(conc(args, true));
     });
 
-    cs.add_command("concatworld", "V", [](CsState &cs, TaggedValue *v,
-                                          int n) {
-        cs.result->set_str(conc(v, n, false));
+    cs.add_command("concatworld", "V", [](CsState &cs,
+                                          ostd::PointerRange<TaggedValue> args) {
+        cs.result->set_str(conc(args, false));
     });
 
-    cs.add_command("format", "V", [](CsState &cs, TaggedValue *v, int n) {
-        if (n <= 0)
+    cs.add_command("format", "V", [](CsState &cs,
+                                     ostd::PointerRange<TaggedValue> args) {
+        if (args.empty())
             return;
         ostd::Vector<char> s;
-        ostd::ConstCharRange f = v[0].get_str();
+        ostd::ConstCharRange f = args[0].get_str();
         while (!f.empty()) {
             char c = f.front();
             f.pop_front();
@@ -4750,7 +4752,8 @@ void init_lib_string(CsState &cs) {
                 f.pop_front();
                 if (ic >= '1' && ic <= '9') {
                     int i = ic - '0';
-                    ostd::ConstCharRange sub = (i < n) ? v[i].get_str() : "";
+                    ostd::ConstCharRange sub = (i < int(args.size()))
+                        ? args[i].get_str() : "";
                     s.push_n(sub.data(), sub.size());
                 } else s.push(ic);
             } else s.push(c);
@@ -4778,15 +4781,15 @@ void init_lib_string(CsState &cs) {
     });
 
 #define CS_CMD_CMPS(name, op) \
-    cs.add_command(#name, "s1V", [](CsState &cs, TaggedValue *args, \
-                                    int numargs) { \
+    cs.add_command(#name, "s1V", [](CsState &cs, \
+                                    ostd::PointerRange<TaggedValue> args) { \
         bool val; \
-        if (numargs >= 2) { \
+        if (args.size() >= 2) { \
             val = strcmp(args[0].s, args[1].s) op 0; \
-            for (int i = 2; i < numargs && val; ++i) \
+            for (ostd::Size i = 2; i < args.size() && val; ++i) \
                 val = strcmp(args[i-1].s, args[i].s) op 0; \
         } else \
-            val = (numargs > 0 ? args[0].s[0] : 0) op 0; \
+            val = (!args.empty() ? args[0].s[0] : 0) op 0; \
         cs.result->set_int(int(val)); \
     })
 
