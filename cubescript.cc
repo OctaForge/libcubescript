@@ -2449,7 +2449,6 @@ using CommandFunc10 = void (__cdecl *)(CsState &, void *, void *, void *, void *
 using CommandFunc11 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
 using CommandFunc12 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
 using CommandFuncTv = void (__cdecl *)(CsState &, TvalRange);
-using CommandFuncTvn = void (__cdecl *)(CsState &, TvalRange, ostd::Size);
 using CommandFuncS = void (__cdecl *)(CsState &, ostd::ConstCharRange);
 
 static const ostd::Uint32 *skipcode(const ostd::Uint32 *code, TaggedValue &result = no_ret) {
@@ -2582,10 +2581,7 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
         }
         case 'V':
             i = ostd::max(i + 1, numargs);
-            if (*(fmt + 1) == 'N')
-                ((CommandFuncTvn)id->fun)(cs, ostd::iter(args, i), numargs);
-            else
-                ((CommandFuncTv)id->fun)(cs, ostd::iter(args, i));
+            ((CommandFuncTv)id->fun)(cs, ostd::iter(args, i));
             goto cleanup;
         case '1':
         case '2':
