@@ -161,6 +161,8 @@ private:
     int p_type;
 };
 
+using TvalRange = ostd::PointerRange<TaggedValue>;
+
 struct IdentStack {
     IdentValue val;
     int valtype;
@@ -352,24 +354,23 @@ struct CsState {
 
     ostd::String run_str(const ostd::Uint32 *code);
     ostd::String run_str(ostd::ConstCharRange code);
-    ostd::String run_str(Ident *id, ostd::PointerRange<TaggedValue> args);
+    ostd::String run_str(Ident *id, TvalRange args);
 
     int run_int(const ostd::Uint32 *code);
     int run_int(ostd::ConstCharRange code);
-    int run_int(Ident *id, ostd::PointerRange<TaggedValue> args);
+    int run_int(Ident *id, TvalRange args);
 
     float run_float(const ostd::Uint32 *code);
     float run_float(ostd::ConstCharRange code);
-    float run_float(Ident *id, ostd::PointerRange<TaggedValue> args);
+    float run_float(Ident *id, TvalRange args);
 
     bool run_bool(const ostd::Uint32 *code);
     bool run_bool(ostd::ConstCharRange code);
-    bool run_bool(Ident *id, ostd::PointerRange<TaggedValue> args);
+    bool run_bool(Ident *id, TvalRange args);
 
     void run_ret(const ostd::Uint32 *code, TaggedValue &result);
     void run_ret(ostd::ConstCharRange code, TaggedValue &result);
-    void run_ret(Ident *id, ostd::PointerRange<TaggedValue> args,
-                 TaggedValue &result);
+    void run_ret(Ident *id, TvalRange args, TaggedValue &result);
 
     void run_ret(const ostd::Uint32 *code) {
         run_ret(code, *result);
@@ -379,7 +380,7 @@ struct CsState {
         run_ret(code, *result);
     }
 
-    void run_ret(Ident *id, ostd::PointerRange<TaggedValue> args) {
+    void run_ret(Ident *id, TvalRange args) {
         run_ret(id, args, *result);
     }
 
@@ -395,7 +396,7 @@ struct CsState {
                      bool dofunc = true);
 
     void set_var_int_checked(Ident *id, int v);
-    void set_var_int_checked(Ident *id, ostd::PointerRange<TaggedValue> args);
+    void set_var_int_checked(Ident *id, TvalRange args);
     void set_var_float_checked(Ident *id, float v);
     void set_var_str_checked(Ident *id, ostd::ConstCharRange v);
 

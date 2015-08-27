@@ -876,8 +876,7 @@ void CsState::set_var_int_checked(Ident *id, int v) {
     id->changed(*this);
 }
 
-void CsState::set_var_int_checked(Ident *id,
-                                  ostd::PointerRange<TaggedValue> args) {
+void CsState::set_var_int_checked(Ident *id, TvalRange args) {
     int v = args[0].force_int();
     if ((id->flags & IDF_HEX) && (args.size() > 1)) {
         v = (v << 16) | (args[1].force_int() << 8);
@@ -1063,7 +1062,7 @@ ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
     return str;
 }
 
-static char *conc(ostd::Vector<char> &buf, ostd::PointerRange<TaggedValue> v, bool space, const char *prefix = nullptr, int prefixlen = 0) {
+static char *conc(ostd::Vector<char> &buf, TvalRange v, bool space, const char *prefix = nullptr, int prefixlen = 0) {
     if (prefix) {
         buf.push_n(prefix, prefixlen);
         if (space && !v.empty()) buf.push(' ');
@@ -1097,7 +1096,7 @@ haslen:
     return buf.data();
 }
 
-static char *conc(ostd::PointerRange<TaggedValue> v, bool space, const char *prefix, int prefixlen) {
+static char *conc(TvalRange v, bool space, const char *prefix, int prefixlen) {
     static int vlen[MAX_ARGUMENTS];
     static char numbuf[3 * 256];
     int len = prefixlen, numlen = 0, i = 0;
@@ -1150,7 +1149,7 @@ overflow:
     return buf;
 }
 
-static inline char *conc(ostd::PointerRange<TaggedValue> v, bool space) {
+static inline char *conc(TvalRange v, bool space) {
     return conc(v, space, nullptr, 0);
 }
 
@@ -2449,7 +2448,7 @@ using CommandFunc9 = void (__cdecl *)(CsState &, void *, void *, void *, void *,
 using CommandFunc10 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
 using CommandFunc11 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
 using CommandFunc12 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
-using CommandFuncTv = void (__cdecl *)(CsState &, ostd::PointerRange<TaggedValue>);
+using CommandFuncTv = void (__cdecl *)(CsState &, TvalRange);
 using CommandFuncS = void (__cdecl *)(CsState &, ostd::ConstCharRange);
 
 static const ostd::Uint32 *skipcode(const ostd::Uint32 *code, TaggedValue &result = no_ret) {
@@ -3335,8 +3334,7 @@ void CsState::run_ret(ostd::ConstCharRange code, TaggedValue &result) {
 }
 
 /* TODO */
-void CsState::run_ret(Ident *id, ostd::PointerRange<TaggedValue> args,
-                      TaggedValue &ret) {
+void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
     int numargs = int(args.size());
     ret.set_null();
     ++rundepth;
@@ -3407,7 +3405,7 @@ ostd::String CsState::run_str(ostd::ConstCharRange code) {
     return ret;
 }
 
-ostd::String CsState::run_str(Ident *id, ostd::PointerRange<TaggedValue> args) {
+ostd::String CsState::run_str(Ident *id, TvalRange args) {
     TaggedValue result;
     run_ret(id, args, result);
     if (result.get_type() == VAL_NULL) return nullptr;
@@ -3437,7 +3435,7 @@ int CsState::run_int(ostd::ConstCharRange p) {
     return i;
 }
 
-int CsState::run_int(Ident *id, ostd::PointerRange<TaggedValue> args) {
+int CsState::run_int(Ident *id, TvalRange args) {
     TaggedValue result;
     run_ret(id, args, result);
     int i = result.get_int();
@@ -3461,7 +3459,7 @@ float CsState::run_float(ostd::ConstCharRange code) {
     return f;
 }
 
-float CsState::run_float(Ident *id, ostd::PointerRange<TaggedValue> args) {
+float CsState::run_float(Ident *id, TvalRange args) {
     TaggedValue result;
     run_ret(id, args, result);
     float f = result.get_float();
@@ -3485,7 +3483,7 @@ bool CsState::run_bool(ostd::ConstCharRange code) {
     return b;
 }
 
-bool CsState::run_bool(Ident *id, ostd::PointerRange<TaggedValue> args) {
+bool CsState::run_bool(Ident *id, TvalRange args) {
     TaggedValue result;
     run_ret(id, args, result);
     bool b = cs_get_bool(result);
@@ -3560,8 +3558,7 @@ void init_lib_base(CsState &cs) {
         cs.result->set_int(!cs_get_bool(*a));
     }, ID_NOT);
 
-    cs.add_command("&&", "E1V", [](CsState &cs,
-                                   ostd::PointerRange<TaggedValue> args) {
+    cs.add_command("&&", "E1V", [](CsState &cs, TvalRange args) {
         if (args.empty())
             cs.result->set_int(1);
         else for (ostd::Size i = 0; i < args.size(); ++i) {
@@ -3574,8 +3571,7 @@ void init_lib_base(CsState &cs) {
         }
     }, ID_AND);
 
-    cs.add_command("||", "E1V", [](CsState &cs,
-                                   ostd::PointerRange<TaggedValue> args) {
+    cs.add_command("||", "E1V", [](CsState &cs, TvalRange args) {
         if (args.empty())
             cs.result->set_int(0);
         else for (ostd::Size i = 0; i < args.size(); ++i) {
@@ -3593,8 +3589,7 @@ void init_lib_base(CsState &cs) {
         cs.result->set(*(cs_get_bool(*cond) ? t : f));
     });
 
-    cs.add_command("cond", "ee2V", [](CsState &cs,
-                                      ostd::PointerRange<TaggedValue> args) {
+    cs.add_command("cond", "ee2V", [](CsState &cs, TvalRange args) {
         for (ostd::Size i = 0; i < args.size(); i += 2) {
             if ((i + 1) < args.size()) {
                 if (cs.run_bool(args[i].code)) {
@@ -3609,8 +3604,7 @@ void init_lib_base(CsState &cs) {
     });
 
 #define CS_CMD_CASE(name, fmt, type, acc, compare) \
-    cs.add_command(name, fmt "te2V", [](CsState &cs, \
-                                        ostd::PointerRange<TaggedValue> args) { \
+    cs.add_command(name, fmt "te2V", [](CsState &cs, TvalRange args) { \
         type val = acc; \
         ostd::Size i; \
         for (i = 1; (i + 1) < args.size(); i += 2) { \
@@ -4002,8 +3996,7 @@ void init_lib_list(CsState &cs) {
         cs.result->set_int(int(util::list_length(s)));
     });
 
-    cs.add_command("at", "si1V", [](CsState &cs,
-                                    ostd::PointerRange<TaggedValue> args) {
+    cs.add_command("at", "si1V", [](CsState &cs, TvalRange args) {
         if (args.empty())
             return;
         ostd::ConstCharRange str = args[0].get_str();
@@ -4524,8 +4517,7 @@ void init_lib_math(CsState &cs) {
     });
 
 #define CS_CMD_MIN_MAX(name, fmt, type, op) \
-    cs.add_command(#name, #fmt "1V", [](CsState &cs, \
-                                        ostd::PointerRange<TaggedValue> args) { \
+    cs.add_command(#name, #fmt "1V", [](CsState &cs, TvalRange args) { \
         type v = !args.empty() ? args[0].fmt : 0; \
         for (ostd::Size i = 1; i < args.size(); ++i) v = op(v, args[i].fmt); \
         cs.result->set_##type(v); \
@@ -4565,8 +4557,7 @@ void init_lib_math(CsState &cs) {
     });
 
 #define CS_CMD_MATH(name, fmt, type, op, initval, unaryop) \
-    cs.add_command(name, #fmt "1V", [](CsState &, \
-                                       ostd::PointerRange<TaggedValue> args) { \
+    cs.add_command(name, #fmt "1V", [](CsState &, TvalRange args) { \
         type val; \
         if (args.size() >= 2) { \
             val = args[0].fmt; \
@@ -4634,8 +4625,7 @@ void init_lib_math(CsState &cs) {
 #undef CS_CMD_MATH
 
 #define CS_CMD_CMP(name, fmt, type, op) \
-    cs.add_command(name, #fmt "1V", [](CsState &cs, \
-                                       ostd::PointerRange<TaggedValue> args) { \
+    cs.add_command(name, #fmt "1V", [](CsState &cs, TvalRange args) { \
         bool val; \
         if (args.size() >= 2) { \
             val = args[0].fmt op args[1].fmt; \
@@ -4729,18 +4719,15 @@ void init_lib_string(CsState &cs) {
         cs.result->set_str(ostd::CharRange(buf, len));
     });
 
-    cs.add_command("concat", "V", [](CsState &cs,
-                                     ostd::PointerRange<TaggedValue> args) {
+    cs.add_command("concat", "V", [](CsState &cs, TvalRange args) {
         cs.result->set_str(conc(args, true));
     });
 
-    cs.add_command("concatworld", "V", [](CsState &cs,
-                                          ostd::PointerRange<TaggedValue> args) {
+    cs.add_command("concatworld", "V", [](CsState &cs, TvalRange args) {
         cs.result->set_str(conc(args, false));
     });
 
-    cs.add_command("format", "V", [](CsState &cs,
-                                     ostd::PointerRange<TaggedValue> args) {
+    cs.add_command("format", "V", [](CsState &cs, TvalRange args) {
         if (args.empty())
             return;
         ostd::Vector<char> s;
@@ -4782,8 +4769,7 @@ void init_lib_string(CsState &cs) {
     });
 
 #define CS_CMD_CMPS(name, op) \
-    cs.add_command(#name, "s1V", [](CsState &cs, \
-                                    ostd::PointerRange<TaggedValue> args) { \
+    cs.add_command(#name, "s1V", [](CsState &cs, TvalRange args) { \
         bool val; \
         if (args.size() >= 2) { \
             val = strcmp(args[0].s, args[1].s) op 0; \
