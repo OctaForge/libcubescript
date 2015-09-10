@@ -1,3 +1,6 @@
+#ifndef CUBESCRIPT_HH
+#define CUBESCRIPT_HH
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -528,3 +531,5 @@ namespace util {
 }
 
 } /* namespace cscript */
+
+#endif /* CUBESCRIPT_HH */
