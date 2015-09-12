@@ -387,7 +387,7 @@ struct CsState {
         run_ret(id, args, *result);
     }
 
-    bool run_file(ostd::ConstCharRange fname, bool msg = true);
+    bool run_file(ostd::ConstCharRange fname);
 
     void set_alias(ostd::ConstCharRange name, TaggedValue &v);
 

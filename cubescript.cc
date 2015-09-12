@@ -3491,19 +3491,20 @@ bool CsState::run_bool(Ident *id, TvalRange args) {
     return b;
 }
 
-bool CsState::run_file(ostd::ConstCharRange fname, bool msg) {
+bool CsState::run_file(ostd::ConstCharRange fname) {
     ostd::ConstCharRange oldsrcfile = src_file, oldsrcstr = src_str;
     char *buf = nullptr;
     ostd::Size len;
 
     ostd::FileStream f(fname, ostd::StreamMode::read);
-    if (!f.is_open()) goto error;
+    if (!f.is_open())
+        return false;
 
     len = f.size();
     buf = new char[len + 1];
     if (f.get(buf, len) != len) {
         delete[] buf;
-        goto error;
+        return false;
     }
     buf[len] = '\0';
 
@@ -3514,15 +3515,17 @@ bool CsState::run_file(ostd::ConstCharRange fname, bool msg) {
     src_str = oldsrcstr;
     delete[] buf;
     return true;
-
-error:
-    if (msg) ostd::err.writefln("could not read file \"%s\"", fname);
-    return false;
 }
 
 void init_lib_io(CsState &cs) {
     cs.add_command("exec", "sb", [](CsState &cs, char *file, int *msg) {
-        cs.result->set_int(cs.run_file(file, *msg != 0) ? 1 : 0);
+        bool ret = cs.run_file(file);
+        if (!ret) {
+            if (*msg)
+                ostd::err.writefln("could not run file \"%s\"", file);
+            cs.result->set_int(0);
+        } else
+            cs.result->set_int(1);
     });
 
     cs.add_command("echo", "C", [](CsState &, ostd::ConstCharRange s) {
