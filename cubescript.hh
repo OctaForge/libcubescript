@@ -180,7 +180,7 @@ union IdentValuePtr {
 
 struct CsState;
 
-using IdentFunc = void (__cdecl *)(CsState &cs, Ident *id);
+using IdentFunc = void (*)(CsState &cs, Ident *id);
 
 struct Ident {
     ostd::byte type; /* ID_something */

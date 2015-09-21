@@ -2435,21 +2435,21 @@ void bcode_unref(ostd::Uint32 *code) {
     }
 }
 
-using CommandFunc = void (__cdecl *)(CsState &);
-using CommandFunc1 = void (__cdecl *)(CsState &, void *);
-using CommandFunc2 = void (__cdecl *)(CsState &, void *, void *);
-using CommandFunc3 = void (__cdecl *)(CsState &, void *, void *, void *);
-using CommandFunc4 = void (__cdecl *)(CsState &, void *, void *, void *, void *);
-using CommandFunc5 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *);
-using CommandFunc6 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *);
-using CommandFunc7 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *, void *);
-using CommandFunc8 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *);
-using CommandFunc9 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *);
-using CommandFunc10 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
-using CommandFunc11 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
-using CommandFunc12 = void (__cdecl *)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
-using CommandFuncTv = void (__cdecl *)(CsState &, TvalRange);
-using CommandFuncS = void (__cdecl *)(CsState &, ostd::ConstCharRange);
+using CommandFunc = void (*)(CsState &);
+using CommandFunc1 = void (*)(CsState &, void *);
+using CommandFunc2 = void (*)(CsState &, void *, void *);
+using CommandFunc3 = void (*)(CsState &, void *, void *, void *);
+using CommandFunc4 = void (*)(CsState &, void *, void *, void *, void *);
+using CommandFunc5 = void (*)(CsState &, void *, void *, void *, void *, void *);
+using CommandFunc6 = void (*)(CsState &, void *, void *, void *, void *, void *, void *);
+using CommandFunc7 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *);
+using CommandFunc8 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *);
+using CommandFunc9 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *);
+using CommandFunc10 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
+using CommandFunc11 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
+using CommandFunc12 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
+using CommandFuncTv = void (*)(CsState &, TvalRange);
+using CommandFuncS = void (*)(CsState &, ostd::ConstCharRange);
 
 static const ostd::Uint32 *skipcode(const ostd::Uint32 *code, TaggedValue &result = no_ret) {
     int depth = 0;
