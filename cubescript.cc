@@ -79,7 +79,7 @@ static inline bool cs_check_num(ostd::ConstCharRange s) {
 Ident::Ident(int t, ostd::ConstCharRange n, int m, int x, int *s,
              IdentFunc f, int flags)
     : type(t), flags(flags | (m > x ? IDF_READONLY : 0)), name(n),
-      minval(m), maxval(x), fun(f) {
+      minval(m), maxval(x), cb_var(f) {
     storage.ip = s;
 }
 
@@ -87,13 +87,13 @@ Ident::Ident(int t, ostd::ConstCharRange n, int m, int x, int *s,
 Ident::Ident(int t, ostd::ConstCharRange n, float m, float x, float *s,
              IdentFunc f, int flags)
     : type(t), flags(flags | (m > x ? IDF_READONLY : 0)), name(n),
-      minvalf(m), maxvalf(x), fun(f) {
+      minvalf(m), maxvalf(x), cb_var(f) {
     storage.fp = s;
 }
 
 /* ID_SVAR */
 Ident::Ident(int t, ostd::ConstCharRange n, char **s, IdentFunc f, int flags)
-    : type(t), flags(flags), name(n), fun(f) {
+    : type(t), flags(flags), name(n), cb_var(f) {
     storage.sp = s;
 }
 
@@ -128,7 +128,7 @@ Ident::Ident(int t, ostd::ConstCharRange n, ostd::ConstCharRange args,
              ostd::Uint32 argmask, int numargs, IdentFunc f, int flags)
     : type(t), numargs(numargs), flags(flags), name(n),
       args(!args.empty() ? cs_dup_ostr(args) : nullptr),
-      argmask(argmask), fun(f) {
+      argmask(argmask), cb_var(f) {
 }
 
 const struct NullValue: TaggedValue {
@@ -2435,22 +2435,6 @@ void bcode_unref(ostd::Uint32 *code) {
     }
 }
 
-using CommandFunc = void (*)(CsState &);
-using CommandFunc1 = void (*)(CsState &, void *);
-using CommandFunc2 = void (*)(CsState &, void *, void *);
-using CommandFunc3 = void (*)(CsState &, void *, void *, void *);
-using CommandFunc4 = void (*)(CsState &, void *, void *, void *, void *);
-using CommandFunc5 = void (*)(CsState &, void *, void *, void *, void *, void *);
-using CommandFunc6 = void (*)(CsState &, void *, void *, void *, void *, void *, void *);
-using CommandFunc7 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *);
-using CommandFunc8 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *);
-using CommandFunc9 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *);
-using CommandFunc10 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
-using CommandFunc11 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
-using CommandFunc12 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
-using CommandFuncTv = void (*)(CsState &, TvalRange);
-using CommandFuncS = void (*)(CsState &, ostd::ConstCharRange);
-
 static const ostd::Uint32 *skipcode(const ostd::Uint32 *code, TaggedValue &result = no_ret) {
     int depth = 0;
     for (;;) {
@@ -2576,12 +2560,12 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
         case 'C': {
             i = ostd::max(i + 1, numargs);
             ostd::Vector<char> buf;
-            ((CommandFuncS)id->fun)(cs, conc(buf, ostd::iter(args, i), true));
+            id->cb_cfs(cs, conc(buf, ostd::iter(args, i), true));
             goto cleanup;
         }
         case 'V':
             i = ostd::max(i + 1, numargs);
-            ((CommandFuncTv)id->fun)(cs, ostd::iter(args, i));
+            id->cb_cftv(cs, ostd::iter(args, i));
             goto cleanup;
         case '1':
         case '2':
@@ -2599,19 +2583,19 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
 #define CALLCOM(n) \
         switch(n) \
         { \
-            case 0: ((CommandFunc)id->fun)(cs); break; \
-            case 1: ((CommandFunc1)id->fun)(cs, ARG(0)); break; \
-            case 2: ((CommandFunc2)id->fun)(cs, ARG(0), ARG(1)); break; \
-            case 3: ((CommandFunc3)id->fun)(cs, ARG(0), ARG(1), ARG(2)); break; \
-            case 4: ((CommandFunc4)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3)); break; \
-            case 5: ((CommandFunc5)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4)); break; \
-            case 6: ((CommandFunc6)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5)); break; \
-            case 7: ((CommandFunc7)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6)); break; \
-            case 8: ((CommandFunc8)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7)); break; \
-            case 9: ((CommandFunc9)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8)); break; \
-            case 10: ((CommandFunc10)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9)); break; \
-            case 11: ((CommandFunc11)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9), ARG(10)); break; \
-            case 12: ((CommandFunc12)id->fun)(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9), ARG(10), ARG(11)); break; \
+            case 0: id->cb_cf0(cs); break; \
+            case 1: id->cb_cf1(cs, ARG(0)); break; \
+            case 2: id->cb_cf2(cs, ARG(0), ARG(1)); break; \
+            case 3: id->cb_cf3(cs, ARG(0), ARG(1), ARG(2)); break; \
+            case 4: id->cb_cf4(cs, ARG(0), ARG(1), ARG(2), ARG(3)); break; \
+            case 5: id->cb_cf5(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4)); break; \
+            case 6: id->cb_cf6(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5)); break; \
+            case 7: id->cb_cf7(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6)); break; \
+            case 8: id->cb_cf8(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7)); break; \
+            case 9: id->cb_cf9(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8)); break; \
+            case 10: id->cb_cf10(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9)); break; \
+            case 11: id->cb_cf11(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9), ARG(10)); break; \
+            case 12: id->cb_cf12(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9), ARG(10), ARG(11)); break; \
         }
     CALLCOM(i)
 #undef OFFSETARG
@@ -3126,7 +3110,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             Ident *id = cs.identmap[op >> 13];
             int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
             result.force_null();
-            ((CommandFuncTv)id->fun)(cs, ostd::iter(&args[offset], callargs));
+            id->cb_cftv(cs, ostd::iter(&args[offset], callargs));
             result.force(op & CODE_RET_MASK);
             free_args(args, numargs, offset);
             continue;
@@ -3141,7 +3125,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             {
                 ostd::Vector<char> buf;
                 buf.reserve(256);
-                ((CommandFuncS)id->fun)(cs, conc(buf, ostd::iter(&args[offset], callargs), true));
+                id->cb_cfs(cs, conc(buf, ostd::iter(&args[offset], callargs), true));
             }
             result.force(op & CODE_RET_MASK);
             free_args(args, numargs, offset);
@@ -3274,7 +3258,7 @@ noid:
             result.force_null();
             switch (id->type) {
             default:
-                if (!id->fun) FORCERESULT;
+                if (!id->cb_var) FORCERESULT;
             /* fallthrough */
             case ID_COMMAND:
                 idarg.cleanup();
@@ -3343,7 +3327,7 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
     if (rundepth > MAXRUNDEPTH) cs_debug_code(*this, "exceeded recursion limit");
     else if (id) switch (id->type) {
         default:
-            if (!id->fun) break;
+            if (!id->cb_var) break;
         /* fallthrough */
         case ID_COMMAND:
             if (numargs < id->numargs) {

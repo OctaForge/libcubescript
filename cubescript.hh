@@ -181,6 +181,21 @@ union IdentValuePtr {
 struct CsState;
 
 using IdentFunc = void (*)(CsState &cs, Ident *id);
+using CommandFunc = void (*)(CsState &);
+using CommandFunc1 = void (*)(CsState &, void *);
+using CommandFunc2 = void (*)(CsState &, void *, void *);
+using CommandFunc3 = void (*)(CsState &, void *, void *, void *);
+using CommandFunc4 = void (*)(CsState &, void *, void *, void *, void *);
+using CommandFunc5 = void (*)(CsState &, void *, void *, void *, void *, void *);
+using CommandFunc6 = void (*)(CsState &, void *, void *, void *, void *, void *, void *);
+using CommandFunc7 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *);
+using CommandFunc8 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *);
+using CommandFunc9 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *);
+using CommandFunc10 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
+using CommandFunc11 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
+using CommandFunc12 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
+using CommandFuncTv = void (*)(CsState &, TvalRange);
+using CommandFuncS = void (*)(CsState &, ostd::ConstCharRange);
 
 struct Ident {
     ostd::byte type; /* ID_something */
@@ -214,7 +229,24 @@ struct Ident {
             ostd::Uint32 argmask;
         };
     };
-    IdentFunc fun; /* ID_VAR, ID_FVAR, ID_SVAR, ID_COMMAND */
+    union {
+        IdentFunc cb_var;
+        CommandFunc cb_cf0;
+        CommandFunc1 cb_cf1;
+        CommandFunc2 cb_cf2;
+        CommandFunc3 cb_cf3;
+        CommandFunc4 cb_cf4;
+        CommandFunc5 cb_cf5;
+        CommandFunc6 cb_cf6;
+        CommandFunc7 cb_cf7;
+        CommandFunc8 cb_cf8;
+        CommandFunc9 cb_cf9;
+        CommandFunc10 cb_cf10;
+        CommandFunc11 cb_cf11;
+        CommandFunc12 cb_cf12;
+        CommandFuncTv cb_cftv;
+        CommandFuncS cb_cfs;
+    };
 
     Ident(): type(ID_UNKNOWN) {}
 
@@ -243,7 +275,7 @@ struct Ident {
           int flags = 0);
 
     void changed(CsState &cs) {
-        if (fun) fun(cs, this);
+        if (cb_var) cb_var(cs, this);
     }
 
     void set_value(const TaggedValue &v) {
