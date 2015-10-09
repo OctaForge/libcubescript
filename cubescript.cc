@@ -2597,7 +2597,11 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
             case 11: id->cb_cf11(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9), ARG(10)); break; \
             case 12: id->cb_cf12(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9), ARG(10), ARG(11)); break; \
         }
-    CALLCOM(i)
+    if (id->flags & IDF_NOEXPAND) {
+        id->cb_cftv(cs, TvalRange(args, i));
+    } else {
+        CALLCOM(i)
+    }
 #undef OFFSETARG
 cleanup:
     for (ostd::Size k = 0; k < ostd::Size(i); ++k) args[k].cleanup();
@@ -3096,7 +3100,11 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             Ident *id = cs.identmap[op >> 8];
             int offset = numargs - id->numargs;
             result.force_null();
-            CALLCOM(id->numargs)
+            if (id->flags & IDF_NOEXPAND) {
+                id->cb_cftv(cs, TvalRange(args + offset, id->numargs));
+            } else {
+                CALLCOM(id->numargs)
+            }
             result.force(op & CODE_RET_MASK);
             free_args(args, numargs, offset);
             continue;

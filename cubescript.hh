@@ -80,7 +80,8 @@ enum {
     IDF_READONLY   = 1 << 3,
     IDF_OVERRIDDEN = 1 << 4,
     IDF_UNKNOWN    = 1 << 5,
-    IDF_ARG        = 1 << 6
+    IDF_ARG        = 1 << 6,
+    IDF_NOEXPAND   = 1 << 7
 };
 
 struct Ident;
