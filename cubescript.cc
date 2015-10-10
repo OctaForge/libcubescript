@@ -929,7 +929,7 @@ void CsState::set_var_str_checked(Ident *id, ostd::ConstCharRange v) {
 }
 
 bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
-                          IdentFunc func, int type) {
+                          IdentFunc func, int type, int flags) {
     ostd::Uint32 argmask = 0;
     int nargs = 0;
     bool limit = true;
@@ -979,7 +979,7 @@ bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
                            name, nargs);
         return false;
     }
-    add_ident(type, name, args, argmask, nargs, func);
+    add_ident(type, name, args, argmask, nargs, func, flags);
     return true;
 }
 

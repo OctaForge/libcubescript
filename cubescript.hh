@@ -380,13 +380,14 @@ struct CsState {
 
     template<typename F>
     bool add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
-                     F func, int type = ID_COMMAND) {
+                     F func, int type = ID_COMMAND, int flags = 0) {
         return add_command(name, args,
-            (IdentFunc)(ostd::FunctionMakeDefaultConstructible<F>)func, type);
+            (IdentFunc)(ostd::FunctionMakeDefaultConstructible<F>)func,
+            type, flags);
     }
 
     bool add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
-                     IdentFunc func, int type = ID_COMMAND);
+                     IdentFunc func, int type = ID_COMMAND, int flags = 0);
 
     ostd::String run_str(const ostd::Uint32 *code);
     ostd::String run_str(ostd::ConstCharRange code);
