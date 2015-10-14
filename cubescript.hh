@@ -159,6 +159,10 @@ struct TaggedValue: IdentValue {
     ostd::ConstCharRange force_str();
     void force(int type);
 
+    ostd::Uint32 *get_mcode() const {
+        return (ostd::Uint32 *)code;
+    }
+
     void cleanup();
 
 private:

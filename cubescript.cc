@@ -387,7 +387,7 @@ void CsState::print_var(Ident *id) {
     }
 }
 
-inline void TaggedValue::cleanup() {
+void TaggedValue::cleanup() {
     switch (get_type()) {
     case VAL_STR:
         delete[] s;
@@ -398,13 +398,13 @@ inline void TaggedValue::cleanup() {
     }
 }
 
-inline void TaggedValue::force_null() {
+void TaggedValue::force_null() {
     if (get_type() == VAL_NULL) return;
     cleanup();
     set_null();
 }
 
-inline float TaggedValue::force_float() {
+float TaggedValue::force_float() {
     float rf = 0.0f;
     switch (get_type()) {
     case VAL_INT:
@@ -423,7 +423,7 @@ inline float TaggedValue::force_float() {
     return rf;
 }
 
-inline int TaggedValue::force_int() {
+int TaggedValue::force_int() {
     int ri = 0;
     switch (get_type()) {
     case VAL_FLOAT:
@@ -442,7 +442,7 @@ inline int TaggedValue::force_int() {
     return ri;
 }
 
-inline ostd::ConstCharRange TaggedValue::force_str() {
+ostd::ConstCharRange TaggedValue::force_str() {
     const char *rs = "";
     switch (get_type()) {
     case VAL_FLOAT:
@@ -463,7 +463,7 @@ inline ostd::ConstCharRange TaggedValue::force_str() {
     return s;
 }
 
-inline void TaggedValue::force(int type) {
+void TaggedValue::force(int type) {
     switch (get_type()) {
     case RET_STR:
         if (type != VAL_STR) force_str();
@@ -491,11 +491,11 @@ static inline int cs_get_int(const IdentValue &v, int type) {
     return 0;
 }
 
-inline int TaggedValue::get_int() const {
+int TaggedValue::get_int() const {
     return cs_get_int(*this, get_type());
 }
 
-inline int Ident::get_int() const {
+int Ident::get_int() const {
     return cs_get_int(val, get_valtype());
 }
 
@@ -513,11 +513,11 @@ static inline float cs_get_float(const IdentValue &v, int type) {
     return 0.0f;
 }
 
-inline float TaggedValue::get_float() const {
+float TaggedValue::get_float() const {
     return cs_get_float(*this, get_type());
 }
 
-inline float Ident::get_float() const {
+float Ident::get_float() const {
     return cs_get_float(val, get_valtype());
 }
 
@@ -535,11 +535,11 @@ static inline ostd::ConstCharRange cs_get_str(const IdentValue &v, int type, int
     return "";
 }
 
-inline ostd::ConstCharRange TaggedValue::get_str() const {
+ostd::ConstCharRange TaggedValue::get_str() const {
     return cs_get_str(*this, get_type(), p_type >> 4);
 }
 
-inline ostd::ConstCharRange Ident::get_str() const {
+ostd::ConstCharRange Ident::get_str() const {
     return cs_get_str(val, get_valtype(), valtype >> 4);
 }
 
@@ -563,15 +563,15 @@ static inline void cs_get_val(const IdentValue &v, int type, int len, TaggedValu
     }
 }
 
-inline void TaggedValue::get_val(TaggedValue &r) const {
+void TaggedValue::get_val(TaggedValue &r) const {
     cs_get_val(*this, get_type(), p_type >> 4, r);
 }
 
-inline void Ident::get_val(TaggedValue &r) const {
+void Ident::get_val(TaggedValue &r) const {
     cs_get_val(val, get_valtype(), valtype >> 4, r);
 }
 
-inline void Ident::get_cstr(TaggedValue &v) const {
+void Ident::get_cstr(TaggedValue &v) const {
     switch (get_valtype()) {
     case VAL_MACRO:
         v.set_macro(val.code);
@@ -592,7 +592,7 @@ inline void Ident::get_cstr(TaggedValue &v) const {
     }
 }
 
-inline void Ident::get_cval(TaggedValue &v) const {
+void Ident::get_cval(TaggedValue &v) const {
     switch (get_valtype()) {
     case VAL_MACRO:
         v.set_macro(val.code);
