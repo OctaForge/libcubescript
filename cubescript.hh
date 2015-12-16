@@ -492,6 +492,11 @@ struct StackedValue: TaggedValue {
         pop();
     }
 
+    bool alias(CsState &cs, ostd::ConstCharRange name) {
+        id = cs.new_ident(name);
+        return check_alias(id);
+    }
+
     bool push() {
         if (p_pushed || !id) return false;
         id->push_arg(*this, p_stack);
