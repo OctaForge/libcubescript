@@ -472,6 +472,33 @@ struct CsState {
 void bcode_ref(ostd::Uint32 *p);
 void bcode_unref(ostd::Uint32 *p);
 
+struct Bytecode {
+    Bytecode(): p_code(nullptr) {}
+    Bytecode(ostd::Uint32 *v): p_code(v) { bcode_ref(p_code); }
+    Bytecode(const Bytecode &v): p_code(v.p_code) { bcode_ref(p_code); }
+    Bytecode(Bytecode &&v): p_code(v.p_code) { v.p_code = nullptr; }
+
+    ~Bytecode() { bcode_unref(p_code); }
+
+    Bytecode &operator=(const Bytecode &v) {
+        bcode_unref(p_code);
+        p_code = v.p_code;
+        bcode_ref(p_code);
+        return *this;
+    }
+
+    Bytecode &operator=(Bytecode &&v) {
+        bcode_unref(p_code);
+        p_code = v.p_code;
+        v.p_code = nullptr;
+        return *this;
+    }
+
+    operator ostd::Uint32 *() const { return p_code; }
+private:
+    ostd::Uint32 *p_code;
+};
+
 void init_lib_base(CsState &cs);
 void init_lib_io(CsState &cs);
 void init_lib_math(CsState &cs);
