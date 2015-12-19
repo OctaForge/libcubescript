@@ -494,6 +494,7 @@ struct Bytecode {
         return *this;
     }
 
+    operator bool() const { return p_code != nullptr; }
     operator ostd::Uint32 *() const { return p_code; }
 private:
     ostd::Uint32 *p_code;
