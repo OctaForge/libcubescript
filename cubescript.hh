@@ -84,6 +84,38 @@ enum {
     IDF_NOEXPAND   = 1 << 7
 };
 
+void bcode_ref(ostd::Uint32 *p);
+void bcode_unref(ostd::Uint32 *p);
+
+struct Bytecode {
+    Bytecode(): p_code(nullptr) {}
+    Bytecode(ostd::Uint32 *v): p_code(v) { bcode_ref(p_code); }
+    Bytecode(const Bytecode &v): p_code(v.p_code) { bcode_ref(p_code); }
+    Bytecode(Bytecode &&v): p_code(v.p_code) { v.p_code = nullptr; }
+
+    ~Bytecode() { bcode_unref(p_code); }
+
+    Bytecode &operator=(const Bytecode &v) {
+        bcode_unref(p_code);
+        p_code = v.p_code;
+        bcode_ref(p_code);
+        return *this;
+    }
+
+    Bytecode &operator=(Bytecode &&v) {
+        bcode_unref(p_code);
+        p_code = v.p_code;
+        v.p_code = nullptr;
+        return *this;
+    }
+
+    operator bool() const { return p_code != nullptr; }
+    operator ostd::Uint32 *() const { return p_code; }
+
+private:
+    ostd::Uint32 *p_code;
+};
+
 struct Ident;
 
 struct IdentValue {
@@ -467,37 +499,6 @@ struct CsState {
     void print_var_str(Ident *id, ostd::ConstCharRange s);
 
     ostd::Uint32 *compile(ostd::ConstCharRange code);
-};
-
-void bcode_ref(ostd::Uint32 *p);
-void bcode_unref(ostd::Uint32 *p);
-
-struct Bytecode {
-    Bytecode(): p_code(nullptr) {}
-    Bytecode(ostd::Uint32 *v): p_code(v) { bcode_ref(p_code); }
-    Bytecode(const Bytecode &v): p_code(v.p_code) { bcode_ref(p_code); }
-    Bytecode(Bytecode &&v): p_code(v.p_code) { v.p_code = nullptr; }
-
-    ~Bytecode() { bcode_unref(p_code); }
-
-    Bytecode &operator=(const Bytecode &v) {
-        bcode_unref(p_code);
-        p_code = v.p_code;
-        bcode_ref(p_code);
-        return *this;
-    }
-
-    Bytecode &operator=(Bytecode &&v) {
-        bcode_unref(p_code);
-        p_code = v.p_code;
-        v.p_code = nullptr;
-        return *this;
-    }
-
-    operator bool() const { return p_code != nullptr; }
-    operator ostd::Uint32 *() const { return p_code; }
-private:
-    ostd::Uint32 *p_code;
 };
 
 void init_lib_base(CsState &cs);
