@@ -2435,6 +2435,25 @@ void bcode_unref(ostd::Uint32 *code) {
     }
 }
 
+Bytecode::Bytecode(ostd::Uint32 *v): p_code(v) { bcode_ref(p_code); }
+Bytecode::Bytecode(const Bytecode &v): p_code(v.p_code) { bcode_ref(p_code); }
+
+Bytecode::~Bytecode() { bcode_unref(p_code); }
+
+Bytecode &Bytecode::operator=(const Bytecode &v) {
+    bcode_unref(p_code);
+    p_code = v.p_code;
+    bcode_ref(p_code);
+    return *this;
+}
+
+Bytecode &Bytecode::operator=(Bytecode &&v) {
+    bcode_unref(p_code);
+    p_code = v.p_code;
+    v.p_code = nullptr;
+    return *this;
+}
+
 static const ostd::Uint32 *skipcode(const ostd::Uint32 *code, TaggedValue &result = no_ret) {
     int depth = 0;
     for (;;) {
