@@ -12,6 +12,6 @@ Currently the API is unstable and the whole thing is a work in progress.
 
 You can compile your application with it like:
 
-    c++ myapp.cc cubescript.cc -o myapp -std=c++11 -Wall -Wextra -I. -Ipath/to/octastd
+    c++ myapp.cc cubescript.cc -o myapp -std=c++14 -Wall -Wextra -I. -Ipath/to/octastd
 
 See COPYING.md for licensing information.
