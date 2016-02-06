@@ -16,9 +16,9 @@
 
 namespace cscript {
 
-static constexpr int MAX_ARGUMENTS = 25;
-static constexpr int MAX_RESULTS = 7;
-static constexpr int MAX_COMARGS = 12;
+static constexpr int MaxArguments = 25;
+static constexpr int MaxResults = 7;
+static constexpr int MaxComargs = 12;
 
 enum {
     VAL_NULL = 0, VAL_INT, VAL_FLOAT, VAL_STR,
@@ -357,7 +357,7 @@ struct CsState {
     TaggedValue *result = nullptr;
 
     IdentLink noalias = {
-        nullptr, nullptr, (1 << MAX_ARGUMENTS) - 1, nullptr
+        nullptr, nullptr, (1 << MaxArguments) - 1, nullptr
     };
     IdentLink *stack = &noalias;
 

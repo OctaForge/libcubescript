@@ -138,13 +138,13 @@ const struct NullValue: TaggedValue {
 static TaggedValue no_ret = null_value;
 
 CsState::CsState(): result(&no_ret) {
-    for (int i = 0; i < MAX_ARGUMENTS; ++i) {
+    for (int i = 0; i < MaxArguments; ++i) {
         char buf[32];
         snprintf(buf, sizeof(buf), "arg%d", i + 1);
         new_ident((const char *)buf, IDF_ARG);
     }
     dummy = new_ident("//dummy");
-    add_ident(ID_VAR, "numargs", MAX_ARGUMENTS, 0, &numargs);
+    add_ident(ID_VAR, "numargs", MaxArguments, 0, &numargs);
     add_ident(ID_VAR, "dbgalias", 0, 1000, &dbgalias); 
 }
 
@@ -318,7 +318,7 @@ void CsState::set_alias(ostd::ConstCharRange name, TaggedValue &v) {
     if (id) {
         switch (id->type) {
         case ID_ALIAS:
-            if (id->index < MAX_ARGUMENTS)
+            if (id->index < MaxArguments)
                 id->set_arg(*this, v);
             else
                 id->set_alias(*this, v);
@@ -666,12 +666,12 @@ void Ident::redo_arg(const IdentStack &st) {
 }
 
 void Ident::push_alias(IdentStack &stack) {
-    if (type == ID_ALIAS && index >= MAX_ARGUMENTS)
+    if (type == ID_ALIAS && index >= MaxArguments)
         push_arg(null_value, stack);
 }
 
 void Ident::pop_alias() {
-    if (type == ID_ALIAS && index >= MAX_ARGUMENTS) pop_arg();
+    if (type == ID_ALIAS && index >= MaxArguments) pop_arg();
 }
 
 void Ident::set_arg(CsState &cs, TaggedValue &v) {
@@ -694,7 +694,7 @@ void Ident::set_alias(CsState &cs, TaggedValue &v) {
 
 template<typename F>
 static void cs_do_args(CsState &cs, F body) {
-    IdentStack argstack[MAX_ARGUMENTS];
+    IdentStack argstack[MaxArguments];
     int argmask1 = cs.stack->usedargs;
     for (int i = 0; argmask1; argmask1 >>= 1, ++i) if(argmask1 & 1)
         cs.identmap[i]->undo_arg(argstack[i]);
@@ -839,7 +839,7 @@ CsState::get_alias(ostd::ConstCharRange name) {
     Ident *id = idents.at(name);
     if (!id || id->type != ID_ALIAS)
         return ostd::nothing;
-    if ((id->index < MAX_ARGUMENTS) && !(stack->usedargs & (1 << id->index)))
+    if ((id->index < MaxArguments) && !(stack->usedargs & (1 << id->index)))
         return ostd::nothing;
     return id->get_str();
 }
@@ -945,14 +945,14 @@ bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
         case 'E':
         case 'N':
         case 'D':
-            if (nargs < MAX_ARGUMENTS) nargs++;
+            if (nargs < MaxArguments) nargs++;
             break;
         case 'S':
         case 's':
         case 'e':
         case 'r':
         case '$':
-            if (nargs < MAX_ARGUMENTS) {
+            if (nargs < MaxArguments) {
                 argmask |= 1 << nargs;
                 nargs++;
             }
@@ -961,7 +961,7 @@ bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
         case '2':
         case '3':
         case '4':
-            if (nargs < MAX_ARGUMENTS)
+            if (nargs < MaxArguments)
                 fmt.push_front_n(fmt.front() - '0' + 1);
             break;
         case 'C':
@@ -974,7 +974,7 @@ bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
             return false;
         }
     }
-    if (limit && nargs > MAX_COMARGS) {
+    if (limit && nargs > MaxComargs) {
         ostd::err.writefln("builtin %s declared with too many arguments: %d",
                            name, nargs);
         return false;
@@ -992,7 +992,7 @@ static void cs_init_lib_base_var(CsState &cs) {
 
     cs.add_command("push", "rTe", [](CsState &cs, Ident *id,
                                      TaggedValue *v, ostd::Uint32 *code) {
-        if (id->type != ID_ALIAS || id->index < MAX_ARGUMENTS) return;
+        if (id->type != ID_ALIAS || id->index < MaxArguments) return;
         IdentStack stack;
         id->push_arg(*v, stack);
         v->set_null();
@@ -1097,7 +1097,7 @@ haslen:
 }
 
 static char *conc(TvalRange v, bool space, const char *prefix, int prefixlen) {
-    static int vlen[MAX_ARGUMENTS];
+    static int vlen[MaxArguments];
     static char numbuf[3 * 256];
     int len = prefixlen, numlen = 0, i = 0;
     for (; i < int(v.size()); i++) switch (v[i].get_type()) {
@@ -1319,7 +1319,7 @@ struct GenState {
     }
 
     void gen_ident(Ident *id) {
-        code.push(((id->index < MAX_ARGUMENTS) ? CODE_IDENTARG
+        code.push(((id->index < MaxArguments) ? CODE_IDENTARG
                                                : CODE_IDENT) |
                   (id->index << 8));
     }
@@ -1486,9 +1486,9 @@ static inline bool cs_get_bool(const TaggedValue &v) {
 }
 
 static ostd::ConstCharRange unusedword(nullptr, nullptr);
-static bool compilearg(GenState &gs, int wordtype, int prevargs = MAX_RESULTS, ostd::ConstCharRange &word = unusedword);
+static bool compilearg(GenState &gs, int wordtype, int prevargs = MaxResults, ostd::ConstCharRange &word = unusedword);
 
-static void compilelookup(GenState &gs, int ltype, int prevargs = MAX_RESULTS) {
+static void compilelookup(GenState &gs, int ltype, int prevargs = MaxResults) {
     ostd::ConstCharRange lookup;
     gs.next_char();
     switch (gs.current()) {
@@ -1558,21 +1558,21 @@ lookupid:
                     return;
                 case VAL_CANY:
                 case VAL_COND:
-                    gs.code.push((id->index < MAX_ARGUMENTS ? CODE_LOOKUPMARG : CODE_LOOKUPM) | (id->index << 8));
+                    gs.code.push((id->index < MaxArguments ? CODE_LOOKUPMARG : CODE_LOOKUPM) | (id->index << 8));
                     break;
                 case VAL_CSTR:
                 case VAL_CODE:
                 case VAL_IDENT:
-                    gs.code.push((id->index < MAX_ARGUMENTS ? CODE_LOOKUPMARG : CODE_LOOKUPM) | RET_STR | (id->index << 8));
+                    gs.code.push((id->index < MaxArguments ? CODE_LOOKUPMARG : CODE_LOOKUPM) | RET_STR | (id->index << 8));
                     break;
                 default:
-                    gs.code.push((id->index < MAX_ARGUMENTS ? CODE_LOOKUPARG : CODE_LOOKUP) | cs_ret_code(ltype, RET_STR) | (id->index << 8));
+                    gs.code.push((id->index < MaxArguments ? CODE_LOOKUPARG : CODE_LOOKUP) | cs_ret_code(ltype, RET_STR) | (id->index << 8));
                     break;
                 }
                 goto done;
             case ID_COMMAND: {
                 int comtype = CODE_COM, numargs = 0;
-                if (prevargs >= MAX_RESULTS) gs.code.push(CODE_ENTER);
+                if (prevargs >= MaxResults) gs.code.push(CODE_ENTER);
                 for (const char *fmt = id->args; *fmt; fmt++) switch (*fmt) {
                     case 'S':
                         gs.gen_str();
@@ -1633,11 +1633,11 @@ lookupid:
                         break;
                     }
                 gs.code.push(comtype | cs_ret_code(ltype) | (id->index << 8));
-                gs.code.push((prevargs >= MAX_RESULTS ? CODE_EXIT : CODE_RESULT_ARG) | cs_ret_code(ltype));
+                gs.code.push((prevargs >= MaxResults ? CODE_EXIT : CODE_RESULT_ARG) | cs_ret_code(ltype));
                 goto done;
 compilecomv:
                 gs.code.push(comtype | cs_ret_code(ltype) | (numargs << 8) | (id->index << 13));
-                gs.code.push((prevargs >= MAX_RESULTS ? CODE_EXIT : CODE_RESULT_ARG) | cs_ret_code(ltype));
+                gs.code.push((prevargs >= MaxResults ? CODE_EXIT : CODE_RESULT_ARG) | cs_ret_code(ltype));
                 goto done;
             }
             default:
@@ -1777,7 +1777,7 @@ lookupid:
                 gs.code.push(CODE_SVARM | (id->index << 8));
                 goto done;
             case ID_ALIAS:
-                gs.code.push((id->index < MAX_ARGUMENTS ? CODE_LOOKUPMARG : CODE_LOOKUPM) | (id->index << 8));
+                gs.code.push((id->index < MaxArguments ? CODE_LOOKUPMARG : CODE_LOOKUPM) | (id->index << 8));
                 goto done;
             }
         gs.gen_str(lookup, true);
@@ -1819,15 +1819,15 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
             int level = gs.source - (esc - 1);
             if (brak > level) continue;
             else if (brak < level) cs_debug_code_line(gs.cs, line, "too many @s");
-            if (!concs && prevargs >= MAX_RESULTS) gs.code.push(CODE_ENTER);
-            if (concs + 2 > MAX_ARGUMENTS) {
+            if (!concs && prevargs >= MaxResults) gs.code.push(CODE_ENTER);
+            if (concs + 2 > MaxArguments) {
                 gs.code.push(CODE_CONCW | RET_STR | (concs << 8));
                 concs = 1;
             }
             if (compileblockstr(gs, ostd::ConstCharRange(start, esc - 1), true)) concs++;
             if (compileblocksub(gs, prevargs + concs)) concs++;
             if (concs) start = gs.source;
-            else if (prevargs >= MAX_RESULTS) gs.code.pop();
+            else if (prevargs >= MaxResults) gs.code.pop();
             break;
         }
         }
@@ -1860,7 +1860,7 @@ done:
         if (concs > 1) concs++;
     }
     if (concs) {
-        if (prevargs >= MAX_RESULTS) {
+        if (prevargs >= MaxResults) {
             gs.code.push(CODE_CONCM | cs_ret_code(wordtype) | (concs << 8));
             gs.code.push(CODE_EXIT | cs_ret_code(wordtype));
         } else gs.code.push(CODE_CONCW | cs_ret_code(wordtype) | (concs << 8));
@@ -1947,7 +1947,7 @@ static bool compilearg(GenState &gs, int wordtype, int prevargs, ostd::ConstChar
         return true;
     case '(':
         gs.next_char();
-        if (prevargs >= MAX_RESULTS) {
+        if (prevargs >= MaxResults) {
             gs.code.push(CODE_ENTER);
             compilestatements(gs, wordtype > VAL_ANY ? VAL_CANY : VAL_ANY, ')');
             gs.code.push(CODE_EXIT | cs_ret_code(wordtype));
@@ -2039,7 +2039,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
                     if (id) switch (id->type) {
                         case ID_ALIAS:
                             if (!(more = compilearg(gs, VAL_ANY, prevargs))) gs.gen_str();
-                            gs.code.push((id->index < MAX_ARGUMENTS ? CODE_ALIASARG : CODE_ALIAS) | (id->index << 8));
+                            gs.code.push((id->index < MaxArguments ? CODE_ALIASARG : CODE_ALIAS) | (id->index << 8));
                             goto endstatement;
                         case ID_VAR:
                             if (!(more = compilearg(gs, VAL_INT, prevargs))) gs.gen_int();
@@ -2063,7 +2063,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
         numargs = 0;
         if (!idname.data()) {
 noid:
-            while (numargs < MAX_ARGUMENTS && (more = compilearg(gs, VAL_CANY, prevargs + numargs))) numargs++;
+            while (numargs < MaxArguments && (more = compilearg(gs, VAL_CANY, prevargs + numargs))) numargs++;
             gs.code.push(CODE_CALLU | (numargs << 8));
         } else {
             Ident *id = gs.cs.idents.at(idname);
@@ -2088,8 +2088,8 @@ noid:
                 gs.code.push(CODE_RESULT);
             } else switch (id->type) {
                 case ID_ALIAS:
-                    while (numargs < MAX_ARGUMENTS && (more = compilearg(gs, VAL_ANY, prevargs + numargs))) numargs++;
-                    gs.code.push((id->index < MAX_ARGUMENTS ? CODE_CALLARG : CODE_CALL) | (numargs << 8) | (id->index << 13));
+                    while (numargs < MaxArguments && (more = compilearg(gs, VAL_ANY, prevargs + numargs))) numargs++;
+                    gs.code.push((id->index < MaxArguments ? CODE_CALLARG : CODE_CALL) | (numargs << 8) | (id->index << 13));
                     break;
                 case ID_COMMAND: {
                     int comtype = CODE_COM, fakeargs = 0;
@@ -2104,7 +2104,7 @@ noid:
                                 fakeargs++;
                             } else if (!fmt[1]) {
                                 int numconc = 1;
-                                while (numargs + numconc < MAX_ARGUMENTS && (more = compilearg(gs, VAL_CSTR, prevargs + numargs + numconc))) numconc++;
+                                while (numargs + numconc < MaxArguments && (more = compilearg(gs, VAL_CSTR, prevargs + numargs + numconc))) numconc++;
                                 if (numconc > 1) gs.code.push(CODE_CONC | RET_STR | (numconc << 8));
                             }
                             numargs++;
@@ -2192,21 +2192,21 @@ noid:
                             break;
                         case 'C':
                             comtype = CODE_COMC;
-                            if (more) while (numargs < MAX_ARGUMENTS && (more = compilearg(gs, VAL_CANY, prevargs + numargs))) numargs++;
+                            if (more) while (numargs < MaxArguments && (more = compilearg(gs, VAL_CANY, prevargs + numargs))) numargs++;
                             goto compilecomv;
                         case 'V':
                             comtype = CODE_COMV;
-                            if (more) while (numargs < MAX_ARGUMENTS && (more = compilearg(gs, VAL_CANY, prevargs + numargs))) numargs++;
+                            if (more) while (numargs < MaxArguments && (more = compilearg(gs, VAL_CANY, prevargs + numargs))) numargs++;
                             goto compilecomv;
                         case '1':
                         case '2':
                         case '3':
                         case '4':
-                            if (more && numargs < MAX_ARGUMENTS) {
+                            if (more && numargs < MaxArguments) {
                                 int numrep = *fmt - '0' + 1;
                                 fmt -= numrep;
                                 rep = true;
-                            } else for (; numargs > MAX_ARGUMENTS; numargs--) gs.code.push(CODE_POP);
+                            } else for (; numargs > MaxArguments; numargs--) gs.code.push(CODE_POP);
                             break;
                         }
                      gs.code.push(comtype | cs_ret_code(rettype) | (id->index << 8));
@@ -2216,7 +2216,7 @@ compilecomv:
                     break;
                 }
                 case ID_LOCAL:
-                    if (more) while (numargs < MAX_ARGUMENTS && (more = compilearg(gs, VAL_IDENT, prevargs + numargs))) numargs++;
+                    if (more) while (numargs < MaxArguments && (more = compilearg(gs, VAL_IDENT, prevargs + numargs))) numargs++;
                     if (more) while ((more = compilearg(gs, VAL_POP)));
                     gs.code.push(CODE_LOCAL | (numargs << 8));
                     break;
@@ -2289,7 +2289,7 @@ compilecomv:
                     } else {
                         numargs++;
                         int start = gs.code.size(), end = start;
-                        while (numargs < MAX_ARGUMENTS) {
+                        while (numargs < MaxArguments) {
                             more = compilearg(gs, VAL_COND, prevargs + numargs);
                             if (!more) break;
                             numargs++;
@@ -2297,7 +2297,7 @@ compilecomv:
                             end = gs.code.size();
                         }
                         if (more) {
-                            while (numargs < MAX_ARGUMENTS && (more = compilearg(gs, VAL_COND, prevargs + numargs))) numargs++;
+                            while (numargs < MaxArguments && (more = compilearg(gs, VAL_COND, prevargs + numargs))) numargs++;
                             gs.code.push(CODE_COMV | cs_ret_code(rettype) | (numargs << 8) | (id->index << 13));
                         } else {
                             ostd::Uint32 op = id->type == ID_AND ? CODE_JUMP_RESULT_FALSE : CODE_JUMP_RESULT_TRUE;
@@ -2327,7 +2327,7 @@ compilecomv:
                     if (!(more = compilearg(gs, VAL_CSTR, prevargs))) gs.code.push(CODE_PRINT | (id->index << 8));
                     else {
                         do ++numargs;
-                        while (numargs < MAX_ARGUMENTS && (more = compilearg(gs, VAL_CANY, prevargs + numargs)));
+                        while (numargs < MaxArguments && (more = compilearg(gs, VAL_CANY, prevargs + numargs)));
                         if (numargs > 1) gs.code.push(CODE_CONC | RET_STR | (numargs << 8));
                         gs.code.push(CODE_SVAR1 | (id->index << 8));
                     }
@@ -2638,7 +2638,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
     }
     ++rundepth;
     int numargs = 0;
-    TaggedValue args[MAX_ARGUMENTS + MAX_RESULTS], *prevret = cs.result;
+    TaggedValue args[MaxArguments + MaxResults], *prevret = cs.result;
     cs.result = &result;
     for (;;) {
         ostd::Uint32 op = *code++;
@@ -2709,7 +2709,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
         case CODE_LOCAL: {
             result.cleanup();
             int numlocals = op >> 8, offset = numargs - numlocals;
-            IdentStack locals[MAX_ARGUMENTS];
+            IdentStack locals[MaxArguments];
             for (int i = 0; i < numlocals; ++i) args[offset + i].id->push_alias(locals[i]);
             code = runcode(cs, code, result);
             for (int i = offset; i < numargs; i++) args[i].id->pop_alias();
@@ -2941,7 +2941,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
         case CODE_IDENTU: {
             TaggedValue &arg = args[numargs - 1];
             Ident *id = arg.get_type() == VAL_STR || arg.get_type() == VAL_MACRO || arg.get_type() == VAL_CSTR ? cs.new_ident(arg.cstr) : cs.dummy;
-            if (id->index < MAX_ARGUMENTS && !(cs.stack->usedargs & (1 << id->index))) {
+            if (id->index < MaxArguments && !(cs.stack->usedargs & (1 << id->index))) {
                 id->push_arg(null_value, cs.stack->argstack[id->index], false);
                 cs.stack->usedargs |= 1 << id->index;
             }
@@ -2960,7 +2960,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                         case ID_ALIAS: \
                             if(id->flags&IDF_UNKNOWN) break; \
                             arg.cleanup(); \
-                            if(id->index < MAX_ARGUMENTS && !(cs.stack->usedargs&(1<<id->index))) { nval; continue; } \
+                            if(id->index < MaxArguments && !(cs.stack->usedargs&(1<<id->index))) { nval; continue; } \
                             aval; \
                             continue; \
                         case ID_SVAR: arg.cleanup(); sval; continue; \
@@ -2971,7 +2971,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                             arg.cleanup(); \
                             arg.set_null(); \
                             cs.result = &arg; \
-                            TaggedValue buf[MAX_ARGUMENTS]; \
+                            TaggedValue buf[MaxArguments]; \
                             callcommand(cs, id, buf, 0, true); \
                             arg.force(op&CODE_RET_MASK); \
                             cs.result = &result; \
@@ -3211,7 +3211,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                 continue; \
             }
 #define CALLALIAS(cs, result) { \
-                IdentStack argstack[MAX_ARGUMENTS]; \
+                IdentStack argstack[MaxArguments]; \
                 for(int i = 0; i < callargs; i++) \
                     (cs).identmap[i]->push_arg(args[offset + i], argstack[i], false); \
                 int oldargs = (cs).numargs; \
@@ -3294,7 +3294,7 @@ noid:
                 numargs = offset - 1;
                 continue;
             case ID_LOCAL: {
-                IdentStack locals[MAX_ARGUMENTS];
+                IdentStack locals[MaxArguments];
                 idarg.cleanup();
                 for (ostd::Size j = 0; j < ostd::Size(callargs); ++j) cs.force_ident(args[offset + j])->push_alias(locals[j]);
                 code = runcode(cs, code, result);
@@ -3314,7 +3314,7 @@ noid:
                 else cs.set_var_str_checked(id, args[offset].force_str());
                 FORCERESULT;
             case ID_ALIAS:
-                if (id->index < MAX_ARGUMENTS && !(cs.stack->usedargs & (1 << id->index))) FORCERESULT;
+                if (id->index < MaxArguments && !(cs.stack->usedargs & (1 << id->index))) FORCERESULT;
                 if (id->get_valtype() == VAL_NULL) goto noid;
                 idarg.cleanup();
                 CALLALIAS(cs, result);
@@ -3358,7 +3358,7 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
         /* fallthrough */
         case ID_COMMAND:
             if (numargs < id->numargs) {
-                TaggedValue buf[MAX_ARGUMENTS];
+                TaggedValue buf[MaxArguments];
                 memcpy(buf, args.data(), args.size() * sizeof(TaggedValue));
                 callcommand(*this, id, buf, numargs, false);
             } else callcommand(*this, id, args.data(), numargs, false);
@@ -3377,7 +3377,7 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
             else set_var_str_checked(id, args[0].force_str());
             break;
         case ID_ALIAS:
-            if (id->index < MAX_ARGUMENTS && !(stack->usedargs & (1 << id->index))) break;
+            if (id->index < MaxArguments && !(stack->usedargs & (1 << id->index))) break;
             if (id->get_valtype() == VAL_NULL) break;
 #define callargs numargs
 #define offset 0
@@ -3645,7 +3645,7 @@ void init_lib_base(CsState &cs) {
 
     cs.add_command("pushif", "rTe", [](CsState &cs, Ident *id,
                                        TaggedValue *v, ostd::Uint32 *code) {
-        if ((id->type != ID_ALIAS) || (id->index < MAX_ARGUMENTS))
+        if ((id->type != ID_ALIAS) || (id->index < MaxArguments))
             return;
         if (cs_get_bool(*v)) {
             IdentStack stack;
