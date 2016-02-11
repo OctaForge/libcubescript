@@ -574,6 +574,12 @@ namespace util {
                 case 'f':
                     ret += writer.put('\f');
                     break;
+                case '"':
+                    ret += writer.put('"');
+                    break;
+                case '^':
+                    ret += writer.put('^');
+                    break;
                 default:
                     ret += writer.put(str.front());
                     break;
