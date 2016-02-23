@@ -8,7 +8,8 @@ It depends on the latest Git version of OctaSTD:
 https://git.octaforge.org/tools/octastd.git/
 https://github.com/OctaForge/OctaSTD
 
-Currently the API is unstable and the whole thing is a work in progress.
+Currently the API is unstable and the whole thing is a work in progress. It
+requires C++14, just like OctaSTD does.
 
 You can compile your application with it like:
 
