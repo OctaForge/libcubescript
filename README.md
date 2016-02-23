@@ -15,4 +15,6 @@ You can compile your application with it like:
 
     c++ myapp.cc cubescript.cc -o myapp -std=c++14 -Wall -Wextra -I. -Ipath/to/octastd
 
+It also supports building as a shared library.
+
 See COPYING.md for licensing information.
