@@ -483,11 +483,16 @@ struct CsState {
     ostd::Uint32 *compile(ostd::ConstCharRange code);
 };
 
-void init_lib_base(CsState &cs);
-void init_lib_io(CsState &cs);
-void init_lib_math(CsState &cs);
-void init_lib_string(CsState &cs);
-void init_lib_list(CsState &cs);
+enum {
+    CS_LIB_BASE   = 1 << 0,
+    CS_LIB_IO     = 1 << 1,
+    CS_LIB_MATH   = 1 << 2,
+    CS_LIB_STRING = 1 << 3,
+    CS_LIB_LIST   = 1 << 4,
+    CS_LIB_ALL    = 0b11111
+};
+
+void init_libs(CsState &cs, int libs = CS_LIB_ALL);
 
 inline bool check_alias(Ident *id) {
     return id && (id->type == ID_ALIAS);

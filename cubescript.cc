@@ -3528,7 +3528,7 @@ bool CsState::run_file(ostd::ConstCharRange fname) {
     return true;
 }
 
-void init_lib_io(CsState &cs) {
+static void cs_init_lib_io(CsState &cs) {
     cs.add_command("exec", "sb", [](CsState &cs, char *file, int *msg) {
         bool ret = cs.run_file(file);
         if (!ret) {
@@ -3546,7 +3546,7 @@ void init_lib_io(CsState &cs) {
 
 void cs_init_lib_base_loops(CsState &cs);
 
-void init_lib_base(CsState &cs) {
+static void cs_init_lib_base(CsState &cs) {
     cs.add_command("do", "e", [](CsState &cs, ostd::Uint32 *body) {
         cs.run_ret(body);
     }, ID_DO);
@@ -4005,7 +4005,7 @@ int cs_list_includes(const char *list, ostd::ConstCharRange needle) {
 
 static void cs_init_lib_list_sort(CsState &cs);
 
-void init_lib_list(CsState &cs) {
+static void cs_init_lib_list(CsState &cs) {
     cs.add_command("listlen", "s", [](CsState &cs, char *s) {
         cs.result->set_int(int(util::list_length(s)));
     });
@@ -4489,7 +4489,7 @@ static void cs_init_lib_list_sort(CsState &cs) {
 static constexpr float PI = 3.14159265358979f;
 static constexpr float RAD = PI / 180.0f;
 
-void init_lib_math(CsState &cs) {
+static void cs_init_lib_math(CsState &cs) {
     cs.add_command("sin", "f", [](CsState &cs, float *a) {
         cs.result->set_float(sin(*a * RAD));
     });
@@ -4676,7 +4676,7 @@ void init_lib_math(CsState &cs) {
 #undef CS_CMD_CMP
 }
 
-void init_lib_string(CsState &cs) {
+static void cs_init_lib_string(CsState &cs) {
     cs.add_command("strstr", "ss", [](CsState &cs, char *a, char *b) {
         char *s = strstr(a, b);
         cs.result->set_int(s ? (s - a) : -1);
@@ -4850,6 +4850,14 @@ void init_lib_string(CsState &cs) {
         p[slen - len + vlen] = '\0';
         cs.result->set_str(ostd::CharRange(p, slen - len + vlen));
     });
+}
+
+void init_libs(CsState &cs, int libs) {
+    if (libs & CS_LIB_BASE  ) cs_init_lib_base(cs);
+    if (libs & CS_LIB_IO    ) cs_init_lib_io(cs);
+    if (libs & CS_LIB_MATH  ) cs_init_lib_math(cs);
+    if (libs & CS_LIB_STRING) cs_init_lib_string(cs);
+    if (libs & CS_LIB_LIST  ) cs_init_lib_list(cs);
 }
 
 } /* namespace cscript */
