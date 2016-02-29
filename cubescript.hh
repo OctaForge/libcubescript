@@ -431,9 +431,9 @@ struct CsState {
     bool run_bool(ostd::ConstCharRange code);
     bool run_bool(Ident *id, TvalRange args);
 
-    void run_ret(const ostd::Uint32 *code, TaggedValue &result);
-    void run_ret(ostd::ConstCharRange code, TaggedValue &result);
-    void run_ret(Ident *id, TvalRange args, TaggedValue &result);
+    void run_ret(const ostd::Uint32 *code, TaggedValue &ret);
+    void run_ret(ostd::ConstCharRange code, TaggedValue &ret);
+    void run_ret(Ident *id, TvalRange args, TaggedValue &ret);
 
     void run_ret(const ostd::Uint32 *code) {
         run_ret(code, *result);
