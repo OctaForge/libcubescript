@@ -501,8 +501,8 @@ inline bool check_alias(Ident *id) {
 struct StackedValue: TaggedValue {
     Ident *id;
 
-    StackedValue(Ident *id = nullptr):
-        TaggedValue(), id(id), p_stack(), p_pushed(false) {}
+    StackedValue(Ident *idv = nullptr):
+        TaggedValue(), id(idv), p_stack(), p_pushed(false) {}
 
     ~StackedValue() {
         pop();

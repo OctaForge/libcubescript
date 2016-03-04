@@ -1,4 +1,4 @@
-LIBCUBESCRIPT_CXXFLAGS = -std=c++14 -Wall -Wextra -I. -fPIC
+LIBCUBESCRIPT_CXXFLAGS = -std=c++14 -Wall -Wextra -Wshadow -I. -fPIC
 LIBCUBESCRIPT_LDFLAGS = -shared
 
 LIBCUBESCRIPT_OBJ = cubescript.o
