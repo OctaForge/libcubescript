@@ -601,7 +601,7 @@ namespace util {
                                          ostd::Size idx);
     ostd::Vector<ostd::String> list_explode(ostd::ConstCharRange s,
                                             ostd::Size limit = -1);
-}
+} /* namespace util */
 
 } /* namespace cscript */
 
