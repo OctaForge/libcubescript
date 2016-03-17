@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <ostd/platform.hh>
 #include <ostd/types.hh>
 #include <ostd/string.hh>
 #include <ostd/vector.hh>
@@ -84,7 +85,7 @@ enum {
     IDF_NOEXPAND   = 1 << 7
 };
 
-struct Bytecode {
+struct OSTD_EXPORT Bytecode {
     Bytecode(): p_code(nullptr) {}
     Bytecode(ostd::Uint32 *v);
     Bytecode(const Bytecode &v);
@@ -115,7 +116,7 @@ struct IdentValue {
     };
 };
 
-struct TaggedValue: IdentValue {
+struct OSTD_EXPORT TaggedValue: IdentValue {
     friend struct Ident;
 
     int get_type() const {
@@ -216,7 +217,7 @@ using CommandFunc12 = void (*)(CsState &, void *, void *, void *, void *, void *
 using CommandFuncTv = void (*)(CsState &, TvalRange);
 using CommandFuncS = void (*)(CsState &, ostd::ConstCharRange);
 
-struct Ident {
+struct OSTD_EXPORT Ident {
     ostd::byte type; /* ID_something */
     union {
         ostd::byte valtype; /* ID_ALIAS */
@@ -349,7 +350,7 @@ struct IdentLink {
     IdentStack *argstack;
 };
 
-struct CsState {
+struct OSTD_EXPORT CsState {
     ostd::Keyset<Ident> idents;
     ostd::Vector<Ident *> identmap;
 
@@ -492,13 +493,13 @@ enum {
     CS_LIB_ALL    = 0b11111
 };
 
-void init_libs(CsState &cs, int libs = CS_LIB_ALL);
+OSTD_EXPORT void init_libs(CsState &cs, int libs = CS_LIB_ALL);
 
 inline bool check_alias(Ident *id) {
     return id && (id->type == ID_ALIAS);
 }
 
-struct StackedValue: TaggedValue {
+struct OSTD_EXPORT StackedValue: TaggedValue {
     Ident *id;
 
     StackedValue(Ident *idv = nullptr):

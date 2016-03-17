@@ -4852,7 +4852,7 @@ static void cs_init_lib_string(CsState &cso) {
     });
 }
 
-void init_libs(CsState &cs, int libs) {
+OSTD_EXPORT void init_libs(CsState &cs, int libs) {
     if (libs & CS_LIB_BASE  ) cs_init_lib_base(cs);
     if (libs & CS_LIB_IO    ) cs_init_lib_io(cs);
     if (libs & CS_LIB_MATH  ) cs_init_lib_math(cs);
