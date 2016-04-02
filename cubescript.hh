@@ -200,7 +200,7 @@ union IdentValuePtr {
 
 struct CsState;
 
-using IdentFunc = void (*)(CsState &cs, Ident *id);
+using IdentFunc = void (*)(CsState &, Ident *);
 using CommandFunc = void (*)(CsState &);
 using CommandFunc1 = void (*)(CsState &, void *);
 using CommandFunc2 = void (*)(CsState &, void *, void *);
