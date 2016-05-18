@@ -4417,7 +4417,7 @@ void cs_list_sort(CsState &cs, char *list, Ident *x, Ident *y,
     ostd::Size nuniq = items.size();
     if (body) {
         ListSortFun f = { cs, x, y, body };
-        ostd::sort(items.iter(), f);
+        ostd::sort_cmp(items.iter(), f);
         if ((*unique & CODE_OP_MASK) != CODE_EXIT) {
             f.body = unique;
             totaluniq = items[0].quote.size();
