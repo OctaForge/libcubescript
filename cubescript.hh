@@ -123,6 +123,10 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
         return p_type & 0xF;
     }
 
+    ostd::Size get_str_len() const {
+        return ostd::Size(p_type >> 4);
+    }
+
     void set_int(int val) {
         p_type = VAL_INT;
         i = val;
@@ -135,12 +139,6 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
         ostd::CharRange cr = val.iter();
         val.disown();
         set_mstr(cr);
-    }
-    void set_str_dup(ostd::ConstCharRange val) {
-        s = new char[val.size() + 1];
-        memcpy(s, val.data(), val.size());
-        s[val.size()] = '\0';
-        p_type = VAL_STR | (val.size() << 4);
     }
     void set_null() {
         p_type = VAL_NULL;
@@ -172,7 +170,7 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
         tv.p_type = VAL_NULL;
     }
 
-    ostd::ConstCharRange get_str() const;
+    ostd::String get_str() const;
     int get_int() const;
     float get_float() const;
     void get_val(TaggedValue &r) const;
@@ -225,8 +223,8 @@ using CommandFuncS = void (*)(CsState &, ostd::ConstCharRange);
 struct OSTD_EXPORT Ident {
     ostd::byte type; /* ID_something */
     union {
-        ostd::byte valtype; /* ID_ALIAS */
-        ostd::byte numargs; /* ID_COMMAND */
+        int valtype; /* ID_ALIAS */
+        int numargs; /* ID_COMMAND */
     };
     ostd::ushort flags;
     int index;
@@ -304,7 +302,7 @@ struct OSTD_EXPORT Ident {
     }
 
     void set_value(const TaggedValue &v) {
-        valtype = v.get_type();
+        valtype = v.get_type() | int(v.get_str_len() << 4);
         val = v;
     }
 
@@ -321,7 +319,7 @@ struct OSTD_EXPORT Ident {
 
     float get_float() const;
     int get_int() const;
-    ostd::ConstCharRange get_str() const;
+    ostd::String get_str() const;
     void get_val(TaggedValue &r) const;
     void get_cstr(TaggedValue &v) const;
     void get_cval(TaggedValue &v) const;
@@ -479,7 +477,7 @@ struct OSTD_EXPORT CsState {
     ostd::Maybe<float> get_var_min_float(ostd::ConstCharRange name);
     ostd::Maybe<float> get_var_max_float(ostd::ConstCharRange name);
 
-    ostd::Maybe<ostd::ConstCharRange> get_alias(ostd::ConstCharRange name);
+    ostd::Maybe<ostd::String> get_alias(ostd::ConstCharRange name);
 
     void print_var(Ident *id);
     void print_var_int(Ident *id, int i);

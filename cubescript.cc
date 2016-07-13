@@ -39,19 +39,16 @@ static inline void floatformat(char *buf, float v, int len = 20) {
     snprintf(buf, len, v == int(v) ? "%.1f" : "%.7g", v);
 }
 
-static char retbuf[4][256];
-static int retidx = 0;
-
-const char *intstr(int v) {
-    retidx = (retidx + 1) % 4;
-    intformat(retbuf[retidx], v);
-    return retbuf[retidx];
+ostd::String intstr(int v) {
+    char buf[256];
+    intformat(buf, v, sizeof(buf));
+    return buf;
 }
 
-const char *floatstr(float v) {
-    retidx = (retidx + 1) % 4;
-    floatformat(retbuf[retidx], v);
-    return retbuf[retidx];
+ostd::String floatstr(float v) {
+    char buf[256];
+    floatformat(buf, v, sizeof(buf));
+    return buf;
 }
 
 inline char *cs_dup_ostr(ostd::ConstCharRange s) {
@@ -443,23 +440,23 @@ int TaggedValue::force_int() {
 }
 
 ostd::ConstCharRange TaggedValue::force_str() {
-    const char *rs = "";
+    ostd::String rs;
     switch (get_type()) {
     case VAL_FLOAT:
-        rs = floatstr(f);
+        rs = ostd::move(floatstr(f));
         break;
     case VAL_INT:
-        rs = intstr(i);
+        rs = ostd::move(intstr(i));
         break;
     case VAL_MACRO:
     case VAL_CSTR:
-        rs = s;
+        rs = ostd::ConstCharRange(s, ostd::Size(p_type >> 4));
         break;
     case VAL_STR:
         return s;
     }
     cleanup();
-    set_str_dup(rs);
+    set_str(ostd::move(rs));
     return s;
 }
 
@@ -521,7 +518,7 @@ float Ident::get_float() const {
     return cs_get_float(val, get_valtype());
 }
 
-static inline ostd::ConstCharRange cs_get_str(const IdentValue &v, int type, int len) {
+static inline ostd::String cs_get_str(const IdentValue &v, int type, int len) {
     switch (type) {
     case VAL_STR:
     case VAL_MACRO:
@@ -532,14 +529,14 @@ static inline ostd::ConstCharRange cs_get_str(const IdentValue &v, int type, int
     case VAL_FLOAT:
         return floatstr(v.f);
     }
-    return "";
+    return ostd::String("");
 }
 
-ostd::ConstCharRange TaggedValue::get_str() const {
+ostd::String TaggedValue::get_str() const {
     return cs_get_str(*this, get_type(), p_type >> 4);
 }
 
-ostd::ConstCharRange Ident::get_str() const {
+ostd::String Ident::get_str() const {
     return cs_get_str(val, get_valtype(), valtype >> 4);
 }
 
@@ -548,7 +545,7 @@ static inline void cs_get_val(const IdentValue &v, int type, int len, TaggedValu
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR: {
-        r.set_str_dup(ostd::ConstCharRange(v.s, len));
+        r.set_str(ostd::ConstCharRange(v.s, len));
         break;
     }
     case VAL_INT:
@@ -581,10 +578,10 @@ void Ident::get_cstr(TaggedValue &v) const {
         v.set_cstr(ostd::ConstCharRange(val.s, valtype >> 4));
         break;
     case VAL_INT:
-        v.set_str_dup(intstr(val.i));
+        v.set_str(ostd::move(intstr(val.i)));
         break;
     case VAL_FLOAT:
-        v.set_str_dup(floatstr(val.f));
+        v.set_str(ostd::move(floatstr(val.f)));
         break;
     default:
         v.set_cstr("");
@@ -834,14 +831,14 @@ ostd::Maybe<float> CsState::get_var_max_float(ostd::ConstCharRange name) {
     return id->maxvalf;
 }
 
-ostd::Maybe<ostd::ConstCharRange>
+ostd::Maybe<ostd::String>
 CsState::get_alias(ostd::ConstCharRange name) {
     Ident *id = idents.at(name);
     if (!id || id->type != ID_ALIAS)
         return ostd::nothing;
     if ((id->index < MaxArguments) && !(stack->usedargs & (1 << id->index)))
         return ostd::nothing;
-    return id->get_str();
+    return ostd::move(id->get_str());
 }
 
 int cs_clamp_var(CsState &cs, Ident *id, int v) {
@@ -1030,7 +1027,7 @@ static void cs_init_lib_base_var(CsState &cso) {
     });
 
     cso.add_command("getalias", "s", [](CsState &cs, const char *name) {
-        cs.result->set_str_dup(cs.get_alias(name).value_or(""));
+        cs.result->set_str(ostd::move(cs.get_alias(name).value_or("")));
     });
 }
 
@@ -1068,27 +1065,23 @@ static char *conc(ostd::Vector<char> &buf, TvalRange v, bool space, const char *
         if (space && !v.empty()) buf.push(' ');
     }
     for (ostd::Size i = 0; i < v.size(); ++i) {
-        const char *s = "";
-        int len = 0;
+        ostd::String s;
         switch (v[i].get_type()) {
         case VAL_INT:
-            s = intstr(v[i].i);
+            s = ostd::move(intstr(v[i].i));
             break;
         case VAL_FLOAT:
-            s = floatstr(v[i].f);
+            s = ostd::move(floatstr(v[i].f));
             break;
         case VAL_STR:
         case VAL_CSTR:
-            s = v[i].s;
+            s = ostd::ConstCharRange(v[i].s, v[i].get_str_len());
             break;
         case VAL_MACRO:
-            s = v[i].s;
-            len = v[i].code[-1] >> 8;
-            goto haslen;
+            s = ostd::ConstCharRange(v[i].s, v[i].code[-1] >> 8);
+            break;
         }
-        len = int(strlen(s));
-haslen:
-        buf.push_n(s, len);
+        buf.push_n(s.data(), s.size());
         if (i == v.size() - 1) break;
         if (space) buf.push(' ');
     }
@@ -2528,7 +2521,7 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
         case 'S':
             if (++i >= numargs) {
                 if (rep) break;
-                args[i].set_str_dup("");
+                args[i].set_str("");
                 fakeargs++;
             } else args[i].force_str();
             break;
@@ -2654,16 +2647,16 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                     continue;
 
             RETOP(CODE_NULL | RET_NULL, result.set_null())
-            RETOP(CODE_NULL | RET_STR, result.set_str_dup(""))
+            RETOP(CODE_NULL | RET_STR, result.set_str(""))
             RETOP(CODE_NULL | RET_INT, result.set_int(0))
             RETOP(CODE_NULL | RET_FLOAT, result.set_float(0.0f))
 
-            RETOP(CODE_FALSE | RET_STR, result.set_str_dup("0"))
+            RETOP(CODE_FALSE | RET_STR, result.set_str("0"))
         case CODE_FALSE|RET_NULL:
             RETOP(CODE_FALSE | RET_INT, result.set_int(0))
             RETOP(CODE_FALSE | RET_FLOAT, result.set_float(0.0f))
 
-            RETOP(CODE_TRUE | RET_STR, result.set_str_dup("1"))
+            RETOP(CODE_TRUE | RET_STR, result.set_str("1"))
         case CODE_TRUE|RET_NULL:
             RETOP(CODE_TRUE | RET_INT, result.set_int(1))
             RETOP(CODE_TRUE | RET_FLOAT, result.set_float(1.0f))
@@ -2671,7 +2664,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
 #define RETPOP(op, val) \
                 RETOP(op, { --numargs; val; args[numargs].cleanup(); })
 
-            RETPOP(CODE_NOT | RET_STR, result.set_str_dup(cs_get_bool(args[numargs]) ? "0" : "1"))
+            RETPOP(CODE_NOT | RET_STR, result.set_str(cs_get_bool(args[numargs]) ? "0" : "1"))
         case CODE_NOT|RET_NULL:
                 RETPOP(CODE_NOT | RET_INT, result.set_int(cs_get_bool(args[numargs]) ? 0 : 1))
                 RETPOP(CODE_NOT | RET_FLOAT, result.set_float(cs_get_bool(args[numargs]) ? 0.0f : 1.0f))
@@ -2789,13 +2782,13 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
 
         case CODE_VAL|RET_STR: {
             ostd::Uint32 len = op >> 8;
-            args[numargs++].set_str_dup(ostd::ConstCharRange((const char *)code, len));
+            args[numargs++].set_str(ostd::ConstCharRange((const char *)code, len));
             code += len / sizeof(ostd::Uint32) + 1;
             continue;
         }
         case CODE_VALI|RET_STR: {
             char s[4] = { char((op >> 8) & 0xFF), char((op >> 16) & 0xFF), char((op >> 24) & 0xFF), '\0' };
-            args[numargs++].set_str_dup(s);
+            args[numargs++].set_str(s);
             continue;
         }
         case CODE_VAL|RET_NULL:
@@ -2828,7 +2821,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             numargs++;
             continue;
         case CODE_DUP|RET_STR:
-            args[numargs].set_str_dup(args[numargs - 1].get_str());
+            args[numargs].set_str(ostd::move(args[numargs - 1].get_str()));
             numargs++;
             continue;
 
@@ -2984,11 +2977,11 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                     nval; \
                     continue; \
                 }
-            LOOKUPU(arg.set_str_dup(id->get_str()),
-                    arg.set_str_dup(*id->storage.sp),
-                    arg.set_str_dup(intstr(*id->storage.ip)),
-                    arg.set_str_dup(floatstr(*id->storage.fp)),
-                    arg.set_str_dup(""));
+            LOOKUPU(arg.set_str(ostd::move(id->get_str())),
+                    arg.set_str(*id->storage.sp),
+                    arg.set_str(ostd::move(intstr(*id->storage.ip))),
+                    arg.set_str(ostd::move(floatstr(*id->storage.fp))),
+                    arg.set_str(""));
         case CODE_LOOKUP|RET_STR:
 #define LOOKUP(aval) { \
                     Ident *id = cs.identmap[op>>8]; \
@@ -2996,7 +2989,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                     aval; \
                     continue; \
                 }
-            LOOKUP(args[numargs++].set_str_dup(id->get_str()));
+            LOOKUP(args[numargs++].set_str(ostd::move(id->get_str())));
         case CODE_LOOKUPARG|RET_STR:
 #define LOOKUPARG(aval, nval) { \
                     Ident *id = cs.identmap[op>>8]; \
@@ -3004,7 +2997,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
                     aval; \
                     continue; \
                 }
-            LOOKUPARG(args[numargs++].set_str_dup(id->get_str()), args[numargs++].set_str_dup(""));
+            LOOKUPARG(args[numargs++].set_str(ostd::move(id->get_str())), args[numargs++].set_str(""));
         case CODE_LOOKUPU|RET_INT:
             LOOKUPU(arg.set_int(id->get_int()),
                     arg.set_int(parseint(*id->storage.sp)),
@@ -3027,7 +3020,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             LOOKUPARG(args[numargs++].set_float(id->get_float()), args[numargs++].set_float(0.0f));
         case CODE_LOOKUPU|RET_NULL:
             LOOKUPU(id->get_val(arg),
-                    arg.set_str_dup(*id->storage.sp),
+                    arg.set_str(*id->storage.sp),
                     arg.set_int(*id->storage.ip),
                     arg.set_float(*id->storage.fp),
                     arg.set_null());
@@ -3039,8 +3032,8 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
         case CODE_LOOKUPMU|RET_STR:
             LOOKUPU(id->get_cstr(arg),
                     arg.set_cstr(*id->storage.sp),
-                    arg.set_str_dup(intstr(*id->storage.ip)),
-                    arg.set_str_dup(floatstr(*id->storage.fp)),
+                    arg.set_str(ostd::move(intstr(*id->storage.ip))),
+                    arg.set_str(ostd::move(floatstr(*id->storage.fp))),
                     arg.set_cstr(""));
         case CODE_LOOKUPM|RET_STR:
             LOOKUP(id->get_cstr(args[numargs++]));
@@ -3059,7 +3052,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
 
         case CODE_SVAR|RET_STR:
         case CODE_SVAR|RET_NULL:
-            args[numargs++].set_str_dup(*cs.identmap[op >> 8]->storage.sp);
+            args[numargs++].set_str(*cs.identmap[op >> 8]->storage.sp);
             continue;
         case CODE_SVAR|RET_INT:
             args[numargs++].set_int(parseint(*cs.identmap[op >> 8]->storage.sp));
@@ -3080,7 +3073,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             args[numargs++].set_int(*cs.identmap[op >> 8]->storage.ip);
             continue;
         case CODE_IVAR|RET_STR:
-            args[numargs++].set_str_dup(intstr(*cs.identmap[op >> 8]->storage.ip));
+            args[numargs++].set_str(ostd::move(intstr(*cs.identmap[op >> 8]->storage.ip)));
             continue;
         case CODE_IVAR|RET_FLOAT:
             args[numargs++].set_float(float(*cs.identmap[op >> 8]->storage.ip));
@@ -3102,7 +3095,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             args[numargs++].set_float(*cs.identmap[op >> 8]->storage.fp);
             continue;
         case CODE_FVAR|RET_STR:
-            args[numargs++].set_str_dup(floatstr(*cs.identmap[op >> 8]->storage.fp));
+            args[numargs++].set_str(ostd::move(floatstr(*cs.identmap[op >> 8]->storage.fp)));
             continue;
         case CODE_FVAR|RET_INT:
             args[numargs++].set_int(int(*cs.identmap[op >> 8]->storage.fp));
@@ -3619,7 +3612,7 @@ static void cs_init_lib_base(CsState &cso) {
 
 #define CS_CMD_CASE(name, fmt, type, acc, compare) \
     cso.add_command(name, fmt "te2V", [](CsState &cs, TvalRange args) { \
-        type val = acc; \
+        type val = ostd::move(acc); \
         ostd::Size i; \
         for (i = 1; (i + 1) < args.size(); i += 2) { \
             if (compare) { \
@@ -3637,7 +3630,7 @@ static void cs_init_lib_base(CsState &cso) {
                     ((args[i].get_type() == VAL_NULL) ||
                      (args[i].get_float() == val)));
 
-    CS_CMD_CASE("cases", "s", ostd::ConstCharRange, args[0].get_str(),
+    CS_CMD_CASE("cases", "s", ostd::String, args[0].get_str(),
                     ((args[i].get_type() == VAL_NULL) ||
                      (args[i].get_str() == val)));
 
@@ -3698,7 +3691,7 @@ static inline void cs_loop_conc(CsState &cs, Ident &id, int offset, int n,
         cs_set_iter(id, offset + i * step, stack);
         TaggedValue v;
         cs.run_ret(body, v);
-        ostd::ConstCharRange vstr = v.get_str();
+        ostd::String vstr = ostd::move(v.get_str());
         if (space && i) s.push(' ');
         s.push_n(vstr.data(), vstr.size());
         v.cleanup();
@@ -3982,7 +3975,7 @@ static void cs_loop_list_conc(CsState &cs, Ident *id, const char *list,
             r.push(' ');
         TaggedValue v;
         cs.run_ret(body, v);
-        ostd::ConstCharRange vstr = v.get_str();
+        ostd::String vstr = ostd::move(v.get_str());
         r.push_n(vstr.data(), vstr.size());
         v.cleanup();
     }
@@ -4013,7 +4006,7 @@ static void cs_init_lib_list(CsState &cso) {
     cso.add_command("at", "si1V", [](CsState &cs, TvalRange args) {
         if (args.empty())
             return;
-        ostd::ConstCharRange str = args[0].get_str();
+        ostd::String str = ostd::move(args[0].get_str());
         ListParser p(str);
         p.item = str;
         for (ostd::Size i = 1; i < args.size(); ++i) {
@@ -4040,7 +4033,7 @@ static void cs_init_lib_list(CsState &cso) {
         if (len < 0) {
             if (offset > 0)
                 p.skip();
-            cs.result->set_str_dup(p.input);
+            cs.result->set_str(p.input);
             return;
         }
 
@@ -4049,7 +4042,7 @@ static void cs_init_lib_list(CsState &cso) {
         if (len > 0 && p.parse())
             while (--len > 0 && p.parse());
         const char *qend = !p.quote.empty() ? &p.quote[p.quote.size()] : list;
-        cs.result->set_str_dup(ostd::ConstCharRange(list, qend - list));
+        cs.result->set_str(ostd::ConstCharRange(list, qend - list));
     });
 
     cso.add_command("listfind", "rse", [](CsState &cs, Ident *id,
@@ -4745,7 +4738,8 @@ static void cs_init_lib_string(CsState &cso) {
         if (args.empty())
             return;
         ostd::Vector<char> s;
-        ostd::ConstCharRange f = args[0].get_str();
+        ostd::String fs = ostd::move(args[0].get_str());
+        ostd::ConstCharRange f = fs.iter();
         while (!f.empty()) {
             char c = f.front();
             f.pop_front();
@@ -4754,8 +4748,8 @@ static void cs_init_lib_string(CsState &cso) {
                 f.pop_front();
                 if (ic >= '1' && ic <= '9') {
                     int i = ic - '0';
-                    ostd::ConstCharRange sub = (i < int(args.size()))
-                        ? args[i].get_str() : "";
+                    ostd::String sub = ostd::move((i < int(args.size()))
+                        ? args[i].get_str() : ostd::String(""));
                     s.push_n(sub.data(), sub.size());
                 } else s.push(ic);
             } else s.push(c);
@@ -4776,7 +4770,7 @@ static void cs_init_lib_string(CsState &cso) {
     cso.add_command("substr", "siiN", [](CsState &cs, char *s, int *start,
                                          int *count, int *numargs) {
         int len = strlen(s), offset = ostd::clamp(*start, 0, len);
-        cs.result->set_str_dup(ostd::ConstCharRange(
+        cs.result->set_str(ostd::ConstCharRange(
             &s[offset],
             (*numargs >= 3) ? ostd::clamp(*count, 0, len - offset)
                             : (len - offset)));
@@ -4812,7 +4806,7 @@ static void cs_init_lib_string(CsState &cso) {
         ostd::Vector<char> buf;
         int oldlen = strlen(oldval);
         if (!oldlen) {
-            cs.result->set_str_dup(s);
+            cs.result->set_str(s);
             return;
         }
         for (int i = 0;; ++i) {
