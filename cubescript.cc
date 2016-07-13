@@ -3170,7 +3170,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             int numconc = op >> 8;
             char *s = conc(ostd::iter(&args[numargs - numconc], numconc), (op & CODE_OP_MASK) == CODE_CONC);
             free_args(args, numargs, numargs - numconc);
-            args[numargs].set_str(s);
+            args[numargs].set_mstr(s);
             args[numargs].force(op & CODE_RET_MASK);
             numargs++;
             continue;
@@ -3183,7 +3183,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
             int numconc = op >> 8;
             char *s = conc(ostd::iter(&args[numargs - numconc], numconc), false);
             free_args(args, numargs, numargs - numconc);
-            result.set_str(s);
+            result.set_mstr(s);
             result.force(op & CODE_RET_MASK);
             continue;
         }
@@ -3706,7 +3706,7 @@ static inline void cs_loop_conc(CsState &cs, Ident &id, int offset, int n,
     if (n > 0) id.pop_arg();
     s.push('\0');
     ostd::Size len = s.size() - 1;
-    cs.result->set_str(ostd::CharRange(s.disown(), len));
+    cs.result->set_mstr(ostd::CharRange(s.disown(), len));
 }
 
 void cs_init_lib_base_loops(CsState &cso) {
@@ -3964,7 +3964,7 @@ static inline void cs_set_iter(Ident &id, char *val, IdentStack &stack) {
         return;
     }
     TaggedValue v;
-    v.set_str(val);
+    v.set_mstr(val);
     id.push_arg(v, stack);
 }
 
@@ -3990,7 +3990,7 @@ static void cs_loop_list_conc(CsState &cs, Ident *id, const char *list,
         id->pop_arg();
     r.push('\0');
     ostd::Size len = r.size();
-    cs.result->set_str(ostd::CharRange(r.disown(), len - 1));
+    cs.result->set_mstr(ostd::CharRange(r.disown(), len - 1));
 }
 
 int cs_list_includes(const char *list, ostd::ConstCharRange needle) {
@@ -4027,7 +4027,7 @@ static void cs_init_lib_list(CsState &cso) {
         auto elem = p.element();
         auto er = p.element().iter();
         elem.disown();
-        cs.result->set_str(er);
+        cs.result->set_mstr(er);
     });
 
     cso.add_command("sublist", "siiN", [](CsState &cs, const char *s,
@@ -4090,7 +4090,7 @@ found:
                     auto elem = p.element();
                     auto er = elem.iter();
                     elem.disown();
-                    cs.result->set_str(er);
+                    cs.result->set_mstr(er);
                 }
                 break;
             }
@@ -4137,7 +4137,7 @@ found:
                     auto elem = p.element(); \
                     auto er = elem.iter(); \
                     elem.disown(); \
-                    cs.result->set_str(er); \
+                    cs.result->set_mstr(er); \
                 } \
                 return; \
             } \
@@ -4244,7 +4244,7 @@ found:
             id->pop_arg();
         r.push('\0');
         ostd::Size len = r.size() - 1;
-        cs.result->set_str(ostd::CharRange(r.disown(), len));
+        cs.result->set_mstr(ostd::CharRange(r.disown(), len));
     });
 
     cso.add_command("listcount", "rse", [](CsState &cs, Ident *id,
@@ -4292,7 +4292,7 @@ found:
         }
         buf.push('\0');
         ostd::Size slen = buf.size() - 1;
-        cs.result->set_str(ostd::CharRange(buf.disown(), slen));
+        cs.result->set_mstr(ostd::CharRange(buf.disown(), slen));
     });
 
     cso.add_command("indexof", "ss", [](CsState &cs, char *list, char *elem) {
@@ -4313,7 +4313,7 @@ found:
         } \
         buf.push('\0'); \
         ostd::Size len = buf.size() - 1; \
-        cs.result->set_str(ostd::CharRange(buf.disown(), len)); \
+        cs.result->set_mstr(ostd::CharRange(buf.disown(), len)); \
     });
 
     CS_CMD_LIST_MERGE("listdel", {}, list, elems, <);
@@ -4358,7 +4358,7 @@ found:
         }
         buf.push('\0');
         ostd::Size slen = buf.size() - 1;
-        cs.result->set_str(ostd::CharRange(buf.disown(), slen));
+        cs.result->set_mstr(ostd::CharRange(buf.disown(), slen));
     });
 
     cs_init_lib_list_sort(cso);
@@ -4405,7 +4405,7 @@ void cs_list_sort(CsState &cs, char *list, Ident *x, Ident *y,
     }
 
     if (items.empty()) {
-        cs.result->set_str(cstr);
+        cs.result->set_mstr(cstr);
         return;
     }
 
@@ -4474,7 +4474,7 @@ void cs_list_sort(CsState &cs, char *list, Ident *x, Ident *y,
     }
     sorted[offset] = '\0';
 
-    cs.result->set_str(sorted);
+    cs.result->set_mstr(sorted);
 }
 
 static void cs_init_lib_list_sort(CsState &cso) {
@@ -4696,7 +4696,7 @@ static void cs_init_lib_string(CsState &cso) {
         char *s = new char[2];
         s[0] = char(*i);
         s[1] = '\0';
-        cs.result->set_str(s);
+        cs.result->set_mstr(s);
     });
 
     cso.add_command("strlower", "s", [](CsState &cs, char *s) {
@@ -4705,7 +4705,7 @@ static void cs_init_lib_string(CsState &cso) {
         for (ostd::Size i = 0; i < len; ++i)
             buf[i] = tolower(s[i]);
         buf[len] = '\0';
-        cs.result->set_str(ostd::CharRange(buf, len));
+        cs.result->set_mstr(ostd::CharRange(buf, len));
     });
 
     cso.add_command("strupper", "s", [](CsState &cs, char *s) {
@@ -4714,14 +4714,14 @@ static void cs_init_lib_string(CsState &cso) {
         for (ostd::Size i = 0; i < len; ++i)
             buf[i] = toupper(s[i]);
         buf[len] = '\0';
-        cs.result->set_str(ostd::CharRange(buf, len));
+        cs.result->set_mstr(ostd::CharRange(buf, len));
     });
 
     cso.add_command("escape", "s", [](CsState &cs, char *s) {
         auto x = ostd::appender<ostd::String>();
         util::escape_string(x, s);
         ostd::Size len = x.size();
-        cs.result->set_str(ostd::CharRange(x.get().disown(), len));
+        cs.result->set_mstr(ostd::CharRange(x.get().disown(), len));
     });
 
     cso.add_command("unescape", "s", [](CsState &cs, char *s) {
@@ -4730,15 +4730,15 @@ static void cs_init_lib_string(CsState &cso) {
         auto writer = ostd::CharRange(buf, len + 1);
         util::unescape_string(writer, ostd::ConstCharRange(s, len));
         writer.put('\0');
-        cs.result->set_str(ostd::CharRange(buf, len));
+        cs.result->set_mstr(ostd::CharRange(buf, len));
     });
 
     cso.add_command("concat", "V", [](CsState &cs, TvalRange args) {
-        cs.result->set_str(conc(args, true));
+        cs.result->set_mstr(conc(args, true));
     });
 
     cso.add_command("concatworld", "V", [](CsState &cs, TvalRange args) {
-        cs.result->set_str(conc(args, false));
+        cs.result->set_mstr(conc(args, false));
     });
 
     cso.add_command("format", "V", [](CsState &cs, TvalRange args) {
@@ -4762,7 +4762,7 @@ static void cs_init_lib_string(CsState &cso) {
         }
         s.push('\0');
         ostd::Size len = s.size() - 1;
-        cs.result->set_str(ostd::CharRange(s.disown(), len));
+        cs.result->set_mstr(ostd::CharRange(s.disown(), len));
     });
 
     cso.add_command("tohex", "ii", [](CsState &cs, int *n, int *p) {
@@ -4770,7 +4770,7 @@ static void cs_init_lib_string(CsState &cso) {
         ostd::format(r, "0x%.*X", ostd::max(*p, 1), *n);
         r.put('\0');
         ostd::Size len = r.size() - 1;
-        cs.result->set_str(ostd::CharRange(r.get().disown(), len));
+        cs.result->set_mstr(ostd::CharRange(r.get().disown(), len));
     });
 
     cso.add_command("substr", "siiN", [](CsState &cs, char *s, int *start,
@@ -4827,7 +4827,7 @@ static void cs_init_lib_string(CsState &cso) {
                     buf.push(*s++);
                 buf.push('\0');
                 ostd::Size len = buf.size() - 1;
-                cs.result->set_str(ostd::CharRange(buf.disown(), len));
+                cs.result->set_mstr(ostd::CharRange(buf.disown(), len));
                 return;
             }
         }
@@ -4848,7 +4848,7 @@ static void cs_init_lib_string(CsState &cso) {
         if (offset + len < slen)
             memcpy(&p[offset + vlen], &s[offset + len], slen - (offset + len));
         p[slen - len + vlen] = '\0';
-        cs.result->set_str(ostd::CharRange(p, slen - len + vlen));
+        cs.result->set_mstr(ostd::CharRange(p, slen - len + vlen));
     });
 }
 

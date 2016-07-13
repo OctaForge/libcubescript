@@ -131,9 +131,10 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
         p_type = VAL_FLOAT;
         f = val;
     }
-    void set_str(ostd::CharRange val) {
-        p_type = VAL_STR | (val.size() << 4);
-        s = val.data();
+    void set_str(ostd::String val) {
+        ostd::CharRange cr = val.iter();
+        val.disown();
+        set_mstr(cr);
     }
     void set_str_dup(ostd::ConstCharRange val) {
         s = new char[val.size() + 1];
@@ -156,6 +157,10 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
     void set_cstr(ostd::ConstCharRange val) {
         p_type = VAL_CSTR | (val.size() << 4);
         cstr = val.data();
+    }
+    void set_mstr(ostd::CharRange val) {
+        p_type = VAL_STR | (val.size() << 4);
+        s = val.data();
     }
     void set_ident(Ident *val) {
         p_type = VAL_IDENT;
