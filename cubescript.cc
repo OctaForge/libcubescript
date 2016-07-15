@@ -1478,8 +1478,7 @@ static inline bool cs_get_bool(const TaggedValue &v) {
     }
 }
 
-static ostd::ConstCharRange unusedword(nullptr, nullptr);
-static bool compilearg(GenState &gs, int wordtype, int prevargs = MaxResults, ostd::ConstCharRange &word = unusedword);
+static bool compilearg(GenState &gs, int wordtype, int prevargs = MaxResults, ostd::ConstCharRange *word = nullptr);
 
 static void compilelookup(GenState &gs, int ltype, int prevargs = MaxResults) {
     ostd::ConstCharRange lookup;
@@ -1894,7 +1893,9 @@ done:
     }
 }
 
-static bool compilearg(GenState &gs, int wordtype, int prevargs, ostd::ConstCharRange &word) {
+static bool compilearg(GenState &gs, int wordtype, int prevargs, ostd::ConstCharRange *word) {
+    ostd::ConstCharRange unused;
+    if (!word) word = &unused;
     skipcomments(gs.source);
     switch (gs.current()) {
     case '\"':
@@ -1917,7 +1918,7 @@ static bool compilearg(GenState &gs, int wordtype, int prevargs, ostd::ConstChar
             break;
         }
         case VAL_WORD:
-            cutstring(gs.source, word);
+            cutstring(gs.source, *word);
             break;
         case VAL_ANY:
         case VAL_STR:
@@ -1994,8 +1995,8 @@ static bool compilearg(GenState &gs, int wordtype, int prevargs, ostd::ConstChar
             return true;
         }
         case VAL_WORD:
-            cutword(gs.source, word);
-            return !word.empty();
+            cutword(gs.source, *word);
+            return !word->empty();
         default: {
             ostd::ConstCharRange s;
             cutword(gs.source, s);
@@ -2014,7 +2015,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
     for (;;) {
         skipcomments(gs.source);
         idname = ostd::ConstCharRange(nullptr, nullptr);
-        bool more = compilearg(gs, VAL_WORD, prevargs, idname);
+        bool more = compilearg(gs, VAL_WORD, prevargs, &idname);
         if (!more) goto endstatement;
         skipcomments(gs.source);
         if (gs.current() == '=') switch (gs.source[1]) {
