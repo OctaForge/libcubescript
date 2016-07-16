@@ -2448,7 +2448,7 @@ Bytecode &Bytecode::operator=(Bytecode &&v) {
     return *this;
 }
 
-static const ostd::Uint32 *skipcode(const ostd::Uint32 *code, TaggedValue &result = no_ret) {
+static const ostd::Uint32 *skipcode(const ostd::Uint32 *code, TaggedValue *result = nullptr) {
     int depth = 0;
     for (;;) {
         ostd::Uint32 op = *code++;
@@ -2478,7 +2478,7 @@ static const ostd::Uint32 *skipcode(const ostd::Uint32 *code, TaggedValue &resul
         case CODE_EXIT|RET_INT:
         case CODE_EXIT|RET_FLOAT:
             if (depth <= 0) {
-                if (&result != &no_ret) result.force(op & CODE_RET_MASK);
+                if (result) result->force(op & CODE_RET_MASK);
                 return code;
             }
             --depth;
@@ -2628,7 +2628,7 @@ static const ostd::Uint32 *runcode(CsState &cs, const ostd::Uint32 *code, Tagged
     result.set_null();
     if (rundepth >= MAXRUNDEPTH) {
         cs_debug_code(cs, "exceeded recursion limit");
-        return skipcode(code, result);
+        return skipcode(code, (&result == &no_ret) ? nullptr : &result);
     }
     ++rundepth;
     int numargs = 0;
