@@ -88,12 +88,12 @@ enum {
 struct OSTD_EXPORT Bytecode {
     Bytecode(): p_code(nullptr) {}
     Bytecode(ostd::Uint32 *v);
-    Bytecode(const Bytecode &v);
+    Bytecode(Bytecode const &v);
     Bytecode(Bytecode &&v): p_code(v.p_code) { v.p_code = nullptr; }
 
     ~Bytecode();
 
-    Bytecode &operator=(const Bytecode &v);
+    Bytecode &operator=(Bytecode const &v);
     Bytecode &operator=(Bytecode &&v);
 
     operator bool() const { return p_code != nullptr; }
@@ -110,9 +110,9 @@ struct IdentValue {
         int i;      /* ID_VAR, VAL_INT */
         float f;    /* ID_FVAR, VAL_FLOAT */
         char *s;    /* ID_SVAR, VAL_STR */
-        const ostd::Uint32 *code; /* VAL_CODE */
+        ostd::Uint32 const *code; /* VAL_CODE */
         Ident *id;  /* VAL_IDENT */
-        const char *cstr; /* VAL_CSTR */
+        char const *cstr; /* VAL_CSTR */
     };
 };
 
@@ -144,12 +144,12 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
         p_type = VAL_NULL;
         i = 0;
     }
-    void set_code(const ostd::Uint32 *val) {
+    void set_code(ostd::Uint32 const *val) {
         p_type = VAL_CODE;
         code = val;
     }
-    void set_macro(const ostd::Uint32 *val) {
-        p_type = VAL_MACRO | (strlen((const char *)val) << 4);
+    void set_macro(ostd::Uint32 const *val) {
+        p_type = VAL_MACRO | (strlen(reinterpret_cast<char const *>(val)) << 4);
         code = val;
     }
     void set_cstr(ostd::ConstCharRange val) {
@@ -290,7 +290,7 @@ struct OSTD_EXPORT Ident {
     Ident(int t, ostd::ConstCharRange n, int a, int flags);
     Ident(int t, ostd::ConstCharRange n, float a, int flags);
     Ident(int t, ostd::ConstCharRange n, int flags);
-    Ident(int t, ostd::ConstCharRange n, const TaggedValue &v, int flags);
+    Ident(int t, ostd::ConstCharRange n, TaggedValue const &v, int flags);
 
     /* ID_COMMAND */
     Ident(int t, ostd::ConstCharRange n, ostd::ConstCharRange args,
@@ -301,12 +301,12 @@ struct OSTD_EXPORT Ident {
         if (cb_var) cb_var(cs, this);
     }
 
-    void set_value(const TaggedValue &v) {
+    void set_value(TaggedValue const &v) {
         valtype = v.get_type() | int(v.get_str_len() << 4);
         val = v;
     }
 
-    void set_value(const IdentStack &v) {
+    void set_value(IdentStack const &v) {
         valtype = v.valtype;
         val = v.val;
     }
@@ -330,10 +330,10 @@ struct OSTD_EXPORT Ident {
 
     void clean_code();
 
-    void push_arg(const TaggedValue &v, IdentStack &st, bool um = true);
+    void push_arg(TaggedValue const &v, IdentStack &st, bool um = true);
     void pop_arg();
     void undo_arg(IdentStack &st);
-    void redo_arg(const IdentStack &st);
+    void redo_arg(IdentStack const &st);
 
     void push_alias(IdentStack &st);
     void pop_alias();
@@ -404,7 +404,7 @@ struct OSTD_EXPORT CsState {
     bool add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
                      F func, int type = ID_COMMAND, int flags = 0) {
         return add_command(name, args,
-            (IdentFunc)(ostd::FunctionMakeDefaultConstructible<F>)func,
+            IdentFunc(ostd::FunctionMakeDefaultConstructible<F>(func)),
             type, flags);
     }
 
@@ -415,31 +415,31 @@ struct OSTD_EXPORT CsState {
     bool add_commandn(ostd::ConstCharRange name, ostd::ConstCharRange args,
                       F func, int type = ID_COMMAND, int flags = 0) {
         return add_command(name, args,
-            (IdentFunc)(ostd::FunctionMakeDefaultConstructible<F>)func,
+            IdentFunc(ostd::FunctionMakeDefaultConstructible<F>(func)),
             type, flags | IDF_NOEXPAND);
     }
 
-    ostd::String run_str(const ostd::Uint32 *code);
+    ostd::String run_str(ostd::Uint32 const *code);
     ostd::String run_str(ostd::ConstCharRange code);
     ostd::String run_str(Ident *id, TvalRange args);
 
-    int run_int(const ostd::Uint32 *code);
+    int run_int(ostd::Uint32 const *code);
     int run_int(ostd::ConstCharRange code);
     int run_int(Ident *id, TvalRange args);
 
-    float run_float(const ostd::Uint32 *code);
+    float run_float(ostd::Uint32 const *code);
     float run_float(ostd::ConstCharRange code);
     float run_float(Ident *id, TvalRange args);
 
-    bool run_bool(const ostd::Uint32 *code);
+    bool run_bool(ostd::Uint32 const *code);
     bool run_bool(ostd::ConstCharRange code);
     bool run_bool(Ident *id, TvalRange args);
 
-    void run_ret(const ostd::Uint32 *code, TaggedValue &ret);
+    void run_ret(ostd::Uint32 const *code, TaggedValue &ret);
     void run_ret(ostd::ConstCharRange code, TaggedValue &ret);
     void run_ret(Ident *id, TvalRange args, TaggedValue &ret);
 
-    void run_ret(const ostd::Uint32 *code) {
+    void run_ret(ostd::Uint32 const *code) {
         run_ret(code, *result);
     }
 

@@ -1,4 +1,4 @@
-LIBCUBESCRIPT_CXXFLAGS = -std=c++14 -Wall -Wextra -Wshadow -I. -fPIC -fvisibility=hidden
+LIBCUBESCRIPT_CXXFLAGS = -std=c++14 -Wall -Wextra -Wshadow -Wold-style-cast -I. -fPIC -fvisibility=hidden
 LIBCUBESCRIPT_LDFLAGS = -shared
 
 LIBCUBESCRIPT_SRC = cubescript.cc
