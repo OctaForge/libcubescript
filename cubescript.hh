@@ -372,6 +372,7 @@ struct OSTD_EXPORT CsState {
     int nodebug = 0;
     int numargs = 0;
     int dbgalias = 4;
+    int rundepth = 0;
 
     CsState();
     ~CsState();
