@@ -2625,14 +2625,15 @@ cleanup:
 }
 
 static constexpr int MaxRunDepth = 255;
+static thread_local int rundepth = 0;
 
 static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, TaggedValue &result) {
     result.set_null();
-    if (cs.rundepth >= MaxRunDepth) {
+    if (rundepth >= MaxRunDepth) {
         cs_debug_code(cs, "exceeded recursion limit");
         return skipcode(code, (&result == &no_ret) ? nullptr : &result);
     }
-    ++cs.rundepth;
+    ++rundepth;
     int numargs = 0;
     TaggedValue args[MaxArguments + MaxResults], *prevret = cs.result;
     cs.result = &result;
@@ -3322,7 +3323,7 @@ noid:
     }
 exit:
     cs.result = prevret;
-    --cs.rundepth;
+    --rundepth;
     return code;
 }
 
