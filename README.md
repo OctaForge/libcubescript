@@ -1,7 +1,8 @@
 # libcubescript
 
 This is an embeddable version of the CubeScript implementation from the
-Cube 2 engine.
+Cube 2 engine. The API is highly unstable right now and overall it's a work
+in progress.
 
 It depends on the latest Git version of OctaSTD:
 
