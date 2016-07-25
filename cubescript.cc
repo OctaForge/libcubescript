@@ -19,8 +19,7 @@ static inline int cs_parse_int(ostd::ConstCharRange s) {
     return parseint(s.data());
 }
 
-static inline float parsefloat(char const *s)
-{
+static inline float parsefloat(char const *s) {
     /* not all platforms (windows) can parse hexadecimal integers via strtod */
     char *end;
     double val = strtod(s, &end);
