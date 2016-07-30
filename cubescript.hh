@@ -127,6 +127,7 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
     ostd::String get_str() const;
     int get_int() const;
     float get_float() const;
+    ostd::Uint32 *get_code() const;
     void get_val(TaggedValue &r) const;
 
     void force_null();

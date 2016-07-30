@@ -570,6 +570,12 @@ float Ident::get_float() const {
     return cs_get_float(val, get_valtype());
 }
 
+ostd::Uint32 *TaggedValue::get_code() const {
+    if (get_type() != VAL_CODE)
+        return nullptr;
+    return const_cast<ostd::Uint32 *>(code);
+}
+
 static inline ostd::String cs_get_str(IdentValue const &v, int type, int len) {
     switch (type) {
     case VAL_STR:
