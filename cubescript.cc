@@ -598,6 +598,26 @@ ostd::String Ident::get_str() const {
     return cs_get_str(val, get_valtype(), valtype >> 4);
 }
 
+static inline ostd::ConstCharRange cs_get_strr(IdentValue const &v, int type, int len) {
+    switch (type) {
+    case VAL_STR:
+    case VAL_MACRO:
+    case VAL_CSTR:
+        return ostd::ConstCharRange(v.s, len);
+    default:
+        break;
+    }
+    return ostd::ConstCharRange();
+}
+
+ostd::ConstCharRange TaggedValue::get_strr() const {
+    return cs_get_strr(*this, get_type(), p_type >> 4);
+}
+
+ostd::ConstCharRange Ident::get_strr() const {
+    return cs_get_strr(val, get_valtype(), valtype >> 4);
+}
+
 static inline void cs_get_val(IdentValue const &v, int type, int len, TaggedValue &r) {
     switch (type) {
     case VAL_STR:
