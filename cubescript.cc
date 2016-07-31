@@ -2651,14 +2651,9 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
         case 'C': {
             i = ostd::max(i + 1, numargs);
             ostd::Vector<char> buf;
-            char *str = conc(buf, ostd::iter(args, i), true);
-            if (id->flags & IDF_NOEXPAND) {
-                TaggedValue tv;
-                tv.set_mstr(str);
-                id->cb_cftv(cs, TvalRange(&tv, 1));
-            } else {
-                id->cb_cfs(cs, str);
-            }
+            TaggedValue tv;
+            tv.set_mstr(conc(buf, ostd::iter(args, i), true));
+            id->cb_cftv(cs, TvalRange(&tv, 1));
             goto cleanup;
         }
         case 'V':
@@ -3231,14 +3226,9 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             {
                 ostd::Vector<char> buf;
                 buf.reserve(256);
-                char *str = conc(buf, ostd::iter(&args[offset], callargs), true);
-                if (id->flags & IDF_NOEXPAND) {
-                    TaggedValue tv;
-                    tv.set_mstr(str);
-                    id->cb_cftv(cs, TvalRange(&tv, 1));
-                } else {
-                    id->cb_cfs(cs, str);
-                }
+                TaggedValue tv;
+                tv.set_mstr(conc(buf, ostd::iter(&args[offset], callargs), true));
+                id->cb_cftv(cs, TvalRange(&tv, 1));
             }
             result.force(op & CODE_RET_MASK);
             free_args(args, numargs, offset);
@@ -3625,8 +3615,8 @@ static void cs_init_lib_io(CsState &cso) {
             cs.result->set_int(1);
     });
 
-    cso.add_commandn("echo", "C", [](CsState &, ostd::ConstCharRange s) {
-        ostd::writeln(s);
+    cso.add_command("echo", "C", [](CsState &, TvalRange args) {
+        ostd::writeln(args[0].get_strr());
     });
 }
 

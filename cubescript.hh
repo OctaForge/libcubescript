@@ -174,7 +174,6 @@ using CommandFunc10 = void (*)(CsState &, void *, void *, void *, void *, void *
 using CommandFunc11 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
 using CommandFunc12 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
 using CommandFuncTv = void (*)(CsState &, TvalRange);
-using CommandFuncS = void (*)(CsState &, ostd::ConstCharRange);
 
 struct OSTD_EXPORT Ident {
     ostd::byte type; /* ID_something */
@@ -224,7 +223,6 @@ struct OSTD_EXPORT Ident {
         CommandFunc11 cb_cf11;
         CommandFunc12 cb_cf12;
         CommandFuncTv cb_cftv;
-        CommandFuncS cb_cfs;
     };
 
     Ident(): type(ID_UNKNOWN) {}
