@@ -2651,7 +2651,14 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
         case 'C': {
             i = ostd::max(i + 1, numargs);
             ostd::Vector<char> buf;
-            id->cb_cfs(cs, conc(buf, ostd::iter(args, i), true));
+            char *str = conc(buf, ostd::iter(args, i), true);
+            if (id->flags & IDF_NOEXPAND) {
+                TaggedValue tv;
+                tv.set_mstr(str);
+                id->cb_cftv(cs, TvalRange(&tv, 1));
+            } else {
+                id->cb_cfs(cs, str);
+            }
             goto cleanup;
         }
         case 'V':
@@ -3224,7 +3231,14 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             {
                 ostd::Vector<char> buf;
                 buf.reserve(256);
-                id->cb_cfs(cs, conc(buf, ostd::iter(&args[offset], callargs), true));
+                char *str = conc(buf, ostd::iter(&args[offset], callargs), true);
+                if (id->flags & IDF_NOEXPAND) {
+                    TaggedValue tv;
+                    tv.set_mstr(str);
+                    id->cb_cftv(cs, TvalRange(&tv, 1));
+                } else {
+                    id->cb_cfs(cs, str);
+                }
             }
             result.force(op & CODE_RET_MASK);
             free_args(args, numargs, offset);
