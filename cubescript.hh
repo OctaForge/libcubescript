@@ -355,23 +355,23 @@ struct OSTD_EXPORT CsState {
     bool reset_var(ostd::ConstCharRange name);
     void touch_var(ostd::ConstCharRange name);
 
+    bool add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
+                     IdentFunc func, int type = ID_COMMAND, int flags = 0);
+
     template<typename F>
     bool add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
                      F func, int type = ID_COMMAND, int flags = 0) {
         return add_command(name, args,
             IdentFunc(ostd::FunctionMakeDefaultConstructible<F>(func)),
-            type, flags);
+            type, flags | IDF_NOEXPAND);
     }
-
-    bool add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
-                     IdentFunc func, int type = ID_COMMAND, int flags = 0);
 
     template<typename F>
     bool add_commandn(ostd::ConstCharRange name, ostd::ConstCharRange args,
                       F func, int type = ID_COMMAND, int flags = 0) {
         return add_command(name, args,
             IdentFunc(ostd::FunctionMakeDefaultConstructible<F>(func)),
-            type, flags | IDF_NOEXPAND);
+            type, flags);
     }
 
     ostd::String run_str(ostd::Uint32 const *code);
