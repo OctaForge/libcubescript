@@ -1,18 +1,29 @@
-LIBCUBESCRIPT_CXXFLAGS = -std=c++14 -Wall -Wextra -Wshadow -Wold-style-cast -I. -fPIC -fvisibility=hidden
-LIBCUBESCRIPT_LDFLAGS = -shared
+OSTD_PATH = ../octastd
 
-LIBCUBESCRIPT_SRC = cubescript.cc
-LIBCUBESCRIPT_LIB = libcubescript.so
+LIBCS_CXXFLAGS = \
+	-std=c++14 -Wall -Wextra -Wshadow -Wold-style-cast -I. \
+	-fPIC -fvisibility=hidden \
+	-I$(OSTD_PATH)
 
-OCTASTD_PATH = ../octastd
+LIBCS_LDFLAGS = -shared
+
+LIBCS_OBJ = \
+	cubescript.o
+
+LIBCS_LIB = libcubescript.so
+
+.cc.o:
+	$(CXX) $(CXXFLAGS) $(LIBCS_CXXFLAGS) -c -o $@ $<
 
 all: library
 
-library: $(LIBCUBESCRIPT_LIB)
+library: $(LIBCS_LIB)
 
-$(LIBCUBESCRIPT_LIB):
-	$(CXX) $(CXXFLAGS) $(LIBCUBESCRIPT_CXXFLAGS) -I$(OCTASTD_PATH) \
-	$(LDFLAGS) $(LIBCUBESCRIPT_LDFLAGS) -o $@ $(LIBCUBESCRIPT_SRC)
+$(LIBCS_LIB): $(LIBCS_OBJ)
+	$(CXX) $(CXXFLAGS) $(LIBCS_CXXFLAGS) \
+	$(LDFLAGS) $(LIBCS_LDFLAGS) -o $@ $(LIBCS_OBJ)
 
 clean:
-	rm -f $(LIBCUBESCRIPT_LIB)
+	rm -f $(LIBCS_LIB) $(LIBCS_OBJ)
+
+cubescript.o: cubescript.hh
