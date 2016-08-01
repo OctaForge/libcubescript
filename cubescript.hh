@@ -73,11 +73,11 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
     friend struct Ident;
 
     int get_type() const {
-        return p_type & 0xF;
+        return p_type;
     }
 
     ostd::Size get_str_len() const {
-        return ostd::Size(p_type >> 4);
+        return p_len;
     }
 
     void set_int(int val) {
@@ -102,15 +102,18 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
         code = val;
     }
     void set_macro(ostd::Uint32 const *val) {
-        p_type = VAL_MACRO | (strlen(reinterpret_cast<char const *>(val)) << 4);
+        p_type = VAL_MACRO;
+        p_len = strlen(reinterpret_cast<char const *>(val));
         code = val;
     }
     void set_cstr(ostd::ConstCharRange val) {
-        p_type = VAL_CSTR | (val.size() << 4);
+        p_type = VAL_CSTR;
+        p_len = val.size();
         cstr = val.data();
     }
     void set_mstr(ostd::CharRange val) {
-        p_type = VAL_STR | (val.size() << 4);
+        p_type = VAL_STR;
+        p_len = val.size();
         s = val.data();
     }
     void set_ident(Ident *val) {
@@ -128,17 +131,18 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
     int get_int() const;
     float get_float() const;
     ostd::Uint32 *get_code() const;
+    Ident *get_ident() const;
     void get_val(TaggedValue &r) const;
 
     void force_null();
     float force_float();
     int force_int();
     ostd::ConstCharRange force_str();
-    void force(int type);
 
     void cleanup();
 
 private:
+    ostd::Size p_len;
     int p_type;
 };
 
@@ -147,6 +151,7 @@ using TvalRange = ostd::PointerRange<TaggedValue>;
 struct IdentStack {
     IdentValue val;
     int valtype;
+    ostd::Size vallen;
     IdentStack *next;
 };
 
@@ -167,6 +172,7 @@ struct OSTD_EXPORT Ident {
         int valtype; /* ID_ALIAS */
         int numargs; /* ID_COMMAND */
     };
+    ostd::Size vallen;
     ostd::ushort flags;
     int index;
     ostd::String name;
@@ -227,12 +233,14 @@ struct OSTD_EXPORT Ident {
     }
 
     void set_value(TaggedValue const &v) {
-        valtype = v.get_type() | int(v.get_str_len() << 4);
+        valtype = v.get_type();
+        vallen = v.get_str_len();
         val = v;
     }
 
     void set_value(IdentStack const &v) {
         valtype = v.valtype;
+        vallen = v.vallen;
         val = v.val;
     }
 
@@ -240,6 +248,7 @@ struct OSTD_EXPORT Ident {
         if (valtype == VAL_STR)
             delete[] val.s;
         valtype = VAL_NULL;
+        vallen = 0;
     }
 
     float get_float() const;
@@ -268,7 +277,11 @@ struct OSTD_EXPORT Ident {
     void set_alias(CsState &cs, TaggedValue &v);
 
     int get_valtype() const {
-        return valtype & 0xF;
+        return valtype;
+    }
+
+    ostd::Size get_vallen() const {
+        return vallen;
     }
 };
 

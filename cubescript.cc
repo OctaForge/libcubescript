@@ -141,26 +141,26 @@ Ident::Ident(int t, ostd::ConstCharRange n, char **s, VarCb f, int flagsv)
 
 /* ID_ALIAS */
 Ident::Ident(int t, ostd::ConstCharRange n, char *a, int flagsv)
-    : type(t), valtype(VAL_STR | (n.size() << 4)), flags(flagsv), name(n), code(nullptr),
+    : type(t), valtype(VAL_STR), vallen(n.size()), flags(flagsv), name(n), code(nullptr),
       stack(nullptr) {
     val.s = a;
 }
 Ident::Ident(int t, ostd::ConstCharRange n, int a, int flagsv)
-    : type(t), valtype(VAL_INT), flags(flagsv), name(n), code(nullptr),
+    : type(t), valtype(VAL_INT), vallen(0), flags(flagsv), name(n), code(nullptr),
       stack(nullptr) {
     val.i = a;
 }
 Ident::Ident(int t, ostd::ConstCharRange n, float a, int flagsv)
-    : type(t), valtype(VAL_FLOAT), flags(flagsv), name(n), code(nullptr),
+    : type(t), valtype(VAL_FLOAT), vallen(0), flags(flagsv), name(n), code(nullptr),
       stack(nullptr) {
     val.f = a;
 }
 Ident::Ident(int t, ostd::ConstCharRange n, int flagsv)
-    : type(t), valtype(VAL_NULL), flags(flagsv), name(n), code(nullptr),
+    : type(t), valtype(VAL_NULL), vallen(0), flags(flagsv), name(n), code(nullptr),
       stack(nullptr) {
 }
 Ident::Ident(int t, ostd::ConstCharRange n, TaggedValue const &v, int flagsv)
-    : type(t), valtype(v.p_type), flags(flagsv), name(n), code(nullptr),
+    : type(t), valtype(v.p_type), vallen(v.p_len), flags(flagsv), name(n), code(nullptr),
       stack(nullptr) {
     val = v;
 }
@@ -278,6 +278,7 @@ void CsState::clear_override(Ident &id) {
         }
         id.clean_code();
         id.valtype = VAL_STR;
+        id.vallen = 0;
         id.val.s = cs_dup_ostr("");
         break;
     case ID_VAR:
@@ -502,7 +503,7 @@ ostd::ConstCharRange TaggedValue::force_str() {
         break;
     case VAL_MACRO:
     case VAL_CSTR:
-        rs = ostd::ConstCharRange(s, ostd::Size(p_type >> 4));
+        rs = ostd::ConstCharRange(s, p_len);
         break;
     case VAL_STR:
         return s;
@@ -512,16 +513,16 @@ ostd::ConstCharRange TaggedValue::force_str() {
     return s;
 }
 
-void TaggedValue::force(int type) {
-    switch (get_type()) {
+static inline void force_arg(TaggedValue &v, int type) {
+    switch (v.get_type()) {
     case RET_STR:
-        if (type != VAL_STR) force_str();
+        if (type != VAL_STR) v.force_str();
         break;
     case RET_INT:
-        if (type != VAL_INT) force_int();
+        if (type != VAL_INT) v.force_int();
         break;
     case RET_FLOAT:
-        if (type != VAL_FLOAT) force_float();
+        if (type != VAL_FLOAT) v.force_float();
         break;
     }
 }
@@ -576,7 +577,13 @@ ostd::Uint32 *TaggedValue::get_code() const {
     return const_cast<ostd::Uint32 *>(code);
 }
 
-static inline ostd::String cs_get_str(IdentValue const &v, int type, int len) {
+Ident *TaggedValue::get_ident() const {
+    if (get_type() != VAL_IDENT)
+        return nullptr;
+    return id;
+}
+
+static inline ostd::String cs_get_str(IdentValue const &v, int type, ostd::Size len) {
     switch (type) {
     case VAL_STR:
     case VAL_MACRO:
@@ -591,14 +598,14 @@ static inline ostd::String cs_get_str(IdentValue const &v, int type, int len) {
 }
 
 ostd::String TaggedValue::get_str() const {
-    return cs_get_str(*this, get_type(), p_type >> 4);
+    return cs_get_str(*this, get_type(), get_str_len());
 }
 
 ostd::String Ident::get_str() const {
-    return cs_get_str(val, get_valtype(), valtype >> 4);
+    return cs_get_str(val, get_valtype(), get_vallen());
 }
 
-static inline ostd::ConstCharRange cs_get_strr(IdentValue const &v, int type, int len) {
+static inline ostd::ConstCharRange cs_get_strr(IdentValue const &v, int type, ostd::Size len) {
     switch (type) {
     case VAL_STR:
     case VAL_MACRO:
@@ -611,14 +618,14 @@ static inline ostd::ConstCharRange cs_get_strr(IdentValue const &v, int type, in
 }
 
 ostd::ConstCharRange TaggedValue::get_strr() const {
-    return cs_get_strr(*this, get_type(), p_type >> 4);
+    return cs_get_strr(*this, get_type(), get_str_len());
 }
 
 ostd::ConstCharRange Ident::get_strr() const {
-    return cs_get_strr(val, get_valtype(), valtype >> 4);
+    return cs_get_strr(val, get_valtype(), get_vallen());
 }
 
-static inline void cs_get_val(IdentValue const &v, int type, int len, TaggedValue &r) {
+static inline void cs_get_val(IdentValue const &v, int type, ostd::Size len, TaggedValue &r) {
     switch (type) {
     case VAL_STR:
     case VAL_MACRO:
@@ -639,11 +646,11 @@ static inline void cs_get_val(IdentValue const &v, int type, int len, TaggedValu
 }
 
 void TaggedValue::get_val(TaggedValue &r) const {
-    cs_get_val(*this, get_type(), p_type >> 4, r);
+    cs_get_val(*this, get_type(), get_str_len(), r);
 }
 
 void Ident::get_val(TaggedValue &r) const {
-    cs_get_val(val, get_valtype(), valtype >> 4, r);
+    cs_get_val(val, get_valtype(), get_vallen(), r);
 }
 
 void Ident::get_cstr(TaggedValue &v) const {
@@ -653,7 +660,7 @@ void Ident::get_cstr(TaggedValue &v) const {
         break;
     case VAL_STR:
     case VAL_CSTR:
-        v.set_cstr(ostd::ConstCharRange(val.s, valtype >> 4));
+        v.set_cstr(ostd::ConstCharRange(val.s, get_vallen()));
         break;
     case VAL_INT:
         v.set_str(ostd::move(intstr(val.i)));
@@ -674,7 +681,7 @@ void Ident::get_cval(TaggedValue &v) const {
         break;
     case VAL_STR:
     case VAL_CSTR:
-        v.set_cstr(ostd::ConstCharRange(val.s, valtype >> 4));
+        v.set_cstr(ostd::ConstCharRange(val.s, get_vallen()));
         break;
     case VAL_INT:
         v.set_int(val.i);
@@ -704,6 +711,7 @@ void Ident::clean_code() {
 void Ident::push_arg(TaggedValue const &v, IdentStack &st, bool um) {
     st.val = val;
     st.valtype = valtype;
+    st.vallen = vallen;
     st.next = stack;
     stack = &st;
     set_value(v);
@@ -725,6 +733,7 @@ void Ident::undo_arg(IdentStack &st) {
     IdentStack *prev = stack;
     st.val = val;
     st.valtype = valtype;
+    st.vallen = vallen;
     st.next = prev;
     stack = prev->next;
     set_value(*prev);
@@ -735,6 +744,7 @@ void Ident::redo_arg(IdentStack const &st) {
     IdentStack *prev = st.next;
     prev->val = val;
     prev->valtype = valtype;
+    prev->vallen = vallen;
     stack = prev;
     set_value(st);
     clean_code();
@@ -1066,7 +1076,7 @@ static void cs_init_lib_base_var(CsState &cs) {
     });
 
     cs.add_command("push", "rTe", [&cs](TvalRange args) {
-        Ident *id = args[0].id;
+        Ident *id = args[0].get_ident();
         if (id->type != ID_ALIAS || id->index < MaxArguments) return;
         IdentStack stack;
         TaggedValue &v = args[1];
@@ -2557,7 +2567,9 @@ static ostd::Uint32 const *skipcode(ostd::Uint32 const *code, TaggedValue *resul
         case CODE_EXIT|RET_INT:
         case CODE_EXIT|RET_FLOAT:
             if (depth <= 0) {
-                if (result) result->force(op & CODE_RET_MASK);
+                if (result) {
+                    force_arg(*result, op & CODE_RET_MASK);
+                }
                 return code;
             }
             --depth;
@@ -2740,14 +2752,14 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
         case CODE_EXIT|RET_STR:
         case CODE_EXIT|RET_INT:
         case CODE_EXIT|RET_FLOAT:
-            result.force(op & CODE_RET_MASK);
+            force_arg(result, op & CODE_RET_MASK);
         /* fallthrough */
         case CODE_EXIT|RET_NULL:
             goto exit;
         case CODE_RESULT_ARG|RET_STR:
         case CODE_RESULT_ARG|RET_INT:
         case CODE_RESULT_ARG|RET_FLOAT:
-            result.force(op & CODE_RET_MASK);
+            force_arg(result, op & CODE_RET_MASK);
         /* fallthrough */
         case CODE_RESULT_ARG|RET_NULL:
             args[numargs++] = result;
@@ -2776,7 +2788,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
                     result.cleanup();
                     runcode(cs, args[--numargs].code, result);
                     args[numargs].cleanup();
-                    result.force(op & CODE_RET_MASK);
+                    force_arg(result, op & CODE_RET_MASK);
                 });
                 continue;
             }
@@ -2788,7 +2800,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             result.cleanup();
             runcode(cs, args[--numargs].code, result);
             args[numargs].cleanup();
-            result.force(op & CODE_RET_MASK);
+            force_arg(result, op & CODE_RET_MASK);
             continue;
 
         case CODE_JUMP: {
@@ -2902,7 +2914,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
         case CODE_RESULT|RET_FLOAT:
             result.cleanup();
             result = args[--numargs];
-            result.force(op & CODE_RET_MASK);
+            force_arg(result, op & CODE_RET_MASK);
             continue;
 
         case CODE_EMPTY|RET_NULL:
@@ -3024,7 +3036,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
                             cs.result = &arg; \
                             TaggedValue buf[MaxArguments]; \
                             callcommand(cs, id, buf, 0, true); \
-                            arg.force(op&CODE_RET_MASK); \
+                            force_arg(arg, op&CODE_RET_MASK); \
                             cs.result = &result; \
                             continue; \
                         } \
@@ -3170,7 +3182,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             int offset = numargs - id->numargs;
             result.force_null();
             id->cb_cftv(TvalRange(args + offset, id->numargs));
-            result.force(op & CODE_RET_MASK);
+            force_arg(result, op & CODE_RET_MASK);
             free_args(args, numargs, offset);
             continue;
             }
@@ -3183,7 +3195,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
             result.force_null();
             id->cb_cftv(ostd::iter(&args[offset], callargs));
-            result.force(op & CODE_RET_MASK);
+            force_arg(result, op & CODE_RET_MASK);
             free_args(args, numargs, offset);
             continue;
         }
@@ -3201,7 +3213,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
                 tv.set_mstr(conc(buf, ostd::iter(&args[offset], callargs), true));
                 id->cb_cftv(TvalRange(&tv, 1));
             }
-            result.force(op & CODE_RET_MASK);
+            force_arg(result, op & CODE_RET_MASK);
             free_args(args, numargs, offset);
             continue;
         }
@@ -3218,7 +3230,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             char *s = conc(ostd::iter(&args[numargs - numconc], numconc), (op & CODE_OP_MASK) == CODE_CONC);
             free_args(args, numargs, numargs - numconc);
             args[numargs].set_mstr(s);
-            args[numargs].force(op & CODE_RET_MASK);
+            force_arg(args[numargs], op & CODE_RET_MASK);
             numargs++;
             continue;
         }
@@ -3231,7 +3243,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             char *s = conc(ostd::iter(&args[numargs - numconc], numconc), false);
             free_args(args, numargs, numargs - numconc);
             result.set_mstr(s);
-            result.force(op & CODE_RET_MASK);
+            force_arg(result, op & CODE_RET_MASK);
             continue;
         }
 
@@ -3254,7 +3266,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
         case CODE_CALL|RET_INT: {
 #define FORCERESULT { \
                 free_args(args, numargs, SKIPARGS(offset)); \
-                result.force(op&CODE_RET_MASK); \
+                force_arg(result, op&CODE_RET_MASK); \
                 continue; \
             }
 #define CALLALIAS(cs, result) { \
@@ -3279,7 +3291,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
                     (cs).identmap[i]->pop_arg(); \
                 for(int argmask = aliaslink.usedargs&(~0<<callargs), i = callargs; argmask; i++) \
                     if(argmask&(1<<i)) { (cs).identmap[i]->pop_arg(); argmask &= ~(1<<i); } \
-                (result).force(op&CODE_RET_MASK); \
+                force_arg(result, op&CODE_RET_MASK); \
                 (cs).numargs = oldargs; \
                 numargs = SKIPARGS(offset); \
             }
@@ -3317,7 +3329,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
 litval:
                 result.cleanup();
                 result = idarg;
-                result.force(op & CODE_RET_MASK);
+                force_arg(result, op & CODE_RET_MASK);
                 while (--numargs >= offset) args[numargs].cleanup();
                 continue;
             }
@@ -3337,7 +3349,7 @@ noid:
             case ID_COMMAND:
                 idarg.cleanup();
                 callcommand(cs, id, &args[offset], callargs);
-                result.force(op & CODE_RET_MASK);
+                force_arg(result, op & CODE_RET_MASK);
                 numargs = offset - 1;
                 continue;
             case ID_LOCAL: {
@@ -3691,7 +3703,7 @@ static void cs_init_lib_base(CsState &cs) {
 #undef CS_CMD_CASE
 
     cs.add_command("pushif", "rTe", [&cs](TvalRange args) {
-        Ident *id = args[0].id;
+        Ident *id = args[0].get_ident();
         TaggedValue &v = args[1];
         ostd::Uint32 *code = args[2].get_code();
         if ((id->type != ID_ALIAS) || (id->index < MaxArguments))
@@ -3715,6 +3727,7 @@ static inline void cs_set_iter(Ident &id, int i, IdentStack &stack) {
             if (id.get_valtype() == VAL_STR) delete[] id.val.s;
             id.clean_code();
             id.valtype = VAL_INT;
+            id.vallen = 0;
         }
         id.val.i = i;
         return;
@@ -3761,55 +3774,56 @@ static inline void cs_loop_conc(CsState &cs, Ident &id, int offset, int n,
 void cs_init_lib_base_loops(CsState &cs) {
     cs.add_command("loop", "rie", [&cs](TvalRange args) {
         cs_do_loop(
-            cs, *args[0].id, 0, args[1].get_int(), 1, nullptr, args[2].get_code()
+            cs, *args[0].get_ident(), 0, args[1].get_int(), 1, nullptr,
+            args[2].get_code()
         );
     });
 
     cs.add_command("loop+", "riie", [&cs](TvalRange args) {
         cs_do_loop(
-            cs, *args[0].id, args[1].get_int(), args[2].get_int(), 1, nullptr,
-            args[3].get_code()
+            cs, *args[0].get_ident(), args[1].get_int(), args[2].get_int(), 1,
+            nullptr, args[3].get_code()
         );
     });
 
     cs.add_command("loop*", "riie", [&cs](TvalRange args) {
         cs_do_loop(
-            cs, *args[0].id, 0, args[1].get_int(), args[2].get_int(), nullptr,
-            args[3].get_code()
+            cs, *args[0].get_ident(), 0, args[1].get_int(), args[2].get_int(),
+            nullptr, args[3].get_code()
         );
     });
 
     cs.add_command("loop+*", "riiie", [&cs](TvalRange args) {
         cs_do_loop(
-            cs, *args[0].id, args[1].get_int(), args[3].get_int(),
+            cs, *args[0].get_ident(), args[1].get_int(), args[3].get_int(),
             args[2].get_int(), nullptr, args[4].get_code()
         );
     });
 
     cs.add_command("loopwhile", "riee", [&cs](TvalRange args) {
         cs_do_loop(
-            cs, *args[0].id, 0, args[1].get_int(), 1, args[2].get_code(),
-            args[3].get_code()
+            cs, *args[0].get_ident(), 0, args[1].get_int(), 1,
+            args[2].get_code(), args[3].get_code()
         );
     });
 
     cs.add_command("loopwhile+", "riiee", [&cs](TvalRange args) {
         cs_do_loop(
-            cs, *args[0].id, args[1].get_int(), args[2].get_int(), 1,
+            cs, *args[0].get_ident(), args[1].get_int(), args[2].get_int(), 1,
             args[3].get_code(), args[4].get_code()
         );
     });
 
     cs.add_command("loopwhile*", "riiee", [&cs](TvalRange args) {
         cs_do_loop(
-            cs, *args[0].id, 0, args[2].get_int(), args[1].get_int(),
+            cs, *args[0].get_ident(), 0, args[2].get_int(), args[1].get_int(),
             args[3].get_code(), args[4].get_code()
         );
     });
 
     cs.add_command("loopwhile+*", "riiiee", [&cs](TvalRange args) {
         cs_do_loop(
-            cs, *args[0].id, args[1].get_int(), args[3].get_int(),
+            cs, *args[0].get_ident(), args[1].get_int(), args[3].get_int(),
             args[2].get_int(), args[4].get_code(), args[5].get_code()
         );
     });
@@ -3823,54 +3837,56 @@ void cs_init_lib_base_loops(CsState &cs) {
 
     cs.add_command("loopconcat", "rie", [&cs](TvalRange args) {
         cs_loop_conc(
-            cs, *args[0].id, 0, args[1].get_int(), 1, args[2].get_code(), true
+            cs, *args[0].get_ident(), 0, args[1].get_int(), 1,
+            args[2].get_code(), true
         );
     });
 
     cs.add_command("loopconcat+", "riie", [&cs](TvalRange args) {
         cs_loop_conc(
-            cs, *args[0].id, args[1].get_int(), args[2].get_int(), 1,
+            cs, *args[0].get_ident(), args[1].get_int(), args[2].get_int(), 1,
             args[3].get_code(), true
         );
     });
 
     cs.add_command("loopconcat*", "riie", [&cs](TvalRange args) {
         cs_loop_conc(
-            cs, *args[0].id, 0, args[2].get_int(), args[1].get_int(),
+            cs, *args[0].get_ident(), 0, args[2].get_int(), args[1].get_int(),
             args[3].get_code(), true
         );
     });
 
     cs.add_command("loopconcat+*", "riiie", [&cs](TvalRange args) {
         cs_loop_conc(
-            cs, *args[0].id, args[1].get_int(), args[3].get_int(),
+            cs, *args[0].get_ident(), args[1].get_int(), args[3].get_int(),
             args[2].get_int(), args[4].get_code(), true
         );
     });
 
     cs.add_command("loopconcatword", "rie", [&cs](TvalRange args) {
         cs_loop_conc(
-            cs, *args[0].id, 0, args[1].get_int(), 1, args[2].get_code(), false
+            cs, *args[0].get_ident(), 0, args[1].get_int(), 1,
+            args[2].get_code(), false
         );
     });
 
     cs.add_command("loopconcatword+", "riie", [&cs](TvalRange args) {
         cs_loop_conc(
-            cs, *args[0].id, args[1].get_int(), args[2].get_int(), 1,
+            cs, *args[0].get_ident(), args[1].get_int(), args[2].get_int(), 1,
             args[3].get_code(), false
         );
     });
 
     cs.add_command("loopconcatword*", "riie", [&cs](TvalRange args) {
         cs_loop_conc(
-            cs, *args[0].id, 0, args[2].get_int(), args[1].get_int(),
+            cs, *args[0].get_ident(), 0, args[2].get_int(), args[1].get_int(),
             args[3].get_code(), false
         );
     });
 
     cs.add_command("loopconcatword+*", "riiie", [&cs](TvalRange args) {
         cs_loop_conc(
-            cs, *args[0].id, args[1].get_int(), args[3].get_int(),
+            cs, *args[0].get_ident(), args[1].get_int(), args[3].get_int(),
             args[2].get_int(), args[4].get_code(), false
         );
     });
@@ -4022,10 +4038,12 @@ namespace util {
 
 static inline void cs_set_iter(Ident &id, char *val, IdentStack &stack) {
     if (id.stack == &stack) {
-        if (id.get_valtype() == VAL_STR)
+        if (id.get_valtype() == VAL_STR) {
             delete[] id.val.s;
-        else
-            id.valtype = VAL_STR | (strlen(val) << 4);
+        } else {
+            id.valtype = VAL_STR;
+            id.vallen = strlen(val);
+        }
         id.clean_code();
         id.val.s = val;
         return;
@@ -4124,7 +4142,7 @@ static void cs_init_lib_list(CsState &cs) {
     });
 
     cs.add_command("listfind", "rse", [&cs](TvalRange args) {
-        Ident *id = args[0].id;
+        Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
         if (id->type != ID_ALIAS) {
             cs.result->set_int(-1);
@@ -4147,7 +4165,7 @@ found:
     });
 
     cs.add_command("listassoc", "rse", [&cs](TvalRange args) {
-        Ident *id = args[0].id;
+        Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
         if (id->type != ID_ALIAS)
             return;
@@ -4222,7 +4240,7 @@ found:
 #undef CS_CMD_LIST_ASSOC
 
     cs.add_command("looplist", "rse", [&cs](TvalRange args) {
-        Ident *id = args[0].id;
+        Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
         if (id->type != ID_ALIAS)
             return;
@@ -4237,7 +4255,7 @@ found:
     });
 
     cs.add_command("looplist2", "rrse", [&cs](TvalRange args) {
-        Ident *id = args[0].id, *id2 = args[1].id;
+        Ident *id = args[0].get_ident(), *id2 = args[1].get_ident();
         auto body = args[3].get_code();
         if (id->type != ID_ALIAS || id2->type != ID_ALIAS)
             return;
@@ -4256,7 +4274,9 @@ found:
     });
 
     cs.add_command("looplist3", "rrrse", [&cs](TvalRange args) {
-        Ident *id = args[0].id, *id2 = args[1].id, *id3 = args[2].id;
+        Ident *id = args[0].get_ident();
+        Ident *id2 = args[1].get_ident();
+        Ident *id3 = args[2].get_ident();
         auto body = args[4].get_code();
         if (id->type != ID_ALIAS)
             return;
@@ -4281,18 +4301,20 @@ found:
 
     cs.add_command("looplistconcat", "rse", [&cs](TvalRange args) {
         cs_loop_list_conc(
-            cs, args[0].id, args[1].get_strr(), args[2].get_code(), true
+            cs, args[0].get_ident(), args[1].get_strr(),
+            args[2].get_code(), true
         );
     });
 
     cs.add_command("looplistconcatword", "rse", [&cs](TvalRange args) {
         cs_loop_list_conc(
-            cs, args[0].id, args[1].get_strr(), args[2].get_code(), false
+            cs, args[0].get_ident(), args[1].get_strr(),
+            args[2].get_code(), false
         );
     });
 
     cs.add_command("listfilter", "rse", [&cs](TvalRange args) {
-        Ident *id = args[0].id;
+        Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
         if (id->type != ID_ALIAS)
             return;
@@ -4315,7 +4337,7 @@ found:
     });
 
     cs.add_command("listcount", "rse", [&cs](TvalRange args) {
-        Ident *id = args[0].id;
+        Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
         if (id->type != ID_ALIAS)
             return;
@@ -4448,12 +4470,16 @@ struct ListSortFun {
 
     bool operator()(ListSortItem const &xval, ListSortItem const &yval) {
         x->clean_code();
-        if (x->get_valtype() != VAL_CSTR)
-            x->valtype = VAL_CSTR | (strlen(xval.str) << 4);
+        if (x->get_valtype() != VAL_CSTR) {
+            x->valtype = VAL_CSTR;
+            x->vallen = strlen(xval.str);
+        }
         x->val.cstr = xval.str;
         y->clean_code();
-        if (y->get_valtype() != VAL_CSTR)
-            y->valtype = VAL_CSTR | (strlen(xval.str) << 4);
+        if (y->get_valtype() != VAL_CSTR) {
+            y->valtype = VAL_CSTR;
+            y->vallen = strlen(yval.str);
+        }
         y->val.cstr = yval.str;
         return cs.run_bool(body);
     }
@@ -4554,13 +4580,13 @@ static void cs_list_sort(
 static void cs_init_lib_list_sort(CsState &cs) {
     cs.add_command("sortlist", "srree", [&cs](TvalRange args) {
         cs_list_sort(
-            cs, args[0].get_strr(), args[1].id, args[2].id,
+            cs, args[0].get_strr(), args[1].get_ident(), args[2].get_ident(),
             args[3].get_code(), args[4].get_code()
         );
     });
     cs.add_command("uniquelist", "srre", [&cs](TvalRange args) {
         cs_list_sort(
-            cs, args[0].get_strr(), args[1].id, args[2].id,
+            cs, args[0].get_strr(), args[1].get_ident(), args[2].get_ident(),
             nullptr, args[3].get_code()
         );
     });
