@@ -3781,102 +3781,120 @@ static inline void cs_loop_conc(CsState &cs, Ident &id, int offset, int n,
 }
 
 void cs_init_lib_base_loops(CsState &cso) {
-    cso.add_commandn("loop", "rie", [](CsState &cs, Ident *id, int *n,
-                                      ostd::Uint32 *body) {
-        cs_do_loop(cs, *id, 0, *n, 1, nullptr, body);
+    cso.add_command("loop", "rie", [](CsState &cs, TvalRange args) {
+        cs_do_loop(
+            cs, *args[0].id, 0, args[1].get_int(), 1, nullptr, args[2].get_code()
+        );
     });
 
-    cso.add_commandn("loop+", "riie", [](CsState &cs, Ident *id, int *offset,
-                                        int *n, ostd::Uint32 *body) {
-        cs_do_loop(cs, *id, *offset, *n, 1, nullptr, body);
+    cso.add_command("loop+", "riie", [](CsState &cs, TvalRange args) {
+        cs_do_loop(
+            cs, *args[0].id, args[1].get_int(), args[2].get_int(), 1, nullptr,
+            args[3].get_code()
+        );
     });
 
-    cso.add_commandn("loop*", "riie", [](CsState &cs, Ident *id, int *step,
-                                        int *n, ostd::Uint32 *body) {
-        cs_do_loop(cs, *id, 0, *n, *step, nullptr, body);
+    cso.add_command("loop*", "riie", [](CsState &cs, TvalRange args) {
+        cs_do_loop(
+            cs, *args[0].id, 0, args[1].get_int(), args[2].get_int(), nullptr,
+            args[3].get_code()
+        );
     });
 
-    cso.add_commandn("loop+*", "riiie", [](CsState &cs, Ident *id, int *offset,
-                                          int *step, int *n, ostd::Uint32 *body) {
-        cs_do_loop(cs, *id, *offset, *n, *step, nullptr, body);
+    cso.add_command("loop+*", "riiie", [](CsState &cs, TvalRange args) {
+        cs_do_loop(
+            cs, *args[0].id, args[1].get_int(), args[3].get_int(),
+            args[2].get_int(), nullptr, args[4].get_code()
+        );
     });
 
-    cso.add_commandn("loopwhile", "riee", [](CsState &cs, Ident *id, int *n,
-                                            ostd::Uint32 *cond,
-                                            ostd::Uint32 *body) {
-        cs_do_loop(cs, *id, 0, *n, 1, cond, body);
+    cso.add_command("loopwhile", "riee", [](CsState &cs, TvalRange args) {
+        cs_do_loop(
+            cs, *args[0].id, 0, args[1].get_int(), 1, args[2].get_code(),
+            args[3].get_code()
+        );
     });
 
-    cso.add_commandn("loopwhile+", "riiee", [](CsState &cs, Ident *id,
-                                              int *offset, int *n,
-                                              ostd::Uint32 *cond,
-                                              ostd::Uint32 *body) {
-        cs_do_loop(cs, *id, *offset, *n, 1, cond, body);
+    cso.add_command("loopwhile+", "riiee", [](CsState &cs, TvalRange args) {
+        cs_do_loop(
+            cs, *args[0].id, args[1].get_int(), args[2].get_int(), 1,
+            args[3].get_code(), args[4].get_code()
+        );
     });
 
-    cso.add_commandn("loopwhile*", "riiee", [](CsState &cs, Ident *id,
-                                              int *step, int *n,
-                                              ostd::Uint32 *cond,
-                                              ostd::Uint32 *body) {
-        cs_do_loop(cs, *id, 0, *n, *step, cond, body);
+    cso.add_command("loopwhile*", "riiee", [](CsState &cs, TvalRange args) {
+        cs_do_loop(
+            cs, *args[0].id, 0, args[2].get_int(), args[1].get_int(),
+            args[3].get_code(), args[4].get_code()
+        );
     });
 
-    cso.add_commandn("loopwhile+*", "riiiee", [](CsState &cs, Ident *id,
-                                                int *offset, int *step,
-                                                int *n, ostd::Uint32 *cond,
-                                                ostd::Uint32 *body) {
-        cs_do_loop(cs, *id, *offset, *n, *step, cond, body);
+    cso.add_command("loopwhile+*", "riiiee", [](CsState &cs, TvalRange args) {
+        cs_do_loop(
+            cs, *args[0].id, args[1].get_int(), args[3].get_int(),
+            args[2].get_int(), args[4].get_code(), args[5].get_code()
+        );
     });
 
-    cso.add_commandn("while", "ee", [](CsState &cs, ostd::Uint32 *cond,
-                                      ostd::Uint32 *body) {
-        while (cs.run_bool(cond)) cs.run_int(body);
+    cso.add_command("while", "ee", [](CsState &cs, TvalRange args) {
+        ostd::Uint32 *cond = args[0].get_code(), *body = args[1].get_code();
+        while (cs.run_bool(cond)) {
+            cs.run_int(body);
+        }
     });
 
-    cso.add_commandn("loopconcat", "rie", [](CsState &cs, Ident *id, int *n,
-                                            ostd::Uint32 *body) {
-        cs_loop_conc(cs, *id, 0, *n, 1, body, true);
+    cso.add_command("loopconcat", "rie", [](CsState &cs, TvalRange args) {
+        cs_loop_conc(
+            cs, *args[0].id, 0, args[1].get_int(), 1, args[2].get_code(), true
+        );
     });
 
-    cso.add_commandn("loopconcat+", "riie", [](CsState &cs, Ident *id,
-                                              int *offset, int *n,
-                                              ostd::Uint32 *body) {
-        cs_loop_conc(cs, *id, *offset, *n, 1, body, true);
+    cso.add_command("loopconcat+", "riie", [](CsState &cs, TvalRange args) {
+        cs_loop_conc(
+            cs, *args[0].id, args[1].get_int(), args[2].get_int(), 1,
+            args[3].get_code(), true
+        );
     });
 
-    cso.add_commandn("loopconcat*", "riie", [](CsState &cs, Ident *id,
-                                              int *step, int *n,
-                                              ostd::Uint32 *body) {
-        cs_loop_conc(cs, *id, 0, *n, *step, body, true);
+    cso.add_command("loopconcat*", "riie", [](CsState &cs, TvalRange args) {
+        cs_loop_conc(
+            cs, *args[0].id, 0, args[2].get_int(), args[1].get_int(),
+            args[3].get_code(), true
+        );
     });
 
-    cso.add_commandn("loopconcat+*", "riiie", [](CsState &cs, Ident *id,
-                                                int *offset, int *step,
-                                                int *n, ostd::Uint32 *body) {
-        cs_loop_conc(cs, *id, *offset, *n, *step, body, true);
+    cso.add_command("loopconcat+*", "riiie", [](CsState &cs, TvalRange args) {
+        cs_loop_conc(
+            cs, *args[0].id, args[1].get_int(), args[3].get_int(),
+            args[2].get_int(), args[4].get_code(), true
+        );
     });
 
-    cso.add_commandn("loopconcatword", "rie", [](CsState &cs, Ident *id,
-                                                int *n, ostd::Uint32 *body) {
-        cs_loop_conc(cs, *id, 0, *n, 1, body, false);
+    cso.add_command("loopconcatword", "rie", [](CsState &cs, TvalRange args) {
+        cs_loop_conc(
+            cs, *args[0].id, 0, args[1].get_int(), 1, args[2].get_code(), false
+        );
     });
 
-    cso.add_commandn("loopconcatword+", "riie", [](CsState &cs, Ident *id,
-                                                  int *offset, int *n,
-                                                  ostd::Uint32 *body) {
-        cs_loop_conc(cs, *id, *offset, *n, 1, body, false);
+    cso.add_command("loopconcatword+", "riie", [](CsState &cs, TvalRange args) {
+        cs_loop_conc(
+            cs, *args[0].id, args[1].get_int(), args[2].get_int(), 1,
+            args[3].get_code(), false
+        );
     });
 
-    cso.add_commandn("loopconcatword*", "riie", [](CsState &cs, Ident *id,
-                                                  int *step, int *n,
-                                                  ostd::Uint32 *body) {
-        cs_loop_conc(cs, *id, 0, *n, *step, body, false);
+    cso.add_command("loopconcatword*", "riie", [](CsState &cs, TvalRange args) {
+        cs_loop_conc(
+            cs, *args[0].id, 0, args[2].get_int(), args[1].get_int(),
+            args[3].get_code(), false
+        );
     });
 
-    cso.add_commandn("loopconcatword+*", "riiie", [](CsState &cs, Ident *id,
-                                                    int *offset, int *step,
-                                                    int *n, ostd::Uint32 *body) {
-        cs_loop_conc(cs, *id, *offset, *n, *step, body, false);
+    cso.add_command("loopconcatword+*", "riiie", [](CsState &cs, TvalRange args) {
+        cs_loop_conc(
+            cs, *args[0].id, args[1].get_int(), args[3].get_int(),
+            args[2].get_int(), args[4].get_code(), false
+        );
     });
 }
 
