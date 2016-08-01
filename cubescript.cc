@@ -4758,60 +4758,72 @@ static void cs_init_lib_math(CsState &cso) {
 }
 
 static void cs_init_lib_string(CsState &cso) {
-    cso.add_commandn("strstr", "ss", [](CsState &cs, char *a, char *b) {
-        char *s = strstr(a, b);
-        cs.result->set_int(s ? (s - a) : -1);
+    cso.add_command("strstr", "ss", [](CsState &cs, TvalRange args) {
+        ostd::ConstCharRange a = args[0].get_strr(), b = args[1].get_strr();
+        ostd::ConstCharRange s = a;
+        for (int i = 0; b.size() <= s.size(); ++i) {
+            if (b == s.slice(0, b.size())) {
+                cs.result->set_int(i);
+                return;
+            }
+            s.pop_front();
+        }
+        cs.result->set_int(-1);
     });
 
-    cso.add_commandn("strlen", "s", [](CsState &cs, char *s) {
-        cs.result->set_int(strlen(s));
+    cso.add_command("strlen", "s", [](CsState &cs, TvalRange args) {
+        cs.result->set_int(int(args[0].get_strr().size()));
     });
 
-    cso.add_commandn("strcode", "si", [](CsState &cs, char *s, int *i) {
-        cs.result->set_int((*i > 0)
-                           ? (memchr(s, '\0', *i) ? 0 : ostd::byte(s[*i]))
-                           : ostd::byte(s[0]));
+    cso.add_command("strcode", "si", [](CsState &cs, TvalRange args) {
+        ostd::ConstCharRange str = args[0].get_strr();
+        int i = args[1].get_int();
+        if (i >= int(str.size())) {
+            cs.result->set_int(0);
+        } else {
+            cs.result->set_int(ostd::byte(str[i]));
+        }
     });
 
-    cso.add_commandn("codestr", "i", [](CsState &cs, int *i) {
+    cso.add_command("codestr", "i", [](CsState &cs, TvalRange args) {
         char *s = new char[2];
-        s[0] = char(*i);
+        s[0] = char(args[0].get_int());
         s[1] = '\0';
         cs.result->set_mstr(s);
     });
 
-    cso.add_commandn("strlower", "s", [](CsState &cs, char *s) {
-        ostd::Size len = strlen(s);
-        char *buf = new char[len + 1];
-        for (ostd::Size i = 0; i < len; ++i)
+    cso.add_command("strlower", "s", [](CsState &cs, TvalRange args) {
+        ostd::ConstCharRange s = args[0].get_strr();
+        char *buf = new char[s.size() + 1];
+        for (auto i: ostd::range(s.size()))
             buf[i] = tolower(s[i]);
-        buf[len] = '\0';
-        cs.result->set_mstr(ostd::CharRange(buf, len));
+        buf[s.size()] = '\0';
+        cs.result->set_mstr(ostd::CharRange(buf, s.size()));
     });
 
-    cso.add_commandn("strupper", "s", [](CsState &cs, char *s) {
-        ostd::Size len = strlen(s);
-        char *buf = new char[len + 1];
-        for (ostd::Size i = 0; i < len; ++i)
+    cso.add_command("strupper", "s", [](CsState &cs, TvalRange args) {
+        ostd::ConstCharRange s = args[0].get_strr();
+        char *buf = new char[s.size() + 1];
+        for (auto i: ostd::range(s.size()))
             buf[i] = toupper(s[i]);
-        buf[len] = '\0';
-        cs.result->set_mstr(ostd::CharRange(buf, len));
+        buf[s.size()] = '\0';
+        cs.result->set_mstr(ostd::CharRange(buf, s.size()));
     });
 
-    cso.add_commandn("escape", "s", [](CsState &cs, char *s) {
+    cso.add_command("escape", "s", [](CsState &cs, TvalRange args) {
         auto x = ostd::appender<ostd::String>();
-        util::escape_string(x, s);
+        util::escape_string(x, args[0].get_strr());
         ostd::Size len = x.size();
         cs.result->set_mstr(ostd::CharRange(x.get().disown(), len));
     });
 
-    cso.add_commandn("unescape", "s", [](CsState &cs, char *s) {
-        ostd::Size len = strlen(s);
-        char *buf = new char[len + 1];
-        auto writer = ostd::CharRange(buf, len + 1);
-        util::unescape_string(writer, ostd::ConstCharRange(s, len));
+    cso.add_command("unescape", "s", [](CsState &cs, TvalRange args) {
+        ostd::ConstCharRange s = args[0].get_strr();
+        char *buf = new char[s.size() + 1];
+        auto writer = ostd::CharRange(buf, s.size() + 1);
+        util::unescape_string(writer, s);
         writer.put('\0');
-        cs.result->set_mstr(ostd::CharRange(buf, len));
+        cs.result->set_mstr(ostd::CharRange(buf, s.size()));
     });
 
     cso.add_command("concat", "V", [](CsState &cs, TvalRange args) {
@@ -4847,21 +4859,24 @@ static void cs_init_lib_string(CsState &cso) {
         cs.result->set_mstr(ostd::CharRange(s.disown(), len));
     });
 
-    cso.add_commandn("tohex", "ii", [](CsState &cs, int *n, int *p) {
+    cso.add_command("tohex", "ii", [](CsState &cs, TvalRange args) {
         auto r = ostd::appender<ostd::Vector<char>>();
-        ostd::format(r, "0x%.*X", ostd::max(*p, 1), *n);
+        ostd::format(r, "0x%.*X", ostd::max(args[1].get_int(), 1), args[0].get_int());
         r.put('\0');
         ostd::Size len = r.size() - 1;
         cs.result->set_mstr(ostd::CharRange(r.get().disown(), len));
     });
 
-    cso.add_commandn("substr", "siiN", [](CsState &cs, char *s, int *start,
-                                         int *count, int *numargs) {
-        int len = strlen(s), offset = ostd::clamp(*start, 0, len);
+    cso.add_command("substr", "siiN", [](CsState &cs, TvalRange args) {
+        ostd::ConstCharRange s = args[0].get_strr();
+        int start = args[1].get_int(), count = args[2].get_int();
+        int numargs = args[3].get_int();
+        int len = int(s.size()), offset = ostd::clamp(start, 0, len);
         cs.result->set_str(ostd::ConstCharRange(
             &s[offset],
-            (*numargs >= 3) ? ostd::clamp(*count, 0, len - offset)
-                            : (len - offset)));
+            (numargs >= 3) ? ostd::clamp(count, 0, len - offset)
+                           : (len - offset)
+        ));
     });
 
 #define CS_CMD_CMPS(name, op) \
@@ -4886,27 +4901,42 @@ static void cs_init_lib_string(CsState &cso) {
 
 #undef CS_CMD_CMPS
 
-    cso.add_commandn("strreplace", "ssss", [](CsState &cs, char const *s,
-                                             char const *oldval,
-                                             char const *newval,
-                                             char const *newval2) {
-        if (!newval2[0]) newval2 = newval;
+    cso.add_command("strreplace", "ssss", [](CsState &cs, TvalRange args) {
+        ostd::ConstCharRange s = args[0].get_strr();
+        ostd::ConstCharRange oldval = args[1].get_strr(),
+                             newval = args[2].get_strr(),
+                             newval2 = args[3].get_strr();
+        if (newval2.empty()) {
+            newval2 = newval;
+        }
         ostd::Vector<char> buf;
-        int oldlen = strlen(oldval);
-        if (!oldlen) {
+        if (!oldval.size()) {
             cs.result->set_str(s);
             return;
         }
-        for (int i = 0;; ++i) {
-            char const *found = strstr(s, oldval);
-            if (found) {
-                while (s < found) buf.push(*s++);
-                for (char const *n = (i & 1) ? newval2 : newval; *n; ++n)
-                    buf.push(*n);
-                s = found + oldlen;
+        for (ostd::Size i = 0;; ++i) {
+            ostd::ConstCharRange found;
+            ostd::ConstCharRange trys = s;
+            for (; oldval.size() <= trys.size(); trys.pop_front()) {
+                if (trys.slice(0, oldval.size()) == oldval) {
+                    found = trys;
+                    break;
+                }
+            }
+            if (!found.empty()) {
+                auto bef = ostd::slice_until(s, found);
+                for (; !bef.empty(); bef.pop_front()) {
+                    buf.push(bef.front());
+                }
+                auto use = (i & 1) ? newval2 : newval;
+                for (; !use.empty(); use.pop_front()) {
+                    buf.push(use.front());
+                }
+                s = found + oldval.size();
             } else {
-                while (*s)
-                    buf.push(*s++);
+                for (; !s.empty(); s.pop_front()) {
+                    buf.push(s.front());
+                }
                 buf.push('\0');
                 ostd::Size len = buf.size() - 1;
                 cs.result->set_mstr(ostd::CharRange(buf.disown(), len));
@@ -4915,18 +4945,20 @@ static void cs_init_lib_string(CsState &cso) {
         }
     });
 
-    cso.add_commandn("strsplice", "ssii", [](CsState &cs, char const *s,
-                                            char const *vals, int *skip,
-                                            int *count) {
-        int slen = strlen(s),
-            vlen = strlen(vals),
-            offset = ostd::clamp(*skip, 0, slen),
-            len    = ostd::clamp(*count, 0, slen - offset);
+    cso.add_command("strsplice", "ssii", [](CsState &cs, TvalRange args) {
+        ostd::ConstCharRange s = args[0].get_strr();
+        ostd::ConstCharRange vals = args[1].get_strr();
+        int skip   = args[2].get_int(),
+            count  = args[3].get_int();
+        int slen   = int(s.size()),
+            vlen   = int(vals.size());
+        int offset = ostd::clamp(skip, 0, slen),
+            len    = ostd::clamp(count, 0, slen - offset);
         char *p = new char[slen - len + vlen + 1];
         if (offset)
-            memcpy(p, s, offset);
+            memcpy(p, s.data(), offset);
         if (vlen)
-            memcpy(&p[offset], vals, vlen);
+            memcpy(&p[offset], vals.data(), vlen);
         if (offset + len < slen)
             memcpy(&p[offset + vlen], &s[offset + len], slen - (offset + len));
         p[slen - len + vlen] = '\0';
