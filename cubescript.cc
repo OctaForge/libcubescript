@@ -2677,8 +2677,6 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
 #define CALLCOM(n) \
         switch(n) \
         { \
-            case 0: id->cb_cf0(cs); break; \
-            case 1: id->cb_cf1(cs, ARG(0)); break; \
             case 2: id->cb_cf2(cs, ARG(0), ARG(1)); break; \
             case 3: id->cb_cf3(cs, ARG(0), ARG(1), ARG(2)); break; \
             case 4: id->cb_cf4(cs, ARG(0), ARG(1), ARG(2), ARG(3)); break; \

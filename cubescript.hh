@@ -161,8 +161,6 @@ struct CsState;
 
 using VarCb = ostd::Function<void(CsState &, Ident &)>;
 
-using CommandFunc = void (*)(CsState &);
-using CommandFunc1 = void (*)(CsState &, void *);
 using CommandFunc2 = void (*)(CsState &, void *, void *);
 using CommandFunc3 = void (*)(CsState &, void *, void *, void *);
 using CommandFunc4 = void (*)(CsState &, void *, void *, void *, void *);
@@ -204,8 +202,6 @@ struct OSTD_EXPORT Ident {
     };
     VarCb cb_var;
     union {
-        CommandFunc cb_cf0;
-        CommandFunc1 cb_cf1;
         CommandFunc2 cb_cf2;
         CommandFunc3 cb_cf3;
         CommandFunc4 cb_cf4;
