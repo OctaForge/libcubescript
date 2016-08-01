@@ -141,26 +141,27 @@ Ident::Ident(int t, ostd::ConstCharRange n, char **s, VarCb f, int flagsv)
 
 /* ID_ALIAS */
 Ident::Ident(int t, ostd::ConstCharRange n, char *a, int flagsv)
-    : type(t), valtype(VAL_STR), vallen(n.size()), flags(flagsv), name(n), code(nullptr),
+    : type(t), valtype(VAL_STR), flags(flagsv), name(n), code(nullptr),
       stack(nullptr) {
     val.s = a;
+    val.len = strlen(a);
 }
 Ident::Ident(int t, ostd::ConstCharRange n, int a, int flagsv)
-    : type(t), valtype(VAL_INT), vallen(0), flags(flagsv), name(n), code(nullptr),
+    : type(t), valtype(VAL_INT), flags(flagsv), name(n), code(nullptr),
       stack(nullptr) {
     val.i = a;
 }
 Ident::Ident(int t, ostd::ConstCharRange n, float a, int flagsv)
-    : type(t), valtype(VAL_FLOAT), vallen(0), flags(flagsv), name(n), code(nullptr),
+    : type(t), valtype(VAL_FLOAT), flags(flagsv), name(n), code(nullptr),
       stack(nullptr) {
     val.f = a;
 }
 Ident::Ident(int t, ostd::ConstCharRange n, int flagsv)
-    : type(t), valtype(VAL_NULL), vallen(0), flags(flagsv), name(n), code(nullptr),
+    : type(t), valtype(VAL_NULL), flags(flagsv), name(n), code(nullptr),
       stack(nullptr) {
 }
 Ident::Ident(int t, ostd::ConstCharRange n, TaggedValue const &v, int flagsv)
-    : type(t), valtype(v.p_type), vallen(v.p_len), flags(flagsv), name(n), code(nullptr),
+    : type(t), valtype(v.p_type), flags(flagsv), name(n), code(nullptr),
       stack(nullptr) {
     val = v;
 }
@@ -278,8 +279,8 @@ void CsState::clear_override(Ident &id) {
         }
         id.clean_code();
         id.valtype = VAL_STR;
-        id.vallen = 0;
         id.val.s = cs_dup_ostr("");
+        id.val.len = 0;
         break;
     case ID_VAR:
         *id.storage.ip = id.overrideval.i;
@@ -503,7 +504,7 @@ ostd::ConstCharRange TaggedValue::force_str() {
         break;
     case VAL_MACRO:
     case VAL_CSTR:
-        rs = ostd::ConstCharRange(s, p_len);
+        rs = ostd::ConstCharRange(s, len);
         break;
     case VAL_STR:
         return s;
@@ -583,12 +584,12 @@ Ident *TaggedValue::get_ident() const {
     return id;
 }
 
-static inline ostd::String cs_get_str(IdentValue const &v, int type, ostd::Size len) {
+static inline ostd::String cs_get_str(IdentValue const &v, int type) {
     switch (type) {
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR:
-        return ostd::ConstCharRange(v.s, len);
+        return ostd::ConstCharRange(v.s, v.len);
     case VAL_INT:
         return intstr(v.i);
     case VAL_FLOAT:
@@ -598,19 +599,19 @@ static inline ostd::String cs_get_str(IdentValue const &v, int type, ostd::Size 
 }
 
 ostd::String TaggedValue::get_str() const {
-    return cs_get_str(*this, get_type(), get_str_len());
+    return cs_get_str(*this, get_type());
 }
 
 ostd::String Ident::get_str() const {
-    return cs_get_str(val, get_valtype(), get_vallen());
+    return cs_get_str(val, get_valtype());
 }
 
-static inline ostd::ConstCharRange cs_get_strr(IdentValue const &v, int type, ostd::Size len) {
+static inline ostd::ConstCharRange cs_get_strr(IdentValue const &v, int type) {
     switch (type) {
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR:
-        return ostd::ConstCharRange(v.s, len);
+        return ostd::ConstCharRange(v.s, v.len);
     default:
         break;
     }
@@ -618,19 +619,19 @@ static inline ostd::ConstCharRange cs_get_strr(IdentValue const &v, int type, os
 }
 
 ostd::ConstCharRange TaggedValue::get_strr() const {
-    return cs_get_strr(*this, get_type(), get_str_len());
+    return cs_get_strr(*this, get_type());
 }
 
 ostd::ConstCharRange Ident::get_strr() const {
-    return cs_get_strr(val, get_valtype(), get_vallen());
+    return cs_get_strr(val, get_valtype());
 }
 
-static inline void cs_get_val(IdentValue const &v, int type, ostd::Size len, TaggedValue &r) {
+static inline void cs_get_val(IdentValue const &v, int type, TaggedValue &r) {
     switch (type) {
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR: {
-        r.set_str(ostd::ConstCharRange(v.s, len));
+        r.set_str(ostd::ConstCharRange(v.s, v.len));
         break;
     }
     case VAL_INT:
@@ -646,11 +647,11 @@ static inline void cs_get_val(IdentValue const &v, int type, ostd::Size len, Tag
 }
 
 void TaggedValue::get_val(TaggedValue &r) const {
-    cs_get_val(*this, get_type(), get_str_len(), r);
+    cs_get_val(*this, get_type(), r);
 }
 
 void Ident::get_val(TaggedValue &r) const {
-    cs_get_val(val, get_valtype(), get_vallen(), r);
+    cs_get_val(val, get_valtype(), r);
 }
 
 void Ident::get_cstr(TaggedValue &v) const {
@@ -660,7 +661,7 @@ void Ident::get_cstr(TaggedValue &v) const {
         break;
     case VAL_STR:
     case VAL_CSTR:
-        v.set_cstr(ostd::ConstCharRange(val.s, get_vallen()));
+        v.set_cstr(ostd::ConstCharRange(val.s, val.len));
         break;
     case VAL_INT:
         v.set_str(ostd::move(intstr(val.i)));
@@ -681,7 +682,7 @@ void Ident::get_cval(TaggedValue &v) const {
         break;
     case VAL_STR:
     case VAL_CSTR:
-        v.set_cstr(ostd::ConstCharRange(val.s, get_vallen()));
+        v.set_cstr(ostd::ConstCharRange(val.s, val.len));
         break;
     case VAL_INT:
         v.set_int(val.i);
@@ -711,7 +712,6 @@ void Ident::clean_code() {
 void Ident::push_arg(TaggedValue const &v, IdentStack &st, bool um) {
     st.val = val;
     st.valtype = valtype;
-    st.vallen = vallen;
     st.next = stack;
     stack = &st;
     set_value(v);
@@ -733,7 +733,6 @@ void Ident::undo_arg(IdentStack &st) {
     IdentStack *prev = stack;
     st.val = val;
     st.valtype = valtype;
-    st.vallen = vallen;
     st.next = prev;
     stack = prev->next;
     set_value(*prev);
@@ -744,7 +743,6 @@ void Ident::redo_arg(IdentStack const &st) {
     IdentStack *prev = st.next;
     prev->val = val;
     prev->valtype = valtype;
-    prev->vallen = vallen;
     stack = prev;
     set_value(st);
     clean_code();
@@ -3003,7 +3001,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
         }
         case CODE_IDENTU: {
             TaggedValue &arg = args[numargs - 1];
-            Ident *id = arg.get_type() == VAL_STR || arg.get_type() == VAL_MACRO || arg.get_type() == VAL_CSTR ? cs.new_ident(arg.cstr) : cs.dummy;
+            Ident *id = arg.get_type() == VAL_STR || arg.get_type() == VAL_MACRO || arg.get_type() == VAL_CSTR ? cs.new_ident(ostd::ConstCharRange(arg.cstr, arg.len)) : cs.dummy;
             if (id->index < MaxArguments && !(cs.stack->usedargs & (1 << id->index))) {
                 id->push_arg(null_value, cs.stack->argstack[id->index], false);
                 cs.stack->usedargs |= 1 << id->index;
@@ -3724,10 +3722,13 @@ static void cs_init_lib_base(CsState &cs) {
 static inline void cs_set_iter(Ident &id, int i, IdentStack &stack) {
     if (id.stack == &stack) {
         if (id.get_valtype() != VAL_INT) {
-            if (id.get_valtype() == VAL_STR) delete[] id.val.s;
+            if (id.get_valtype() == VAL_STR) {
+                delete[] id.val.s;
+                id.val.s = nullptr;
+                id.val.len = 0;
+            }
             id.clean_code();
             id.valtype = VAL_INT;
-            id.vallen = 0;
         }
         id.val.i = i;
         return;
@@ -4042,10 +4043,10 @@ static inline void cs_set_iter(Ident &id, char *val, IdentStack &stack) {
             delete[] id.val.s;
         } else {
             id.valtype = VAL_STR;
-            id.vallen = strlen(val);
         }
         id.clean_code();
         id.val.s = val;
+        id.val.len = strlen(val);
         return;
     }
     TaggedValue v;
@@ -4472,15 +4473,15 @@ struct ListSortFun {
         x->clean_code();
         if (x->get_valtype() != VAL_CSTR) {
             x->valtype = VAL_CSTR;
-            x->vallen = strlen(xval.str);
         }
         x->val.cstr = xval.str;
+        x->val.len = strlen(xval.str);
         y->clean_code();
         if (y->get_valtype() != VAL_CSTR) {
             y->valtype = VAL_CSTR;
-            y->vallen = strlen(yval.str);
         }
         y->val.cstr = yval.str;
+        y->val.len = strlen(yval.str);
         return cs.run_bool(body);
     }
 };

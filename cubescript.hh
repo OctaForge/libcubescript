@@ -62,11 +62,12 @@ struct IdentValue {
     union {
         int i;      /* ID_VAR, VAL_INT */
         float f;    /* ID_FVAR, VAL_FLOAT */
-        char *s;    /* ID_SVAR, VAL_STR */
         ostd::Uint32 const *code; /* VAL_CODE */
         Ident *id;  /* VAL_IDENT */
+        char *s;    /* ID_SVAR, VAL_STR */
         char const *cstr; /* VAL_CSTR */
     };
+    ostd::Size len;
 };
 
 struct OSTD_EXPORT TaggedValue: IdentValue {
@@ -77,7 +78,7 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
     }
 
     ostd::Size get_str_len() const {
-        return p_len;
+        return len;
     }
 
     void set_int(int val) {
@@ -103,17 +104,17 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
     }
     void set_macro(ostd::Uint32 const *val) {
         p_type = VAL_MACRO;
-        p_len = strlen(reinterpret_cast<char const *>(val));
+        len = strlen(reinterpret_cast<char const *>(val));
         code = val;
     }
     void set_cstr(ostd::ConstCharRange val) {
         p_type = VAL_CSTR;
-        p_len = val.size();
+        len = val.size();
         cstr = val.data();
     }
     void set_mstr(ostd::CharRange val) {
         p_type = VAL_STR;
-        p_len = val.size();
+        len = val.size();
         s = val.data();
     }
     void set_ident(Ident *val) {
@@ -142,7 +143,6 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
     void cleanup();
 
 private:
-    ostd::Size p_len;
     int p_type;
 };
 
@@ -151,7 +151,6 @@ using TvalRange = ostd::PointerRange<TaggedValue>;
 struct IdentStack {
     IdentValue val;
     int valtype;
-    ostd::Size vallen;
     IdentStack *next;
 };
 
@@ -172,7 +171,6 @@ struct OSTD_EXPORT Ident {
         int valtype; /* ID_ALIAS */
         int numargs; /* ID_COMMAND */
     };
-    ostd::Size vallen;
     ostd::ushort flags;
     int index;
     ostd::String name;
@@ -234,21 +232,21 @@ struct OSTD_EXPORT Ident {
 
     void set_value(TaggedValue const &v) {
         valtype = v.get_type();
-        vallen = v.get_str_len();
         val = v;
     }
 
     void set_value(IdentStack const &v) {
         valtype = v.valtype;
-        vallen = v.vallen;
         val = v.val;
     }
 
     void force_null() {
-        if (valtype == VAL_STR)
+        if (valtype == VAL_STR) {
             delete[] val.s;
+            val.s = nullptr;
+            val.len = 0;
+        }
         valtype = VAL_NULL;
-        vallen = 0;
     }
 
     float get_float() const;
@@ -278,10 +276,6 @@ struct OSTD_EXPORT Ident {
 
     int get_valtype() const {
         return valtype;
-    }
-
-    ostd::Size get_vallen() const {
-        return vallen;
     }
 };
 
