@@ -2672,23 +2672,7 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
             break;
         }
     ++i;
-#define OFFSETARG(n) n
-#define ARG(n) (id->argmask&(1<<(n)) ? static_cast<void *>(args[OFFSETARG(n)].s) : static_cast<void *>(&args[OFFSETARG(n)].i))
-#define CALLCOM(n) \
-        switch(n) \
-        { \
-            case 2: id->cb_cf2(cs, ARG(0), ARG(1)); break; \
-            case 3: id->cb_cf3(cs, ARG(0), ARG(1), ARG(2)); break; \
-            case 4: id->cb_cf4(cs, ARG(0), ARG(1), ARG(2), ARG(3)); break; \
-            case 5: id->cb_cf5(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4)); break; \
-            case 6: id->cb_cf6(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5)); break; \
-        }
-    if (id->flags & IDF_NOEXPAND) {
-        id->cb_cftv(cs, TvalRange(args, i));
-    } else {
-        CALLCOM(i)
-    }
-#undef OFFSETARG
+    id->cb_cftv(cs, TvalRange(args, i));
 cleanup:
     for (ostd::Size k = 0; k < ostd::Size(i); ++k) args[k].cleanup();
     for (; i < numargs; i++) args[i].cleanup();
@@ -3178,7 +3162,6 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             cs.set_var_float_checked(cs.identmap[op >> 8], args[--numargs].f);
             continue;
 
-#define OFFSETARG(n) offset+n
         case CODE_COM|RET_NULL:
         case CODE_COM|RET_STR:
         case CODE_COM|RET_FLOAT:
@@ -3186,16 +3169,11 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             Ident *id = cs.identmap[op >> 8];
             int offset = numargs - id->numargs;
             result.force_null();
-            if (id->flags & IDF_NOEXPAND) {
-                id->cb_cftv(cs, TvalRange(args + offset, id->numargs));
-            } else {
-                CALLCOM(id->numargs)
-            }
+            id->cb_cftv(cs, TvalRange(args + offset, id->numargs));
             result.force(op & CODE_RET_MASK);
             free_args(args, numargs, offset);
             continue;
             }
-#undef OFFSETARG
 
         case CODE_COMV|RET_NULL:
         case CODE_COMV|RET_STR:
@@ -4057,7 +4035,7 @@ static inline void cs_set_iter(Ident &id, char *val, IdentStack &stack) {
     id.push_arg(v, stack);
 }
 
-static void cs_loop_list_conc(CsState &cs, Ident *id, char const *list,
+static void cs_loop_list_conc(CsState &cs, Ident *id, ostd::ConstCharRange list,
                               ostd::Uint32 const *body, bool space) {
     if (id->type != ID_ALIAS)
         return;
@@ -4082,7 +4060,7 @@ static void cs_loop_list_conc(CsState &cs, Ident *id, char const *list,
     cs.result->set_mstr(ostd::CharRange(r.disown(), len - 1));
 }
 
-int cs_list_includes(char const *list, ostd::ConstCharRange needle) {
+int cs_list_includes(ostd::ConstCharRange list, ostd::ConstCharRange needle) {
     int offset = 0;
     for (ListParser p(list); p.parse();) {
         if (p.item == needle)
@@ -4119,11 +4097,15 @@ static void cs_init_lib_list(CsState &cso) {
         cs.result->set_mstr(er);
     });
 
-    cso.add_commandn("sublist", "siiN", [](CsState &cs, char const *s,
-                                          int *skip, int *count, int *numargs) {
-        int offset = ostd::max(*skip, 0),
-            len = (*numargs >= 3) ? ostd::max(*count, 0) : -1;
-        ListParser p(s);
+    cso.add_command("sublist", "siiN", [](CsState &cs, TvalRange args) {
+        int skip    = args[1].get_int(),
+            count   = args[2].get_int(),
+            numargs = args[2].get_int();
+
+        int offset = ostd::max(skip, 0),
+            len = (numargs >= 3) ? ostd::max(count, 0) : -1;
+
+        ListParser p(args[0].get_strr());
         for (int i = 0; i < offset; ++i)
             if (!p.parse()) break;
         if (len < 0) {
@@ -4141,16 +4123,16 @@ static void cs_init_lib_list(CsState &cso) {
         cs.result->set_str(ostd::ConstCharRange(list, qend - list));
     });
 
-    cso.add_commandn("listfind", "rse", [](CsState &cs, Ident *id,
-                                          char const *list,
-                                          ostd::Uint32 const *body) {
+    cso.add_command("listfind", "rse", [](CsState &cs, TvalRange args) {
+        Ident *id = args[0].id;
+        auto body = args[2].get_code();
         if (id->type != ID_ALIAS) {
             cs.result->set_int(-1);
             return;
         }
         IdentStack stack;
         int n = -1;
-        for (ListParser p(list); p.parse();) {
+        for (ListParser p(args[1].get_strr()); p.parse();) {
             ++n;
             cs_set_iter(*id, cs_dup_ostr(p.item), stack);
             if (cs.run_bool(body)) {
@@ -4164,14 +4146,14 @@ found:
             id->pop_arg();
     });
 
-    cso.add_commandn("listassoc", "rse", [](CsState &cs, Ident *id,
-                                          char const *list,
-                                          ostd::Uint32 const *body) {
+    cso.add_command("listassoc", "rse", [](CsState &cs, TvalRange args) {
+        Ident *id = args[0].id;
+        auto body = args[2].get_code();
         if (id->type != ID_ALIAS)
             return;
         IdentStack stack;
         int n = -1;
-        for (ListParser p(list); p.parse();) {
+        for (ListParser p(args[1].get_strr()); p.parse();) {
             ++n;
             cs_set_iter(*id, cs_dup_ostr(p.item), stack);
             if (cs.run_bool(body)) {
@@ -4190,17 +4172,16 @@ found:
             id->pop_arg();
     });
 
-#define CS_CMD_LIST_FIND(name, fmt, type, init, cmp) \
-    cso.add_commandn(name, "s" fmt "i", [](CsState &cs, char *list, \
-                                          type *val, int *skip) { \
-        int n = 0; \
-        init; \
-        for (ListParser p(list); p.parse(); ++n) { \
+#define CS_CMD_LIST_FIND(name, fmt, gmeth, cmp) \
+    cso.add_command(name, "s" fmt "i", [](CsState &cs, TvalRange args) { \
+        int n = 0, skip = args[2].get_int(); \
+        auto val = args[1].gmeth(); \
+        for (ListParser p(args[0].get_strr()); p.parse(); ++n) { \
             if (cmp) { \
                 cs.result->set_int(n); \
                 return; \
             } \
-            for (int i = 0; i < *skip; ++i) { \
+            for (int i = 0; i < skip; ++i) { \
                 if (!p.parse()) \
                     goto notfound; \
                 ++n; \
@@ -4210,17 +4191,16 @@ found:
         cs.result->set_int(-1); \
     });
 
-    CS_CMD_LIST_FIND("listfind=", "i", int, {}, cs_parse_int(p.item) == *val);
-    CS_CMD_LIST_FIND("listfind=f", "f", float, {}, cs_parse_float(p.item) == *val);
-    CS_CMD_LIST_FIND("listfind=s", "s", char, ostd::Size len = strlen(val),
-        p.item == ostd::ConstCharRange(val, len));
+    CS_CMD_LIST_FIND("listfind=", "i", get_int, cs_parse_int(p.item) == val);
+    CS_CMD_LIST_FIND("listfind=f", "f", get_float, cs_parse_float(p.item) == val);
+    CS_CMD_LIST_FIND("listfind=s", "s", get_strr, p.item == val);
 
 #undef CS_CMD_LIST_FIND
 
-#define CS_CMD_LIST_ASSOC(name, fmt, type, init, cmp) \
-    cso.add_commandn(name, "s" fmt, [](CsState &cs, char *list, type *val) { \
-        init; \
-        for (ListParser p(list); p.parse();) { \
+#define CS_CMD_LIST_ASSOC(name, fmt, gmeth, cmp) \
+    cso.add_command(name, "s" fmt, [](CsState &cs, TvalRange args) { \
+        auto val = args[1].gmeth(); \
+        for (ListParser p(args[0].get_strr()); p.parse();) { \
             if (cmp) { \
                 if (p.parse()) { \
                     auto elem = p.element(); \
@@ -4235,21 +4215,20 @@ found:
         } \
     });
 
-    CS_CMD_LIST_ASSOC("listassoc=", "i", int, {}, cs_parse_int(p.item) == *val);
-    CS_CMD_LIST_ASSOC("listassoc=f", "f", float, {}, cs_parse_float(p.item) == *val);
-    CS_CMD_LIST_ASSOC("listassoc=s", "s", char, ostd::Size len = strlen(val),
-        p.item == ostd::ConstCharRange(val, len));
+    CS_CMD_LIST_ASSOC("listassoc=", "i", get_int, cs_parse_int(p.item) == val);
+    CS_CMD_LIST_ASSOC("listassoc=f", "f", get_float, cs_parse_float(p.item) == val);
+    CS_CMD_LIST_ASSOC("listassoc=s", "s", get_strr, p.item == val);
 
 #undef CS_CMD_LIST_ASSOC
 
-    cso.add_commandn("looplist", "rse", [](CsState &cs, Ident *id,
-                                          char const *list,
-                                          ostd::Uint32 const *body) {
+    cso.add_command("looplist", "rse", [](CsState &cs, TvalRange args) {
+        Ident *id = args[0].id;
+        auto body = args[2].get_code();
         if (id->type != ID_ALIAS)
             return;
         IdentStack stack;
         int n = 0;
-        for (ListParser p(list); p.parse(); ++n) {
+        for (ListParser p(args[1].get_strr()); p.parse(); ++n) {
             cs_set_iter(*id, p.element().disown(), stack);
             cs.run_int(body);
         }
@@ -4257,14 +4236,14 @@ found:
             id->pop_arg();
     });
 
-    cso.add_commandn("looplist2", "rrse", [](CsState &cs, Ident *id,
-                                            Ident *id2, char const *list,
-                                            ostd::Uint32 const *body) {
+    cso.add_command("looplist2", "rrse", [](CsState &cs, TvalRange args) {
+        Ident *id = args[0].id, *id2 = args[1].id;
+        auto body = args[3].get_code();
         if (id->type != ID_ALIAS || id2->type != ID_ALIAS)
             return;
         IdentStack stack, stack2;
         int n = 0;
-        for (ListParser p(list); p.parse(); n += 2) {
+        for (ListParser p(args[2].get_strr()); p.parse(); n += 2) {
             cs_set_iter(*id, p.element().disown(), stack);
             cs_set_iter(*id2, p.parse() ? p.element().disown()
                                         : cs_dup_ostr(""), stack2);
@@ -4276,17 +4255,16 @@ found:
         }
     });
 
-    cso.add_commandn("looplist3", "rrrse", [](CsState &cs, Ident *id,
-                                             Ident *id2, Ident *id3,
-                                             char const *list,
-                                             ostd::Uint32 const *body) {
+    cso.add_command("looplist3", "rrrse", [](CsState &cs, TvalRange args) {
+        Ident *id = args[0].id, *id2 = args[1].id, *id3 = args[2].id;
+        auto body = args[4].get_code();
         if (id->type != ID_ALIAS)
             return;
         if (id2->type != ID_ALIAS || id3->type != ID_ALIAS)
             return;
         IdentStack stack, stack2, stack3;
         int n = 0;
-        for (ListParser p(list); p.parse(); n += 3) {
+        for (ListParser p(args[3].get_strr()); p.parse(); n += 3) {
             cs_set_iter(*id, p.element().disown(), stack);
             cs_set_iter(*id2, p.parse() ? p.element().disown()
                                         : cs_dup_ostr(""), stack2);
@@ -4301,27 +4279,27 @@ found:
         }
     });
 
-    cso.add_commandn("looplistconcat", "rse", [](CsState &cs, Ident *id,
-                                                char *list,
-                                                ostd::Uint32 *body) {
-        cs_loop_list_conc(cs, id, list, body, true);
+    cso.add_command("looplistconcat", "rse", [](CsState &cs, TvalRange args) {
+        cs_loop_list_conc(
+            cs, args[0].id, args[1].get_strr(), args[2].get_code(), true
+        );
     });
 
-    cso.add_commandn("looplistconcatword", "rse", [](CsState &cs, Ident *id,
-                                                    char *list,
-                                                    ostd::Uint32 *body) {
-        cs_loop_list_conc(cs, id, list, body, false);
+    cso.add_command("looplistconcatword", "rse", [](CsState &cs, TvalRange args) {
+        cs_loop_list_conc(
+            cs, args[0].id, args[1].get_strr(), args[2].get_code(), false
+        );
     });
 
-    cso.add_commandn("listfilter", "rse", [](CsState &cs, Ident *id,
-                                            char const *list,
-                                            ostd::Uint32 const *body) {
+    cso.add_command("listfilter", "rse", [](CsState &cs, TvalRange args) {
+        Ident *id = args[0].id;
+        auto body = args[2].get_code();
         if (id->type != ID_ALIAS)
             return;
         IdentStack stack;
         ostd::Vector<char> r;
         int n = 0;
-        for (ListParser p(list); p.parse(); ++n) {
+        for (ListParser p(args[1].get_strr()); p.parse(); ++n) {
             char *val = cs_dup_ostr(p.item);
             cs_set_iter(*id, val, stack);
             if (cs.run_bool(body)) {
@@ -4336,14 +4314,14 @@ found:
         cs.result->set_mstr(ostd::CharRange(r.disown(), len));
     });
 
-    cso.add_commandn("listcount", "rse", [](CsState &cs, Ident *id,
-                                           char const *list,
-                                           ostd::Uint32 const *body) {
+    cso.add_command("listcount", "rse", [](CsState &cs, TvalRange args) {
+        Ident *id = args[0].id;
+        auto body = args[2].get_code();
         if (id->type != ID_ALIAS)
             return;
         IdentStack stack;
         int n = 0, r = 0;
-        for (ListParser p(list); p.parse(); ++n) {
+        for (ListParser p(args[1].get_strr()); p.parse(); ++n) {
             char *val = cs_dup_ostr(p.item);
             cs_set_iter(*id, val, stack);
             if (cs.run_bool(body))
@@ -4354,9 +4332,10 @@ found:
         cs.result->set_int(r);
     });
 
-    cso.add_commandn("prettylist", "ss", [](CsState &cs, char const *s,
-                                           char const *conj) {
+    cso.add_command("prettylist", "ss", [](CsState &cs, TvalRange args) {
         ostd::Vector<char> buf;
+        ostd::ConstCharRange s = args[0].get_strr();
+        ostd::ConstCharRange conj = args[1].get_strr();
         ostd::Size len = util::list_length(s);
         ostd::Size n = 0;
         for (ListParser p(s); p.parse(); ++n) {
@@ -4367,14 +4346,15 @@ found:
                 ostd::Size adv = util::unescape_string(writer, p.item);
                 writer.put('\0');
                 buf.advance(adv);
-            } else
+            } else {
                 buf.push_n(p.item.data(), p.item.size());
+            }
             if ((n + 1) < len) {
-                if ((len > 2) || !conj[0])
+                if ((len > 2) || conj.empty())
                     buf.push(',');
-                if ((n + 2 == len) && conj[0]) {
+                if ((n + 2 == len) && !conj.empty()) {
                     buf.push(' ');
-                    buf.push_n(conj, strlen(conj));
+                    buf.push_n(conj.data(), conj.size());
                 }
                 buf.push(' ');
             }
@@ -4384,13 +4364,16 @@ found:
         cs.result->set_mstr(ostd::CharRange(buf.disown(), slen));
     });
 
-    cso.add_commandn("indexof", "ss", [](CsState &cs, char *list, char *elem) {
-        cs.result->set_int(cs_list_includes(list, elem));
+    cso.add_command("indexof", "ss", [](CsState &cs, TvalRange args) {
+        cs.result->set_int(
+            cs_list_includes(args[0].get_strr(), args[1].get_strr())
+        );
     });
 
 #define CS_CMD_LIST_MERGE(name, init, iter, filter, dir) \
-    cso.add_commandn(name, "ss", [](CsState &cs, char const *list, \
-                                   char const *elems) { \
+    cso.add_command(name, "ss", [](CsState &cs, TvalRange args) { \
+        ostd::ConstCharRange list = args[0].get_strr(); \
+        ostd::ConstCharRange elems = args[1].get_strr(); \
         ostd::Vector<char> buf; \
         init; \
         for (ListParser p(iter); p.parse();) { \
@@ -4407,17 +4390,17 @@ found:
 
     CS_CMD_LIST_MERGE("listdel", {}, list, elems, <);
     CS_CMD_LIST_MERGE("listintersect", {}, list, elems, >=);
-    CS_CMD_LIST_MERGE("listunion", buf.push_n(list, strlen(list)), elems,
+    CS_CMD_LIST_MERGE("listunion", buf.push_n(list.data(), list.size()), elems,
         list, <);
 
 #undef CS_CMD_LIST_MERGE
 
-    cso.add_commandn("listsplice", "ssii", [](CsState &cs, char const *s,
-                                             char const *vals, int *skip,
-                                             int *count) {
-        int offset = ostd::max(*skip, 0);
-        int len    = ostd::max(*count, 0);
-        char const *list = s;
+    cso.add_command("listsplice", "ssii", [](CsState &cs, TvalRange args) {
+        int offset = ostd::max(args[2].get_int(), 0);
+        int len    = ostd::max(args[3].get_int(), 0);
+        ostd::ConstCharRange s = args[0].get_strr();
+        ostd::ConstCharRange vals = args[1].get_strr();
+        char const *list = s.data();
         ListParser p(s);
         for (int i = 0; i < offset; ++i)
             if (!p.parse())
@@ -4426,10 +4409,10 @@ found:
         ostd::Vector<char> buf;
         if (qend > list)
             buf.push_n(list, qend - list);
-        if (*vals) {
+        if (!vals.empty()) {
             if (!buf.empty())
                 buf.push(' ');
-            buf.push_n(vals, strlen(vals));
+            buf.push_n(vals.data(), vals.size());
         }
         for (int i = 0; i < len; ++i)
             if (!p.parse())

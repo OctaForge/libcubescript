@@ -35,8 +35,7 @@ enum {
     IDF_READONLY   = 1 << 3,
     IDF_OVERRIDDEN = 1 << 4,
     IDF_UNKNOWN    = 1 << 5,
-    IDF_ARG        = 1 << 6,
-    IDF_NOEXPAND   = 1 << 7
+    IDF_ARG        = 1 << 6
 };
 
 struct OSTD_EXPORT Bytecode {
@@ -161,11 +160,6 @@ struct CsState;
 
 using VarCb = ostd::Function<void(CsState &, Ident &)>;
 
-using CommandFunc2 = void (*)(CsState &, void *, void *);
-using CommandFunc3 = void (*)(CsState &, void *, void *, void *);
-using CommandFunc4 = void (*)(CsState &, void *, void *, void *, void *);
-using CommandFunc5 = void (*)(CsState &, void *, void *, void *, void *, void *);
-using CommandFunc6 = void (*)(CsState &, void *, void *, void *, void *, void *, void *);
 using CommandFuncTv = void (*)(CsState &, TvalRange);
 
 struct OSTD_EXPORT Ident {
@@ -201,14 +195,7 @@ struct OSTD_EXPORT Ident {
         };
     };
     VarCb cb_var;
-    union {
-        CommandFunc2 cb_cf2;
-        CommandFunc3 cb_cf3;
-        CommandFunc4 cb_cf4;
-        CommandFunc5 cb_cf5;
-        CommandFunc6 cb_cf6;
-        CommandFuncTv cb_cftv;
-    };
+    CommandFuncTv cb_cftv;
 
     Ident(): type(ID_UNKNOWN) {}
 
@@ -344,14 +331,6 @@ struct OSTD_EXPORT CsState {
     template<typename F>
     bool add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
                      F func, int type = ID_COMMAND, int flags = 0) {
-        return add_command(name, args,
-            CommandFuncTv(ostd::FunctionMakeDefaultConstructible<F>(func)),
-            type, flags | IDF_NOEXPAND);
-    }
-
-    template<typename F>
-    bool add_commandn(ostd::ConstCharRange name, ostd::ConstCharRange args,
-                      F func, int type = ID_COMMAND, int flags = 0) {
         return add_command(name, args,
             CommandFuncTv(ostd::FunctionMakeDefaultConstructible<F>(func)),
             type, flags);
