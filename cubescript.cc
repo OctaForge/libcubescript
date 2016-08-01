@@ -4460,19 +4460,21 @@ struct ListSortFun {
     }
 };
 
-void cs_list_sort(CsState &cs, char *list, Ident *x, Ident *y,
-                  ostd::Uint32 *body, ostd::Uint32 *unique) {
+static void cs_list_sort(
+    CsState &cs, ostd::ConstCharRange list, Ident *x, Ident *y,
+    ostd::Uint32 *body, ostd::Uint32 *unique
+) {
     if (x == y || x->type != ID_ALIAS || y->type != ID_ALIAS)
         return;
 
     ostd::Vector<ListSortItem> items;
-    ostd::Size clen = strlen(list);
+    ostd::Size clen = list.size();
     ostd::Size total = 0;
 
-    char *cstr = cs_dup_ostr(ostd::ConstCharRange(list, clen));
+    char *cstr = cs_dup_ostr(list);
     for (ListParser p(list); p.parse();) {
-        cstr[&p.item[p.item.size()] - list] = '\0';
-        ListSortItem item = { &cstr[p.item.data() - list], p.quote };
+        cstr[&p.item[p.item.size()] - list.data()] = '\0';
+        ListSortItem item = { &cstr[p.item.data() - list.data()], p.quote };
         items.push(item);
         total += item.quote.size();
     }
@@ -4551,11 +4553,17 @@ void cs_list_sort(CsState &cs, char *list, Ident *x, Ident *y,
 }
 
 static void cs_init_lib_list_sort(CsState &cso) {
-    cso.add_commandn("sortlist", "srree", cs_list_sort);
-    cso.add_commandn("uniquelist", "srre", [](CsState &cs, char *list,
-                                             Ident *x, Ident *y,
-                                             ostd::Uint32 *body) {
-        cs_list_sort(cs, list, x, y, nullptr, body);
+    cso.add_command("sortlist", "srree", [](CsState &cs, TvalRange args) {
+        cs_list_sort(
+            cs, args[0].get_strr(), args[1].id, args[2].id,
+            args[3].get_code(), args[4].get_code()
+        );
+    });
+    cso.add_command("uniquelist", "srre", [](CsState &cs, TvalRange args) {
+        cs_list_sort(
+            cs, args[0].get_strr(), args[1].id, args[2].id,
+            nullptr, args[3].get_code()
+        );
     });
 }
 
@@ -4563,44 +4571,44 @@ static constexpr float PI = 3.14159265358979f;
 static constexpr float RAD = PI / 180.0f;
 
 static void cs_init_lib_math(CsState &cso) {
-    cso.add_commandn("sin", "f", [](CsState &cs, float *a) {
-        cs.result->set_float(sin(*a * RAD));
+    cso.add_command("sin", "f", [](CsState &cs, TvalRange args) {
+        cs.result->set_float(sin(args[0].get_float() * RAD));
     });
-    cso.add_commandn("cos", "f", [](CsState &cs, float *a) {
-        cs.result->set_float(cos(*a * RAD));
+    cso.add_command("cos", "f", [](CsState &cs, TvalRange args) {
+        cs.result->set_float(cos(args[0].get_float() * RAD));
     });
-    cso.add_commandn("tan", "f", [](CsState &cs, float *a) {
-        cs.result->set_float(tan(*a * RAD));
-    });
-
-    cso.add_commandn("asin", "f", [](CsState &cs, float *a) {
-        cs.result->set_float(asin(*a) / RAD);
-    });
-    cso.add_commandn("acos", "f", [](CsState &cs, float *a) {
-        cs.result->set_float(acos(*a) / RAD);
-    });
-    cso.add_commandn("atan", "f", [](CsState &cs, float *a) {
-        cs.result->set_float(atan(*a) / RAD);
-    });
-    cso.add_commandn("atan2", "ff", [](CsState &cs, float *y, float *x) {
-        cs.result->set_float(atan2(*y, *x) / RAD);
+    cso.add_command("tan", "f", [](CsState &cs, TvalRange args) {
+        cs.result->set_float(tan(args[0].get_float() * RAD));
     });
 
-    cso.add_commandn("sqrt", "f", [](CsState &cs, float *a) {
-        cs.result->set_float(sqrt(*a));
+    cso.add_command("asin", "f", [](CsState &cs, TvalRange args) {
+        cs.result->set_float(asin(args[0].get_float()) / RAD);
     });
-    cso.add_commandn("loge", "f", [](CsState &cs, float *a) {
-        cs.result->set_float(log(*a));
+    cso.add_command("acos", "f", [](CsState &cs, TvalRange args) {
+        cs.result->set_float(acos(args[0].get_float()) / RAD);
     });
-    cso.add_commandn("log2", "f", [](CsState &cs, float *a) {
-        cs.result->set_float(log(*a) / M_LN2);
+    cso.add_command("atan", "f", [](CsState &cs, TvalRange args) {
+        cs.result->set_float(atan(args[0].get_float()) / RAD);
     });
-    cso.add_commandn("log10", "f", [](CsState &cs, float *a) {
-        cs.result->set_float(log10(*a));
+    cso.add_command("atan2", "ff", [](CsState &cs, TvalRange args) {
+        cs.result->set_float(atan2(args[0].get_float(), args[1].get_float()) / RAD);
     });
 
-    cso.add_commandn("exp", "f", [](CsState &cs, float *a) {
-        cs.result->set_float(exp(*a));
+    cso.add_command("sqrt", "f", [](CsState &cs, TvalRange args) {
+        cs.result->set_float(sqrt(args[0].get_float()));
+    });
+    cso.add_command("loge", "f", [](CsState &cs, TvalRange args) {
+        cs.result->set_float(log(args[0].get_float()));
+    });
+    cso.add_command("log2", "f", [](CsState &cs, TvalRange args) {
+        cs.result->set_float(log(args[0].get_float()) / M_LN2);
+    });
+    cso.add_command("log10", "f", [](CsState &cs, TvalRange args) {
+        cs.result->set_float(log10(args[0].get_float()));
+    });
+
+    cso.add_command("exp", "f", [](CsState &cs, TvalRange args) {
+        cs.result->set_float(exp(args[0].get_float()));
     });
 
 #define CS_CMD_MIN_MAX(name, fmt, type, op) \
@@ -4617,23 +4625,23 @@ static void cs_init_lib_math(CsState &cso) {
 
 #undef CS_CMD_MIN_MAX
 
-    cso.add_commandn("abs", "i", [](CsState &cs, int *v) {
-        cs.result->set_int(abs(*v));
+    cso.add_command("abs", "i", [](CsState &cs, TvalRange args) {
+        cs.result->set_int(abs(args[0].get_int()));
     });
-    cso.add_commandn("absf", "f", [](CsState &cs, float *v) {
-        cs.result->set_float(fabs(*v));
-    });
-
-    cso.add_commandn("floor", "f", [](CsState &cs, float *v) {
-        cs.result->set_float(floor(*v));
-    });
-    cso.add_commandn("ceil", "f", [](CsState &cs, float *v) {
-        cs.result->set_float(ceil(*v));
+    cso.add_command("absf", "f", [](CsState &cs, TvalRange args) {
+        cs.result->set_float(fabs(args[0].get_float()));
     });
 
-    cso.add_commandn("round", "ff", [](CsState &cs, float *n, float *k) {
-        double step = *k;
-        double r = *n;
+    cso.add_command("floor", "f", [](CsState &cs, TvalRange args) {
+        cs.result->set_float(floor(args[0].get_float()));
+    });
+    cso.add_command("ceil", "f", [](CsState &cs, TvalRange args) {
+        cs.result->set_float(ceil(args[0].get_float()));
+    });
+
+    cso.add_command("round", "ff", [](CsState &cs, TvalRange args) {
+        double step = args[1].get_float();
+        double r = args[0].get_float();
         if (step > 0) {
             r += step * ((r < 0) ? -0.5 : 0.5);
             r -= fmod(r, step);
