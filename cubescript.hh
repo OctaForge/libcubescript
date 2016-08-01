@@ -158,8 +158,8 @@ union IdentValuePtr {
 
 struct CsState;
 
-using VarCb = ostd::Function<void(CsState &, Ident &)>;
-using CmdFunc = ostd::Function<void(CsState &, TvalRange)>;
+using VarCb = ostd::Function<void(Ident &)>;
+using CmdFunc = ostd::Function<void(TvalRange)>;
 
 struct OSTD_EXPORT Ident {
     ostd::byte type; /* ID_something */
@@ -222,8 +222,8 @@ struct OSTD_EXPORT Ident {
           ostd::Uint32 argmask, int numargs, CmdFunc f = CmdFunc(),
           int flags = 0);
 
-    void changed(CsState &cs) {
-        if (cb_var) cb_var(cs, *this);
+    void changed() {
+        if (cb_var) cb_var(*this);
     }
 
     void set_value(TaggedValue const &v) {

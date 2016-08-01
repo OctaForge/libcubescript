@@ -282,16 +282,16 @@ void CsState::clear_override(Ident &id) {
         break;
     case ID_VAR:
         *id.storage.ip = id.overrideval.i;
-        id.changed(*this);
+        id.changed();
         break;
     case ID_FVAR:
         *id.storage.fp = id.overrideval.f;
-        id.changed(*this);
+        id.changed();
         break;
     case ID_SVAR:
         delete[] *id.storage.sp;
         *id.storage.sp = id.overrideval.s;
-        id.changed(*this);
+        id.changed();
         break;
     }
     id.flags &= ~IDF_OVERRIDDEN;
@@ -354,7 +354,7 @@ void CsState::touch_var(ostd::ConstCharRange name) {
     case ID_VAR:
     case ID_FVAR:
     case ID_SVAR:
-        id->changed(*this);
+        id->changed();
         break;
     }
 }
@@ -823,7 +823,7 @@ void CsState::set_var_int(ostd::ConstCharRange name, int v,
     else
         *id->storage.ip = v;
     if (dofunc)
-        id->changed(*this);
+        id->changed();
 }
 
 void CsState::set_var_float(ostd::ConstCharRange name, float v,
@@ -841,7 +841,7 @@ void CsState::set_var_float(ostd::ConstCharRange name, float v,
     else
         *id->storage.fp = v;
     if (dofunc)
-        id->changed(*this);
+        id->changed();
 }
 
 void CsState::set_var_str(ostd::ConstCharRange name, ostd::ConstCharRange v,
@@ -857,7 +857,7 @@ void CsState::set_var_str(ostd::ConstCharRange name, ostd::ConstCharRange v,
         return;
     *id->storage.sp = cs_dup_ostr(v);
     if (dofunc)
-        id->changed(*this);
+        id->changed();
 }
 
 ostd::Maybe<int> CsState::get_var_int(ostd::ConstCharRange name) {
@@ -948,7 +948,7 @@ void CsState::set_var_int_checked(Ident *id, int v) {
     if (v < id->minval || v > id->maxval)
         v = cs_clamp_var(*this, id, v);
     *id->storage.ip = v;
-    id->changed(*this);
+    id->changed();
 }
 
 void CsState::set_var_int_checked(Ident *id, TvalRange args) {
@@ -986,7 +986,7 @@ void CsState::set_var_float_checked(Ident *id, float v) {
     if (v < id->minvalf || v > id->maxvalf)
         v = cs_clamp_fvar(*this, id, v);
     *id->storage.fp = v;
-    id->changed(*this);
+    id->changed();
 }
 
 void CsState::set_var_str_checked(Ident *id, ostd::ConstCharRange v) {
@@ -1000,7 +1000,7 @@ void CsState::set_var_str_checked(Ident *id, ostd::ConstCharRange v) {
         [&id]() { delete[] *id->storage.sp; });
     if (!success) return;
     *id->storage.sp = cs_dup_ostr(v);
-    id->changed(*this);
+    id->changed();
 }
 
 bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
@@ -1058,14 +1058,14 @@ bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
     return true;
 }
 
-static void cs_init_lib_base_var(CsState &cso) {
-    cso.add_command("nodebug", "e", [](CsState &cs, TvalRange args) {
+static void cs_init_lib_base_var(CsState &cs) {
+    cs.add_command("nodebug", "e", [&cs](TvalRange args) {
         ++cs.nodebug;
         cs.run_ret(args[0].get_code());
         --cs.nodebug;
     });
 
-    cso.add_command("push", "rTe", [](CsState &cs, TvalRange args) {
+    cs.add_command("push", "rTe", [&cs](TvalRange args) {
         Ident *id = args[0].id;
         if (id->type != ID_ALIAS || id->index < MaxArguments) return;
         IdentStack stack;
@@ -1076,36 +1076,36 @@ static void cs_init_lib_base_var(CsState &cso) {
         id->pop_arg();
     });
 
-    cso.add_command("local", nullptr, nullptr, ID_LOCAL);
+    cs.add_command("local", nullptr, nullptr, ID_LOCAL);
 
-    cso.add_command("resetvar", "s", [](CsState &cs, TvalRange args) {
+    cs.add_command("resetvar", "s", [&cs](TvalRange args) {
         cs.result->set_int(cs.reset_var(args[0].get_strr()));
     });
 
-    cso.add_command("alias", "sT", [](CsState &cs, TvalRange args) {
+    cs.add_command("alias", "sT", [&cs](TvalRange args) {
         TaggedValue &v = args[1];
         cs.set_alias(args[0].get_strr(), v);
         v.set_null();
     });
 
-    cso.add_command("getvarmin", "s", [](CsState &cs, TvalRange args) {
+    cs.add_command("getvarmin", "s", [&cs](TvalRange args) {
         cs.result->set_int(cs.get_var_min_int(args[0].get_strr()).value_or(0));
     });
-    cso.add_command("getvarmax", "s", [](CsState &cs, TvalRange args) {
+    cs.add_command("getvarmax", "s", [&cs](TvalRange args) {
         cs.result->set_int(cs.get_var_max_int(args[0].get_strr()).value_or(0));
     });
-    cso.add_command("getfvarmin", "s", [](CsState &cs, TvalRange args) {
+    cs.add_command("getfvarmin", "s", [&cs](TvalRange args) {
         cs.result->set_float(cs.get_var_min_float(args[0].get_strr()).value_or(0.0f));
     });
-    cso.add_command("getfvarmax", "s", [](CsState &cs, TvalRange args) {
+    cs.add_command("getfvarmax", "s", [&cs](TvalRange args) {
         cs.result->set_float(cs.get_var_max_float(args[0].get_strr()).value_or(0.0f));
     });
 
-    cso.add_command("identexists", "s", [](CsState &cs, TvalRange args) {
+    cs.add_command("identexists", "s", [&cs](TvalRange args) {
         cs.result->set_int(cs.have_ident(args[0].get_strr()));
     });
 
-    cso.add_command("getalias", "s", [](CsState &cs, TvalRange args) {
+    cs.add_command("getalias", "s", [&cs](TvalRange args) {
         cs.result->set_str(ostd::move(cs.get_alias(args[0].get_strr()).value_or("")));
     });
 }
@@ -2654,12 +2654,12 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
             ostd::Vector<char> buf;
             TaggedValue tv;
             tv.set_mstr(conc(buf, ostd::iter(args, i), true));
-            id->cb_cftv(cs, TvalRange(&tv, 1));
+            id->cb_cftv(TvalRange(&tv, 1));
             goto cleanup;
         }
         case 'V':
             i = ostd::max(i + 1, numargs);
-            id->cb_cftv(cs, ostd::iter(args, i));
+            id->cb_cftv(ostd::iter(args, i));
             goto cleanup;
         case '1':
         case '2':
@@ -2672,7 +2672,7 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
             break;
         }
     ++i;
-    id->cb_cftv(cs, TvalRange(args, i));
+    id->cb_cftv(TvalRange(args, i));
 cleanup:
     for (ostd::Size k = 0; k < ostd::Size(i); ++k) args[k].cleanup();
     for (; i < numargs; i++) args[i].cleanup();
@@ -3169,7 +3169,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             Ident *id = cs.identmap[op >> 8];
             int offset = numargs - id->numargs;
             result.force_null();
-            id->cb_cftv(cs, TvalRange(args + offset, id->numargs));
+            id->cb_cftv(TvalRange(args + offset, id->numargs));
             result.force(op & CODE_RET_MASK);
             free_args(args, numargs, offset);
             continue;
@@ -3182,7 +3182,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             Ident *id = cs.identmap[op >> 13];
             int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
             result.force_null();
-            id->cb_cftv(cs, ostd::iter(&args[offset], callargs));
+            id->cb_cftv(ostd::iter(&args[offset], callargs));
             result.force(op & CODE_RET_MASK);
             free_args(args, numargs, offset);
             continue;
@@ -3199,7 +3199,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
                 buf.reserve(256);
                 TaggedValue tv;
                 tv.set_mstr(conc(buf, ostd::iter(&args[offset], callargs), true));
-                id->cb_cftv(cs, TvalRange(&tv, 1));
+                id->cb_cftv(TvalRange(&tv, 1));
             }
             result.force(op & CODE_RET_MASK);
             free_args(args, numargs, offset);
@@ -3575,8 +3575,8 @@ bool CsState::run_file(ostd::ConstCharRange fname) {
     return true;
 }
 
-static void cs_init_lib_io(CsState &cso) {
-    cso.add_command("exec", "sb", [](CsState &cs, TvalRange args) {
+static void cs_init_lib_io(CsState &cs) {
+    cs.add_command("exec", "sb", [&cs](TvalRange args) {
         auto file = args[0].get_strr();
         bool ret = cs.run_file(file);
         if (!ret) {
@@ -3587,40 +3587,40 @@ static void cs_init_lib_io(CsState &cso) {
             cs.result->set_int(1);
     });
 
-    cso.add_command("echo", "C", [](CsState &, TvalRange args) {
+    cs.add_command("echo", "C", [](TvalRange args) {
         ostd::writeln(args[0].get_strr());
     });
 }
 
-void cs_init_lib_base_loops(CsState &cso);
+void cs_init_lib_base_loops(CsState &cs);
 
-static void cs_init_lib_base(CsState &cso) {
-    cso.add_command("do", "e", [](CsState &cs, TvalRange args) {
+static void cs_init_lib_base(CsState &cs) {
+    cs.add_command("do", "e", [&cs](TvalRange args) {
         cs.run_ret(args[0].get_code());
     }, ID_DO);
 
-    cso.add_command("doargs", "e", [](CsState &cs, TvalRange args) {
+    cs.add_command("doargs", "e", [&cs](TvalRange args) {
         if (cs.stack != &cs.noalias)
             cs_do_args(cs, [&]() { cs.run_ret(args[0].get_code()); });
         else
             cs.run_ret(args[0].get_code());
     }, ID_DOARGS);
 
-    cso.add_command("if", "tee", [](CsState &cs, TvalRange args) {
+    cs.add_command("if", "tee", [&cs](TvalRange args) {
         cs.run_ret((cs_get_bool(args[0]) ? args[1] : args[2]).get_code());
     }, ID_IF);
 
-    cso.add_command("result", "T", [](CsState &cs, TvalRange args) {
+    cs.add_command("result", "T", [&cs](TvalRange args) {
         TaggedValue &v = args[0];
         *cs.result = v;
         v.set_null();
     }, ID_RESULT);
 
-    cso.add_command("!", "t", [](CsState &cs, TvalRange args) {
+    cs.add_command("!", "t", [&cs](TvalRange args) {
         cs.result->set_int(!cs_get_bool(args[0]));
     }, ID_NOT);
 
-    cso.add_command("&&", "E1V", [](CsState &cs, TvalRange args) {
+    cs.add_command("&&", "E1V", [&cs](TvalRange args) {
         if (args.empty())
             cs.result->set_int(1);
         else for (ostd::Size i = 0; i < args.size(); ++i) {
@@ -3633,7 +3633,7 @@ static void cs_init_lib_base(CsState &cso) {
         }
     }, ID_AND);
 
-    cso.add_command("||", "E1V", [](CsState &cs, TvalRange args) {
+    cs.add_command("||", "E1V", [&cs](TvalRange args) {
         if (args.empty())
             cs.result->set_int(0);
         else for (ostd::Size i = 0; i < args.size(); ++i) {
@@ -3646,11 +3646,11 @@ static void cs_init_lib_base(CsState &cso) {
         }
     }, ID_OR);
 
-    cso.add_command("?", "tTT", [](CsState &cs, TvalRange args) {
+    cs.add_command("?", "tTT", [&cs](TvalRange args) {
         cs.result->set(cs_get_bool(args[0]) ? args[1] : args[2]);
     });
 
-    cso.add_command("cond", "ee2V", [](CsState &cs, TvalRange args) {
+    cs.add_command("cond", "ee2V", [&cs](TvalRange args) {
         for (ostd::Size i = 0; i < args.size(); i += 2) {
             if ((i + 1) < args.size()) {
                 if (cs.run_bool(args[i].code)) {
@@ -3665,7 +3665,7 @@ static void cs_init_lib_base(CsState &cso) {
     });
 
 #define CS_CMD_CASE(name, fmt, type, acc, compare) \
-    cso.add_command(name, fmt "te2V", [](CsState &cs, TvalRange args) { \
+    cs.add_command(name, fmt "te2V", [&cs](TvalRange args) { \
         type val = ostd::move(acc); \
         ostd::Size i; \
         for (i = 1; (i + 1) < args.size(); i += 2) { \
@@ -3690,7 +3690,7 @@ static void cs_init_lib_base(CsState &cso) {
 
 #undef CS_CMD_CASE
 
-    cso.add_command("pushif", "rTe", [](CsState &cs, TvalRange args) {
+    cs.add_command("pushif", "rTe", [&cs](TvalRange args) {
         Ident *id = args[0].id;
         TaggedValue &v = args[1];
         ostd::Uint32 *code = args[2].get_code();
@@ -3705,8 +3705,8 @@ static void cs_init_lib_base(CsState &cso) {
         }
     });
 
-    cs_init_lib_base_loops(cso);
-    cs_init_lib_base_var(cso);
+    cs_init_lib_base_loops(cs);
+    cs_init_lib_base_var(cs);
 }
 
 static inline void cs_set_iter(Ident &id, int i, IdentStack &stack) {
@@ -3758,117 +3758,117 @@ static inline void cs_loop_conc(CsState &cs, Ident &id, int offset, int n,
     cs.result->set_mstr(ostd::CharRange(s.disown(), len));
 }
 
-void cs_init_lib_base_loops(CsState &cso) {
-    cso.add_command("loop", "rie", [](CsState &cs, TvalRange args) {
+void cs_init_lib_base_loops(CsState &cs) {
+    cs.add_command("loop", "rie", [&cs](TvalRange args) {
         cs_do_loop(
             cs, *args[0].id, 0, args[1].get_int(), 1, nullptr, args[2].get_code()
         );
     });
 
-    cso.add_command("loop+", "riie", [](CsState &cs, TvalRange args) {
+    cs.add_command("loop+", "riie", [&cs](TvalRange args) {
         cs_do_loop(
             cs, *args[0].id, args[1].get_int(), args[2].get_int(), 1, nullptr,
             args[3].get_code()
         );
     });
 
-    cso.add_command("loop*", "riie", [](CsState &cs, TvalRange args) {
+    cs.add_command("loop*", "riie", [&cs](TvalRange args) {
         cs_do_loop(
             cs, *args[0].id, 0, args[1].get_int(), args[2].get_int(), nullptr,
             args[3].get_code()
         );
     });
 
-    cso.add_command("loop+*", "riiie", [](CsState &cs, TvalRange args) {
+    cs.add_command("loop+*", "riiie", [&cs](TvalRange args) {
         cs_do_loop(
             cs, *args[0].id, args[1].get_int(), args[3].get_int(),
             args[2].get_int(), nullptr, args[4].get_code()
         );
     });
 
-    cso.add_command("loopwhile", "riee", [](CsState &cs, TvalRange args) {
+    cs.add_command("loopwhile", "riee", [&cs](TvalRange args) {
         cs_do_loop(
             cs, *args[0].id, 0, args[1].get_int(), 1, args[2].get_code(),
             args[3].get_code()
         );
     });
 
-    cso.add_command("loopwhile+", "riiee", [](CsState &cs, TvalRange args) {
+    cs.add_command("loopwhile+", "riiee", [&cs](TvalRange args) {
         cs_do_loop(
             cs, *args[0].id, args[1].get_int(), args[2].get_int(), 1,
             args[3].get_code(), args[4].get_code()
         );
     });
 
-    cso.add_command("loopwhile*", "riiee", [](CsState &cs, TvalRange args) {
+    cs.add_command("loopwhile*", "riiee", [&cs](TvalRange args) {
         cs_do_loop(
             cs, *args[0].id, 0, args[2].get_int(), args[1].get_int(),
             args[3].get_code(), args[4].get_code()
         );
     });
 
-    cso.add_command("loopwhile+*", "riiiee", [](CsState &cs, TvalRange args) {
+    cs.add_command("loopwhile+*", "riiiee", [&cs](TvalRange args) {
         cs_do_loop(
             cs, *args[0].id, args[1].get_int(), args[3].get_int(),
             args[2].get_int(), args[4].get_code(), args[5].get_code()
         );
     });
 
-    cso.add_command("while", "ee", [](CsState &cs, TvalRange args) {
+    cs.add_command("while", "ee", [&cs](TvalRange args) {
         ostd::Uint32 *cond = args[0].get_code(), *body = args[1].get_code();
         while (cs.run_bool(cond)) {
             cs.run_int(body);
         }
     });
 
-    cso.add_command("loopconcat", "rie", [](CsState &cs, TvalRange args) {
+    cs.add_command("loopconcat", "rie", [&cs](TvalRange args) {
         cs_loop_conc(
             cs, *args[0].id, 0, args[1].get_int(), 1, args[2].get_code(), true
         );
     });
 
-    cso.add_command("loopconcat+", "riie", [](CsState &cs, TvalRange args) {
+    cs.add_command("loopconcat+", "riie", [&cs](TvalRange args) {
         cs_loop_conc(
             cs, *args[0].id, args[1].get_int(), args[2].get_int(), 1,
             args[3].get_code(), true
         );
     });
 
-    cso.add_command("loopconcat*", "riie", [](CsState &cs, TvalRange args) {
+    cs.add_command("loopconcat*", "riie", [&cs](TvalRange args) {
         cs_loop_conc(
             cs, *args[0].id, 0, args[2].get_int(), args[1].get_int(),
             args[3].get_code(), true
         );
     });
 
-    cso.add_command("loopconcat+*", "riiie", [](CsState &cs, TvalRange args) {
+    cs.add_command("loopconcat+*", "riiie", [&cs](TvalRange args) {
         cs_loop_conc(
             cs, *args[0].id, args[1].get_int(), args[3].get_int(),
             args[2].get_int(), args[4].get_code(), true
         );
     });
 
-    cso.add_command("loopconcatword", "rie", [](CsState &cs, TvalRange args) {
+    cs.add_command("loopconcatword", "rie", [&cs](TvalRange args) {
         cs_loop_conc(
             cs, *args[0].id, 0, args[1].get_int(), 1, args[2].get_code(), false
         );
     });
 
-    cso.add_command("loopconcatword+", "riie", [](CsState &cs, TvalRange args) {
+    cs.add_command("loopconcatword+", "riie", [&cs](TvalRange args) {
         cs_loop_conc(
             cs, *args[0].id, args[1].get_int(), args[2].get_int(), 1,
             args[3].get_code(), false
         );
     });
 
-    cso.add_command("loopconcatword*", "riie", [](CsState &cs, TvalRange args) {
+    cs.add_command("loopconcatword*", "riie", [&cs](TvalRange args) {
         cs_loop_conc(
             cs, *args[0].id, 0, args[2].get_int(), args[1].get_int(),
             args[3].get_code(), false
         );
     });
 
-    cso.add_command("loopconcatword+*", "riiie", [](CsState &cs, TvalRange args) {
+    cs.add_command("loopconcatword+*", "riiie", [&cs](TvalRange args) {
         cs_loop_conc(
             cs, *args[0].id, args[1].get_int(), args[3].get_int(),
             args[2].get_int(), args[4].get_code(), false
@@ -4072,12 +4072,12 @@ int cs_list_includes(ostd::ConstCharRange list, ostd::ConstCharRange needle) {
 
 static void cs_init_lib_list_sort(CsState &cs);
 
-static void cs_init_lib_list(CsState &cso) {
-    cso.add_command("listlen", "s", [](CsState &cs, TvalRange args) {
+static void cs_init_lib_list(CsState &cs) {
+    cs.add_command("listlen", "s", [&cs](TvalRange args) {
         cs.result->set_int(int(util::list_length(args[0].get_strr())));
     });
 
-    cso.add_command("at", "si1V", [](CsState &cs, TvalRange args) {
+    cs.add_command("at", "si1V", [&cs](TvalRange args) {
         if (args.empty())
             return;
         ostd::String str = ostd::move(args[0].get_str());
@@ -4097,7 +4097,7 @@ static void cs_init_lib_list(CsState &cso) {
         cs.result->set_mstr(er);
     });
 
-    cso.add_command("sublist", "siiN", [](CsState &cs, TvalRange args) {
+    cs.add_command("sublist", "siiN", [&cs](TvalRange args) {
         int skip    = args[1].get_int(),
             count   = args[2].get_int(),
             numargs = args[2].get_int();
@@ -4123,7 +4123,7 @@ static void cs_init_lib_list(CsState &cso) {
         cs.result->set_str(ostd::ConstCharRange(list, qend - list));
     });
 
-    cso.add_command("listfind", "rse", [](CsState &cs, TvalRange args) {
+    cs.add_command("listfind", "rse", [&cs](TvalRange args) {
         Ident *id = args[0].id;
         auto body = args[2].get_code();
         if (id->type != ID_ALIAS) {
@@ -4146,7 +4146,7 @@ found:
             id->pop_arg();
     });
 
-    cso.add_command("listassoc", "rse", [](CsState &cs, TvalRange args) {
+    cs.add_command("listassoc", "rse", [&cs](TvalRange args) {
         Ident *id = args[0].id;
         auto body = args[2].get_code();
         if (id->type != ID_ALIAS)
@@ -4173,7 +4173,7 @@ found:
     });
 
 #define CS_CMD_LIST_FIND(name, fmt, gmeth, cmp) \
-    cso.add_command(name, "s" fmt "i", [](CsState &cs, TvalRange args) { \
+    cs.add_command(name, "s" fmt "i", [&cs](TvalRange args) { \
         int n = 0, skip = args[2].get_int(); \
         auto val = args[1].gmeth(); \
         for (ListParser p(args[0].get_strr()); p.parse(); ++n) { \
@@ -4198,7 +4198,7 @@ found:
 #undef CS_CMD_LIST_FIND
 
 #define CS_CMD_LIST_ASSOC(name, fmt, gmeth, cmp) \
-    cso.add_command(name, "s" fmt, [](CsState &cs, TvalRange args) { \
+    cs.add_command(name, "s" fmt, [&cs](TvalRange args) { \
         auto val = args[1].gmeth(); \
         for (ListParser p(args[0].get_strr()); p.parse();) { \
             if (cmp) { \
@@ -4221,7 +4221,7 @@ found:
 
 #undef CS_CMD_LIST_ASSOC
 
-    cso.add_command("looplist", "rse", [](CsState &cs, TvalRange args) {
+    cs.add_command("looplist", "rse", [&cs](TvalRange args) {
         Ident *id = args[0].id;
         auto body = args[2].get_code();
         if (id->type != ID_ALIAS)
@@ -4236,7 +4236,7 @@ found:
             id->pop_arg();
     });
 
-    cso.add_command("looplist2", "rrse", [](CsState &cs, TvalRange args) {
+    cs.add_command("looplist2", "rrse", [&cs](TvalRange args) {
         Ident *id = args[0].id, *id2 = args[1].id;
         auto body = args[3].get_code();
         if (id->type != ID_ALIAS || id2->type != ID_ALIAS)
@@ -4255,7 +4255,7 @@ found:
         }
     });
 
-    cso.add_command("looplist3", "rrrse", [](CsState &cs, TvalRange args) {
+    cs.add_command("looplist3", "rrrse", [&cs](TvalRange args) {
         Ident *id = args[0].id, *id2 = args[1].id, *id3 = args[2].id;
         auto body = args[4].get_code();
         if (id->type != ID_ALIAS)
@@ -4279,19 +4279,19 @@ found:
         }
     });
 
-    cso.add_command("looplistconcat", "rse", [](CsState &cs, TvalRange args) {
+    cs.add_command("looplistconcat", "rse", [&cs](TvalRange args) {
         cs_loop_list_conc(
             cs, args[0].id, args[1].get_strr(), args[2].get_code(), true
         );
     });
 
-    cso.add_command("looplistconcatword", "rse", [](CsState &cs, TvalRange args) {
+    cs.add_command("looplistconcatword", "rse", [&cs](TvalRange args) {
         cs_loop_list_conc(
             cs, args[0].id, args[1].get_strr(), args[2].get_code(), false
         );
     });
 
-    cso.add_command("listfilter", "rse", [](CsState &cs, TvalRange args) {
+    cs.add_command("listfilter", "rse", [&cs](TvalRange args) {
         Ident *id = args[0].id;
         auto body = args[2].get_code();
         if (id->type != ID_ALIAS)
@@ -4314,7 +4314,7 @@ found:
         cs.result->set_mstr(ostd::CharRange(r.disown(), len));
     });
 
-    cso.add_command("listcount", "rse", [](CsState &cs, TvalRange args) {
+    cs.add_command("listcount", "rse", [&cs](TvalRange args) {
         Ident *id = args[0].id;
         auto body = args[2].get_code();
         if (id->type != ID_ALIAS)
@@ -4332,7 +4332,7 @@ found:
         cs.result->set_int(r);
     });
 
-    cso.add_command("prettylist", "ss", [](CsState &cs, TvalRange args) {
+    cs.add_command("prettylist", "ss", [&cs](TvalRange args) {
         ostd::Vector<char> buf;
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange conj = args[1].get_strr();
@@ -4364,14 +4364,14 @@ found:
         cs.result->set_mstr(ostd::CharRange(buf.disown(), slen));
     });
 
-    cso.add_command("indexof", "ss", [](CsState &cs, TvalRange args) {
+    cs.add_command("indexof", "ss", [&cs](TvalRange args) {
         cs.result->set_int(
             cs_list_includes(args[0].get_strr(), args[1].get_strr())
         );
     });
 
 #define CS_CMD_LIST_MERGE(name, init, iter, filter, dir) \
-    cso.add_command(name, "ss", [](CsState &cs, TvalRange args) { \
+    cs.add_command(name, "ss", [&cs](TvalRange args) { \
         ostd::ConstCharRange list = args[0].get_strr(); \
         ostd::ConstCharRange elems = args[1].get_strr(); \
         ostd::Vector<char> buf; \
@@ -4395,7 +4395,7 @@ found:
 
 #undef CS_CMD_LIST_MERGE
 
-    cso.add_command("listsplice", "ssii", [](CsState &cs, TvalRange args) {
+    cs.add_command("listsplice", "ssii", [&cs](TvalRange args) {
         int offset = ostd::max(args[2].get_int(), 0);
         int len    = ostd::max(args[3].get_int(), 0);
         ostd::ConstCharRange s = args[0].get_strr();
@@ -4433,7 +4433,7 @@ found:
         cs.result->set_mstr(ostd::CharRange(buf.disown(), slen));
     });
 
-    cs_init_lib_list_sort(cso);
+    cs_init_lib_list_sort(cs);
 }
 
 struct ListSortItem {
@@ -4551,14 +4551,14 @@ static void cs_list_sort(
     cs.result->set_mstr(sorted);
 }
 
-static void cs_init_lib_list_sort(CsState &cso) {
-    cso.add_command("sortlist", "srree", [](CsState &cs, TvalRange args) {
+static void cs_init_lib_list_sort(CsState &cs) {
+    cs.add_command("sortlist", "srree", [&cs](TvalRange args) {
         cs_list_sort(
             cs, args[0].get_strr(), args[1].id, args[2].id,
             args[3].get_code(), args[4].get_code()
         );
     });
-    cso.add_command("uniquelist", "srre", [](CsState &cs, TvalRange args) {
+    cs.add_command("uniquelist", "srre", [&cs](TvalRange args) {
         cs_list_sort(
             cs, args[0].get_strr(), args[1].id, args[2].id,
             nullptr, args[3].get_code()
@@ -4569,49 +4569,49 @@ static void cs_init_lib_list_sort(CsState &cso) {
 static constexpr float PI = 3.14159265358979f;
 static constexpr float RAD = PI / 180.0f;
 
-static void cs_init_lib_math(CsState &cso) {
-    cso.add_command("sin", "f", [](CsState &cs, TvalRange args) {
+static void cs_init_lib_math(CsState &cs) {
+    cs.add_command("sin", "f", [&cs](TvalRange args) {
         cs.result->set_float(sin(args[0].get_float() * RAD));
     });
-    cso.add_command("cos", "f", [](CsState &cs, TvalRange args) {
+    cs.add_command("cos", "f", [&cs](TvalRange args) {
         cs.result->set_float(cos(args[0].get_float() * RAD));
     });
-    cso.add_command("tan", "f", [](CsState &cs, TvalRange args) {
+    cs.add_command("tan", "f", [&cs](TvalRange args) {
         cs.result->set_float(tan(args[0].get_float() * RAD));
     });
 
-    cso.add_command("asin", "f", [](CsState &cs, TvalRange args) {
+    cs.add_command("asin", "f", [&cs](TvalRange args) {
         cs.result->set_float(asin(args[0].get_float()) / RAD);
     });
-    cso.add_command("acos", "f", [](CsState &cs, TvalRange args) {
+    cs.add_command("acos", "f", [&cs](TvalRange args) {
         cs.result->set_float(acos(args[0].get_float()) / RAD);
     });
-    cso.add_command("atan", "f", [](CsState &cs, TvalRange args) {
+    cs.add_command("atan", "f", [&cs](TvalRange args) {
         cs.result->set_float(atan(args[0].get_float()) / RAD);
     });
-    cso.add_command("atan2", "ff", [](CsState &cs, TvalRange args) {
+    cs.add_command("atan2", "ff", [&cs](TvalRange args) {
         cs.result->set_float(atan2(args[0].get_float(), args[1].get_float()) / RAD);
     });
 
-    cso.add_command("sqrt", "f", [](CsState &cs, TvalRange args) {
+    cs.add_command("sqrt", "f", [&cs](TvalRange args) {
         cs.result->set_float(sqrt(args[0].get_float()));
     });
-    cso.add_command("loge", "f", [](CsState &cs, TvalRange args) {
+    cs.add_command("loge", "f", [&cs](TvalRange args) {
         cs.result->set_float(log(args[0].get_float()));
     });
-    cso.add_command("log2", "f", [](CsState &cs, TvalRange args) {
+    cs.add_command("log2", "f", [&cs](TvalRange args) {
         cs.result->set_float(log(args[0].get_float()) / M_LN2);
     });
-    cso.add_command("log10", "f", [](CsState &cs, TvalRange args) {
+    cs.add_command("log10", "f", [&cs](TvalRange args) {
         cs.result->set_float(log10(args[0].get_float()));
     });
 
-    cso.add_command("exp", "f", [](CsState &cs, TvalRange args) {
+    cs.add_command("exp", "f", [&cs](TvalRange args) {
         cs.result->set_float(exp(args[0].get_float()));
     });
 
 #define CS_CMD_MIN_MAX(name, fmt, type, op) \
-    cso.add_command(#name, #fmt "1V", [](CsState &cs, TvalRange args) { \
+    cs.add_command(#name, #fmt "1V", [&cs](TvalRange args) { \
         type v = !args.empty() ? args[0].fmt : 0; \
         for (ostd::Size i = 1; i < args.size(); ++i) v = op(v, args[i].fmt); \
         cs.result->set_##type(v); \
@@ -4624,21 +4624,21 @@ static void cs_init_lib_math(CsState &cso) {
 
 #undef CS_CMD_MIN_MAX
 
-    cso.add_command("abs", "i", [](CsState &cs, TvalRange args) {
+    cs.add_command("abs", "i", [&cs](TvalRange args) {
         cs.result->set_int(abs(args[0].get_int()));
     });
-    cso.add_command("absf", "f", [](CsState &cs, TvalRange args) {
+    cs.add_command("absf", "f", [&cs](TvalRange args) {
         cs.result->set_float(fabs(args[0].get_float()));
     });
 
-    cso.add_command("floor", "f", [](CsState &cs, TvalRange args) {
+    cs.add_command("floor", "f", [&cs](TvalRange args) {
         cs.result->set_float(floor(args[0].get_float()));
     });
-    cso.add_command("ceil", "f", [](CsState &cs, TvalRange args) {
+    cs.add_command("ceil", "f", [&cs](TvalRange args) {
         cs.result->set_float(ceil(args[0].get_float()));
     });
 
-    cso.add_command("round", "ff", [](CsState &cs, TvalRange args) {
+    cs.add_command("round", "ff", [&cs](TvalRange args) {
         double step = args[1].get_float();
         double r = args[0].get_float();
         if (step > 0) {
@@ -4651,7 +4651,7 @@ static void cs_init_lib_math(CsState &cso) {
     });
 
 #define CS_CMD_MATH(name, fmt, type, op, initval, unaryop) \
-    cso.add_command(name, #fmt "1V", [](CsState &, TvalRange args) { \
+    cs.add_command(name, #fmt "1V", [&cs](TvalRange args) { \
         type val; \
         if (args.size() >= 2) { \
             val = args[0].fmt; \
@@ -4665,6 +4665,7 @@ static void cs_init_lib_math(CsState &cso) {
             val = (args.size() > 0) ? args[0].fmt : initval; \
             unaryop; \
         } \
+        cs.result->set_##type(val); \
     });
 
 #define CS_CMD_MATHIN(name, op, initval, unaryop) \
@@ -4719,7 +4720,7 @@ static void cs_init_lib_math(CsState &cso) {
 #undef CS_CMD_MATH
 
 #define CS_CMD_CMP(name, fmt, type, op) \
-    cso.add_command(name, #fmt "1V", [](CsState &cs, TvalRange args) { \
+    cs.add_command(name, #fmt "1V", [&cs](TvalRange args) { \
         bool val; \
         if (args.size() >= 2) { \
             val = args[0].fmt op args[1].fmt; \
@@ -4756,8 +4757,8 @@ static void cs_init_lib_math(CsState &cso) {
 #undef CS_CMD_CMP
 }
 
-static void cs_init_lib_string(CsState &cso) {
-    cso.add_command("strstr", "ss", [](CsState &cs, TvalRange args) {
+static void cs_init_lib_string(CsState &cs) {
+    cs.add_command("strstr", "ss", [&cs](TvalRange args) {
         ostd::ConstCharRange a = args[0].get_strr(), b = args[1].get_strr();
         ostd::ConstCharRange s = a;
         for (int i = 0; b.size() <= s.size(); ++i) {
@@ -4770,11 +4771,11 @@ static void cs_init_lib_string(CsState &cso) {
         cs.result->set_int(-1);
     });
 
-    cso.add_command("strlen", "s", [](CsState &cs, TvalRange args) {
+    cs.add_command("strlen", "s", [&cs](TvalRange args) {
         cs.result->set_int(int(args[0].get_strr().size()));
     });
 
-    cso.add_command("strcode", "si", [](CsState &cs, TvalRange args) {
+    cs.add_command("strcode", "si", [&cs](TvalRange args) {
         ostd::ConstCharRange str = args[0].get_strr();
         int i = args[1].get_int();
         if (i >= int(str.size())) {
@@ -4784,14 +4785,14 @@ static void cs_init_lib_string(CsState &cso) {
         }
     });
 
-    cso.add_command("codestr", "i", [](CsState &cs, TvalRange args) {
+    cs.add_command("codestr", "i", [&cs](TvalRange args) {
         char *s = new char[2];
         s[0] = char(args[0].get_int());
         s[1] = '\0';
         cs.result->set_mstr(s);
     });
 
-    cso.add_command("strlower", "s", [](CsState &cs, TvalRange args) {
+    cs.add_command("strlower", "s", [&cs](TvalRange args) {
         ostd::ConstCharRange s = args[0].get_strr();
         char *buf = new char[s.size() + 1];
         for (auto i: ostd::range(s.size()))
@@ -4800,7 +4801,7 @@ static void cs_init_lib_string(CsState &cso) {
         cs.result->set_mstr(ostd::CharRange(buf, s.size()));
     });
 
-    cso.add_command("strupper", "s", [](CsState &cs, TvalRange args) {
+    cs.add_command("strupper", "s", [&cs](TvalRange args) {
         ostd::ConstCharRange s = args[0].get_strr();
         char *buf = new char[s.size() + 1];
         for (auto i: ostd::range(s.size()))
@@ -4809,14 +4810,14 @@ static void cs_init_lib_string(CsState &cso) {
         cs.result->set_mstr(ostd::CharRange(buf, s.size()));
     });
 
-    cso.add_command("escape", "s", [](CsState &cs, TvalRange args) {
+    cs.add_command("escape", "s", [&cs](TvalRange args) {
         auto x = ostd::appender<ostd::String>();
         util::escape_string(x, args[0].get_strr());
         ostd::Size len = x.size();
         cs.result->set_mstr(ostd::CharRange(x.get().disown(), len));
     });
 
-    cso.add_command("unescape", "s", [](CsState &cs, TvalRange args) {
+    cs.add_command("unescape", "s", [&cs](TvalRange args) {
         ostd::ConstCharRange s = args[0].get_strr();
         char *buf = new char[s.size() + 1];
         auto writer = ostd::CharRange(buf, s.size() + 1);
@@ -4825,15 +4826,15 @@ static void cs_init_lib_string(CsState &cso) {
         cs.result->set_mstr(ostd::CharRange(buf, s.size()));
     });
 
-    cso.add_command("concat", "V", [](CsState &cs, TvalRange args) {
+    cs.add_command("concat", "V", [&cs](TvalRange args) {
         cs.result->set_mstr(conc(args, true));
     });
 
-    cso.add_command("concatworld", "V", [](CsState &cs, TvalRange args) {
+    cs.add_command("concatworld", "V", [&cs](TvalRange args) {
         cs.result->set_mstr(conc(args, false));
     });
 
-    cso.add_command("format", "V", [](CsState &cs, TvalRange args) {
+    cs.add_command("format", "V", [&cs](TvalRange args) {
         if (args.empty())
             return;
         ostd::Vector<char> s;
@@ -4858,7 +4859,7 @@ static void cs_init_lib_string(CsState &cso) {
         cs.result->set_mstr(ostd::CharRange(s.disown(), len));
     });
 
-    cso.add_command("tohex", "ii", [](CsState &cs, TvalRange args) {
+    cs.add_command("tohex", "ii", [&cs](TvalRange args) {
         auto r = ostd::appender<ostd::Vector<char>>();
         ostd::format(r, "0x%.*X", ostd::max(args[1].get_int(), 1), args[0].get_int());
         r.put('\0');
@@ -4866,7 +4867,7 @@ static void cs_init_lib_string(CsState &cso) {
         cs.result->set_mstr(ostd::CharRange(r.get().disown(), len));
     });
 
-    cso.add_command("substr", "siiN", [](CsState &cs, TvalRange args) {
+    cs.add_command("substr", "siiN", [&cs](TvalRange args) {
         ostd::ConstCharRange s = args[0].get_strr();
         int start = args[1].get_int(), count = args[2].get_int();
         int numargs = args[3].get_int();
@@ -4879,7 +4880,7 @@ static void cs_init_lib_string(CsState &cso) {
     });
 
 #define CS_CMD_CMPS(name, op) \
-    cso.add_command(#name, "s1V", [](CsState &cs, TvalRange args) { \
+    cs.add_command(#name, "s1V", [&cs](TvalRange args) { \
         bool val; \
         if (args.size() >= 2) { \
             val = strcmp(args[0].s, args[1].s) op 0; \
@@ -4900,7 +4901,7 @@ static void cs_init_lib_string(CsState &cso) {
 
 #undef CS_CMD_CMPS
 
-    cso.add_command("strreplace", "ssss", [](CsState &cs, TvalRange args) {
+    cs.add_command("strreplace", "ssss", [&cs](TvalRange args) {
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange oldval = args[1].get_strr(),
                              newval = args[2].get_strr(),
@@ -4944,7 +4945,7 @@ static void cs_init_lib_string(CsState &cso) {
         }
     });
 
-    cso.add_command("strsplice", "ssii", [](CsState &cs, TvalRange args) {
+    cs.add_command("strsplice", "ssii", [&cs](TvalRange args) {
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange vals = args[1].get_strr();
         int skip   = args[2].get_int(),
