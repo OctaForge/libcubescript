@@ -168,12 +168,6 @@ using CommandFunc3 = void (*)(CsState &, void *, void *, void *);
 using CommandFunc4 = void (*)(CsState &, void *, void *, void *, void *);
 using CommandFunc5 = void (*)(CsState &, void *, void *, void *, void *, void *);
 using CommandFunc6 = void (*)(CsState &, void *, void *, void *, void *, void *, void *);
-using CommandFunc7 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *);
-using CommandFunc8 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *);
-using CommandFunc9 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *);
-using CommandFunc10 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
-using CommandFunc11 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
-using CommandFunc12 = void (*)(CsState &, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *, void *);
 using CommandFuncTv = void (*)(CsState &, TvalRange);
 
 struct OSTD_EXPORT Ident {
@@ -217,12 +211,6 @@ struct OSTD_EXPORT Ident {
         CommandFunc4 cb_cf4;
         CommandFunc5 cb_cf5;
         CommandFunc6 cb_cf6;
-        CommandFunc7 cb_cf7;
-        CommandFunc8 cb_cf8;
-        CommandFunc9 cb_cf9;
-        CommandFunc10 cb_cf10;
-        CommandFunc11 cb_cf11;
-        CommandFunc12 cb_cf12;
         CommandFuncTv cb_cftv;
     };
 

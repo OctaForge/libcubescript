@@ -2684,12 +2684,6 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
             case 4: id->cb_cf4(cs, ARG(0), ARG(1), ARG(2), ARG(3)); break; \
             case 5: id->cb_cf5(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4)); break; \
             case 6: id->cb_cf6(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5)); break; \
-            case 7: id->cb_cf7(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6)); break; \
-            case 8: id->cb_cf8(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7)); break; \
-            case 9: id->cb_cf9(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8)); break; \
-            case 10: id->cb_cf10(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9)); break; \
-            case 11: id->cb_cf11(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9), ARG(10)); break; \
-            case 12: id->cb_cf12(cs, ARG(0), ARG(1), ARG(2), ARG(3), ARG(4), ARG(5), ARG(6), ARG(7), ARG(8), ARG(9), ARG(10), ARG(11)); break; \
         }
     if (id->flags & IDF_NOEXPAND) {
         id->cb_cftv(cs, TvalRange(args, i));
