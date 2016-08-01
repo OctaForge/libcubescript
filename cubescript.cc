@@ -3630,21 +3630,21 @@ static void cs_init_lib_base(CsState &cso) {
             cs.run_ret(args[0].get_code());
     }, ID_DOARGS);
 
-    cso.add_commandn("if", "tee", [](CsState &cs, TaggedValue *cond,
-                                    ostd::Uint32 *t, ostd::Uint32 *f) {
-        cs.run_ret(cs_get_bool(*cond) ? t : f);
+    cso.add_command("if", "tee", [](CsState &cs, TvalRange args) {
+        cs.run_ret((cs_get_bool(args[0]) ? args[1] : args[2]).get_code());
     }, ID_IF);
 
-    cso.add_commandn("result", "T", [](CsState &cs, TaggedValue *v) {
-        *cs.result = *v;
-        v->set_null();
+    cso.add_command("result", "T", [](CsState &cs, TvalRange args) {
+        TaggedValue &v = args[0];
+        *cs.result = v;
+        v.set_null();
     }, ID_RESULT);
 
-    cso.add_commandn("!", "t", [](CsState &cs, TaggedValue *a) {
-        cs.result->set_int(!cs_get_bool(*a));
+    cso.add_command("!", "t", [](CsState &cs, TvalRange args) {
+        cs.result->set_int(!cs_get_bool(args[0]));
     }, ID_NOT);
 
-    cso.add_commandn("&&", "E1V", [](CsState &cs, TvalRange args) {
+    cso.add_command("&&", "E1V", [](CsState &cs, TvalRange args) {
         if (args.empty())
             cs.result->set_int(1);
         else for (ostd::Size i = 0; i < args.size(); ++i) {
@@ -3657,7 +3657,7 @@ static void cs_init_lib_base(CsState &cso) {
         }
     }, ID_AND);
 
-    cso.add_commandn("||", "E1V", [](CsState &cs, TvalRange args) {
+    cso.add_command("||", "E1V", [](CsState &cs, TvalRange args) {
         if (args.empty())
             cs.result->set_int(0);
         else for (ostd::Size i = 0; i < args.size(); ++i) {
@@ -3670,12 +3670,11 @@ static void cs_init_lib_base(CsState &cso) {
         }
     }, ID_OR);
 
-    cso.add_commandn("?", "tTT", [](CsState &cs, TaggedValue *cond,
-                                   TaggedValue *t, TaggedValue *f) {
-        cs.result->set(*(cs_get_bool(*cond) ? t : f));
+    cso.add_command("?", "tTT", [](CsState &cs, TvalRange args) {
+        cs.result->set(cs_get_bool(args[0]) ? args[1] : args[2]);
     });
 
-    cso.add_commandn("cond", "ee2V", [](CsState &cs, TvalRange args) {
+    cso.add_command("cond", "ee2V", [](CsState &cs, TvalRange args) {
         for (ostd::Size i = 0; i < args.size(); i += 2) {
             if ((i + 1) < args.size()) {
                 if (cs.run_bool(args[i].code)) {
@@ -3690,7 +3689,7 @@ static void cs_init_lib_base(CsState &cso) {
     });
 
 #define CS_CMD_CASE(name, fmt, type, acc, compare) \
-    cso.add_commandn(name, fmt "te2V", [](CsState &cs, TvalRange args) { \
+    cso.add_command(name, fmt "te2V", [](CsState &cs, TvalRange args) { \
         type val = ostd::move(acc); \
         ostd::Size i; \
         for (i = 1; (i + 1) < args.size(); i += 2) { \
@@ -3715,14 +3714,16 @@ static void cs_init_lib_base(CsState &cso) {
 
 #undef CS_CMD_CASE
 
-    cso.add_commandn("pushif", "rTe", [](CsState &cs, Ident *id,
-                                        TaggedValue *v, ostd::Uint32 *code) {
+    cso.add_command("pushif", "rTe", [](CsState &cs, TvalRange args) {
+        Ident *id = args[0].id;
+        TaggedValue &v = args[1];
+        ostd::Uint32 *code = args[2].get_code();
         if ((id->type != ID_ALIAS) || (id->index < MaxArguments))
             return;
-        if (cs_get_bool(*v)) {
+        if (cs_get_bool(v)) {
             IdentStack stack;
-            id->push_arg(*v, stack);
-            v->set_null();
+            id->push_arg(v, stack);
+            v.set_null();
             cs.run_ret(code);
             id->pop_arg();
         }
@@ -4078,11 +4079,11 @@ int cs_list_includes(char const *list, ostd::ConstCharRange needle) {
 static void cs_init_lib_list_sort(CsState &cs);
 
 static void cs_init_lib_list(CsState &cso) {
-    cso.add_commandn("listlen", "s", [](CsState &cs, char *s) {
-        cs.result->set_int(int(util::list_length(s)));
+    cso.add_command("listlen", "s", [](CsState &cs, TvalRange args) {
+        cs.result->set_int(int(util::list_length(args[0].get_strr())));
     });
 
-    cso.add_commandn("at", "si1V", [](CsState &cs, TvalRange args) {
+    cso.add_command("at", "si1V", [](CsState &cs, TvalRange args) {
         if (args.empty())
             return;
         ostd::String str = ostd::move(args[0].get_str());
@@ -4603,7 +4604,7 @@ static void cs_init_lib_math(CsState &cso) {
     });
 
 #define CS_CMD_MIN_MAX(name, fmt, type, op) \
-    cso.add_commandn(#name, #fmt "1V", [](CsState &cs, TvalRange args) { \
+    cso.add_command(#name, #fmt "1V", [](CsState &cs, TvalRange args) { \
         type v = !args.empty() ? args[0].fmt : 0; \
         for (ostd::Size i = 1; i < args.size(); ++i) v = op(v, args[i].fmt); \
         cs.result->set_##type(v); \
@@ -4643,7 +4644,7 @@ static void cs_init_lib_math(CsState &cso) {
     });
 
 #define CS_CMD_MATH(name, fmt, type, op, initval, unaryop) \
-    cso.add_commandn(name, #fmt "1V", [](CsState &, TvalRange args) { \
+    cso.add_command(name, #fmt "1V", [](CsState &, TvalRange args) { \
         type val; \
         if (args.size() >= 2) { \
             val = args[0].fmt; \
@@ -4711,7 +4712,7 @@ static void cs_init_lib_math(CsState &cso) {
 #undef CS_CMD_MATH
 
 #define CS_CMD_CMP(name, fmt, type, op) \
-    cso.add_commandn(name, #fmt "1V", [](CsState &cs, TvalRange args) { \
+    cso.add_command(name, #fmt "1V", [](CsState &cs, TvalRange args) { \
         bool val; \
         if (args.size() >= 2) { \
             val = args[0].fmt op args[1].fmt; \
@@ -4805,15 +4806,15 @@ static void cs_init_lib_string(CsState &cso) {
         cs.result->set_mstr(ostd::CharRange(buf, len));
     });
 
-    cso.add_commandn("concat", "V", [](CsState &cs, TvalRange args) {
+    cso.add_command("concat", "V", [](CsState &cs, TvalRange args) {
         cs.result->set_mstr(conc(args, true));
     });
 
-    cso.add_commandn("concatworld", "V", [](CsState &cs, TvalRange args) {
+    cso.add_command("concatworld", "V", [](CsState &cs, TvalRange args) {
         cs.result->set_mstr(conc(args, false));
     });
 
-    cso.add_commandn("format", "V", [](CsState &cs, TvalRange args) {
+    cso.add_command("format", "V", [](CsState &cs, TvalRange args) {
         if (args.empty())
             return;
         ostd::Vector<char> s;
@@ -4856,7 +4857,7 @@ static void cs_init_lib_string(CsState &cso) {
     });
 
 #define CS_CMD_CMPS(name, op) \
-    cso.add_commandn(#name, "s1V", [](CsState &cs, TvalRange args) { \
+    cso.add_command(#name, "s1V", [](CsState &cs, TvalRange args) { \
         bool val; \
         if (args.size() >= 2) { \
             val = strcmp(args[0].s, args[1].s) op 0; \
