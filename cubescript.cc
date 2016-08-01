@@ -121,7 +121,7 @@ static inline bool cs_check_num(ostd::ConstCharRange s) {
 Ident::Ident(int t, ostd::ConstCharRange n, int m, int x, int *s,
              VarCb f, int flagsv)
     : type(t), flags(flagsv | (m > x ? IDF_READONLY : 0)), name(n),
-      minval(m), maxval(x), cb_var(ostd::move(f)), cb_cftv(nullptr) {
+      minval(m), maxval(x), cb_var(ostd::move(f)) {
     storage.ip = s;
 }
 
@@ -129,13 +129,13 @@ Ident::Ident(int t, ostd::ConstCharRange n, int m, int x, int *s,
 Ident::Ident(int t, ostd::ConstCharRange n, float m, float x, float *s,
              VarCb f, int flagsv)
     : type(t), flags(flagsv | (m > x ? IDF_READONLY : 0)), name(n),
-      minvalf(m), maxvalf(x), cb_var(ostd::move(f)), cb_cftv(nullptr) {
+      minvalf(m), maxvalf(x), cb_var(ostd::move(f)) {
     storage.fp = s;
 }
 
 /* ID_SVAR */
 Ident::Ident(int t, ostd::ConstCharRange n, char **s, VarCb f, int flagsv)
-    : type(t), flags(flagsv), name(n), cb_var(ostd::move(f)), cb_cftv(nullptr) {
+    : type(t), flags(flagsv), name(n), cb_var(ostd::move(f)) {
     storage.sp = s;
 }
 
@@ -167,10 +167,10 @@ Ident::Ident(int t, ostd::ConstCharRange n, TaggedValue const &v, int flagsv)
 
 /* ID_COMMAND */
 Ident::Ident(int t, ostd::ConstCharRange n, ostd::ConstCharRange args,
-             ostd::Uint32 argmask, int numargs, CommandFuncTv f, int flagsv)
+             ostd::Uint32 argmask, int numargs, CmdFunc f, int flagsv)
     : type(t), numargs(numargs), flags(flagsv), name(n),
       args(!args.empty() ? cs_dup_ostr(args) : nullptr),
-      argmask(argmask), cb_var(), cb_cftv(f) {
+      argmask(argmask), cb_cftv(ostd::move(f)) {
 }
 
 struct NullValue: TaggedValue {
@@ -1004,7 +1004,7 @@ void CsState::set_var_str_checked(Ident *id, ostd::ConstCharRange v) {
 }
 
 bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
-                          CommandFuncTv func, int type, int flags) {
+                          CmdFunc func, int type, int flags) {
     ostd::Uint32 argmask = 0;
     int nargs = 0;
     bool limit = true;
@@ -1054,7 +1054,7 @@ bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
                            name, nargs);
         return false;
     }
-    add_ident(type, name, args, argmask, nargs, func, flags);
+    add_ident(type, name, args, argmask, nargs, ostd::move(func), flags);
     return true;
 }
 

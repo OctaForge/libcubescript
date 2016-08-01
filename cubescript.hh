@@ -159,8 +159,7 @@ union IdentValuePtr {
 struct CsState;
 
 using VarCb = ostd::Function<void(CsState &, Ident &)>;
-
-using CommandFuncTv = void (*)(CsState &, TvalRange);
+using CmdFunc = ostd::Function<void(CsState &, TvalRange)>;
 
 struct OSTD_EXPORT Ident {
     ostd::byte type; /* ID_something */
@@ -195,7 +194,7 @@ struct OSTD_EXPORT Ident {
         };
     };
     VarCb cb_var;
-    CommandFuncTv cb_cftv;
+    CmdFunc cb_cftv;
 
     Ident(): type(ID_UNKNOWN) {}
 
@@ -220,7 +219,7 @@ struct OSTD_EXPORT Ident {
 
     /* ID_COMMAND */
     Ident(int t, ostd::ConstCharRange n, ostd::ConstCharRange args,
-          ostd::Uint32 argmask, int numargs, CommandFuncTv f = nullptr,
+          ostd::Uint32 argmask, int numargs, CmdFunc f = CmdFunc(),
           int flags = 0);
 
     void changed(CsState &cs) {
@@ -326,15 +325,7 @@ struct OSTD_EXPORT CsState {
     void touch_var(ostd::ConstCharRange name);
 
     bool add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
-                     CommandFuncTv func, int type = ID_COMMAND, int flags = 0);
-
-    template<typename F>
-    bool add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
-                     F func, int type = ID_COMMAND, int flags = 0) {
-        return add_command(name, args,
-            CommandFuncTv(ostd::FunctionMakeDefaultConstructible<F>(func)),
-            type, flags);
-    }
+                     CmdFunc func, int type = ID_COMMAND, int flags = 0);
 
     ostd::String run_str(ostd::Uint32 const *code);
     ostd::String run_str(ostd::ConstCharRange code);
