@@ -159,7 +159,8 @@ union IdentValuePtr {
 
 struct CsState;
 
-using IdentFunc = void (*)(CsState &, Ident *);
+using VarCb = ostd::Function<void(CsState &, Ident &)>;
+
 using CommandFunc = void (*)(CsState &);
 using CommandFunc1 = void (*)(CsState &, void *);
 using CommandFunc2 = void (*)(CsState &, void *, void *);
@@ -207,8 +208,8 @@ struct OSTD_EXPORT Ident {
             ostd::Uint32 argmask;
         };
     };
+    VarCb cb_var;
     union {
-        IdentFunc cb_var;
         CommandFunc cb_cf0;
         CommandFunc1 cb_cf1;
         CommandFunc2 cb_cf2;
@@ -229,14 +230,14 @@ struct OSTD_EXPORT Ident {
 
     /* ID_VAR */
     Ident(int t, ostd::ConstCharRange n, int m, int x, int *s,
-          IdentFunc f = nullptr, int flags = 0);
+          VarCb f = VarCb(), int flags = 0);
 
     /* ID_FVAR */
     Ident(int t, ostd::ConstCharRange n, float m, float x, float *s,
-          IdentFunc f = nullptr, int flags = 0);
+          VarCb f = VarCb(), int flags = 0);
 
     /* ID_SVAR */
-    Ident(int t, ostd::ConstCharRange n, char **s, IdentFunc f = nullptr,
+    Ident(int t, ostd::ConstCharRange n, char **s, VarCb f = VarCb(),
           int flags = 0);
 
     /* ID_ALIAS */
@@ -248,11 +249,11 @@ struct OSTD_EXPORT Ident {
 
     /* ID_COMMAND */
     Ident(int t, ostd::ConstCharRange n, ostd::ConstCharRange args,
-          ostd::Uint32 argmask, int numargs, IdentFunc f = nullptr,
+          ostd::Uint32 argmask, int numargs, CommandFuncTv f = nullptr,
           int flags = 0);
 
     void changed(CsState &cs) {
-        if (cb_var) cb_var(cs, this);
+        if (cb_var) cb_var(cs, *this);
     }
 
     void set_value(TaggedValue const &v) {
@@ -354,13 +355,13 @@ struct OSTD_EXPORT CsState {
     void touch_var(ostd::ConstCharRange name);
 
     bool add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
-                     IdentFunc func, int type = ID_COMMAND, int flags = 0);
+                     CommandFuncTv func, int type = ID_COMMAND, int flags = 0);
 
     template<typename F>
     bool add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
                      F func, int type = ID_COMMAND, int flags = 0) {
         return add_command(name, args,
-            IdentFunc(ostd::FunctionMakeDefaultConstructible<F>(func)),
+            CommandFuncTv(ostd::FunctionMakeDefaultConstructible<F>(func)),
             type, flags | IDF_NOEXPAND);
     }
 
@@ -368,7 +369,7 @@ struct OSTD_EXPORT CsState {
     bool add_commandn(ostd::ConstCharRange name, ostd::ConstCharRange args,
                       F func, int type = ID_COMMAND, int flags = 0) {
         return add_command(name, args,
-            IdentFunc(ostd::FunctionMakeDefaultConstructible<F>(func)),
+            CommandFuncTv(ostd::FunctionMakeDefaultConstructible<F>(func)),
             type, flags);
     }
 

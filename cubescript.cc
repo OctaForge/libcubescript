@@ -119,23 +119,23 @@ static inline bool cs_check_num(ostd::ConstCharRange s) {
 
 /* ID_VAR */
 Ident::Ident(int t, ostd::ConstCharRange n, int m, int x, int *s,
-             IdentFunc f, int flagsv)
+             VarCb f, int flagsv)
     : type(t), flags(flagsv | (m > x ? IDF_READONLY : 0)), name(n),
-      minval(m), maxval(x), cb_var(f) {
+      minval(m), maxval(x), cb_var(ostd::move(f)), cb_cftv(nullptr) {
     storage.ip = s;
 }
 
 /* ID_FVAR */
 Ident::Ident(int t, ostd::ConstCharRange n, float m, float x, float *s,
-             IdentFunc f, int flagsv)
+             VarCb f, int flagsv)
     : type(t), flags(flagsv | (m > x ? IDF_READONLY : 0)), name(n),
-      minvalf(m), maxvalf(x), cb_var(f) {
+      minvalf(m), maxvalf(x), cb_var(ostd::move(f)), cb_cftv(nullptr) {
     storage.fp = s;
 }
 
 /* ID_SVAR */
-Ident::Ident(int t, ostd::ConstCharRange n, char **s, IdentFunc f, int flagsv)
-    : type(t), flags(flagsv), name(n), cb_var(f) {
+Ident::Ident(int t, ostd::ConstCharRange n, char **s, VarCb f, int flagsv)
+    : type(t), flags(flagsv), name(n), cb_var(ostd::move(f)), cb_cftv(nullptr) {
     storage.sp = s;
 }
 
@@ -167,10 +167,10 @@ Ident::Ident(int t, ostd::ConstCharRange n, TaggedValue const &v, int flagsv)
 
 /* ID_COMMAND */
 Ident::Ident(int t, ostd::ConstCharRange n, ostd::ConstCharRange args,
-             ostd::Uint32 argmask, int numargs, IdentFunc f, int flagsv)
+             ostd::Uint32 argmask, int numargs, CommandFuncTv f, int flagsv)
     : type(t), numargs(numargs), flags(flagsv), name(n),
       args(!args.empty() ? cs_dup_ostr(args) : nullptr),
-      argmask(argmask), cb_var(f) {
+      argmask(argmask), cb_var(), cb_cftv(f) {
 }
 
 struct NullValue: TaggedValue {
@@ -1004,7 +1004,7 @@ void CsState::set_var_str_checked(Ident *id, ostd::ConstCharRange v) {
 }
 
 bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
-                          IdentFunc func, int type, int flags) {
+                          CommandFuncTv func, int type, int flags) {
     ostd::Uint32 argmask = 0;
     int nargs = 0;
     bool limit = true;
@@ -3361,7 +3361,7 @@ noid:
             result.force_null();
             switch (id->type) {
             default:
-                if (!id->cb_var) FORCERESULT;
+                if (!id->cb_cftv) FORCERESULT;
             /* fallthrough */
             case ID_COMMAND:
                 idarg.cleanup();
@@ -3430,7 +3430,7 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
     if (rundepth > MaxRunDepth) cs_debug_code(*this, "exceeded recursion limit");
     else if (id) switch (id->type) {
         default:
-            if (!id->cb_var) break;
+            if (!id->cb_cftv) break;
         /* fallthrough */
         case ID_COMMAND:
             if (nargs < id->numargs) {
