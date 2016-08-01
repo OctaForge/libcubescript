@@ -1059,53 +1059,54 @@ bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
 }
 
 static void cs_init_lib_base_var(CsState &cso) {
-    cso.add_commandn("nodebug", "e", [](CsState &cs, ostd::Uint32 *body) {
+    cso.add_command("nodebug", "e", [](CsState &cs, TvalRange args) {
         ++cs.nodebug;
-        cs.run_ret(body);
+        cs.run_ret(args[0].get_code());
         --cs.nodebug;
     });
 
-    cso.add_commandn("push", "rTe", [](CsState &cs, Ident *id,
-                                      TaggedValue *v, ostd::Uint32 *code) {
+    cso.add_command("push", "rTe", [](CsState &cs, TvalRange args) {
+        Ident *id = args[0].id;
         if (id->type != ID_ALIAS || id->index < MaxArguments) return;
         IdentStack stack;
-        id->push_arg(*v, stack);
-        v->set_null();
-        cs.run_ret(code);
+        TaggedValue &v = args[1];
+        id->push_arg(v, stack);
+        v.set_null();
+        cs.run_ret(args[2].get_code());
         id->pop_arg();
     });
 
-    cso.add_commandn("local", nullptr, nullptr, ID_LOCAL);
+    cso.add_command("local", nullptr, nullptr, ID_LOCAL);
 
-    cso.add_commandn("resetvar", "s", [](CsState &cs, char *name) {
-        cs.result->set_int(cs.reset_var(name));
-    });
-
-    cso.add_commandn("alias", "sT", [](CsState &cs, char const *name,
-                                      TaggedValue *v) {
-        cs.set_alias(name, *v);
-        v->set_null();
+    cso.add_command("resetvar", "s", [](CsState &cs, TvalRange args) {
+        cs.result->set_int(cs.reset_var(args[0].get_strr()));
     });
 
-    cso.add_commandn("getvarmin", "s", [](CsState &cs, char const *name) {
-        cs.result->set_int(cs.get_var_min_int(name).value_or(0));
-    });
-    cso.add_commandn("getvarmax", "s", [](CsState &cs, char const *name) {
-        cs.result->set_int(cs.get_var_max_int(name).value_or(0));
-    });
-    cso.add_commandn("getfvarmin", "s", [](CsState &cs, char const *name) {
-        cs.result->set_float(cs.get_var_min_float(name).value_or(0.0f));
-    });
-    cso.add_commandn("getfvarmax", "s", [](CsState &cs, char const *name) {
-        cs.result->set_float(cs.get_var_max_float(name).value_or(0.0f));
+    cso.add_command("alias", "sT", [](CsState &cs, TvalRange args) {
+        TaggedValue &v = args[1];
+        cs.set_alias(args[0].get_strr(), v);
+        v.set_null();
     });
 
-    cso.add_commandn("identexists", "s", [](CsState &cs, char const *name) {
-        cs.result->set_int(cs.have_ident(name));
+    cso.add_command("getvarmin", "s", [](CsState &cs, TvalRange args) {
+        cs.result->set_int(cs.get_var_min_int(args[0].get_strr()).value_or(0));
+    });
+    cso.add_command("getvarmax", "s", [](CsState &cs, TvalRange args) {
+        cs.result->set_int(cs.get_var_max_int(args[0].get_strr()).value_or(0));
+    });
+    cso.add_command("getfvarmin", "s", [](CsState &cs, TvalRange args) {
+        cs.result->set_float(cs.get_var_min_float(args[0].get_strr()).value_or(0.0f));
+    });
+    cso.add_command("getfvarmax", "s", [](CsState &cs, TvalRange args) {
+        cs.result->set_float(cs.get_var_max_float(args[0].get_strr()).value_or(0.0f));
     });
 
-    cso.add_commandn("getalias", "s", [](CsState &cs, char const *name) {
-        cs.result->set_str(ostd::move(cs.get_alias(name).value_or("")));
+    cso.add_command("identexists", "s", [](CsState &cs, TvalRange args) {
+        cs.result->set_int(cs.have_ident(args[0].get_strr()));
+    });
+
+    cso.add_command("getalias", "s", [](CsState &cs, TvalRange args) {
+        cs.result->set_str(ostd::move(cs.get_alias(args[0].get_strr()).value_or("")));
     });
 }
 
@@ -3605,10 +3606,11 @@ bool CsState::run_file(ostd::ConstCharRange fname) {
 }
 
 static void cs_init_lib_io(CsState &cso) {
-    cso.add_commandn("exec", "sb", [](CsState &cs, char *file, int *msg) {
+    cso.add_command("exec", "sb", [](CsState &cs, TvalRange args) {
+        auto file = args[0].get_strr();
         bool ret = cs.run_file(file);
         if (!ret) {
-            if (*msg)
+            if (args[1].get_int())
                 ostd::err.writefln("could not run file \"%s\"", file);
             cs.result->set_int(0);
         } else
@@ -3623,15 +3625,15 @@ static void cs_init_lib_io(CsState &cso) {
 void cs_init_lib_base_loops(CsState &cso);
 
 static void cs_init_lib_base(CsState &cso) {
-    cso.add_commandn("do", "e", [](CsState &cs, ostd::Uint32 *body) {
-        cs.run_ret(body);
+    cso.add_command("do", "e", [](CsState &cs, TvalRange args) {
+        cs.run_ret(args[0].get_code());
     }, ID_DO);
 
-    cso.add_commandn("doargs", "e", [](CsState &cs, ostd::Uint32 *body) {
+    cso.add_command("doargs", "e", [](CsState &cs, TvalRange args) {
         if (cs.stack != &cs.noalias)
-            cs_do_args(cs, [&]() { cs.run_ret(body); });
+            cs_do_args(cs, [&]() { cs.run_ret(args[0].get_code()); });
         else
-            cs.run_ret(body);
+            cs.run_ret(args[0].get_code());
     }, ID_DOARGS);
 
     cso.add_commandn("if", "tee", [](CsState &cs, TaggedValue *cond,
