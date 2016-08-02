@@ -135,6 +135,8 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
     Ident *get_ident() const;
     void get_val(TaggedValue &r) const;
 
+    bool get_bool() const;
+
     void force_null();
     float force_float();
     int force_int();
