@@ -405,6 +405,35 @@ void TaggedValue::cleanup() {
     }
 }
 
+static ostd::Uint32 const *skipcode(ostd::Uint32 const *code, TaggedValue *result = nullptr);
+
+void TaggedValue::copy_arg(TaggedValue &r) const {
+    r.cleanup();
+    switch (get_type()) {
+        case VAL_INT:
+        case VAL_FLOAT:
+        case VAL_IDENT:
+            r = *this;
+            break;
+        case VAL_STR:
+        case VAL_CSTR:
+        case VAL_MACRO:
+            r.set_str(ostd::ConstCharRange(s, len));
+            break;
+        case VAL_CODE: {
+            ostd::Uint32 const *end = skipcode(code);
+            ostd::Uint32 *dst = new ostd::Uint32[end - code + 1];
+            *dst++ = CODE_START;
+            memcpy(dst, code, (end - code) * sizeof(ostd::Uint32));
+            r.set_code(dst);
+            break;
+        }
+        default:
+            r.set_null();
+            break;
+    }
+}
+
 void TaggedValue::force_null() {
     if (get_type() == VAL_NULL) return;
     cleanup();
@@ -2420,7 +2449,7 @@ Bytecode &Bytecode::operator=(Bytecode &&v) {
     return *this;
 }
 
-static ostd::Uint32 const *skipcode(ostd::Uint32 const *code, TaggedValue *result = nullptr) {
+static ostd::Uint32 const *skipcode(ostd::Uint32 const *code, TaggedValue *result) {
     int depth = 0;
     for (;;) {
         ostd::Uint32 op = *code++;

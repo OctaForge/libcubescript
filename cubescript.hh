@@ -143,6 +143,7 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
     ostd::ConstCharRange force_str();
 
     void cleanup();
+    void copy_arg(TaggedValue &r) const;
 
 private:
     int p_type;
