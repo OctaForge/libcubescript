@@ -38,16 +38,16 @@ enum {
     IDF_ARG        = 1 << 6
 };
 
-struct OSTD_EXPORT Bytecode {
-    Bytecode(): p_code(nullptr) {}
-    Bytecode(ostd::Uint32 *v);
-    Bytecode(Bytecode const &v);
-    Bytecode(Bytecode &&v): p_code(v.p_code) { v.p_code = nullptr; }
+struct OSTD_EXPORT BytecodeRef {
+    BytecodeRef(): p_code(nullptr) {}
+    BytecodeRef(ostd::Uint32 *v);
+    BytecodeRef(BytecodeRef const &v);
+    BytecodeRef(BytecodeRef &&v): p_code(v.p_code) { v.p_code = nullptr; }
 
-    ~Bytecode();
+    ~BytecodeRef();
 
-    Bytecode &operator=(Bytecode const &v);
-    Bytecode &operator=(Bytecode &&v);
+    BytecodeRef &operator=(BytecodeRef const &v);
+    BytecodeRef &operator=(BytecodeRef &&v);
 
     operator bool() const { return p_code != nullptr; }
     operator ostd::Uint32 *() const { return p_code; }

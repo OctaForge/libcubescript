@@ -2511,19 +2511,19 @@ void bcode_unref(ostd::Uint32 *code) {
     }
 }
 
-Bytecode::Bytecode(ostd::Uint32 *v): p_code(v) { bcode_ref(p_code); }
-Bytecode::Bytecode(Bytecode const &v): p_code(v.p_code) { bcode_ref(p_code); }
+BytecodeRef::BytecodeRef(ostd::Uint32 *v): p_code(v) { bcode_ref(p_code); }
+BytecodeRef::BytecodeRef(BytecodeRef const &v): p_code(v.p_code) { bcode_ref(p_code); }
 
-Bytecode::~Bytecode() { bcode_unref(p_code); }
+BytecodeRef::~BytecodeRef() { bcode_unref(p_code); }
 
-Bytecode &Bytecode::operator=(Bytecode const &v) {
+BytecodeRef &BytecodeRef::operator=(BytecodeRef const &v) {
     bcode_unref(p_code);
     p_code = v.p_code;
     bcode_ref(p_code);
     return *this;
 }
 
-Bytecode &Bytecode::operator=(Bytecode &&v) {
+BytecodeRef &BytecodeRef::operator=(BytecodeRef &&v) {
     bcode_unref(p_code);
     p_code = v.p_code;
     v.p_code = nullptr;
