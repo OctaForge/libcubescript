@@ -10,8 +10,7 @@ LIBCS_OBJ = \
 	cubescript.o \
 	lib_str.o \
 	lib_math.o \
-	lib_list.o \
-	lib_base.o
+	lib_list.o
 
 LIBCS_LIB = libcubescript.a
 
@@ -32,4 +31,3 @@ cubescript.o: cubescript.hh lib_list.hh cs_private.hh
 lib_str.o: cubescript.hh
 lib_math.o: cubescript.hh
 lib_list.o: cubescript.hh lib_list.hh cs_private.hh
-lib_base.o: cubescript.hh cs_private.hh

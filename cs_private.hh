@@ -51,25 +51,6 @@ enum {
     RET_FLOAT  = VAL_FLOAT << CODE_RET,
 };
 
-template<typename F>
-static void cs_do_args(CsState &cs, F body) {
-    IdentStack argstack[MaxArguments];
-    int argmask1 = cs.stack->usedargs;
-    for (int i = 0; argmask1; argmask1 >>= 1, ++i) if(argmask1 & 1)
-        cs.identmap[i]->undo_arg(argstack[i]);
-    IdentLink *prevstack = cs.stack->next;
-    IdentLink aliaslink = {
-        cs.stack->id, cs.stack, prevstack->usedargs, prevstack->argstack
-    };
-    cs.stack = &aliaslink;
-    body();
-    prevstack->usedargs = aliaslink.usedargs;
-    cs.stack = aliaslink.next;
-    int argmask2 = cs.stack->usedargs;
-    for(int i = 0; argmask2; argmask2 >>= 1, ++i) if(argmask2 & 1)
-        cs.identmap[i]->redo_arg(argstack[i]);
-}
-
 } /*namespace cscript */
 
 #endif
