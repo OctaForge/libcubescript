@@ -106,11 +106,6 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
         p_type = VAL_CODE;
         code = val;
     }
-    void set_macro(Bytecode const *val) {
-        p_type = VAL_MACRO;
-        len = strlen(reinterpret_cast<char const *>(val));
-        code = val;
-    }
     void set_cstr(ostd::ConstCharRange val) {
         p_type = VAL_CSTR;
         len = val.size();

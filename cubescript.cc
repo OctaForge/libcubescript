@@ -485,6 +485,20 @@ void TaggedValue::copy_arg(TaggedValue &r) const {
     }
 }
 
+/* XXX: nasty */
+struct InternalTval: IdentValue {
+    int type;
+};
+
+static inline void cs_set_macro(
+    TaggedValue &tv, Bytecode const *val, ostd::Size len
+) {
+    InternalTval &itv = reinterpret_cast<InternalTval &>(tv);
+    itv.type = VAL_MACRO;
+    itv.len = len;
+    itv.code = val;
+}
+
 void TaggedValue::force_null() {
     if (get_type() == VAL_NULL) return;
     cleanup();
@@ -693,7 +707,7 @@ void Ident::get_val(TaggedValue &r) const {
 void Ident::get_cstr(TaggedValue &v) const {
     switch (get_valtype()) {
     case VAL_MACRO:
-        v.set_macro(val.code);
+        cs_set_macro(v, val.code, val.len);
         break;
     case VAL_STR:
     case VAL_CSTR:
@@ -714,7 +728,7 @@ void Ident::get_cstr(TaggedValue &v) const {
 void Ident::get_cval(TaggedValue &v) const {
     switch (get_valtype()) {
     case VAL_MACRO:
-        v.set_macro(val.code);
+        cs_set_macro(v, val.code, val.len);
         break;
     case VAL_STR:
     case VAL_CSTR:
@@ -1171,7 +1185,7 @@ static char *conc(TvalRange v, bool space, char const *prefix, int prefixlen) {
             break;
         case VAL_STR:
         case VAL_CSTR:
-            len += (vlen[i] = int(strlen(v[i].s)));
+            len += (vlen[i] = int(v[i].get_str_len()));
             break;
         case VAL_INT:
             if (numlen + 256 > int(sizeof(numbuf))) goto overflow;
@@ -2850,7 +2864,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
 
         case CODE_MACRO: {
             ostd::Uint32 len = op >> 8;
-            args[numargs++].set_macro(reinterpret_cast<Bytecode const *>(code));
+            cs_set_macro(args[numargs++], reinterpret_cast<Bytecode const *>(code), len);
             code += len / sizeof(ostd::Uint32) + 1;
             continue;
         }
