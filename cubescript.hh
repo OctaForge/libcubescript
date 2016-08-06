@@ -81,10 +81,6 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
         return p_type;
     }
 
-    ostd::Size get_str_len() const {
-        return len;
-    }
-
     void set_int(int val) {
         p_type = VAL_INT;
         i = val;

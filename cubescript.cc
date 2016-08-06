@@ -1161,7 +1161,7 @@ static char *conc(ostd::Vector<char> &buf, TvalRange v, bool space, char const *
             break;
         case VAL_STR:
         case VAL_CSTR:
-            s = ostd::ConstCharRange(v[i].s, v[i].get_str_len());
+            s = ostd::ConstCharRange(v[i].s, v[i].len);
             break;
         case VAL_MACRO:
             s = ostd::ConstCharRange(v[i].s, reinterpret_cast<ostd::Uint32 const *>(v[i].code)[-1] >> 8);
@@ -1185,7 +1185,7 @@ static char *conc(TvalRange v, bool space, char const *prefix, int prefixlen) {
             break;
         case VAL_STR:
         case VAL_CSTR:
-            len += (vlen[i] = int(v[i].get_str_len()));
+            len += (vlen[i] = int(v[i].len));
             break;
         case VAL_INT:
             if (numlen + 256 > int(sizeof(numbuf))) goto overflow;
