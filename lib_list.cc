@@ -1,5 +1,4 @@
 #include "cubescript.hh"
-#include "cs_private.hh"
 #include "lib_list.hh"
 
 namespace cscript {
@@ -494,7 +493,7 @@ static void cs_list_sort(
     if (body) {
         ListSortFun f = { cs, x, y, body };
         ostd::sort_cmp(items.iter(), f);
-        if ((*unique & CODE_OP_MASK) != CODE_EXIT) {
+        if (!code_is_empty(unique)) {
             f.body = unique;
             totaluniq = items[0].quote.size();
             nuniq = 1;

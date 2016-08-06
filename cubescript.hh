@@ -56,6 +56,8 @@ private:
     ostd::Uint32 *p_code;
 };
 
+OSTD_EXPORT bool code_is_empty(ostd::Uint32 const *code);
+
 struct Ident;
 
 struct IdentValue {
@@ -141,6 +143,8 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
     float force_float();
     int force_int();
     ostd::ConstCharRange force_str();
+
+    bool code_is_empty() const;
 
     void cleanup();
     void copy_arg(TaggedValue &r) const;
