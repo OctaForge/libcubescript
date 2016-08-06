@@ -38,9 +38,11 @@ enum {
     IDF_ARG        = 1 << 6
 };
 
+struct Bytecode;
+
 struct OSTD_EXPORT BytecodeRef {
     BytecodeRef(): p_code(nullptr) {}
-    BytecodeRef(ostd::Uint32 *v);
+    BytecodeRef(Bytecode *v);
     BytecodeRef(BytecodeRef const &v);
     BytecodeRef(BytecodeRef &&v): p_code(v.p_code) { v.p_code = nullptr; }
 
@@ -50,13 +52,13 @@ struct OSTD_EXPORT BytecodeRef {
     BytecodeRef &operator=(BytecodeRef &&v);
 
     operator bool() const { return p_code != nullptr; }
-    operator ostd::Uint32 *() const { return p_code; }
+    operator Bytecode *() const { return p_code; }
 
 private:
-    ostd::Uint32 *p_code;
+    Bytecode *p_code;
 };
 
-OSTD_EXPORT bool code_is_empty(ostd::Uint32 const *code);
+OSTD_EXPORT bool code_is_empty(Bytecode const *code);
 
 struct Ident;
 
@@ -64,7 +66,7 @@ struct IdentValue {
     union {
         int i;      /* ID_VAR, VAL_INT */
         float f;    /* ID_FVAR, VAL_FLOAT */
-        ostd::Uint32 const *code; /* VAL_CODE */
+        Bytecode const *code; /* VAL_CODE */
         Ident *id;  /* VAL_IDENT */
         char *s;    /* ID_SVAR, VAL_STR */
         char const *cstr; /* VAL_CSTR */
@@ -100,11 +102,11 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
         p_type = VAL_NULL;
         i = 0;
     }
-    void set_code(ostd::Uint32 const *val) {
+    void set_code(Bytecode const *val) {
         p_type = VAL_CODE;
         code = val;
     }
-    void set_macro(ostd::Uint32 const *val) {
+    void set_macro(Bytecode const *val) {
         p_type = VAL_MACRO;
         len = strlen(reinterpret_cast<char const *>(val));
         code = val;
@@ -133,7 +135,7 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
     ostd::ConstCharRange get_strr() const;
     int get_int() const;
     float get_float() const;
-    ostd::Uint32 *get_code() const;
+    Bytecode *get_code() const;
     Ident *get_ident() const;
     void get_val(TaggedValue &r) const;
 
@@ -195,7 +197,7 @@ struct OSTD_EXPORT Ident {
             IdentValue overrideval;
         };
         struct { /* ID_ALIAS */
-            ostd::Uint32 *code;
+            Bytecode *code;
             IdentValue val;
             IdentStack *stack;
         };
@@ -341,27 +343,27 @@ struct OSTD_EXPORT CsState {
     bool add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
                      CmdFunc func, int type = ID_COMMAND, int flags = 0);
 
-    ostd::String run_str(ostd::Uint32 const *code);
+    ostd::String run_str(Bytecode const *code);
     ostd::String run_str(ostd::ConstCharRange code);
     ostd::String run_str(Ident *id, TvalRange args);
 
-    int run_int(ostd::Uint32 const *code);
+    int run_int(Bytecode const *code);
     int run_int(ostd::ConstCharRange code);
     int run_int(Ident *id, TvalRange args);
 
-    float run_float(ostd::Uint32 const *code);
+    float run_float(Bytecode const *code);
     float run_float(ostd::ConstCharRange code);
     float run_float(Ident *id, TvalRange args);
 
-    bool run_bool(ostd::Uint32 const *code);
+    bool run_bool(Bytecode const *code);
     bool run_bool(ostd::ConstCharRange code);
     bool run_bool(Ident *id, TvalRange args);
 
-    void run_ret(ostd::Uint32 const *code, TaggedValue &ret);
+    void run_ret(Bytecode const *code, TaggedValue &ret);
     void run_ret(ostd::ConstCharRange code, TaggedValue &ret);
     void run_ret(Ident *id, TvalRange args, TaggedValue &ret);
 
-    void run_ret(ostd::Uint32 const *code) {
+    void run_ret(Bytecode const *code) {
         run_ret(code, *result);
     }
 
@@ -405,8 +407,6 @@ struct OSTD_EXPORT CsState {
     void print_var_int(Ident *id, int i);
     void print_var_float(Ident *id, float f);
     void print_var_str(Ident *id, ostd::ConstCharRange s);
-
-    ostd::Uint32 *compile(ostd::ConstCharRange code);
 };
 
 enum {
