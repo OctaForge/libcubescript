@@ -41,10 +41,16 @@ enum {
 struct Bytecode;
 
 struct OSTD_EXPORT BytecodeRef {
-    BytecodeRef(): p_code(nullptr) {}
+    BytecodeRef():
+        p_code(nullptr)
+    {}
     BytecodeRef(Bytecode *v);
     BytecodeRef(BytecodeRef const &v);
-    BytecodeRef(BytecodeRef &&v): p_code(v.p_code) { v.p_code = nullptr; }
+    BytecodeRef(BytecodeRef &&v):
+        p_code(v.p_code)
+    {
+        v.p_code = nullptr;
+    }
 
     ~BytecodeRef();
 
@@ -203,16 +209,22 @@ struct OSTD_EXPORT Ident {
     Ident(): type(ID_UNKNOWN) {}
 
     /* ID_VAR */
-    Ident(int t, ostd::ConstCharRange n, int m, int x, int *s,
-          VarCb f = VarCb(), int flags = 0);
+    Ident(
+        int t, ostd::ConstCharRange n, int m, int x, int *s,
+        VarCb f = VarCb(), int flags = 0
+    );
 
     /* ID_FVAR */
-    Ident(int t, ostd::ConstCharRange n, float m, float x, float *s,
-          VarCb f = VarCb(), int flags = 0);
+    Ident(
+        int t, ostd::ConstCharRange n, float m, float x, float *s,
+        VarCb f = VarCb(), int flags = 0
+    );
 
     /* ID_SVAR */
-    Ident(int t, ostd::ConstCharRange n, char **s, VarCb f = VarCb(),
-          int flags = 0);
+    Ident(
+        int t, ostd::ConstCharRange n, char **s, VarCb f = VarCb(),
+        int flags = 0
+    );
 
     /* ID_ALIAS */
     Ident(int t, ostd::ConstCharRange n, char *a, int flags);
@@ -222,12 +234,16 @@ struct OSTD_EXPORT Ident {
     Ident(int t, ostd::ConstCharRange n, TaggedValue const &v, int flags);
 
     /* ID_COMMAND */
-    Ident(int t, ostd::ConstCharRange n, ostd::ConstCharRange args,
-          ostd::Uint32 argmask, int numargs, CmdFunc f = CmdFunc(),
-          int flags = 0);
+    Ident(
+        int t, ostd::ConstCharRange n, ostd::ConstCharRange args,
+        ostd::Uint32 argmask, int numargs, CmdFunc f = CmdFunc(),
+        int flags = 0
+    );
 
     void changed() {
-        if (cb_var) cb_var(*this);
+        if (cb_var) {
+            cb_var(*this);
+        }
     }
 
     void set_value(TaggedValue const &v) {
@@ -331,8 +347,10 @@ struct OSTD_EXPORT CsState {
     bool reset_var(ostd::ConstCharRange name);
     void touch_var(ostd::ConstCharRange name);
 
-    bool add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
-                     CmdFunc func, int type = ID_COMMAND, int flags = 0);
+    bool add_command(
+        ostd::ConstCharRange name, ostd::ConstCharRange args,
+        CmdFunc func, int type = ID_COMMAND, int flags = 0
+    );
 
     ostd::String run_str(Bytecode const *code);
     ostd::String run_str(ostd::ConstCharRange code);
@@ -370,12 +388,17 @@ struct OSTD_EXPORT CsState {
 
     void set_alias(ostd::ConstCharRange name, TaggedValue &v);
 
-    void set_var_int(ostd::ConstCharRange name, int v,
-                     bool dofunc = true, bool doclamp = true);
-    void set_var_float(ostd::ConstCharRange name, float v,
-                       bool dofunc  = true, bool doclamp = true);
-    void set_var_str(ostd::ConstCharRange name, ostd::ConstCharRange v,
-                     bool dofunc = true);
+    void set_var_int(
+        ostd::ConstCharRange name, int v,
+        bool dofunc = true, bool doclamp = true
+    );
+    void set_var_float(
+        ostd::ConstCharRange name, float v,
+        bool dofunc  = true, bool doclamp = true
+    );
+    void set_var_str(
+        ostd::ConstCharRange name, ostd::ConstCharRange v, bool dofunc = true
+    );
 
     void set_var_int_checked(Ident *id, int v);
     void set_var_int_checked(Ident *id, TvalRange args);
@@ -418,7 +441,8 @@ struct OSTD_EXPORT StackedValue: TaggedValue {
     Ident *id;
 
     StackedValue(Ident *idv = nullptr):
-        TaggedValue(), id(idv), p_stack(), p_pushed(false) {}
+        TaggedValue(), id(idv), p_stack(), p_pushed(false)
+    {}
 
     ~StackedValue() {
         pop();
@@ -430,14 +454,18 @@ struct OSTD_EXPORT StackedValue: TaggedValue {
     }
 
     bool push() {
-        if (p_pushed || !id) return false;
+        if (p_pushed || !id) {
+            return false;
+        }
         id->push_arg(*this, p_stack);
         p_pushed = true;
         return true;
     }
 
     bool pop() {
-        if (!p_pushed || !id) return false;
+        if (!p_pushed || !id) {
+            return false;
+        }
         id->pop_arg();
         p_pushed = false;
         return true;
@@ -453,25 +481,27 @@ namespace util {
     inline ostd::Size escape_string(R &&writer, ostd::ConstCharRange str) {
         ostd::Size ret = 2;
         writer.put('"');
-        for (; !str.empty(); str.pop_front()) switch (str.front()) {
-        case '\n':
-            ret += writer.put_n("^n", 2);
-            break;
-        case '\t':
-            ret += writer.put_n("^t", 2);
-            break;
-        case '\f':
-            ret += writer.put_n("^f", 2);
-            break;
-        case '"':
-            ret += writer.put_n("^\"", 2);
-            break;
-        case '^':
-            ret += writer.put_n("^^", 2);
-            break;
-        default:
-            ret += writer.put(str.front());
-            break;
+        for (; !str.empty(); str.pop_front()) {
+            switch (str.front()) {
+                case '\n':
+                    ret += writer.put_n("^n", 2);
+                    break;
+                case '\t':
+                    ret += writer.put_n("^t", 2);
+                    break;
+                case '\f':
+                    ret += writer.put_n("^f", 2);
+                    break;
+                case '"':
+                    ret += writer.put_n("^\"", 2);
+                    break;
+                case '^':
+                    ret += writer.put_n("^^", 2);
+                    break;
+                default:
+                    ret += writer.put(str.front());
+                    break;
+            }
         }
         writer.put('"');
         return ret;
@@ -483,27 +513,28 @@ namespace util {
         for (; !str.empty(); str.pop_front()) {
             if (str.front() == '^') {
                 str.pop_front();
-                if (str.empty())
+                if (str.empty()) {
                     break;
+                }
                 switch (str.front()) {
-                case 'n':
-                    ret += writer.put('\n');
-                    break;
-                case 't':
-                    ret += writer.put('\r');
-                    break;
-                case 'f':
-                    ret += writer.put('\f');
-                    break;
-                case '"':
-                    ret += writer.put('"');
-                    break;
-                case '^':
-                    ret += writer.put('^');
-                    break;
-                default:
-                    ret += writer.put(str.front());
-                    break;
+                    case 'n':
+                        ret += writer.put('\n');
+                        break;
+                    case 't':
+                        ret += writer.put('\r');
+                        break;
+                    case 'f':
+                        ret += writer.put('\f');
+                        break;
+                    case '"':
+                        ret += writer.put('"');
+                        break;
+                    case '^':
+                        ret += writer.put('^');
+                        break;
+                    default:
+                        ret += writer.put(str.front());
+                        break;
                 }
             } else {
                 ret += writer.put(str.front());
@@ -513,10 +544,12 @@ namespace util {
     }
 
     ostd::Size list_length(ostd::ConstCharRange s);
-    ostd::Maybe<ostd::String> list_index(ostd::ConstCharRange s,
-                                         ostd::Size idx);
-    ostd::Vector<ostd::String> list_explode(ostd::ConstCharRange s,
-                                            ostd::Size limit = -1);
+    ostd::Maybe<ostd::String> list_index(
+        ostd::ConstCharRange s, ostd::Size idx
+    );
+    ostd::Vector<ostd::String> list_explode(
+        ostd::ConstCharRange s, ostd::Size limit = -1
+    );
 } /* namespace util */
 
 } /* namespace cscript */
