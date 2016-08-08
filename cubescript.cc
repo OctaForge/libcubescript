@@ -78,22 +78,15 @@ float cs_parse_float(ostd::ConstCharRange s) {
     return parsefloat(s.data());
 }
 
-static inline void intformat(char *buf, int v, int len = 20) {
-    snprintf(buf, len, "%d", v);
-}
-static inline void floatformat(char *buf, float v, int len = 20) {
-    snprintf(buf, len, v == int(v) ? "%.1f" : "%.7g", v);
-}
-
 ostd::String intstr(int v) {
     char buf[256];
-    intformat(buf, v, sizeof(buf));
+    snprintf(buf, sizeof(buf), "%d", v);
     return buf;
 }
 
 ostd::String floatstr(float v) {
     char buf[256];
-    floatformat(buf, v, sizeof(buf));
+    snprintf(buf, sizeof(buf), v == int(v) ? "%.1f" : "%.7g", v);
     return buf;
 }
 
@@ -1145,11 +1138,7 @@ ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
     return str;
 }
 
-static char *conc(ostd::Vector<char> &buf, TvalRange v, bool space, char const *prefix = nullptr, int prefixlen = 0) {
-    if (prefix) {
-        buf.push_n(prefix, prefixlen);
-        if (space && !v.empty()) buf.push(' ');
-    }
+char *conc(ostd::Vector<char> &buf, TvalRange v, bool space) {
     for (ostd::Size i = 0; i < v.size(); ++i) {
         ostd::String s;
         switch (v[i].get_type()) {
@@ -1173,63 +1162,6 @@ static char *conc(ostd::Vector<char> &buf, TvalRange v, bool space, char const *
     }
     buf.push('\0');
     return buf.data();
-}
-
-static char *conc(TvalRange v, bool space, char const *prefix, int prefixlen) {
-    static int vlen[MaxArguments];
-    static char numbuf[3 * 256];
-    int len = prefixlen, numlen = 0, i = 0;
-    for (; i < int(v.size()); i++) switch (v[i].get_type()) {
-        case VAL_MACRO:
-            len += (vlen[i] = reinterpret_cast<ostd::Uint32 const *>(v[i].code)[-1] >> 8);
-            break;
-        case VAL_STR:
-        case VAL_CSTR:
-            len += (vlen[i] = int(v[i].len));
-            break;
-        case VAL_INT:
-            if (numlen + 256 > int(sizeof(numbuf))) goto overflow;
-            intformat(&numbuf[numlen], v[i].i);
-            numlen += (vlen[i] = strlen(&numbuf[numlen]));
-            break;
-        case VAL_FLOAT:
-            if (numlen + 256 > int(sizeof(numbuf))) goto overflow;
-            floatformat(&numbuf[numlen], v[i].f);
-            numlen += (vlen[i] = strlen(&numbuf[numlen]));
-            break;
-        default:
-            vlen[i] = 0;
-            break;
-        }
-overflow:
-    if (space) len += ostd::max(prefix ? i : i - 1, 0);
-    char *buf = new char[len + numlen + 1];
-    int offset = 0, numoffset = 0;
-    if (prefix) {
-        memcpy(buf, prefix, prefixlen);
-        offset += prefixlen;
-        if (space && i) buf[offset++] = ' ';
-    }
-    for (ostd::Size j = 0; j < ostd::Size(i); ++j) {
-        if (v[j].get_type() == VAL_INT || v[j].get_type() == VAL_FLOAT) {
-            memcpy(&buf[offset], &numbuf[numoffset], vlen[j]);
-            numoffset += vlen[j];
-        } else if (vlen[j]) memcpy(&buf[offset], v[j].s, vlen[j]);
-        offset += vlen[j];
-        if (j == ostd::Size(i) - 1) break;
-        if (space) buf[offset++] = ' ';
-    }
-    buf[offset] = '\0';
-    if (i < int(v.size())) {
-        char *morebuf = conc(ostd::iter(&v[i], v.size() - i), space, buf, offset);
-        delete[] buf;
-        return morebuf;
-    }
-    return buf;
-}
-
-char *conc(TvalRange v, bool space) {
-    return conc(v, space, nullptr, 0);
 }
 
 static inline void skipcomments(char const *&p) {
@@ -3246,9 +3178,12 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
         case CODE_CONCW|RET_FLOAT:
         case CODE_CONCW|RET_INT: {
             int numconc = op >> 8;
-            char *s = conc(ostd::iter(&args[numargs - numconc], numconc), (op & CODE_OP_MASK) == CODE_CONC);
+            ostd::Vector<char> buf;
+            char *s = conc(buf, ostd::iter(&args[numargs - numconc], numconc), (op & CODE_OP_MASK) == CODE_CONC);
+            ostd::Size len = buf.size() - 1;
+            buf.disown();
             free_args(args, numargs, numargs - numconc);
-            args[numargs].set_mstr(s);
+            args[numargs].set_mstr(ostd::CharRange(s, len));
             force_arg(args[numargs], op & CODE_RET_MASK);
             numargs++;
             continue;
@@ -3259,9 +3194,12 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
         case CODE_CONCM|RET_FLOAT:
         case CODE_CONCM|RET_INT: {
             int numconc = op >> 8;
-            char *s = conc(ostd::iter(&args[numargs - numconc], numconc), false);
+            ostd::Vector<char> buf;
+            char *s = conc(buf, ostd::iter(&args[numargs - numconc], numconc), false);
+            ostd::Size len = buf.size() - 1;
+            buf.disown();
             free_args(args, numargs, numargs - numconc);
-            result.set_mstr(s);
+            result.set_mstr(ostd::CharRange(s, len));
             force_arg(result, op & CODE_RET_MASK);
             continue;
         }
