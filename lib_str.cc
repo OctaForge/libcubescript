@@ -77,7 +77,7 @@ void cs_init_lib_string(CsState &cs) {
         cs.result->set_mstr(conc(args, true));
     });
 
-    cs.add_command("concatworld", "V", [&cs](TvalRange args) {
+    cs.add_command("concatword", "V", [&cs](TvalRange args) {
         cs.result->set_mstr(conc(args, false));
     });
 
