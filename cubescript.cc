@@ -1138,32 +1138,6 @@ ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
     return str;
 }
 
-char *conc(ostd::Vector<char> &buf, TvalRange v, bool space) {
-    for (ostd::Size i = 0; i < v.size(); ++i) {
-        ostd::String s;
-        switch (v[i].get_type()) {
-        case VAL_INT:
-            s = ostd::move(intstr(v[i].i));
-            break;
-        case VAL_FLOAT:
-            s = ostd::move(floatstr(v[i].f));
-            break;
-        case VAL_STR:
-        case VAL_CSTR:
-            s = ostd::ConstCharRange(v[i].s, v[i].len);
-            break;
-        case VAL_MACRO:
-            s = ostd::ConstCharRange(v[i].s, reinterpret_cast<ostd::Uint32 const *>(v[i].code)[-1] >> 8);
-            break;
-        }
-        buf.push_n(s.data(), s.size());
-        if (i == v.size() - 1) break;
-        if (space) buf.push(' ');
-    }
-    buf.push('\0');
-    return buf.data();
-}
-
 static inline void skipcomments(char const *&p) {
     for (;;) {
         p += strspn(p, " \t\r");
@@ -2614,9 +2588,10 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
             break;
         case 'C': {
             i = ostd::max(i + 1, numargs);
-            ostd::Vector<char> buf;
+            auto buf = ostd::appender<ostd::String>();
+            cscript::util::tvals_concat(buf, ostd::iter(args, i), " ");
             TaggedValue tv;
-            tv.set_mstr(conc(buf, ostd::iter(args, i), true));
+            tv.set_mstr(buf.get().iter());
             id->cb_cftv(TvalRange(&tv, 1));
             goto cleanup;
         }
@@ -3158,10 +3133,10 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
             result.force_null();
             {
-                ostd::Vector<char> buf;
-                buf.reserve(256);
+                auto buf = ostd::appender<ostd::String>();
+                cscript::util::tvals_concat(buf, ostd::iter(&args[offset], callargs), " ");
                 TaggedValue tv;
-                tv.set_mstr(conc(buf, ostd::iter(&args[offset], callargs), true));
+                tv.set_mstr(buf.get().iter());
                 id->cb_cftv(TvalRange(&tv, 1));
             }
             force_arg(result, op & CODE_RET_MASK);
@@ -3178,12 +3153,11 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
         case CODE_CONCW|RET_FLOAT:
         case CODE_CONCW|RET_INT: {
             int numconc = op >> 8;
-            ostd::Vector<char> buf;
-            char *s = conc(buf, ostd::iter(&args[numargs - numconc], numconc), (op & CODE_OP_MASK) == CODE_CONC);
-            ostd::Size len = buf.size() - 1;
-            buf.disown();
+            auto buf = ostd::appender<ostd::String>();
+            cscript::util::tvals_concat(buf, ostd::iter(&args[numargs - numconc], numconc), ((op & CODE_OP_MASK) == CODE_CONC) ? " " : "");
             free_args(args, numargs, numargs - numconc);
-            args[numargs].set_mstr(ostd::CharRange(s, len));
+            args[numargs].set_mstr(buf.get().iter());
+            buf.get().disown();
             force_arg(args[numargs], op & CODE_RET_MASK);
             numargs++;
             continue;
@@ -3194,12 +3168,11 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
         case CODE_CONCM|RET_FLOAT:
         case CODE_CONCM|RET_INT: {
             int numconc = op >> 8;
-            ostd::Vector<char> buf;
-            char *s = conc(buf, ostd::iter(&args[numargs - numconc], numconc), false);
-            ostd::Size len = buf.size() - 1;
-            buf.disown();
+            auto buf = ostd::appender<ostd::String>();
+            cscript::util::tvals_concat(buf, ostd::iter(&args[numargs - numconc], numconc));
             free_args(args, numargs, numargs - numconc);
-            result.set_mstr(ostd::CharRange(s, len));
+            result.set_mstr(buf.get().iter());
+            buf.get().disown();
             force_arg(result, op & CODE_RET_MASK);
             continue;
         }

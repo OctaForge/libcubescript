@@ -2,8 +2,6 @@
 
 namespace cscript {
 
-char *conc(ostd::Vector<char> &buf, TvalRange v, bool space);
-
 void cs_init_lib_string(CsState &cs) {
     cs.add_command("strstr", "ss", [&cs](TvalRange args) {
         ostd::ConstCharRange a = args[0].get_strr(), b = args[1].get_strr();
@@ -74,19 +72,17 @@ void cs_init_lib_string(CsState &cs) {
     });
 
     cs.add_command("concat", "V", [&cs](TvalRange args) {
-        ostd::Vector<char> buf;
-        char *s = conc(buf, args, true);
-        ostd::Size len = buf.size() - 1;
-        buf.disown();
-        cs.result->set_mstr(ostd::CharRange(s, len));
+        auto s = ostd::appender<ostd::String>();
+        cscript::util::tvals_concat(s, args, " ");
+        cs.result->set_mstr(s.get().iter());
+        s.get().disown();
     });
 
     cs.add_command("concatword", "V", [&cs](TvalRange args) {
-        ostd::Vector<char> buf;
-        char *s = conc(buf, args, false);
-        ostd::Size len = buf.size() - 1;
-        buf.disown();
-        cs.result->set_mstr(ostd::CharRange(s, len));
+        auto s = ostd::appender<ostd::String>();
+        cscript::util::tvals_concat(s, args);
+        cs.result->set_mstr(s.get().iter());
+        s.get().disown();
     });
 
     cs.add_command("format", "V", [&cs](TvalRange args) {

@@ -550,6 +550,57 @@ namespace util {
     ostd::Vector<ostd::String> list_explode(
         ostd::ConstCharRange s, ostd::Size limit = -1
     );
+
+    template<typename R>
+    inline ostd::Ptrdiff format_int(R &&writer, int val) {
+        return ostd::format(ostd::forward<R>(writer), "%d", val);
+    }
+
+    template<typename R>
+    inline ostd::Ptrdiff format_float(R &&writer, int val) {
+        return ostd::format(
+            ostd::forward<R>(writer), (val == int(val)) ? "%.1f" : "%.7g", val
+        );
+    }
+
+    template<typename R>
+    inline ostd::Size tvals_concat(
+        R &&writer, TvalRange vals,
+        ostd::ConstCharRange sep = ostd::ConstCharRange()
+    ) {
+        ostd::Size ret = 0;
+        for (ostd::Size i = 0; i < vals.size(); ++i) {
+            auto s = ostd::appender<ostd::String>();
+            switch (vals[i].get_type()) {
+                case VAL_INT: {
+                    auto r = format_int(ostd::forward<R>(writer), vals[i].i);
+                    if (r > 0) {
+                        ret += ostd::Size(r);
+                    }
+                    break;
+                }
+                case VAL_FLOAT: {
+                    auto r = format_float(ostd::forward<R>(writer), vals[i].i);
+                    if (r > 0) {
+                        ret += ostd::Size(r);
+                    }
+                    break;
+                }
+                case VAL_STR:
+                case VAL_CSTR:
+                case VAL_MACRO:
+                    ret += writer.put_n(vals[i].s, vals[i].len);
+                    break;
+                default:
+                    break;
+            }
+            if (i == (vals.size() - 1)) {
+                break;
+            }
+            ret += writer.put_n(sep.data(), sep.size());
+        }
+        return ret;
+    }
 } /* namespace util */
 
 } /* namespace cscript */
