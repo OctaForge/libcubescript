@@ -164,7 +164,7 @@ Ident::Ident(int t, ostd::ConstCharRange n, TaggedValue const &v, int flagsv)
 Ident::Ident(int t, ostd::ConstCharRange n, ostd::ConstCharRange args,
              ostd::Uint32 argmask, int numargs, CmdFunc f, int flagsv)
     : type(t), numargs(numargs), flags(flagsv), name(n),
-      args(!args.empty() ? cs_dup_ostr(args) : nullptr),
+      cargs(!args.empty() ? cs_dup_ostr(args) : nullptr),
       argmask(argmask), cb_cftv(ostd::move(f)) {
 }
 
@@ -199,7 +199,7 @@ CsState::~CsState() {
             delete[] reinterpret_cast<ostd::Uint32 *>(i.code);
             i.code = nullptr;
         } else if (i.type == ID_COMMAND || i.type >= ID_LOCAL) {
-            delete[] i.args;
+            delete[] i.cargs;
         }
     }
 }
@@ -1573,7 +1573,7 @@ lookupid:
             case ID_COMMAND: {
                 int comtype = CODE_COM, numargs = 0;
                 if (prevargs >= MaxResults) gs.code.push(CODE_ENTER);
-                for (char const *fmt = id->args; *fmt; fmt++) switch (*fmt) {
+                for (char const *fmt = id->cargs; *fmt; fmt++) switch (*fmt) {
                     case 'S':
                         gs.gen_str();
                         numargs++;
@@ -2096,7 +2096,7 @@ noid:
                 case ID_COMMAND: {
                     int comtype = CODE_COM, fakeargs = 0;
                     bool rep = false;
-                    for (char const *fmt = id->args; *fmt; fmt++) switch (*fmt) {
+                    for (char const *fmt = id->cargs; *fmt; fmt++) switch (*fmt) {
                         case 'S':
                         case 's':
                             if (more) more = compilearg(gs, *fmt == 's' ? VAL_CSTR : VAL_STR, prevargs + numargs);
@@ -2506,7 +2506,7 @@ static ostd::Uint32 const *skipcode(ostd::Uint32 const *code, TaggedValue *resul
 static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int numargs, bool lookup = false) {
     int i = -1, fakeargs = 0;
     bool rep = false;
-    for (char const *fmt = id->args; *fmt; fmt++) switch (*fmt) {
+    for (char const *fmt = id->cargs; *fmt; fmt++) switch (*fmt) {
         case 'i':
             if (++i >= numargs) {
                 if (rep) break;

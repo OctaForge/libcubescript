@@ -199,7 +199,7 @@ struct OSTD_EXPORT Ident {
             IdentStack *stack;
         };
         struct { /* ID_COMMAND */
-            char *args;
+            char *cargs;
             ostd::Uint32 argmask;
         };
     };
