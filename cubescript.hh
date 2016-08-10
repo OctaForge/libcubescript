@@ -24,11 +24,6 @@ enum {
 };
 
 enum {
-    ID_UNKNOWN = -1, ID_VAR, ID_FVAR, ID_SVAR, ID_COMMAND, ID_ALIAS,
-    ID_LOCAL, ID_DO, ID_DOARGS, ID_IF, ID_RESULT, ID_NOT, ID_AND, ID_OR
-};
-
-enum {
     IDF_PERSIST    = 1 << 0,
     IDF_OVERRIDE   = 1 << 1,
     IDF_HEX        = 1 << 2,
@@ -171,6 +166,11 @@ struct CsState;
 using VarCb = ostd::Function<void(Ident &)>;
 using CmdFunc = ostd::Function<void(TvalRange)>;
 
+enum class IdentType {
+    unknown = -1,
+    ivar, fvar, svar, command, alias
+};
+
 struct OSTD_EXPORT Ident {
     ostd::byte type; /* ID_something */
     union {
@@ -206,38 +206,37 @@ struct OSTD_EXPORT Ident {
     VarCb cb_var;
     CmdFunc cb_cftv;
 
-    Ident(): type(ID_UNKNOWN) {}
+    Ident();
 
     /* ID_VAR */
     Ident(
-        int t, ostd::ConstCharRange n, int m, int x, int *s,
+        ostd::ConstCharRange n, int m, int x, int *s,
         VarCb f = VarCb(), int flags = 0
     );
 
     /* ID_FVAR */
     Ident(
-        int t, ostd::ConstCharRange n, float m, float x, float *s,
+        ostd::ConstCharRange n, float m, float x, float *s,
         VarCb f = VarCb(), int flags = 0
     );
 
     /* ID_SVAR */
     Ident(
-        int t, ostd::ConstCharRange n, char **s, VarCb f = VarCb(),
+        ostd::ConstCharRange n, char **s, VarCb f = VarCb(),
         int flags = 0
     );
 
     /* ID_ALIAS */
-    Ident(int t, ostd::ConstCharRange n, char *a, int flags);
-    Ident(int t, ostd::ConstCharRange n, int a, int flags);
-    Ident(int t, ostd::ConstCharRange n, float a, int flags);
-    Ident(int t, ostd::ConstCharRange n, int flags);
-    Ident(int t, ostd::ConstCharRange n, TaggedValue const &v, int flags);
+    Ident(ostd::ConstCharRange n, char *a, int flags);
+    Ident(ostd::ConstCharRange n, int a, int flags);
+    Ident(ostd::ConstCharRange n, float a, int flags);
+    Ident(ostd::ConstCharRange n, int flags);
+    Ident(ostd::ConstCharRange n, TaggedValue const &v, int flags);
 
     /* ID_COMMAND */
     Ident(
         int t, ostd::ConstCharRange n, ostd::ConstCharRange args,
-        ostd::Uint32 argmask, int numargs, CmdFunc f = CmdFunc(),
-        int flags = 0
+        ostd::Uint32 argmask, int numargs, CmdFunc f = CmdFunc()
     );
 
     void changed() {
@@ -292,6 +291,33 @@ struct OSTD_EXPORT Ident {
 
     int get_valtype() const {
         return valtype;
+    }
+
+    IdentType get_type() const;
+
+    bool is_alias() const {
+        return get_type() == IdentType::alias;
+    }
+
+    bool is_command() const {
+        return get_type() == IdentType::command;
+    }
+
+    bool is_var() const {
+        IdentType tp = get_type();
+        return (tp >= IdentType::ivar) && (tp <= IdentType::svar);
+    }
+
+    bool is_ivar() const {
+        return get_type() == IdentType::ivar;
+    }
+
+    bool is_fvar() const {
+        return get_type() == IdentType::fvar;
+    }
+
+    bool is_svar() const {
+        return get_type() == IdentType::svar;
     }
 };
 
@@ -348,8 +374,7 @@ struct OSTD_EXPORT CsState {
     void touch_var(ostd::ConstCharRange name);
 
     bool add_command(
-        ostd::ConstCharRange name, ostd::ConstCharRange args,
-        CmdFunc func, int type = ID_COMMAND, int flags = 0
+        ostd::ConstCharRange name, ostd::ConstCharRange args, CmdFunc func
     );
 
     ostd::String run_str(Bytecode const *code);
@@ -433,10 +458,6 @@ enum {
 
 OSTD_EXPORT void init_libs(CsState &cs, int libs = CS_LIB_ALL);
 
-inline bool check_alias(Ident *id) {
-    return id && (id->type == ID_ALIAS);
-}
-
 struct OSTD_EXPORT StackedValue: TaggedValue {
     Ident *id;
 
@@ -450,7 +471,7 @@ struct OSTD_EXPORT StackedValue: TaggedValue {
 
     bool alias(CsState &cs, ostd::ConstCharRange name) {
         id = cs.new_ident(name);
-        return check_alias(id);
+        return id && id->is_alias();
     }
 
     bool push() {

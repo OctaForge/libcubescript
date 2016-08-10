@@ -30,7 +30,7 @@ static inline void cs_set_iter(Ident &id, char *val, IdentStack &stack) {
 
 static void cs_loop_list_conc(CsState &cs, Ident *id, ostd::ConstCharRange list,
                               Bytecode const *body, bool space) {
-    if (id->type != ID_ALIAS)
+    if (!id->is_alias())
         return;
     IdentStack stack;
     ostd::Vector<char> r;
@@ -119,7 +119,7 @@ void cs_init_lib_list(CsState &cs) {
     cs.add_command("listfind", "rse", [&cs](TvalRange args) {
         Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
-        if (id->type != ID_ALIAS) {
+        if (!id->is_alias()) {
             cs.result->set_int(-1);
             return;
         }
@@ -142,7 +142,7 @@ found:
     cs.add_command("listassoc", "rse", [&cs](TvalRange args) {
         Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
-        if (id->type != ID_ALIAS)
+        if (!id->is_alias())
             return;
         IdentStack stack;
         int n = -1;
@@ -217,7 +217,7 @@ found:
     cs.add_command("looplist", "rse", [&cs](TvalRange args) {
         Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
-        if (id->type != ID_ALIAS)
+        if (!id->is_alias())
             return;
         IdentStack stack;
         int n = 0;
@@ -232,7 +232,7 @@ found:
     cs.add_command("looplist2", "rrse", [&cs](TvalRange args) {
         Ident *id = args[0].get_ident(), *id2 = args[1].get_ident();
         auto body = args[3].get_code();
-        if (id->type != ID_ALIAS || id2->type != ID_ALIAS)
+        if (!id->is_alias() || !id2->is_alias())
             return;
         IdentStack stack, stack2;
         int n = 0;
@@ -253,9 +253,7 @@ found:
         Ident *id2 = args[1].get_ident();
         Ident *id3 = args[2].get_ident();
         auto body = args[4].get_code();
-        if (id->type != ID_ALIAS)
-            return;
-        if (id2->type != ID_ALIAS || id3->type != ID_ALIAS)
+        if (!id->is_alias() || !id2->is_alias() || !id3->is_alias())
             return;
         IdentStack stack, stack2, stack3;
         int n = 0;
@@ -291,7 +289,7 @@ found:
     cs.add_command("listfilter", "rse", [&cs](TvalRange args) {
         Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
-        if (id->type != ID_ALIAS)
+        if (!id->is_alias())
             return;
         IdentStack stack;
         ostd::Vector<char> r;
@@ -314,7 +312,7 @@ found:
     cs.add_command("listcount", "rse", [&cs](TvalRange args) {
         Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
-        if (id->type != ID_ALIAS)
+        if (!id->is_alias())
             return;
         IdentStack stack;
         int n = 0, r = 0;
@@ -464,7 +462,7 @@ static void cs_list_sort(
     CsState &cs, ostd::ConstCharRange list, Ident *x, Ident *y,
     Bytecode *body, Bytecode *unique
 ) {
-    if (x == y || x->type != ID_ALIAS || y->type != ID_ALIAS)
+    if (x == y || !x->is_alias() || !y->is_alias())
         return;
 
     ostd::Vector<ListSortItem> items;
