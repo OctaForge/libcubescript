@@ -13,7 +13,6 @@ namespace cscript {
 
 static constexpr int MaxArguments = 25;
 static constexpr int MaxResults = 7;
-static constexpr int MaxComargs = 12;
 
 enum {
     CODE_START = 0,
@@ -1059,7 +1058,6 @@ bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
                           CmdFunc func, int type, int flags) {
     ostd::Uint32 argmask = 0;
     int nargs = 0;
-    bool limit = true;
     ostd::ConstCharRange fmt(args);
     for (; !fmt.empty(); fmt.pop_front()) {
         switch (fmt.front()) {
@@ -1093,18 +1091,12 @@ bool CsState::add_command(ostd::ConstCharRange name, ostd::ConstCharRange args,
             break;
         case 'C':
         case 'V':
-            limit = false;
             break;
         default:
             ostd::err.writefln("builtin %s declared with illegal type: %c",
                                name, fmt.front());
             return false;
         }
-    }
-    if (limit && nargs > MaxComargs) {
-        ostd::err.writefln("builtin %s declared with too many arguments: %d",
-                           name, nargs);
-        return false;
     }
     add_ident(type, name, args, argmask, nargs, ostd::move(func), flags);
     return true;
