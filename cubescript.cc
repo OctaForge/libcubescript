@@ -2724,7 +2724,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             if (cs.stack != &cs.noalias) {
                 cs_do_args(cs, [&]() {
                     result.cleanup();
-                    runcode(cs, reinterpret_cast<ostd::Uint32 const *>(args[--numargs].code), result);
+                    cs.run_ret(args[--numargs].code, result);
                     args[numargs].cleanup();
                     force_arg(result, op & CODE_RET_MASK);
                 });
@@ -2736,7 +2736,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
         case CODE_DO|RET_INT:
         case CODE_DO|RET_FLOAT:
             result.cleanup();
-            runcode(cs, reinterpret_cast<ostd::Uint32 const *>(args[--numargs].code), result);
+            cs.run_ret(args[--numargs].code, result);
             args[numargs].cleanup();
             force_arg(result, op & CODE_RET_MASK);
             continue;
@@ -2763,7 +2763,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             result.cleanup();
             --numargs;
             if (args[numargs].get_type() == VAL_CODE) {
-                runcode(cs, reinterpret_cast<ostd::Uint32 const *>(args[numargs].code), result);
+                cs.run_ret(args[numargs].code, result);
                 args[numargs].cleanup();
             } else result = args[numargs];
             if (result.get_bool()) code += len;
@@ -2774,7 +2774,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             result.cleanup();
             --numargs;
             if (args[numargs].get_type() == VAL_CODE) {
-                runcode(cs, reinterpret_cast<ostd::Uint32 const *>(args[numargs].code), result);
+                cs.run_ret(args[numargs].code, result);
                 args[numargs].cleanup();
             } else result = args[numargs];
             if (!result.get_bool()) code += len;
