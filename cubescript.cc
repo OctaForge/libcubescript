@@ -181,7 +181,7 @@ static TaggedValue no_ret = null_value;
 
 void cs_init_lib_base(CsState &cs);
 
-CsState::CsState(): p_result(&no_ret) {
+CsState::CsState() {
     noalias.id = nullptr;
     noalias.next = nullptr;
     noalias.usedargs = (1 << MaxArguments) - 1;
@@ -2516,7 +2516,7 @@ static ostd::Uint32 const *skipcode(ostd::Uint32 const *code, TaggedValue *resul
     }
 }
 
-static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int numargs, bool lookup = false) {
+static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, TaggedValue &res, int numargs, bool lookup = false) {
     int i = -1, fakeargs = 0;
     bool rep = false;
     for (char const *fmt = id->cargs; *fmt; fmt++) switch (*fmt) {
@@ -2605,12 +2605,12 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
             cscript::util::tvals_concat(buf, ostd::iter(args, i), " ");
             TaggedValue tv;
             tv.set_mstr(buf.get().iter());
-            id->cb_cftv(TvalRange(&tv, 1), *cs.p_result);
+            id->cb_cftv(TvalRange(&tv, 1), res);
             goto cleanup;
         }
         case 'V':
             i = ostd::max(i + 1, numargs);
-            id->cb_cftv(ostd::iter(args, i), *cs.p_result);
+            id->cb_cftv(ostd::iter(args, i), res);
             goto cleanup;
         case '1':
         case '2':
@@ -2623,7 +2623,7 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, int nu
             break;
         }
     ++i;
-    id->cb_cftv(TvalRange(args, i), *cs.p_result);
+    id->cb_cftv(TvalRange(args, i), res);
 cleanup:
     for (ostd::Size k = 0; k < ostd::Size(i); ++k) args[k].cleanup();
     for (; i < numargs; i++) args[i].cleanup();
@@ -2640,8 +2640,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
     }
     ++rundepth;
     int numargs = 0;
-    TaggedValue args[MaxArguments + MaxResults], *prevret = cs.p_result;
-    cs.p_result = &result;
+    TaggedValue args[MaxArguments + MaxResults];
     for (;;) {
         ostd::Uint32 op = *code++;
         switch (op & 0xFF) {
@@ -2972,11 +2971,9 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
                         { \
                             arg.cleanup(); \
                             arg.set_null(); \
-                            cs.p_result = &arg; \
                             TaggedValue buf[MaxArguments]; \
-                            callcommand(cs, id, buf, 0, true); \
+                            callcommand(cs, id, buf, arg, 0, true); \
                             force_arg(arg, op&CODE_RET_MASK); \
-                            cs.p_result = &result; \
                             continue; \
                         } \
                         default: arg.cleanup(); nval; continue; \
@@ -3120,7 +3117,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             Ident *id = cs.identmap[op >> 8];
             int offset = numargs - id->numargs;
             result.force_null();
-            id->cb_cftv(TvalRange(args + offset, id->numargs), *cs.p_result);
+            id->cb_cftv(TvalRange(args + offset, id->numargs), result);
             force_arg(result, op & CODE_RET_MASK);
             free_args(args, numargs, offset);
             continue;
@@ -3133,7 +3130,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             Ident *id = cs.identmap[op >> 13];
             int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
             result.force_null();
-            id->cb_cftv(ostd::iter(&args[offset], callargs), *cs.p_result);
+            id->cb_cftv(ostd::iter(&args[offset], callargs), result);
             force_arg(result, op & CODE_RET_MASK);
             free_args(args, numargs, offset);
             continue;
@@ -3150,7 +3147,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
                 cscript::util::tvals_concat(buf, ostd::iter(&args[offset], callargs), " ");
                 TaggedValue tv;
                 tv.set_mstr(buf.get().iter());
-                id->cb_cftv(TvalRange(&tv, 1), *cs.p_result);
+                id->cb_cftv(TvalRange(&tv, 1), result);
             }
             force_arg(result, op & CODE_RET_MASK);
             free_args(args, numargs, offset);
@@ -3291,7 +3288,7 @@ noid:
             /* fallthrough */
             case ID_COMMAND:
                 idarg.cleanup();
-                callcommand(cs, id, &args[offset], callargs);
+                callcommand(cs, id, &args[offset], result, callargs);
                 force_arg(result, op & CODE_RET_MASK);
                 numargs = offset - 1;
                 continue;
@@ -3327,7 +3324,6 @@ noid:
         }
     }
 exit:
-    cs.p_result = prevret;
     --rundepth;
     return code;
 }
@@ -3351,8 +3347,6 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
     int nargs = int(args.size());
     ret.set_null();
     ++rundepth;
-    TaggedValue *prevret = p_result;
-    p_result = &ret;
     if (rundepth > MaxRunDepth) cs_debug_code(*this, "exceeded recursion limit");
     else if (id) switch (id->type) {
         default:
@@ -3362,8 +3356,8 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
             if (nargs < id->numargs) {
                 TaggedValue buf[MaxArguments];
                 memcpy(buf, args.data(), args.size() * sizeof(TaggedValue));
-                callcommand(*this, id, buf, nargs, false);
-            } else callcommand(*this, id, args.data(), nargs, false);
+                callcommand(*this, id, buf, ret, nargs, false);
+            } else callcommand(*this, id, args.data(), ret, nargs, false);
             nargs = 0;
             break;
         case ID_VAR:
@@ -3393,7 +3387,6 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
             break;
         }
     free_args(args.data(), nargs, 0);
-    p_result = prevret;
     --rundepth;
 }
 

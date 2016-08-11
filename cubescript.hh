@@ -333,7 +333,6 @@ struct OSTD_EXPORT CsState {
     ostd::Vector<Ident *> identmap;
 
     Ident *dummy = nullptr;
-    TaggedValue *p_result = nullptr;
 
     IdentLink noalias;
     IdentLink *stack = &noalias;
