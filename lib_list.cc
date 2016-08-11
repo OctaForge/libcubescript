@@ -174,8 +174,10 @@ static inline void cs_set_iter(Ident &id, char *val, IdentStack &stack) {
     id.push_arg(v, stack);
 }
 
-static void cs_loop_list_conc(CsState &cs, Ident *id, ostd::ConstCharRange list,
-                              Bytecode const *body, bool space) {
+static void cs_loop_list_conc(
+    CsState &cs, TaggedValue &res, Ident *id, ostd::ConstCharRange list,
+    Bytecode const *body, bool space
+) {
     if (!id->is_alias())
         return;
     IdentStack stack;
@@ -196,7 +198,7 @@ static void cs_loop_list_conc(CsState &cs, Ident *id, ostd::ConstCharRange list,
         id->pop_arg();
     r.push('\0');
     ostd::Size len = r.size();
-    cs.result->set_mstr(ostd::CharRange(r.disown(), len - 1));
+    res.set_mstr(ostd::CharRange(r.disown(), len - 1));
 }
 
 int cs_list_includes(ostd::ConstCharRange list, ostd::ConstCharRange needle) {
@@ -212,11 +214,11 @@ int cs_list_includes(ostd::ConstCharRange list, ostd::ConstCharRange needle) {
 static void cs_init_lib_list_sort(CsState &cs);
 
 void cs_init_lib_list(CsState &cs) {
-    cs.add_command("listlen", "s", [&cs](TvalRange args) {
-        cs.result->set_int(int(util::list_length(args[0].get_strr())));
+    cs.add_command("listlen", "s", [&cs](TvalRange args, TaggedValue &res) {
+        res.set_int(int(util::list_length(args[0].get_strr())));
     });
 
-    cs.add_command("at", "si1V", [&cs](TvalRange args) {
+    cs.add_command("at", "si1V", [&cs](TvalRange args, TaggedValue &res) {
         if (args.empty())
             return;
         ostd::String str = ostd::move(args[0].get_str());
@@ -233,10 +235,10 @@ void cs_init_lib_list(CsState &cs) {
         auto elem = p.element();
         auto er = p.element().iter();
         elem.disown();
-        cs.result->set_mstr(er);
+        res.set_mstr(er);
     });
 
-    cs.add_command("sublist", "siiN", [&cs](TvalRange args) {
+    cs.add_command("sublist", "siiN", [&cs](TvalRange args, TaggedValue &res) {
         int skip    = args[1].get_int(),
             count   = args[2].get_int(),
             numargs = args[2].get_int();
@@ -250,7 +252,7 @@ void cs_init_lib_list(CsState &cs) {
         if (len < 0) {
             if (offset > 0)
                 p.skip();
-            cs.result->set_str(p.input);
+            res.set_str(p.input);
             return;
         }
 
@@ -259,14 +261,14 @@ void cs_init_lib_list(CsState &cs) {
         if (len > 0 && p.parse())
             while (--len > 0 && p.parse());
         char const *qend = !p.quote.empty() ? &p.quote[p.quote.size()] : list;
-        cs.result->set_str(ostd::ConstCharRange(list, qend - list));
+        res.set_str(ostd::ConstCharRange(list, qend - list));
     });
 
-    cs.add_command("listfind", "rse", [&cs](TvalRange args) {
+    cs.add_command("listfind", "rse", [&cs](TvalRange args, TaggedValue &res) {
         Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
         if (!id->is_alias()) {
-            cs.result->set_int(-1);
+            res.set_int(-1);
             return;
         }
         IdentStack stack;
@@ -275,17 +277,17 @@ void cs_init_lib_list(CsState &cs) {
             ++n;
             cs_set_iter(*id, cs_dup_ostr(p.item), stack);
             if (cs.run_bool(body)) {
-                cs.result->set_int(n);
+                res.set_int(n);
                 goto found;
             }
         }
-        cs.result->set_int(-1);
+        res.set_int(-1);
 found:
         if (n >= 0)
             id->pop_arg();
     });
 
-    cs.add_command("listassoc", "rse", [&cs](TvalRange args) {
+    cs.add_command("listassoc", "rse", [&cs](TvalRange args, TaggedValue &res) {
         Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
         if (!id->is_alias())
@@ -300,7 +302,7 @@ found:
                     auto elem = p.element();
                     auto er = elem.iter();
                     elem.disown();
-                    cs.result->set_mstr(er);
+                    res.set_mstr(er);
                 }
                 break;
             }
@@ -312,12 +314,12 @@ found:
     });
 
 #define CS_CMD_LIST_FIND(name, fmt, gmeth, cmp) \
-    cs.add_command(name, "s" fmt "i", [&cs](TvalRange args) { \
+    cs.add_command(name, "s" fmt "i", [&cs](TvalRange args, TaggedValue &res) { \
         int n = 0, skip = args[2].get_int(); \
         auto val = args[1].gmeth(); \
         for (ListParser p(args[0].get_strr()); p.parse(); ++n) { \
             if (cmp) { \
-                cs.result->set_int(n); \
+                res.set_int(n); \
                 return; \
             } \
             for (int i = 0; i < skip; ++i) { \
@@ -327,7 +329,7 @@ found:
             } \
         } \
     notfound: \
-        cs.result->set_int(-1); \
+        res.set_int(-1); \
     });
 
     CS_CMD_LIST_FIND("listfind=", "i", get_int, cs_parse_int(p.item) == val);
@@ -337,7 +339,7 @@ found:
 #undef CS_CMD_LIST_FIND
 
 #define CS_CMD_LIST_ASSOC(name, fmt, gmeth, cmp) \
-    cs.add_command(name, "s" fmt, [&cs](TvalRange args) { \
+    cs.add_command(name, "s" fmt, [&cs](TvalRange args, TaggedValue &res) { \
         auto val = args[1].gmeth(); \
         for (ListParser p(args[0].get_strr()); p.parse();) { \
             if (cmp) { \
@@ -345,7 +347,7 @@ found:
                     auto elem = p.element(); \
                     auto er = elem.iter(); \
                     elem.disown(); \
-                    cs.result->set_mstr(er); \
+                    res.set_mstr(er); \
                 } \
                 return; \
             } \
@@ -360,7 +362,7 @@ found:
 
 #undef CS_CMD_LIST_ASSOC
 
-    cs.add_command("looplist", "rse", [&cs](TvalRange args) {
+    cs.add_command("looplist", "rse", [&cs](TvalRange args, TaggedValue &) {
         Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
         if (!id->is_alias())
@@ -375,7 +377,7 @@ found:
             id->pop_arg();
     });
 
-    cs.add_command("looplist2", "rrse", [&cs](TvalRange args) {
+    cs.add_command("looplist2", "rrse", [&cs](TvalRange args, TaggedValue &) {
         Ident *id = args[0].get_ident(), *id2 = args[1].get_ident();
         auto body = args[3].get_code();
         if (!id->is_alias() || !id2->is_alias())
@@ -394,7 +396,7 @@ found:
         }
     });
 
-    cs.add_command("looplist3", "rrrse", [&cs](TvalRange args) {
+    cs.add_command("looplist3", "rrrse", [&cs](TvalRange args, TaggedValue &) {
         Ident *id = args[0].get_ident();
         Ident *id2 = args[1].get_ident();
         Ident *id3 = args[2].get_ident();
@@ -418,21 +420,21 @@ found:
         }
     });
 
-    cs.add_command("looplistconcat", "rse", [&cs](TvalRange args) {
+    cs.add_command("looplistconcat", "rse", [&cs](TvalRange args, TaggedValue &res) {
         cs_loop_list_conc(
-            cs, args[0].get_ident(), args[1].get_strr(),
+            cs, res, args[0].get_ident(), args[1].get_strr(),
             args[2].get_code(), true
         );
     });
 
-    cs.add_command("looplistconcatword", "rse", [&cs](TvalRange args) {
+    cs.add_command("looplistconcatword", "rse", [&cs](TvalRange args, TaggedValue &res) {
         cs_loop_list_conc(
-            cs, args[0].get_ident(), args[1].get_strr(),
+            cs, res, args[0].get_ident(), args[1].get_strr(),
             args[2].get_code(), false
         );
     });
 
-    cs.add_command("listfilter", "rse", [&cs](TvalRange args) {
+    cs.add_command("listfilter", "rse", [&cs](TvalRange args, TaggedValue &res) {
         Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
         if (!id->is_alias())
@@ -452,10 +454,10 @@ found:
             id->pop_arg();
         r.push('\0');
         ostd::Size len = r.size() - 1;
-        cs.result->set_mstr(ostd::CharRange(r.disown(), len));
+        res.set_mstr(ostd::CharRange(r.disown(), len));
     });
 
-    cs.add_command("listcount", "rse", [&cs](TvalRange args) {
+    cs.add_command("listcount", "rse", [&cs](TvalRange args, TaggedValue &res) {
         Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
         if (!id->is_alias())
@@ -470,10 +472,10 @@ found:
         }
         if (n >= 0)
             id->pop_arg();
-        cs.result->set_int(r);
+        res.set_int(r);
     });
 
-    cs.add_command("prettylist", "ss", [&cs](TvalRange args) {
+    cs.add_command("prettylist", "ss", [&cs](TvalRange args, TaggedValue &res) {
         ostd::Vector<char> buf;
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange conj = args[1].get_strr();
@@ -502,17 +504,17 @@ found:
         }
         buf.push('\0');
         ostd::Size slen = buf.size() - 1;
-        cs.result->set_mstr(ostd::CharRange(buf.disown(), slen));
+        res.set_mstr(ostd::CharRange(buf.disown(), slen));
     });
 
-    cs.add_command("indexof", "ss", [&cs](TvalRange args) {
-        cs.result->set_int(
+    cs.add_command("indexof", "ss", [&cs](TvalRange args, TaggedValue &res) {
+        res.set_int(
             cs_list_includes(args[0].get_strr(), args[1].get_strr())
         );
     });
 
 #define CS_CMD_LIST_MERGE(name, init, iter, filter, dir) \
-    cs.add_command(name, "ss", [&cs](TvalRange args) { \
+    cs.add_command(name, "ss", [&cs](TvalRange args, TaggedValue &res) { \
         ostd::ConstCharRange list = args[0].get_strr(); \
         ostd::ConstCharRange elems = args[1].get_strr(); \
         ostd::Vector<char> buf; \
@@ -526,7 +528,7 @@ found:
         } \
         buf.push('\0'); \
         ostd::Size len = buf.size() - 1; \
-        cs.result->set_mstr(ostd::CharRange(buf.disown(), len)); \
+        res.set_mstr(ostd::CharRange(buf.disown(), len)); \
     });
 
     CS_CMD_LIST_MERGE("listdel", {}, list, elems, <);
@@ -536,7 +538,7 @@ found:
 
 #undef CS_CMD_LIST_MERGE
 
-    cs.add_command("listsplice", "ssii", [&cs](TvalRange args) {
+    cs.add_command("listsplice", "ssii", [&cs](TvalRange args, TaggedValue &res) {
         int offset = ostd::max(args[2].get_int(), 0);
         int len    = ostd::max(args[3].get_int(), 0);
         ostd::ConstCharRange s = args[0].get_strr();
@@ -571,7 +573,7 @@ found:
         }
         buf.push('\0');
         ostd::Size slen = buf.size() - 1;
-        cs.result->set_mstr(ostd::CharRange(buf.disown(), slen));
+        res.set_mstr(ostd::CharRange(buf.disown(), slen));
     });
 
     cs_init_lib_list_sort(cs);
@@ -605,7 +607,7 @@ struct ListSortFun {
 };
 
 static void cs_list_sort(
-    CsState &cs, ostd::ConstCharRange list, Ident *x, Ident *y,
+    CsState &cs, TaggedValue &res, ostd::ConstCharRange list, Ident *x, Ident *y,
     Bytecode *body, Bytecode *unique
 ) {
     if (x == y || !x->is_alias() || !y->is_alias())
@@ -624,7 +626,7 @@ static void cs_list_sort(
     }
 
     if (items.empty()) {
-        cs.result->set_mstr(cstr);
+        res.set_mstr(cstr);
         return;
     }
 
@@ -693,20 +695,20 @@ static void cs_list_sort(
     }
     sorted[offset] = '\0';
 
-    cs.result->set_mstr(sorted);
+    res.set_mstr(sorted);
 }
 
 static void cs_init_lib_list_sort(CsState &cs) {
-    cs.add_command("sortlist", "srree", [&cs](TvalRange args) {
+    cs.add_command("sortlist", "srree", [&cs](TvalRange args, TaggedValue &res) {
         cs_list_sort(
-            cs, args[0].get_strr(), args[1].get_ident(), args[2].get_ident(),
-            args[3].get_code(), args[4].get_code()
+            cs, res, args[0].get_strr(), args[1].get_ident(),
+            args[2].get_ident(), args[3].get_code(), args[4].get_code()
         );
     });
-    cs.add_command("uniquelist", "srre", [&cs](TvalRange args) {
+    cs.add_command("uniquelist", "srre", [&cs](TvalRange args, TaggedValue &res) {
         cs_list_sort(
-            cs, args[0].get_strr(), args[1].get_ident(), args[2].get_ident(),
-            nullptr, args[3].get_code()
+            cs, res, args[0].get_strr(), args[1].get_ident(),
+            args[2].get_ident(), nullptr, args[3].get_code()
         );
     });
 }

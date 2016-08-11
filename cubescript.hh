@@ -164,7 +164,7 @@ union IdentValuePtr {
 struct CsState;
 
 using VarCb = ostd::Function<void(Ident &)>;
-using CmdFunc = ostd::Function<void(TvalRange)>;
+using CmdFunc = ostd::Function<void(TvalRange, TaggedValue &)>;
 
 enum class IdentType {
     unknown = -1,
@@ -333,7 +333,7 @@ struct OSTD_EXPORT CsState {
     ostd::Vector<Ident *> identmap;
 
     Ident *dummy = nullptr;
-    TaggedValue *result = nullptr;
+    TaggedValue *p_result = nullptr;
 
     IdentLink noalias;
     IdentLink *stack = &noalias;
@@ -396,18 +396,6 @@ struct OSTD_EXPORT CsState {
     void run_ret(Bytecode const *code, TaggedValue &ret);
     void run_ret(ostd::ConstCharRange code, TaggedValue &ret);
     void run_ret(Ident *id, TvalRange args, TaggedValue &ret);
-
-    void run_ret(Bytecode const *code) {
-        run_ret(code, *result);
-    }
-
-    void run_ret(ostd::ConstCharRange code) {
-        run_ret(code, *result);
-    }
-
-    void run_ret(Ident *id, TvalRange args) {
-        run_ret(id, args, *result);
-    }
 
     bool run_file(ostd::ConstCharRange fname);
 
