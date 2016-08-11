@@ -27,7 +27,7 @@ $(LIBCS_LIB): $(LIBCS_OBJ)
 clean:
 	rm -f $(LIBCS_LIB) $(LIBCS_OBJ)
 
-cubescript.o: cubescript.hh lib_list.hh
+cubescript.o: cubescript.hh
 lib_str.o: cubescript.hh
 lib_math.o: cubescript.hh
-lib_list.o: cubescript.hh lib_list.hh
+lib_list.o: cubescript.hh

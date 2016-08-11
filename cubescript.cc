@@ -1,5 +1,4 @@
 #include "cubescript.hh"
-#include "lib_list.hh"
 
 #include <limits.h>
 #include <ctype.h>
@@ -3518,34 +3517,6 @@ bool CsState::run_file(ostd::ConstCharRange fname) {
     src_str = oldsrcstr;
     delete[] buf;
     return true;
-}
-
-namespace util {
-    ostd::Size list_length(ostd::ConstCharRange s) {
-        ListParser p(s);
-        ostd::Size ret = 0;
-        while (p.parse()) ++ret;
-        return ret;
-    }
-
-    ostd::Maybe<ostd::String> list_index(ostd::ConstCharRange s,
-                                         ostd::Size idx) {
-        ListParser p(s);
-        for (ostd::Size i = 0; i < idx; ++i)
-            if (!p.parse()) return ostd::nothing;
-        if (!p.parse())
-            return ostd::nothing;
-        return ostd::move(p.element());
-    }
-
-    ostd::Vector<ostd::String> list_explode(ostd::ConstCharRange s,
-                                            ostd::Size limit) {
-        ostd::Vector<ostd::String> ret;
-        ListParser p(s);
-        while ((ret.size() < limit) && p.parse())
-            ret.push(ostd::move(p.element()));
-        return ret;
-    }
 }
 
 void cs_init_lib_io(CsState &cs) {
