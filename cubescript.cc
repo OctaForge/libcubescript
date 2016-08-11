@@ -564,15 +564,15 @@ ostd::ConstCharRange TaggedValue::force_str() {
 }
 
 static inline void force_arg(TaggedValue &v, int type) {
-    switch (v.get_type()) {
+    switch (type) {
     case RET_STR:
-        if (type != VAL_STR) v.force_str();
+        if (v.get_type() != VAL_STR) v.force_str();
         break;
     case RET_INT:
-        if (type != VAL_INT) v.force_int();
+        if (v.get_type() != VAL_INT) v.force_int();
         break;
     case RET_FLOAT:
-        if (type != VAL_FLOAT) v.force_float();
+        if (v.get_type() != VAL_FLOAT) v.force_float();
         break;
     }
 }
@@ -3400,50 +3400,39 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
 
 ostd::String CsState::run_str(Bytecode const *code) {
     TaggedValue ret;
-    runcode(*this, reinterpret_cast<ostd::Uint32 const *>(code), ret);
-    if (ret.get_type() == VAL_NULL) return ostd::String();
-    ret.force_str();
-    ostd::String res(ret.s);
-    delete[] ret.s;
-    return res;
+    run_ret(code, ret);
+    ostd::String s = ret.get_str();
+    ret.cleanup();
+    return s;
 }
 
 ostd::String CsState::run_str(ostd::ConstCharRange code) {
     TaggedValue ret;
-    /* FIXME range */
     run_ret(code, ret);
-    if (ret.get_type() == VAL_NULL) return ostd::String();
-    ret.force_str();
-    ostd::String res(ret.s);
-    delete[] ret.s;
-    return res;
+    ostd::String s = ret.get_str();
+    ret.cleanup();
+    return s;
 }
 
 ostd::String CsState::run_str(Ident *id, TvalRange args) {
     TaggedValue ret;
     run_ret(id, args, ret);
-    if (ret.get_type() == VAL_NULL) return nullptr;
-    ret.force_str();
-    ostd::String res(ret.s);
-    delete[] ret.s;
-    return res;
+    ostd::String s = ret.get_str();
+    ret.cleanup();
+    return s;
 }
 
 int CsState::run_int(Bytecode const *code) {
     TaggedValue ret;
-    runcode(*this, reinterpret_cast<ostd::Uint32 const *>(code), ret);
+    run_ret(code, ret);
     int i = ret.get_int();
     ret.cleanup();
     return i;
 }
 
-int CsState::run_int(ostd::ConstCharRange p) {
-    GenState gs(*this);
-    gs.code.reserve(64);
-    gs.gen_main(p.data(), VAL_INT);
+int CsState::run_int(ostd::ConstCharRange code) {
     TaggedValue ret;
-    runcode(*this, gs.code.data() + 1, ret);
-    if (int(gs.code[0]) >= 0x100) gs.code.disown();
+    run_ret(code, ret);
     int i = ret.get_int();
     ret.cleanup();
     return i;
@@ -3459,7 +3448,7 @@ int CsState::run_int(Ident *id, TvalRange args) {
 
 float CsState::run_float(Bytecode const *code) {
     TaggedValue ret;
-    runcode(*this, reinterpret_cast<ostd::Uint32 const *>(code), ret);
+    run_ret(code, ret);
     float f = ret.get_float();
     ret.cleanup();
     return f;
@@ -3483,7 +3472,7 @@ float CsState::run_float(Ident *id, TvalRange args) {
 
 bool CsState::run_bool(Bytecode const *code) {
     TaggedValue ret;
-    runcode(*this, reinterpret_cast<ostd::Uint32 const *>(code), ret);
+    run_ret(code, ret);
     bool b = ret.get_bool();
     ret.cleanup();
     return b;
