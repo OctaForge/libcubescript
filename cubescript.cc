@@ -7,6 +7,7 @@
 #include <ostd/algorithm.hh>
 #include <ostd/format.hh>
 #include <ostd/array.hh>
+#include <ostd/memory.hh>
 
 namespace cscript {
 
@@ -1159,26 +1160,6 @@ static inline void skipcomments(char const *&p) {
     }
 }
 
-static ostd::Vector<char> strbuf[4];
-static int stridx = 0;
-
-static inline void cutstring(char const *&p, ostd::ConstCharRange &s) {
-    p++;
-    char const *end = parsestring(p);
-    int maxlen = int(end - p) + 1;
-
-    stridx = (stridx + 1) % 4;
-    ostd::Vector<char> &buf = strbuf[stridx];
-    buf.reserve(maxlen);
-
-    auto writer = buf.iter_cap();
-    s = ostd::ConstCharRange(buf.data(),
-        util::unescape_string(writer, ostd::ConstCharRange(p, end)));
-    writer.put('\0');
-    p = end;
-    if (*p == '\"') p++;
-}
-
 static inline char *cutstring(char const *&p) {
     p++;
     char const *end = parsestring(p);
@@ -1223,12 +1204,6 @@ char const *parseword(char const *p) {
         }
     }
     return p;
-}
-
-static inline void cutword(char const *&p, ostd::ConstCharRange &s) {
-    char const *op = p;
-    p = parseword(p);
-    s = ostd::ConstCharRange(op, p - op);
 }
 
 static inline char *cutword(char const *&p) {
@@ -1499,10 +1474,10 @@ bool TaggedValue::get_bool() const {
     }
 }
 
-static bool compilearg(GenState &gs, int wordtype, int prevargs = MaxResults, ostd::ConstCharRange *word = nullptr);
+static bool compilearg(GenState &gs, int wordtype, int prevargs = MaxResults, ostd::Box<char[]> *word = nullptr);
 
 static void compilelookup(GenState &gs, int ltype, int prevargs = MaxResults) {
-    ostd::ConstCharRange lookup;
+    ostd::Box<char[]> lookup;
     gs.next_char();
     switch (gs.current()) {
     case '(':
@@ -1513,13 +1488,13 @@ static void compilelookup(GenState &gs, int ltype, int prevargs = MaxResults) {
         compilelookup(gs, VAL_CSTR, prevargs);
         break;
     case '\"':
-        cutstring(gs.source, lookup);
+        lookup = ostd::Box<char[]>(cutstring(gs.source));
         goto lookupid;
     default: {
-        cutword(gs.source, lookup);
-        if (!lookup.size()) goto invalid;
+        lookup = ostd::Box<char[]>(cutword(gs.source));
+        if (!lookup) goto invalid;
 lookupid:
-        Ident *id = gs.cs.new_ident(lookup);
+        Ident *id = gs.cs.new_ident(lookup.get());
         if (id) switch (id->type) {
             case ID_VAR:
                 gs.code.push(CODE_IVAR | cs_ret_code(ltype, RET_INT) | (id->index << 8));
@@ -1656,7 +1631,7 @@ compilecomv:
             default:
                 goto invalid;
             }
-        gs.gen_str(lookup, true);
+        gs.gen_str(lookup.get(), true);
         break;
     }
     }
@@ -1759,7 +1734,8 @@ done:
 }
 
 static bool compileblocksub(GenState &gs, int prevargs) {
-    ostd::ConstCharRange lookup;
+    ostd::Box<char[]> lookup;
+    ostd::ConstCharRange lkup;
     char const *op;
     switch (gs.current()) {
     case '(':
@@ -1770,15 +1746,16 @@ static bool compileblocksub(GenState &gs, int prevargs) {
         gs.code.push(CODE_LOOKUPMU);
         break;
     case '\"':
-        cutstring(gs.source, lookup);
+        lookup = ostd::Box<char[]>(cutstring(gs.source));
         goto lookupid;
     default: {
         op = gs.source;
         while (isalnum(gs.current()) || gs.current() == '_') gs.next_char();
-        lookup = ostd::ConstCharRange(op, gs.source - op);
-        if (lookup.empty()) return false;
+        lkup = ostd::ConstCharRange(op, gs.source - op);
+        if (lkup.empty()) return false;
+        lookup = ostd::Box<char[]>(cs_dup_ostr(lkup));
 lookupid:
-        Ident *id = gs.cs.new_ident(lookup);
+        Ident *id = gs.cs.new_ident(lookup.get());
         if (id) switch (id->type) {
             case ID_VAR:
                 gs.code.push(CODE_IVAR | (id->index << 8));
@@ -1793,7 +1770,7 @@ lookupid:
                 gs.code.push((id->index < MaxArguments ? CODE_LOOKUPMARG : CODE_LOOKUPM) | (id->index << 8));
                 goto done;
             }
-        gs.gen_str(lookup, true);
+        gs.gen_str(lookup.get(), true);
         gs.code.push(CODE_LOOKUPMU);
 done:
         break;
@@ -1914,8 +1891,8 @@ done:
     }
 }
 
-static bool compilearg(GenState &gs, int wordtype, int prevargs, ostd::ConstCharRange *word) {
-    ostd::ConstCharRange unused;
+static bool compilearg(GenState &gs, int wordtype, int prevargs, ostd::Box<char[]> *word) {
+    ostd::Box<char[]> unused;
     if (!word) word = &unused;
     skipcomments(gs.source);
     switch (gs.current()) {
@@ -1939,7 +1916,7 @@ static bool compilearg(GenState &gs, int wordtype, int prevargs, ostd::ConstChar
             break;
         }
         case VAL_WORD:
-            cutstring(gs.source, *word);
+            *word = ostd::Box<char[]>(cutstring(gs.source));
             break;
         case VAL_ANY:
         case VAL_STR:
@@ -1950,9 +1927,9 @@ static bool compilearg(GenState &gs, int wordtype, int prevargs, ostd::ConstChar
             compileunescapestr(gs, true);
             break;
         default: {
-            ostd::ConstCharRange s;
-            cutstring(gs.source, s);
+            char *s = cutstring(gs.source);
             gs.gen_value(wordtype, s);
+            delete[] s;
             break;
         }
         }
@@ -2016,13 +1993,13 @@ static bool compilearg(GenState &gs, int wordtype, int prevargs, ostd::ConstChar
             return true;
         }
         case VAL_WORD:
-            cutword(gs.source, *word);
-            return !word->empty();
+            *word = ostd::Box<char[]>(cutword(gs.source));
+            return !!*word;
         default: {
-            ostd::ConstCharRange s;
-            cutword(gs.source, s);
-            if (s.empty()) return false;
+            char *s = cutword(gs.source);
+            if (!s) return false;
             gs.gen_value(wordtype, s);
+            delete[] s;
             return true;
         }
         }
@@ -2031,11 +2008,11 @@ static bool compilearg(GenState &gs, int wordtype, int prevargs, ostd::ConstChar
 
 static void compilestatements(GenState &gs, int rettype, int brak, int prevargs) {
     char const *line = gs.source;
-    ostd::ConstCharRange idname;
+    ostd::Box<char[]> idname;
     int numargs;
     for (;;) {
         skipcomments(gs.source);
-        idname = ostd::ConstCharRange(nullptr, nullptr);
+        idname.reset();
         bool more = compilearg(gs, VAL_WORD, prevargs, &idname);
         if (!more) goto endstatement;
         skipcomments(gs.source);
@@ -2049,8 +2026,8 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
             case '\n':
             case '\0':
                 gs.next_char();
-                if (idname.data()) {
-                    Ident *id = gs.cs.new_ident(idname);
+                if (idname) {
+                    Ident *id = gs.cs.new_ident(idname.get());
                     if (id) switch (id->type) {
                         case ID_ALIAS:
                             if (!(more = compilearg(gs, VAL_ANY, prevargs))) gs.gen_str();
@@ -2069,35 +2046,36 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
                             gs.code.push(CODE_SVAR1 | (id->index << 8));
                             goto endstatement;
                         }
-                    gs.gen_str(idname, true);
+                    gs.gen_str(idname.get(), true);
                 }
                 if (!(more = compilearg(gs, VAL_ANY))) gs.gen_str();
                 gs.code.push(CODE_ALIASU);
                 goto endstatement;
             }
         numargs = 0;
-        if (!idname.data()) {
+        if (!idname) {
 noid:
             while (numargs < MaxArguments && (more = compilearg(gs, VAL_CANY, prevargs + numargs))) numargs++;
             gs.code.push(CODE_CALLU | (numargs << 8));
         } else {
-            Ident *id = gs.cs.idents.at(idname);
+            Ident *id = gs.cs.idents.at(idname.get());
             if (!id) {
-                if (!cs_check_num(idname)) {
-                    gs.gen_str(idname, true);
+                if (!cs_check_num(idname.get())) {
+                    gs.gen_str(idname.get(), true);
                     goto noid;
                 }
                 switch (rettype) {
                 case VAL_ANY:
                 case VAL_CANY: {
-                    char *end = const_cast<char *>(idname.data());
-                    int val = int(strtoul(idname.data(), &end, 0));
-                    if (end < &idname[idname.size()]) gs.gen_str(idname, rettype == VAL_CANY);
+                    char *end = idname.get();
+                    ostd::Size idlen = strlen(idname.get());
+                    int val = int(strtoul(idname.get(), &end, 0));
+                    if (end < &idname[idlen]) gs.gen_str(idname.get(), rettype == VAL_CANY);
                     else gs.gen_int(val);
                     break;
                 }
                 default:
-                    gs.gen_value(rettype, idname);
+                    gs.gen_value(rettype, idname.get());
                     break;
                 }
                 gs.code.push(CODE_RESULT);
