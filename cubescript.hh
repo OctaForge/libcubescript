@@ -447,16 +447,21 @@ OSTD_EXPORT void init_libs(CsState &cs, int libs = CS_LIB_ALL);
 
 struct OSTD_EXPORT StackedValue: TaggedValue {
     StackedValue(Ident *id = nullptr):
-        TaggedValue(), p_id(id), p_stack(), p_pushed(false)
-    {}
+        TaggedValue(), p_id(nullptr), p_stack(), p_pushed(false)
+    {
+        set_id(id);
+    }
 
     ~StackedValue() {
         pop();
     }
 
     bool set_id(Ident *id) {
+        if (!id || !id->is_alias()) {
+            return false;
+        }
         p_id = id;
-        return p_id && p_id->is_alias();
+        return true;
     }
 
     Ident *get_id() const {
