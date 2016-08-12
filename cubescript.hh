@@ -456,13 +456,21 @@ struct OSTD_EXPORT StackedValue: TaggedValue {
         pop();
     }
 
-    bool alias(Ident *id) {
+    bool set_id(Ident *id) {
         p_id = id;
         return p_id && p_id->is_alias();
     }
 
-    bool alias(ostd::ConstCharRange name) {
-        return alias(p_cs.new_ident(name));
+    bool set_id(ostd::ConstCharRange name) {
+        return set_id(p_cs.new_ident(name));
+    }
+
+    Ident *get_id() const {
+        return p_id;
+    }
+
+    bool has_id() const {
+        return p_id != nullptr;
     }
 
     bool push() {
@@ -481,14 +489,6 @@ struct OSTD_EXPORT StackedValue: TaggedValue {
         p_id->pop_arg();
         p_pushed = false;
         return true;
-    }
-
-    Ident *get_id() const {
-        return p_id;
-    }
-
-    bool has_id() const {
-        return p_id != nullptr;
     }
 
 private:
