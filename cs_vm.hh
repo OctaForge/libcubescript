@@ -211,6 +211,17 @@ ostd::String floatstr(float v);
 
 bool cs_check_num(ostd::ConstCharRange s);
 
+static inline void bcode_incr(ostd::Uint32 *bc) {
+    *bc += 0x100;
+}
+
+static inline void bcode_decr(ostd::Uint32 *bc) {
+    *bc -= 0x100;
+    if (ostd::Int32(*bc) < 0x100) {
+        delete[] bc;
+    }
+}
+
 } /* namespace cscript */
 
 #endif /* LIBCUBESCRIPT_CS_VM_HH */

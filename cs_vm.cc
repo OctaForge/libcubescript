@@ -3,6 +3,8 @@
 
 #include <limits.h>
 
+#include <ostd/memory.hh>
+
 namespace cscript {
 
 static inline ostd::Uint32 const *forcecode(CsState &cs, TaggedValue &v) {
@@ -827,10 +829,9 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
                 (cs).stack = &aliaslink; \
                 if(!id->code) id->code = reinterpret_cast<Bytecode *>(compilecode(cs, id->get_str())); \
                 ostd::Uint32 *codep = reinterpret_cast<ostd::Uint32 *>(id->code); \
-                codep[0] += 0x100; \
+                bcode_incr(codep); \
                 runcode((cs), codep+1, (result)); \
-                codep[0] -= 0x100; \
-                if(int(codep[0]) < 0x100) delete[] codep; \
+                bcode_decr(codep); \
                 (cs).stack = aliaslink.next; \
                 (cs).identflags = oldflags; \
                 for(int i = 0; i < callargs; i++) \
@@ -1094,7 +1095,7 @@ bool CsState::run_bool(Ident *id, TvalRange args) {
 
 bool CsState::run_file(ostd::ConstCharRange fname) {
     ostd::ConstCharRange oldsrcfile = src_file, oldsrcstr = src_str;
-    char *buf = nullptr;
+    ostd::Box<char[]> buf;
     ostd::Size len;
 
     ostd::FileStream f(fname, ostd::StreamMode::read);
@@ -1102,19 +1103,17 @@ bool CsState::run_file(ostd::ConstCharRange fname) {
         return false;
 
     len = f.size();
-    buf = new char[len + 1];
-    if (f.get(buf, len) != len) {
-        delete[] buf;
+    buf = ostd::make_box<char[]>(len + 1);
+    if (!buf || f.get(buf.get(), len) != len) {
         return false;
     }
     buf[len] = '\0';
 
     src_file = fname;
-    src_str = ostd::ConstCharRange(buf, len);
-    run_int(buf);
+    src_str = ostd::ConstCharRange(buf.get(), len);
+    run_int(src_str);
     src_file = oldsrcfile;
     src_str = oldsrcstr;
-    delete[] buf;
     return true;
 }
 

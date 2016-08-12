@@ -616,8 +616,7 @@ void Ident::get_cval(TaggedValue &v) const {
 void Ident::clean_code() {
     ostd::Uint32 *bcode = reinterpret_cast<ostd::Uint32 *>(code);
     if (bcode) {
-        bcode[0] -= 0x100;
-        if (int(bcode[0]) < 0x100) delete[] bcode;
+        bcode_decr(bcode);
         code = nullptr;
     }
 }
@@ -2111,7 +2110,7 @@ ostd::Uint32 *compilecode(CsState &cs, ostd::ConstCharRange str) {
     gs.gen_main(str);
     ostd::Uint32 *code = new ostd::Uint32[gs.code.size()];
     memcpy(code, gs.code.data(), gs.code.size() * sizeof(ostd::Uint32));
-    code[0] += 0x100;
+    bcode_incr(code);
     return code;
 }
 
@@ -2119,16 +2118,16 @@ static void bcode_ref(ostd::Uint32 *code) {
     if (!code) return;
     switch (*code & CODE_OP_MASK) {
     case CODE_START:
-        *code += 0x100;
+        bcode_incr(code);
         return;
     }
     switch (code[-1]&CODE_OP_MASK) {
     case CODE_START:
-        code[-1] += 0x100;
+        bcode_incr(&code[-1]);
         break;
     case CODE_OFFSET:
         code -= int(code[-1] >> 8);
-        *code += 0x100;
+        bcode_incr(code);
         break;
     }
 }
@@ -2137,19 +2136,16 @@ static void bcode_unref(ostd::Uint32 *code) {
     if (!code) return;
     switch (*code & CODE_OP_MASK) {
     case CODE_START:
-        *code -= 0x100;
-        if (int(*code) < 0x100) delete[] code;
+        bcode_decr(code);
         return;
     }
     switch (code[-1]&CODE_OP_MASK) {
     case CODE_START:
-        code[-1] -= 0x100;
-        if (int(code[-1]) < 0x100) delete[] &code[-1];
+        bcode_decr(&code[-1]);
         break;
     case CODE_OFFSET:
         code -= int(code[-1] >> 8);
-        *code -= 0x100;
-        if (int(*code) < 0x100) delete[] code;
+        bcode_decr(code);
         break;
     }
 }
