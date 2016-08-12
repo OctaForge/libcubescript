@@ -372,7 +372,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
 
         case CODE_MACRO: {
             ostd::Uint32 len = op >> 8;
-            cs_set_macro(args[numargs++], reinterpret_cast<Bytecode const *>(code), len);
+            args[numargs++].set_macro(reinterpret_cast<Bytecode const *>(code), len);
             code += len / sizeof(ostd::Uint32) + 1;
             continue;
         }

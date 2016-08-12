@@ -117,6 +117,11 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
         p_type = VAL_IDENT;
         id = val;
     }
+    void set_macro(Bytecode const *val, ostd::Size ln) {
+        p_type = VAL_MACRO;
+        len = ln;
+        code = val;
+    }
 
     void set(TaggedValue &tv) {
         *this = tv;

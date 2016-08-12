@@ -380,20 +380,6 @@ void TaggedValue::cleanup() {
     }
 }
 
-/* XXX: nasty */
-struct InternalTval: IdentValue {
-    int type;
-};
-
-void cs_set_macro(
-    TaggedValue &tv, Bytecode const *val, ostd::Size len
-) {
-    InternalTval &itv = reinterpret_cast<InternalTval &>(tv);
-    itv.type = VAL_MACRO;
-    itv.len = len;
-    itv.code = val;
-}
-
 void TaggedValue::force_null() {
     if (get_type() == VAL_NULL) return;
     cleanup();
@@ -588,7 +574,7 @@ void Ident::get_val(TaggedValue &r) const {
 void Ident::get_cstr(TaggedValue &v) const {
     switch (get_valtype()) {
     case VAL_MACRO:
-        cs_set_macro(v, val.code, val.len);
+        v.set_macro(val.code, val.len);
         break;
     case VAL_STR:
     case VAL_CSTR:
@@ -609,7 +595,7 @@ void Ident::get_cstr(TaggedValue &v) const {
 void Ident::get_cval(TaggedValue &v) const {
     switch (get_valtype()) {
     case VAL_MACRO:
-        cs_set_macro(v, val.code, val.len);
+        v.set_macro(val.code, val.len);
         break;
     case VAL_STR:
     case VAL_CSTR:
