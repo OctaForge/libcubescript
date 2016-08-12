@@ -15,8 +15,6 @@ static ostd::Uint32 emptyblock[VAL_ANY][2] = {
     { CODE_START + 0x100, CODE_EXIT | RET_STR }
 };
 
-static TaggedValue no_ret = null_value;
-
 static inline void force_arg(TaggedValue &v, int type) {
     switch (type) {
     case RET_STR:
@@ -225,7 +223,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
     result.set_null();
     if (rundepth >= MaxRunDepth) {
         cs_debug_code(cs, "exceeded recursion limit");
-        return skipcode(code, (&result == &no_ret) ? nullptr : &result);
+        return skipcode(code, &result);
     }
     ++rundepth;
     int numargs = 0;
