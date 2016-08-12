@@ -446,10 +446,8 @@ enum {
 OSTD_EXPORT void init_libs(CsState &cs, int libs = CS_LIB_ALL);
 
 struct OSTD_EXPORT StackedValue: TaggedValue {
-    StackedValue() = delete;
-
-    StackedValue(CsState &cs, Ident *id = nullptr):
-        TaggedValue(), p_cs(cs), p_id(id), p_stack(), p_pushed(false)
+    StackedValue(Ident *id = nullptr):
+        TaggedValue(), p_id(id), p_stack(), p_pushed(false)
     {}
 
     ~StackedValue() {
@@ -459,10 +457,6 @@ struct OSTD_EXPORT StackedValue: TaggedValue {
     bool set_id(Ident *id) {
         p_id = id;
         return p_id && p_id->is_alias();
-    }
-
-    bool set_id(ostd::ConstCharRange name) {
-        return set_id(p_cs.new_ident(name));
     }
 
     Ident *get_id() const {
@@ -492,7 +486,6 @@ struct OSTD_EXPORT StackedValue: TaggedValue {
     }
 
 private:
-    CsState &p_cs;
     Ident *p_id;
     IdentStack p_stack;
     bool p_pushed;
