@@ -153,10 +153,6 @@ namespace util {
     }
 }
 
-struct NullValue: TaggedValue {
-    NullValue() { set_null(); }
-} const null_value;
-
 static inline void cs_set_iter(Ident &id, char *val, IdentStack &stack) {
     if (id.stack == &stack) {
         if (id.get_valtype() == VAL_STR) {
@@ -630,9 +626,13 @@ static void cs_list_sort(
         return;
     }
 
+    /* default null value, set later from callback */
+    TaggedValue nv;
+    nv.set_null();
+
     IdentStack xstack, ystack;
-    x->push_arg(null_value, xstack);
-    y->push_arg(null_value, ystack);
+    x->push_arg(nv, xstack);
+    y->push_arg(nv, ystack);
 
     ostd::Size totaluniq = total;
     ostd::Size nuniq = items.size();
