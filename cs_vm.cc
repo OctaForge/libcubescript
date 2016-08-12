@@ -5,8 +5,27 @@
 
 namespace cscript {
 
-ostd::Uint32 const *forcecode(CsState &cs, TaggedValue &v);
-void forcecond(CsState &cs, TaggedValue &v);
+static inline ostd::Uint32 const *forcecode(CsState &cs, TaggedValue &v) {
+    if (v.get_type() != VAL_CODE) {
+        GenState gs(cs);
+        gs.code.reserve(64);
+        gs.gen_main(v.get_str());
+        v.cleanup();
+        v.set_code(reinterpret_cast<Bytecode *>(gs.code.disown() + 1));
+    }
+    return reinterpret_cast<ostd::Uint32 const *>(v.code);
+}
+
+static inline void forcecond(CsState &cs, TaggedValue &v) {
+    switch (v.get_type()) {
+    case VAL_STR:
+    case VAL_MACRO:
+    case VAL_CSTR:
+        if (v.s[0]) forcecode(cs, v);
+        else v.set_int(0);
+        break;
+    }
+}
 
 static ostd::Uint32 emptyblock[VAL_ANY][2] = {
     { CODE_START + 0x100, CODE_EXIT | RET_NULL },

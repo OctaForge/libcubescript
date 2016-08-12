@@ -2115,29 +2115,7 @@ ostd::Uint32 *compilecode(CsState &cs, ostd::ConstCharRange str) {
     return code;
 }
 
-ostd::Uint32 const *forcecode(CsState &cs, TaggedValue &v) {
-    if (v.get_type() != VAL_CODE) {
-        GenState gs(cs);
-        gs.code.reserve(64);
-        gs.gen_main(v.get_str());
-        v.cleanup();
-        v.set_code(reinterpret_cast<Bytecode *>(gs.code.disown() + 1));
-    }
-    return reinterpret_cast<ostd::Uint32 const *>(v.code);
-}
-
-void forcecond(CsState &cs, TaggedValue &v) {
-    switch (v.get_type()) {
-    case VAL_STR:
-    case VAL_MACRO:
-    case VAL_CSTR:
-        if (v.s[0]) forcecode(cs, v);
-        else v.set_int(0);
-        break;
-    }
-}
-
-void bcode_ref(ostd::Uint32 *code) {
+static void bcode_ref(ostd::Uint32 *code) {
     if (!code) return;
     switch (*code & CODE_OP_MASK) {
     case CODE_START:
@@ -2155,7 +2133,7 @@ void bcode_ref(ostd::Uint32 *code) {
     }
 }
 
-void bcode_unref(ostd::Uint32 *code) {
+static void bcode_unref(ostd::Uint32 *code) {
     if (!code) return;
     switch (*code & CODE_OP_MASK) {
     case CODE_START:

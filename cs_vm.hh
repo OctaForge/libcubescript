@@ -203,10 +203,6 @@ struct GenState {
     }
 };
 
-void cs_set_macro(
-    TaggedValue &tv, Bytecode const *val, ostd::Size len
-);
-
 int parseint(char const *s);
 float parsefloat(char const *s);
 
