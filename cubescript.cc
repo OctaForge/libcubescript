@@ -154,50 +154,6 @@ CsState::~CsState() {
     }
 }
 
-ostd::ConstCharRange cs_debug_line(CsState &cs,
-                                   ostd::ConstCharRange p,
-                                   ostd::ConstCharRange fmt,
-                                   ostd::CharRange buf) {
-    if (cs.src_str.empty()) return fmt;
-    ostd::Size num = 1;
-    ostd::ConstCharRange line(cs.src_str);
-    for (;;) {
-        ostd::ConstCharRange end = ostd::find(line, '\n');
-        if (!end.empty())
-            line = ostd::slice_until(line, end);
-        if (&p[0] >= &line[0] && &p[0] <= &line[line.size()]) {
-            ostd::CharRange r(buf);
-            if (!cs.src_file.empty())
-                ostd::format(r, "%s:%d: %s", cs.src_file, num, fmt);
-            else
-                ostd::format(r, "%d: %s", num, fmt);
-            r.put('\0');
-            return buf;
-        }
-        if (end.empty()) break;
-        line = end;
-        line.pop_front();
-        ++num;
-    }
-    return fmt;
-}
-
-void cs_debug_alias(CsState &cs) {
-    if (!cs.dbgalias) return;
-    int total = 0, depth = 0;
-    for (IdentLink *l = cs.stack; l != &cs.noalias; l = l->next) total++;
-    for (IdentLink *l = cs.stack; l != &cs.noalias; l = l->next) {
-        Ident *id = l->id;
-        ++depth;
-        if (depth < cs.dbgalias)
-            ostd::err.writefln("  %d) %s", total - depth + 1, id->name);
-        else if (l->next == &cs.noalias)
-            ostd::err.writefln(depth == cs.dbgalias ? "  %d) %s"
-                                                    : "  ..%d) %s",
-                               total - depth + 1, id->name);
-    }
-}
-
 void CsState::clear_override(Ident &id) {
     if (!(id.flags & IDF_OVERRIDDEN)) return;
     switch (id.type) {
