@@ -527,6 +527,72 @@ void Ident::get_val(TaggedValue &r) const {
     cs_get_val(val, get_valtype(), r);
 }
 
+OSTD_EXPORT bool code_is_empty(Bytecode const *code) {
+    if (!code) {
+        return true;
+    }
+    return (*reinterpret_cast<
+        ostd::Uint32 const *
+    >(code) & CODE_OP_MASK) == CODE_EXIT;
+}
+
+bool TaggedValue::code_is_empty() const {
+    if (get_type() != VAL_CODE) {
+        return true;
+    }
+    return cscript::code_is_empty(code);
+}
+
+static inline bool cs_get_bool(ostd::ConstCharRange s) {
+    if (s.empty())
+        return false;
+    switch (s.front()) {
+    case '+':
+    case '-':
+        switch (s[1]) {
+        case '0':
+            break;
+        case '.':
+            return !isdigit(s[2]) || (cs_parse_float(s) != 0);
+        default:
+            return true;
+        }
+    /* fallthrough */
+    case '0': {
+        char *end;
+        int val = int(strtoul(s.data(), &end, 0));
+        if (val) return true;
+        switch (*end) {
+        case 'e':
+        case '.':
+            return (cs_parse_float(s) != 0);
+        default:
+            return false;
+        }
+    }
+    case '.':
+        return !isdigit(s[1]) || (cs_parse_float(s) != 0);
+    case '\0':
+        return false;
+    }
+    return true;
+}
+
+bool TaggedValue::get_bool() const {
+    switch (get_type()) {
+    case VAL_FLOAT:
+        return f != 0;
+    case VAL_INT:
+        return i != 0;
+    case VAL_STR:
+    case VAL_MACRO:
+    case VAL_CSTR:
+        return cs_get_bool(ostd::ConstCharRange(s, len));
+    default:
+        return false;
+    }
+}
+
 void Ident::get_cstr(TaggedValue &v) const {
     switch (get_valtype()) {
     case VAL_MACRO:
@@ -1109,72 +1175,6 @@ static inline void compileunescapestr(GenState &gs, bool macro = false) {
     gs.code.advance(len / sizeof(ostd::Uint32) + 1);
     gs.source = end;
     if (*gs.source == '\"') gs.next_char();
-}
-
-OSTD_EXPORT bool code_is_empty(Bytecode const *code) {
-    if (!code) {
-        return true;
-    }
-    return (*reinterpret_cast<
-        ostd::Uint32 const *
-    >(code) & CODE_OP_MASK) == CODE_EXIT;
-}
-
-bool TaggedValue::code_is_empty() const {
-    if (get_type() != VAL_CODE) {
-        return true;
-    }
-    return cscript::code_is_empty(code);
-}
-
-static inline bool cs_get_bool(ostd::ConstCharRange s) {
-    if (s.empty())
-        return false;
-    switch (s.front()) {
-    case '+':
-    case '-':
-        switch (s[1]) {
-        case '0':
-            break;
-        case '.':
-            return !isdigit(s[2]) || (cs_parse_float(s) != 0);
-        default:
-            return true;
-        }
-    /* fallthrough */
-    case '0': {
-        char *end;
-        int val = int(strtoul(s.data(), &end, 0));
-        if (val) return true;
-        switch (*end) {
-        case 'e':
-        case '.':
-            return (cs_parse_float(s) != 0);
-        default:
-            return false;
-        }
-    }
-    case '.':
-        return !isdigit(s[1]) || (cs_parse_float(s) != 0);
-    case '\0':
-        return false;
-    }
-    return true;
-}
-
-bool TaggedValue::get_bool() const {
-    switch (get_type()) {
-    case VAL_FLOAT:
-        return f != 0;
-    case VAL_INT:
-        return i != 0;
-    case VAL_STR:
-    case VAL_MACRO:
-    case VAL_CSTR:
-        return cs_get_bool(ostd::ConstCharRange(s, len));
-    default:
-        return false;
-    }
 }
 
 static bool compilearg(GenState &gs, int wordtype, int prevargs = MaxResults, ostd::Box<char[]> *word = nullptr);
@@ -2068,67 +2068,6 @@ ostd::Uint32 *compilecode(CsState &cs, ostd::ConstCharRange str) {
     memcpy(code, gs.code.data(), gs.code.size() * sizeof(ostd::Uint32));
     bcode_incr(code);
     return code;
-}
-
-static void bcode_ref(ostd::Uint32 *code) {
-    if (!code) return;
-    switch (*code & CODE_OP_MASK) {
-    case CODE_START:
-        bcode_incr(code);
-        return;
-    }
-    switch (code[-1]&CODE_OP_MASK) {
-    case CODE_START:
-        bcode_incr(&code[-1]);
-        break;
-    case CODE_OFFSET:
-        code -= int(code[-1] >> 8);
-        bcode_incr(code);
-        break;
-    }
-}
-
-static void bcode_unref(ostd::Uint32 *code) {
-    if (!code) return;
-    switch (*code & CODE_OP_MASK) {
-    case CODE_START:
-        bcode_decr(code);
-        return;
-    }
-    switch (code[-1]&CODE_OP_MASK) {
-    case CODE_START:
-        bcode_decr(&code[-1]);
-        break;
-    case CODE_OFFSET:
-        code -= int(code[-1] >> 8);
-        bcode_decr(code);
-        break;
-    }
-}
-
-BytecodeRef::BytecodeRef(Bytecode *v): p_code(v) {
-    bcode_ref(reinterpret_cast<ostd::Uint32 *>(p_code));
-}
-BytecodeRef::BytecodeRef(BytecodeRef const &v): p_code(v.p_code) {
-    bcode_ref(reinterpret_cast<ostd::Uint32 *>(p_code));
-}
-
-BytecodeRef::~BytecodeRef() {
-    bcode_unref(reinterpret_cast<ostd::Uint32 *>(p_code));
-}
-
-BytecodeRef &BytecodeRef::operator=(BytecodeRef const &v) {
-    bcode_unref(reinterpret_cast<ostd::Uint32 *>(p_code));
-    p_code = v.p_code;
-    bcode_ref(reinterpret_cast<ostd::Uint32 *>(p_code));
-    return *this;
-}
-
-BytecodeRef &BytecodeRef::operator=(BytecodeRef &&v) {
-    bcode_unref(reinterpret_cast<ostd::Uint32 *>(p_code));
-    p_code = v.p_code;
-    v.p_code = nullptr;
-    return *this;
 }
 
 void cs_init_lib_io(CsState &cs) {

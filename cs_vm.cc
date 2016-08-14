@@ -51,6 +51,67 @@ void cs_debug_alias(CsState &cs) {
     }
 }
 
+static void bcode_ref(ostd::Uint32 *code) {
+    if (!code) return;
+    switch (*code & CODE_OP_MASK) {
+    case CODE_START:
+        bcode_incr(code);
+        return;
+    }
+    switch (code[-1]&CODE_OP_MASK) {
+    case CODE_START:
+        bcode_incr(&code[-1]);
+        break;
+    case CODE_OFFSET:
+        code -= int(code[-1] >> 8);
+        bcode_incr(code);
+        break;
+    }
+}
+
+static void bcode_unref(ostd::Uint32 *code) {
+    if (!code) return;
+    switch (*code & CODE_OP_MASK) {
+    case CODE_START:
+        bcode_decr(code);
+        return;
+    }
+    switch (code[-1]&CODE_OP_MASK) {
+    case CODE_START:
+        bcode_decr(&code[-1]);
+        break;
+    case CODE_OFFSET:
+        code -= int(code[-1] >> 8);
+        bcode_decr(code);
+        break;
+    }
+}
+
+BytecodeRef::BytecodeRef(Bytecode *v): p_code(v) {
+    bcode_ref(reinterpret_cast<ostd::Uint32 *>(p_code));
+}
+BytecodeRef::BytecodeRef(BytecodeRef const &v): p_code(v.p_code) {
+    bcode_ref(reinterpret_cast<ostd::Uint32 *>(p_code));
+}
+
+BytecodeRef::~BytecodeRef() {
+    bcode_unref(reinterpret_cast<ostd::Uint32 *>(p_code));
+}
+
+BytecodeRef &BytecodeRef::operator=(BytecodeRef const &v) {
+    bcode_unref(reinterpret_cast<ostd::Uint32 *>(p_code));
+    p_code = v.p_code;
+    bcode_ref(reinterpret_cast<ostd::Uint32 *>(p_code));
+    return *this;
+}
+
+BytecodeRef &BytecodeRef::operator=(BytecodeRef &&v) {
+    bcode_unref(reinterpret_cast<ostd::Uint32 *>(p_code));
+    p_code = v.p_code;
+    v.p_code = nullptr;
+    return *this;
+}
+
 static inline ostd::Uint32 const *forcecode(CsState &cs, TaggedValue &v) {
     if (v.get_type() != VAL_CODE) {
         GenState gs(cs);
