@@ -8,6 +8,7 @@ LIBCS_LDFLAGS = -shared
 
 LIBCS_OBJ = \
 	cubescript.o \
+	cs_gen.o \
 	cs_vm.o \
 	lib_str.o \
 	lib_math.o \
@@ -29,6 +30,7 @@ clean:
 	rm -f $(LIBCS_LIB) $(LIBCS_OBJ)
 
 cubescript.o: cubescript.hh cs_vm.hh
+cs_gen.o: cubescript.hh cs_vm.hh
 cs_vm.o: cubescript.hh cs_vm.hh
 lib_str.o: cubescript.hh
 lib_math.o: cubescript.hh

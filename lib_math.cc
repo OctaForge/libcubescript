@@ -1,5 +1,7 @@
 #include "cubescript.hh"
 
+#include <math.h>
+
 namespace cscript {
 
 static constexpr float PI = 3.14159265358979f;

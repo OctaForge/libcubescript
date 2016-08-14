@@ -14,6 +14,7 @@
 #include <ostd/maybe.hh>
 #include <ostd/io.hh>
 #include <ostd/functional.hh>
+#include <ostd/format.hh>
 
 namespace cscript {
 
