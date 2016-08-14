@@ -4,8 +4,8 @@
 
 namespace cscript {
 
-static constexpr float PI = 3.14159265358979f;
-static constexpr float RAD = PI / 180.0f;
+static constexpr CsFloat PI = 3.14159265358979f;
+static constexpr CsFloat RAD = PI / 180.0f;
 
 void cs_init_lib_math(CsState &cs) {
     cs.add_command("sin", "f", [&cs](TvalRange args, TaggedValue &res) {
@@ -50,7 +50,7 @@ void cs_init_lib_math(CsState &cs) {
 
 #define CS_CMD_MIN_MAX(name, fmt, type, op) \
     cs.add_command(#name, #fmt "1V", [&cs](TvalRange args, TaggedValue &res) { \
-        type v = !args.empty() ? args[0].fmt : 0; \
+        auto v = !args.empty() ? args[0].fmt : 0; \
         for (ostd::Size i = 1; i < args.size(); ++i) v = op(v, args[i].fmt); \
         res.set_##type(v); \
     })
@@ -85,10 +85,10 @@ void cs_init_lib_math(CsState &cs) {
         } else {
             r = (r < 0) ? ceil(r - 0.5) : floor(r + 0.5);
         }
-        res.set_float(float(r));
+        res.set_float(CsFloat(r));
     });
 
-#define CS_CMD_MATH(name, fmt, type, op, initval, unaryop) \
+#define CS_CMD_MATH(name, fmt, vtype, type, op, initval, unaryop) \
     cs.add_command(name, #fmt "1V", [&cs](TvalRange args, TaggedValue &res) { \
         type val; \
         if (args.size() >= 2) { \
@@ -107,13 +107,13 @@ void cs_init_lib_math(CsState &cs) {
     });
 
 #define CS_CMD_MATHIN(name, op, initval, unaryop) \
-    CS_CMD_MATH(#name, i, int, val = val op val2, initval, unaryop)
+    CS_CMD_MATH(#name, i, CsInt, int, val = val op val2, initval, unaryop)
 
 #define CS_CMD_MATHI(name, initval, unaryop) \
     CS_CMD_MATHIN(name, name, initval, unaryop)
 
 #define CS_CMD_MATHFN(name, op, initval, unaryop) \
-    CS_CMD_MATH(#name "f", f, float, val = val op val2, initval, unaryop)
+    CS_CMD_MATH(#name "f", f, CsFloat, float, val = val op val2, initval, unaryop)
 
 #define CS_CMD_MATHF(name, initval, unaryop) \
     CS_CMD_MATHFN(name, name, initval, unaryop)
@@ -130,26 +130,26 @@ void cs_init_lib_math(CsState &cs) {
     CS_CMD_MATHI(&~, 0, {});
     CS_CMD_MATHI(|~, 0, {});
 
-    CS_CMD_MATH("<<", i, int, {
+    CS_CMD_MATH("<<", i, CsInt, int, {
         val = (val2 < 32) ? (val << ostd::max(val2, 0)) : 0;
     }, 0, {});
-    CS_CMD_MATH(">>", i, int, val >>= ostd::clamp(val2, 0, 31), 0, {});
+    CS_CMD_MATH(">>", i, CsInt, int, val >>= ostd::clamp(val2, 0, 31), 0, {});
 
     CS_CMD_MATHF(+, 0, {});
     CS_CMD_MATHF(*, 1, {});
     CS_CMD_MATHF(-, 0, val = -val);
 
-#define CS_CMD_DIV(name, fmt, type, op) \
-    CS_CMD_MATH(#name, fmt, type, { if (val2) op; else val = 0; }, 0, {})
+#define CS_CMD_DIV(name, fmt, vtype, type, op) \
+    CS_CMD_MATH(#name, fmt, vtype, type, { if (val2) op; else val = 0; }, 0, {})
 
-    CS_CMD_DIV(div, i, int, val /= val2);
-    CS_CMD_DIV(mod, i, int, val %= val2);
-    CS_CMD_DIV(divf, f, float, val /= val2);
-    CS_CMD_DIV(modf, f, float, val = fmod(val, val2));
+    CS_CMD_DIV(div, i, CsInt, int, val /= val2);
+    CS_CMD_DIV(mod, i, CsInt, int, val %= val2);
+    CS_CMD_DIV(divf, f, CsFloat, float, val /= val2);
+    CS_CMD_DIV(modf, f, CsFloat, float, val = fmod(val, val2));
 
 #undef CS_CMD_DIV
 
-    CS_CMD_MATH("pow", f, float, val = pow(val, val2), 0, {});
+    CS_CMD_MATH("pow", f, CsFloat, float, val = pow(val, val2), 0, {});
 
 #undef CS_CMD_MATHF
 #undef CS_CMD_MATHFN
@@ -166,12 +166,12 @@ void cs_init_lib_math(CsState &cs) {
                 val = args[i-1].fmt op args[i].fmt; \
         } else \
             val = ((args.size() > 0) ? args[0].fmt : 0) op 0; \
-        res.set_int(int(val)); \
+        res.set_int(CsInt(val)); \
     })
 
-#define CS_CMD_CMPIN(name, op) CS_CMD_CMP(#name, i, int, op)
+#define CS_CMD_CMPIN(name, op) CS_CMD_CMP(#name, i, CsInt, op)
 #define CS_CMD_CMPI(name) CS_CMD_CMPIN(name, name)
-#define CS_CMD_CMPFN(name, op) CS_CMD_CMP(#name "f", f, float, op)
+#define CS_CMD_CMPFN(name, op) CS_CMD_CMP(#name "f", f, CsFloat, op)
 #define CS_CMD_CMPF(name) CS_CMD_CMPFN(name, name)
 
     CS_CMD_CMPIN(=, ==);

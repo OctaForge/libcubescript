@@ -29,9 +29,9 @@ $(LIBCS_LIB): $(LIBCS_OBJ)
 clean:
 	rm -f $(LIBCS_LIB) $(LIBCS_OBJ)
 
-cubescript.o: cubescript.hh cs_vm.hh
-cs_gen.o: cubescript.hh cs_vm.hh
-cs_vm.o: cubescript.hh cs_vm.hh
-lib_str.o: cubescript.hh
-lib_math.o: cubescript.hh
-lib_list.o: cubescript.hh
+cubescript.o: cubescript.hh cubescript_conf.hh cs_vm.hh
+cs_gen.o: cubescript.hh cubescript_conf.hh cs_vm.hh
+cs_vm.o: cubescript.hh cubescript_conf.hh cs_vm.hh
+lib_str.o: cubescript.hh cubescript_conf.hh
+lib_math.o: cubescript.hh cubescript_conf.hh
+lib_list.o: cubescript.hh cubescript_conf.hh

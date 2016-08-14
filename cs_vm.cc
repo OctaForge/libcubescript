@@ -63,7 +63,7 @@ static void bcode_ref(ostd::Uint32 *code) {
         bcode_incr(&code[-1]);
         break;
     case CODE_OFFSET:
-        code -= int(code[-1] >> 8);
+        code -= ostd::Ptrdiff(code[-1] >> 8);
         bcode_incr(code);
         break;
     }
@@ -81,7 +81,7 @@ static void bcode_unref(ostd::Uint32 *code) {
         bcode_decr(&code[-1]);
         break;
     case CODE_OFFSET:
-        code -= int(code[-1] >> 8);
+        code -= ostd::Ptrdiff(code[-1] >> 8);
         bcode_decr(code);
         break;
     }
@@ -243,7 +243,7 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, Tagged
         case 'b':
             if (++i >= numargs) {
                 if (rep) break;
-                args[i].set_int(INT_MIN);
+                args[i].set_int(CsIntMin);
                 fakeargs++;
             } else args[i].force_int();
             break;
@@ -310,7 +310,7 @@ static inline void callcommand(CsState &cs, Ident *id, TaggedValue *args, Tagged
             break;
         case 'N':
             if (++i < numargs) args[i].cleanup();
-            args[i].set_int(lookup ? -1 : i - fakeargs);
+            args[i].set_int(CsInt(lookup ? -1 : i - fakeargs));
             break;
         case 'C': {
             i = ostd::max(i + 1, numargs);
@@ -517,16 +517,16 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             args[numargs++].set_null();
             continue;
         case CODE_VAL|RET_INT:
-            args[numargs++].set_int(int(*code++));
+            args[numargs++].set_int(CsInt(*code++));
             continue;
         case CODE_VALI|RET_INT:
-            args[numargs++].set_int(int(op) >> 8);
+            args[numargs++].set_int(CsInt(op) >> 8);
             continue;
         case CODE_VAL|RET_FLOAT:
-            args[numargs++].set_float(*reinterpret_cast<float const *>(code++));
+            args[numargs++].set_float(*reinterpret_cast<CsFloat const *>(code++));
             continue;
         case CODE_VALI|RET_FLOAT:
-            args[numargs++].set_float(float(int(op) >> 8));
+            args[numargs++].set_float(CsFloat(CsInt(op) >> 8));
             continue;
 
         case CODE_DUP|RET_NULL:
@@ -721,7 +721,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             LOOKUPU(arg.set_int(id->get_int()),
                     arg.set_int(parseint(*id->storage.sp)),
                     arg.set_int(*id->storage.ip),
-                    arg.set_int(int(*id->storage.fp)),
+                    arg.set_int(CsInt(*id->storage.fp)),
                     arg.set_int(0));
         case CODE_LOOKUP|RET_INT:
             LOOKUP(args[numargs++].set_int(id->get_int()));
@@ -730,7 +730,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
         case CODE_LOOKUPU|RET_FLOAT:
             LOOKUPU(arg.set_float(id->get_float()),
                     arg.set_float(parsefloat(*id->storage.sp)),
-                    arg.set_float(float(*id->storage.ip)),
+                    arg.set_float(CsFloat(*id->storage.ip)),
                     arg.set_float(*id->storage.fp),
                     arg.set_float(0.0f));
         case CODE_LOOKUP|RET_FLOAT:
@@ -795,7 +795,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             args[numargs++].set_str(ostd::move(intstr(*cs.identmap[op >> 8]->storage.ip)));
             continue;
         case CODE_IVAR|RET_FLOAT:
-            args[numargs++].set_float(float(*cs.identmap[op >> 8]->storage.ip));
+            args[numargs++].set_float(CsFloat(*cs.identmap[op >> 8]->storage.ip));
             continue;
         case CODE_IVAR1:
             cs.set_var_int_checked(cs.identmap[op >> 8], args[--numargs].i);
@@ -1126,50 +1126,50 @@ ostd::String CsState::run_str(Ident *id, TvalRange args) {
     return s;
 }
 
-int CsState::run_int(Bytecode const *code) {
+CsInt CsState::run_int(Bytecode const *code) {
     TaggedValue ret;
     run_ret(code, ret);
-    int i = ret.get_int();
+    CsInt i = ret.get_int();
     ret.cleanup();
     return i;
 }
 
-int CsState::run_int(ostd::ConstCharRange code) {
+CsInt CsState::run_int(ostd::ConstCharRange code) {
     TaggedValue ret;
     run_ret(code, ret);
-    int i = ret.get_int();
+    CsInt i = ret.get_int();
     ret.cleanup();
     return i;
 }
 
-int CsState::run_int(Ident *id, TvalRange args) {
+CsInt CsState::run_int(Ident *id, TvalRange args) {
     TaggedValue ret;
     run_ret(id, args, ret);
-    int i = ret.get_int();
+    CsInt i = ret.get_int();
     ret.cleanup();
     return i;
 }
 
-float CsState::run_float(Bytecode const *code) {
+CsFloat CsState::run_float(Bytecode const *code) {
     TaggedValue ret;
     run_ret(code, ret);
-    float f = ret.get_float();
+    CsFloat f = ret.get_float();
     ret.cleanup();
     return f;
 }
 
-float CsState::run_float(ostd::ConstCharRange code) {
+CsFloat CsState::run_float(ostd::ConstCharRange code) {
     TaggedValue ret;
     run_ret(code, ret);
-    float f = ret.get_float();
+    CsFloat f = ret.get_float();
     ret.cleanup();
     return f;
 }
 
-float CsState::run_float(Ident *id, TvalRange args) {
+CsFloat CsState::run_float(Ident *id, TvalRange args) {
     TaggedValue ret;
     run_ret(id, args, ret);
-    float f = ret.get_float();
+    CsFloat f = ret.get_float();
     ret.cleanup();
     return f;
 }

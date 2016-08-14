@@ -148,7 +148,7 @@ struct GenState {
         code.push(CODE_VALI | RET_NULL);
     }
 
-    void gen_int(int i = 0) {
+    void gen_int(CsInt i = 0) {
         if (i >= -0x800000 && i <= 0x7FFFFF)
             code.push(CODE_VALI | RET_INT | (i << 8));
         else {
@@ -159,12 +159,12 @@ struct GenState {
 
     void gen_int(ostd::ConstCharRange word);
 
-    void gen_float(float f = 0.0f) {
-        if (int(f) == f && f >= -0x800000 && f <= 0x7FFFFF)
-            code.push(CODE_VALI | RET_FLOAT | (int(f) << 8));
+    void gen_float(CsFloat f = 0.0f) {
+        if (CsInt(f) == f && f >= -0x800000 && f <= 0x7FFFFF)
+            code.push(CODE_VALI | RET_FLOAT | (CsInt(f) << 8));
         else {
             union {
-                float f;
+                CsFloat f;
                 ostd::Uint32 u;
             } c;
             c.f = f;
@@ -203,11 +203,11 @@ struct GenState {
     }
 };
 
-int parseint(char const *s);
-float parsefloat(char const *s);
+CsInt parseint(char const *s);
+CsFloat parsefloat(char const *s);
 
 ostd::String intstr(int v);
-ostd::String floatstr(float v);
+ostd::String floatstr(CsFloat v);
 
 bool cs_check_num(ostd::ConstCharRange s);
 

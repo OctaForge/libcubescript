@@ -10,12 +10,12 @@ namespace cscript {
 
 char *cs_dup_ostr(ostd::ConstCharRange s);
 
-int cs_parse_int(ostd::ConstCharRange s) {
+CsInt cs_parse_int(ostd::ConstCharRange s) {
     if (s.empty()) return 0;
     return parseint(s.data());
 }
 
-float cs_parse_float(ostd::ConstCharRange s) {
+CsFloat cs_parse_float(ostd::ConstCharRange s) {
     if (s.empty()) return 0.0f;
     return parsefloat(s.data());
 }
@@ -309,7 +309,7 @@ lookupid:
                         numargs++;
                         break;
                     case 'b':
-                        gs.gen_int(INT_MIN);
+                        gs.gen_int(CsIntMin);
                         numargs++;
                         break;
                     case 'f':
@@ -803,7 +803,7 @@ noid:
                 case VAL_CANY: {
                     char *end = idname.get();
                     ostd::Size idlen = strlen(idname.get());
-                    int val = int(strtoul(idname.get(), &end, 0));
+                    CsInt val = CsInt(strtoul(idname.get(), &end, 0));
                     if (end < &idname[idlen]) gs.gen_str(idname.get(), rettype == VAL_CANY);
                     else gs.gen_int(val);
                     break;
@@ -849,7 +849,7 @@ noid:
                             if (more) more = compilearg(gs, VAL_INT, prevargs + numargs);
                             if (!more) {
                                 if (rep) break;
-                                gs.gen_int(INT_MIN);
+                                gs.gen_int(CsIntMin);
                                 fakeargs++;
                             }
                             numargs++;

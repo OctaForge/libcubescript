@@ -6,7 +6,7 @@ void cs_init_lib_string(CsState &cs) {
     cs.add_command("strstr", "ss", [&cs](TvalRange args, TaggedValue &res) {
         ostd::ConstCharRange a = args[0].get_strr(), b = args[1].get_strr();
         ostd::ConstCharRange s = a;
-        for (int i = 0; b.size() <= s.size(); ++i) {
+        for (CsInt i = 0; b.size() <= s.size(); ++i) {
             if (b == s.slice(0, b.size())) {
                 res.set_int(i);
                 return;
@@ -17,13 +17,13 @@ void cs_init_lib_string(CsState &cs) {
     });
 
     cs.add_command("strlen", "s", [&cs](TvalRange args, TaggedValue &res) {
-        res.set_int(int(args[0].get_strr().size()));
+        res.set_int(CsInt(args[0].get_strr().size()));
     });
 
     cs.add_command("strcode", "si", [&cs](TvalRange args, TaggedValue &res) {
         ostd::ConstCharRange str = args[0].get_strr();
-        int i = args[1].get_int();
-        if (i >= int(str.size())) {
+        CsInt i = args[1].get_int();
+        if (i >= CsInt(str.size())) {
             res.set_int(0);
         } else {
             res.set_int(ostd::byte(str[i]));
@@ -99,7 +99,7 @@ void cs_init_lib_string(CsState &cs) {
                 f.pop_front();
                 if (ic >= '1' && ic <= '9') {
                     int i = ic - '0';
-                    ostd::String sub = ostd::move((i < int(args.size()))
+                    ostd::String sub = ostd::move((ostd::Size(i) < args.size())
                         ? args[i].get_str() : ostd::String(""));
                     s.push_n(sub.data(), sub.size());
                 } else s.push(ic);
@@ -120,9 +120,9 @@ void cs_init_lib_string(CsState &cs) {
 
     cs.add_command("substr", "siiN", [&cs](TvalRange args, TaggedValue &res) {
         ostd::ConstCharRange s = args[0].get_strr();
-        int start = args[1].get_int(), count = args[2].get_int();
-        int numargs = args[3].get_int();
-        int len = int(s.size()), offset = ostd::clamp(start, 0, len);
+        CsInt start = args[1].get_int(), count = args[2].get_int();
+        CsInt numargs = args[3].get_int();
+        CsInt len = CsInt(s.size()), offset = ostd::clamp(start, 0, len);
         res.set_str(ostd::ConstCharRange(
             &s[offset],
             (numargs >= 3) ? ostd::clamp(count, 0, len - offset)
@@ -139,7 +139,7 @@ void cs_init_lib_string(CsState &cs) {
                 val = strcmp(args[i-1].s, args[i].s) op 0; \
         } else \
             val = (!args.empty() ? args[0].s[0] : 0) op 0; \
-        res.set_int(int(val)); \
+        res.set_int(CsInt(val)); \
     })
 
     CS_CMD_CMPS(strcmp, ==);
@@ -199,12 +199,12 @@ void cs_init_lib_string(CsState &cs) {
     cs.add_command("strsplice", "ssii", [&cs](TvalRange args, TaggedValue &res) {
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange vals = args[1].get_strr();
-        int skip   = args[2].get_int(),
-            count  = args[3].get_int();
-        int slen   = int(s.size()),
-            vlen   = int(vals.size());
-        int offset = ostd::clamp(skip, 0, slen),
-            len    = ostd::clamp(count, 0, slen - offset);
+        CsInt skip   = args[2].get_int(),
+              count  = args[3].get_int();
+        CsInt slen   = CsInt(s.size()),
+              vlen   = CsInt(vals.size());
+        CsInt offset = ostd::clamp(skip, 0, slen),
+              len    = ostd::clamp(count, 0, slen - offset);
         char *p = new char[slen - len + vlen + 1];
         if (offset)
             memcpy(p, s.data(), offset);

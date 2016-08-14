@@ -1,8 +1,10 @@
-#ifndef CUBESCRIPT_HH
-#define CUBESCRIPT_HH
+#ifndef LIBCUBESCRIPT_CUBESCRIPT_HH
+#define LIBCUBESCRIPT_CUBESCRIPT_HH
 
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "cubescript_conf.hh"
 
 #include <ostd/platform.hh>
 #include <ostd/types.hh>
@@ -66,8 +68,8 @@ struct Ident;
 
 struct IdentValue {
     union {
-        int i;      /* ID_IVAR, VAL_INT */
-        float f;    /* ID_FVAR, VAL_FLOAT */
+        CsInt i;      /* ID_IVAR, VAL_INT */
+        CsFloat f;    /* ID_FVAR, VAL_FLOAT */
         Bytecode const *code; /* VAL_CODE */
         Ident *id;  /* VAL_IDENT */
         char *s;    /* ID_SVAR, VAL_STR */
@@ -83,11 +85,11 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
         return p_type;
     }
 
-    void set_int(int val) {
+    void set_int(CsInt val) {
         p_type = VAL_INT;
         i = val;
     }
-    void set_float(float val) {
+    void set_float(CsFloat val) {
         p_type = VAL_FLOAT;
         f = val;
     }
@@ -131,8 +133,8 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
 
     ostd::String get_str() const;
     ostd::ConstCharRange get_strr() const;
-    int get_int() const;
-    float get_float() const;
+    CsInt get_int() const;
+    CsFloat get_float() const;
     Bytecode *get_code() const;
     Ident *get_ident() const;
     void get_val(TaggedValue &r) const;
@@ -140,8 +142,8 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
     bool get_bool() const;
 
     void force_null();
-    float force_float();
-    int force_int();
+    CsFloat force_float();
+    CsInt force_int();
     ostd::ConstCharRange force_str();
 
     bool code_is_empty() const;
@@ -162,8 +164,8 @@ struct IdentStack {
 };
 
 union IdentValuePtr {
-    int *ip;   /* ID_IVAR */
-    float *fp; /* ID_FVAR */
+    CsInt *ip;   /* ID_IVAR */
+    CsFloat *fp; /* ID_FVAR */
     char **sp; /* ID_SVAR */
 };
 
@@ -190,10 +192,10 @@ struct OSTD_EXPORT Ident {
         struct { /* ID_IVAR, ID_FVAR, ID_SVAR */
             union {
                 struct { /* ID_IVAR */
-                    int minval, maxval;
+                    CsInt minval, maxval;
                 };
                 struct { /* ID_FVAR */
-                    float minvalf, maxvalf;
+                    CsFloat minvalf, maxvalf;
                 };
             };
             IdentValuePtr storage;
@@ -216,13 +218,13 @@ struct OSTD_EXPORT Ident {
 
     /* ID_IVAR */
     Ident(
-        ostd::ConstCharRange n, int m, int x, int *s,
+        ostd::ConstCharRange n, CsInt m, CsInt x, CsInt *s,
         VarCb f = VarCb(), int flags = 0
     );
 
     /* ID_FVAR */
     Ident(
-        ostd::ConstCharRange n, float m, float x, float *s,
+        ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat *s,
         VarCb f = VarCb(), int flags = 0
     );
 
@@ -234,8 +236,8 @@ struct OSTD_EXPORT Ident {
 
     /* ID_ALIAS */
     Ident(ostd::ConstCharRange n, char *a, int flags);
-    Ident(ostd::ConstCharRange n, int a, int flags);
-    Ident(ostd::ConstCharRange n, float a, int flags);
+    Ident(ostd::ConstCharRange n, CsInt a, int flags);
+    Ident(ostd::ConstCharRange n, CsFloat a, int flags);
     Ident(ostd::ConstCharRange n, int flags);
     Ident(ostd::ConstCharRange n, TaggedValue const &v, int flags);
 
@@ -270,8 +272,8 @@ struct OSTD_EXPORT Ident {
         valtype = VAL_NULL;
     }
 
-    float get_float() const;
-    int get_int() const;
+    CsFloat get_float() const;
+    CsInt get_int() const;
     ostd::String get_str() const;
     ostd::ConstCharRange get_strr() const;
     void get_val(TaggedValue &r) const;
@@ -348,8 +350,8 @@ struct OSTD_EXPORT CsState {
 
     int identflags = 0;
     int nodebug = 0;
-    int numargs = 0;
-    int dbgalias = 4;
+    CsInt numargs = 0;
+    CsInt dbgalias = 4;
 
     CsState();
     ~CsState();
@@ -386,13 +388,13 @@ struct OSTD_EXPORT CsState {
     ostd::String run_str(ostd::ConstCharRange code);
     ostd::String run_str(Ident *id, TvalRange args);
 
-    int run_int(Bytecode const *code);
-    int run_int(ostd::ConstCharRange code);
-    int run_int(Ident *id, TvalRange args);
+    CsInt run_int(Bytecode const *code);
+    CsInt run_int(ostd::ConstCharRange code);
+    CsInt run_int(Ident *id, TvalRange args);
 
-    float run_float(Bytecode const *code);
-    float run_float(ostd::ConstCharRange code);
-    float run_float(Ident *id, TvalRange args);
+    CsFloat run_float(Bytecode const *code);
+    CsFloat run_float(ostd::ConstCharRange code);
+    CsFloat run_float(Ident *id, TvalRange args);
 
     bool run_bool(Bytecode const *code);
     bool run_bool(ostd::ConstCharRange code);
@@ -407,37 +409,37 @@ struct OSTD_EXPORT CsState {
     void set_alias(ostd::ConstCharRange name, TaggedValue &v);
 
     void set_var_int(
-        ostd::ConstCharRange name, int v,
+        ostd::ConstCharRange name, CsInt v,
         bool dofunc = true, bool doclamp = true
     );
     void set_var_float(
-        ostd::ConstCharRange name, float v,
+        ostd::ConstCharRange name, CsFloat v,
         bool dofunc  = true, bool doclamp = true
     );
     void set_var_str(
         ostd::ConstCharRange name, ostd::ConstCharRange v, bool dofunc = true
     );
 
-    void set_var_int_checked(Ident *id, int v);
+    void set_var_int_checked(Ident *id, CsInt v);
     void set_var_int_checked(Ident *id, TvalRange args);
-    void set_var_float_checked(Ident *id, float v);
+    void set_var_float_checked(Ident *id, CsFloat v);
     void set_var_str_checked(Ident *id, ostd::ConstCharRange v);
 
-    ostd::Maybe<int> get_var_int(ostd::ConstCharRange name);
-    ostd::Maybe<float> get_var_float(ostd::ConstCharRange name);
+    ostd::Maybe<CsInt> get_var_int(ostd::ConstCharRange name);
+    ostd::Maybe<CsFloat> get_var_float(ostd::ConstCharRange name);
     ostd::Maybe<ostd::String> get_var_str(ostd::ConstCharRange name);
 
-    ostd::Maybe<int> get_var_min_int(ostd::ConstCharRange name);
-    ostd::Maybe<int> get_var_max_int(ostd::ConstCharRange name);
+    ostd::Maybe<CsInt> get_var_min_int(ostd::ConstCharRange name);
+    ostd::Maybe<CsInt> get_var_max_int(ostd::ConstCharRange name);
 
-    ostd::Maybe<float> get_var_min_float(ostd::ConstCharRange name);
-    ostd::Maybe<float> get_var_max_float(ostd::ConstCharRange name);
+    ostd::Maybe<CsFloat> get_var_min_float(ostd::ConstCharRange name);
+    ostd::Maybe<CsFloat> get_var_max_float(ostd::ConstCharRange name);
 
     ostd::Maybe<ostd::String> get_alias(ostd::ConstCharRange name);
 
     void print_var(Ident *id);
-    void print_var_int(Ident *id, int i);
-    void print_var_float(Ident *id, float f);
+    void print_var_int(Ident *id, CsInt i);
+    void print_var_float(Ident *id, CsFloat f);
     void print_var_str(Ident *id, ostd::ConstCharRange s);
 };
 
@@ -578,14 +580,15 @@ namespace util {
     );
 
     template<typename R>
-    inline ostd::Ptrdiff format_int(R &&writer, int val) {
-        return ostd::format(ostd::forward<R>(writer), "%d", val);
+    inline ostd::Ptrdiff format_int(R &&writer, CsInt val) {
+        return ostd::format(ostd::forward<R>(writer), IntFormat, val);
     }
 
     template<typename R>
-    inline ostd::Ptrdiff format_float(R &&writer, int val) {
+    inline ostd::Ptrdiff format_float(R &&writer, CsFloat val) {
         return ostd::format(
-            ostd::forward<R>(writer), (val == int(val)) ? "%.1f" : "%.7g", val
+            ostd::forward<R>(writer),
+            (val == CsInt(val)) ? RoundFloatFormat : FloatFormat, val
         );
     }
 
@@ -606,7 +609,7 @@ namespace util {
                     break;
                 }
                 case VAL_FLOAT: {
-                    auto r = format_float(ostd::forward<R>(writer), vals[i].i);
+                    auto r = format_float(ostd::forward<R>(writer), vals[i].f);
                     if (r > 0) {
                         ret += ostd::Size(r);
                     }
@@ -631,4 +634,4 @@ namespace util {
 
 } /* namespace cscript */
 
-#endif /* CUBESCRIPT_HH */
+#endif /* LIBCUBESCRIPT_CUBESCRIPT_HH */

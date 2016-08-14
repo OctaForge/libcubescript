@@ -3,8 +3,8 @@
 namespace cscript {
 
 char *cs_dup_ostr(ostd::ConstCharRange s);
-int cs_parse_int(ostd::ConstCharRange s);
-float cs_parse_float(ostd::ConstCharRange s);
+CsInt cs_parse_int(ostd::ConstCharRange s);
+CsFloat cs_parse_float(ostd::ConstCharRange s);
 ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str);
 char const *parseword(char const *p);
 
@@ -190,7 +190,7 @@ static void cs_loop_list_conc(
         r.push_n(vstr.data(), vstr.size());
         v.cleanup();
     }
-    if (n >= 0)
+    if (n)
         id->pop_arg();
     r.push('\0');
     ostd::Size len = r.size();
@@ -211,7 +211,7 @@ static void cs_init_lib_list_sort(CsState &cs);
 
 void cs_init_lib_list(CsState &cs) {
     cs.add_command("listlen", "s", [&cs](TvalRange args, TaggedValue &res) {
-        res.set_int(int(util::list_length(args[0].get_strr())));
+        res.set_int(CsInt(util::list_length(args[0].get_strr())));
     });
 
     cs.add_command("at", "si1V", [&cs](TvalRange args, TaggedValue &res) {
@@ -222,7 +222,7 @@ void cs_init_lib_list(CsState &cs) {
         p.item = str;
         for (ostd::Size i = 1; i < args.size(); ++i) {
             p.input = str;
-            int pos = args[i].get_int();
+            CsInt pos = args[i].get_int();
             for (; pos > 0; --pos)
                 if (!p.parse()) break;
             if (pos > 0 || !p.parse())
@@ -235,15 +235,15 @@ void cs_init_lib_list(CsState &cs) {
     });
 
     cs.add_command("sublist", "siiN", [&cs](TvalRange args, TaggedValue &res) {
-        int skip    = args[1].get_int(),
-            count   = args[2].get_int(),
-            numargs = args[2].get_int();
+        CsInt skip    = args[1].get_int(),
+              count   = args[2].get_int(),
+              numargs = args[2].get_int();
 
-        int offset = ostd::max(skip, 0),
-            len = (numargs >= 3) ? ostd::max(count, 0) : -1;
+        CsInt offset = ostd::max(skip, 0),
+              len = (numargs >= 3) ? ostd::max(count, 0) : -1;
 
         ListParser p(args[0].get_strr());
-        for (int i = 0; i < offset; ++i)
+        for (CsInt i = 0; i < offset; ++i)
             if (!p.parse()) break;
         if (len < 0) {
             if (offset > 0)
@@ -273,7 +273,7 @@ void cs_init_lib_list(CsState &cs) {
             ++n;
             cs_set_iter(*id, cs_dup_ostr(p.item), stack);
             if (cs.run_bool(body)) {
-                res.set_int(n);
+                res.set_int(CsInt(n));
                 goto found;
             }
         }
@@ -311,7 +311,7 @@ found:
 
 #define CS_CMD_LIST_FIND(name, fmt, gmeth, cmp) \
     cs.add_command(name, "s" fmt "i", [&cs](TvalRange args, TaggedValue &res) { \
-        int n = 0, skip = args[2].get_int(); \
+        CsInt n = 0, skip = args[2].get_int(); \
         auto val = args[1].gmeth(); \
         for (ListParser p(args[0].get_strr()); p.parse(); ++n) { \
             if (cmp) { \
@@ -369,7 +369,7 @@ found:
             cs_set_iter(*id, p.element().disown(), stack);
             cs.run_int(body);
         }
-        if (n >= 0)
+        if (n)
             id->pop_arg();
     });
 
@@ -386,7 +386,7 @@ found:
                                         : cs_dup_ostr(""), stack2);
             cs.run_int(body);
         }
-        if (n >= 0) {
+        if (n) {
             id->pop_arg();
             id2->pop_arg();
         }
@@ -409,7 +409,7 @@ found:
                                         : cs_dup_ostr(""), stack3);
             cs.run_int(body);
         }
-        if (n >= 0) {
+        if (n) {
             id->pop_arg();
             id2->pop_arg();
             id3->pop_arg();
@@ -446,7 +446,7 @@ found:
                 r.push_n(p.quote.data(), p.quote.size());
             }
         }
-        if (n >= 0)
+        if (n)
             id->pop_arg();
         r.push('\0');
         ostd::Size len = r.size() - 1;
@@ -466,7 +466,7 @@ found:
             if (cs.run_bool(body))
                 r++;
         }
-        if (n >= 0)
+        if (n)
             id->pop_arg();
         res.set_int(r);
     });
@@ -535,13 +535,13 @@ found:
 #undef CS_CMD_LIST_MERGE
 
     cs.add_command("listsplice", "ssii", [&cs](TvalRange args, TaggedValue &res) {
-        int offset = ostd::max(args[2].get_int(), 0);
-        int len    = ostd::max(args[3].get_int(), 0);
+        CsInt offset = ostd::max(args[2].get_int(), 0);
+        CsInt len    = ostd::max(args[3].get_int(), 0);
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange vals = args[1].get_strr();
         char const *list = s.data();
         ListParser p(s);
-        for (int i = 0; i < offset; ++i)
+        for (CsInt i = 0; i < offset; ++i)
             if (!p.parse())
                 break;
         char const *qend = !p.quote.empty() ? &p.quote[p.quote.size()] : list;
@@ -553,7 +553,7 @@ found:
                 buf.push(' ');
             buf.push_n(vals.data(), vals.size());
         }
-        for (int i = 0; i < len; ++i)
+        for (CsInt i = 0; i < len; ++i)
             if (!p.parse())
                 break;
         p.skip();
