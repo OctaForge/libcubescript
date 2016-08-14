@@ -678,7 +678,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
                             aval; \
                             continue; \
                         case ID_SVAR: arg.cleanup(); sval; continue; \
-                        case ID_VAR: arg.cleanup(); ival; continue; \
+                        case ID_IVAR: arg.cleanup(); ival; continue; \
                         case ID_FVAR: arg.cleanup(); fval; continue; \
                         case ID_COMMAND: \
                         { \
@@ -1012,7 +1012,7 @@ noid:
                 for (ostd::Size j = 0; j < ostd::Size(callargs); ++j) args[offset + j].id->pop_alias();
                 goto exit;
             }
-            case ID_VAR:
+            case ID_IVAR:
                 if (callargs <= 0) cs.print_var(id);
                 else cs.set_var_int_checked(id, ostd::iter(&args[offset], callargs));
                 FORCERESULT;
@@ -1072,7 +1072,7 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
             } else callcommand(*this, id, args.data(), ret, nargs, false);
             nargs = 0;
             break;
-        case ID_VAR:
+        case ID_IVAR:
             if (args.empty()) print_var(id);
             else set_var_int_checked(id, args);
             break;

@@ -66,7 +66,7 @@ struct Ident;
 
 struct IdentValue {
     union {
-        int i;      /* ID_VAR, VAL_INT */
+        int i;      /* ID_IVAR, VAL_INT */
         float f;    /* ID_FVAR, VAL_FLOAT */
         Bytecode const *code; /* VAL_CODE */
         Ident *id;  /* VAL_IDENT */
@@ -162,7 +162,7 @@ struct IdentStack {
 };
 
 union IdentValuePtr {
-    int *ip;   /* ID_VAR */
+    int *ip;   /* ID_IVAR */
     float *fp; /* ID_FVAR */
     char **sp; /* ID_SVAR */
 };
@@ -187,9 +187,9 @@ struct OSTD_EXPORT Ident {
     int index;
     ostd::String name;
     union {
-        struct { /* ID_VAR, ID_FVAR, ID_SVAR */
+        struct { /* ID_IVAR, ID_FVAR, ID_SVAR */
             union {
-                struct { /* ID_VAR */
+                struct { /* ID_IVAR */
                     int minval, maxval;
                 };
                 struct { /* ID_FVAR */
@@ -214,7 +214,7 @@ struct OSTD_EXPORT Ident {
 
     Ident();
 
-    /* ID_VAR */
+    /* ID_IVAR */
     Ident(
         ostd::ConstCharRange n, int m, int x, int *s,
         VarCb f = VarCb(), int flags = 0

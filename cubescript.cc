@@ -51,10 +51,10 @@ bool cs_check_num(ostd::ConstCharRange s) {
 
 Ident::Ident(): type(ID_UNKNOWN) {}
 
-/* ID_VAR */
+/* ID_IVAR */
 Ident::Ident(ostd::ConstCharRange n, int m, int x, int *s,
              VarCb f, int flagsv)
-    : type(ID_VAR), flags(flagsv | (m > x ? IDF_READONLY : 0)), name(n),
+    : type(ID_IVAR), flags(flagsv | (m > x ? IDF_READONLY : 0)), name(n),
       minval(m), maxval(x), cb_var(ostd::move(f)) {
     storage.ip = s;
 }
@@ -151,7 +151,7 @@ void CsState::clear_override(Ident &id) {
         id.val.s = cs_dup_ostr("");
         id.val.len = 0;
         break;
-    case ID_VAR:
+    case ID_IVAR:
         *id.storage.ip = id.overrideval.i;
         id.changed();
         break;
@@ -222,7 +222,7 @@ bool CsState::reset_var(ostd::ConstCharRange name) {
 void CsState::touch_var(ostd::ConstCharRange name) {
     Ident *id = idents.at(name);
     if (id) switch (id->type) {
-    case ID_VAR:
+    case ID_IVAR:
     case ID_FVAR:
     case ID_SVAR:
         id->changed();
@@ -240,7 +240,7 @@ void CsState::set_alias(ostd::ConstCharRange name, TaggedValue &v) {
             else
                 id->set_alias(*this, v);
             return;
-        case ID_VAR:
+        case ID_IVAR:
             set_var_int_checked(id, v.get_int());
             break;
         case ID_FVAR:
@@ -292,7 +292,7 @@ void CsState::print_var_str(Ident *id, ostd::ConstCharRange s) {
 
 void CsState::print_var(Ident *id) {
     switch (id->type) {
-    case ID_VAR:
+    case ID_IVAR:
         print_var_int(id, *id->storage.ip);
         break;
     case ID_FVAR:
@@ -725,7 +725,7 @@ bool cs_override_var(CsState &cs, Ident *id, SF sf, RF rf, CF cf) {
 void CsState::set_var_int(ostd::ConstCharRange name, int v,
                           bool dofunc, bool doclamp) {
     Ident *id = idents.at(name);
-    if (!id || id->type != ID_VAR)
+    if (!id || id->type != ID_IVAR)
         return;
     bool success = cs_override_var(*this, id,
         [&id]() { id->overrideval.i = *id->storage.ip; },
@@ -776,7 +776,7 @@ void CsState::set_var_str(ostd::ConstCharRange name, ostd::ConstCharRange v,
 
 ostd::Maybe<int> CsState::get_var_int(ostd::ConstCharRange name) {
     Ident *id = idents.at(name);
-    if (!id || id->type != ID_VAR)
+    if (!id || id->type != ID_IVAR)
         return ostd::nothing;
     return *id->storage.ip;
 }
@@ -797,14 +797,14 @@ ostd::Maybe<ostd::String> CsState::get_var_str(ostd::ConstCharRange name) {
 
 ostd::Maybe<int> CsState::get_var_min_int(ostd::ConstCharRange name) {
     Ident *id = idents.at(name);
-    if (!id || id->type != ID_VAR)
+    if (!id || id->type != ID_IVAR)
         return ostd::nothing;
     return id->minval;
 }
 
 ostd::Maybe<int> CsState::get_var_max_int(ostd::ConstCharRange name) {
     Ident *id = idents.at(name);
-    if (!id || id->type != ID_VAR)
+    if (!id || id->type != ID_IVAR)
         return ostd::nothing;
     return id->maxval;
 }

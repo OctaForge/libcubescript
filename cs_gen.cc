@@ -230,7 +230,7 @@ static void compilelookup(GenState &gs, int ltype, int prevargs = MaxResults) {
 lookupid:
         Ident *id = gs.cs.new_ident(lookup.get());
         if (id) switch (id->type) {
-            case ID_VAR:
+            case ID_IVAR:
                 gs.code.push(CODE_IVAR | cs_ret_code(ltype, RET_INT) | (id->index << 8));
                 switch (ltype) {
                 case VAL_POP:
@@ -491,7 +491,7 @@ static bool compileblocksub(GenState &gs, int prevargs) {
 lookupid:
         Ident *id = gs.cs.new_ident(lookup.get());
         if (id) switch (id->type) {
-            case ID_VAR:
+            case ID_IVAR:
                 gs.code.push(CODE_IVAR | (id->index << 8));
                 goto done;
             case ID_FVAR:
@@ -767,7 +767,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
                             if (!(more = compilearg(gs, VAL_ANY, prevargs))) gs.gen_str();
                             gs.code.push((id->index < MaxArguments ? CODE_ALIASARG : CODE_ALIAS) | (id->index << 8));
                             goto endstatement;
-                        case ID_VAR:
+                        case ID_IVAR:
                             if (!(more = compilearg(gs, VAL_INT, prevargs))) gs.gen_int();
                             gs.code.push(CODE_IVAR1 | (id->index << 8));
                             goto endstatement;
@@ -1040,7 +1040,7 @@ compilecomv:
                         }
                     }
                     break;
-                case ID_VAR:
+                case ID_IVAR:
                     if (!(more = compilearg(gs, VAL_INT, prevargs))) gs.code.push(CODE_PRINT | (id->index << 8));
                     else if (!(id->flags & IDF_HEX) || !(more = compilearg(gs, VAL_INT, prevargs + 1))) gs.code.push(CODE_IVAR1 | (id->index << 8));
                     else if (!(more = compilearg(gs, VAL_INT, prevargs + 2))) gs.code.push(CODE_IVAR2 | (id->index << 8));

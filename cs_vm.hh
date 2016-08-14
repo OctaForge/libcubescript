@@ -14,7 +14,7 @@ static constexpr int MaxArguments = 25;
 static constexpr int MaxResults = 7;
 
 enum {
-    ID_UNKNOWN = -1, ID_VAR, ID_FVAR, ID_SVAR, ID_COMMAND, ID_ALIAS,
+    ID_UNKNOWN = -1, ID_IVAR, ID_FVAR, ID_SVAR, ID_COMMAND, ID_ALIAS,
     ID_LOCAL, ID_DO, ID_DOARGS, ID_IF, ID_RESULT, ID_NOT, ID_AND, ID_OR
 };
 
