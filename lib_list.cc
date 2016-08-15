@@ -4,153 +4,6 @@
 namespace cscript {
 
 char *cs_dup_ostr(ostd::ConstCharRange s);
-ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str);
-char const *parseword(char const *p);
-
-struct ListParser {
-    ostd::ConstCharRange input;
-    ostd::ConstCharRange quote = ostd::ConstCharRange();
-    ostd::ConstCharRange item = ostd::ConstCharRange();
-
-    ListParser() = delete;
-    ListParser(ostd::ConstCharRange src): input(src) {}
-
-    void skip() {
-        for (;;) {
-            while (!input.empty()) {
-                char c = input.front();
-                if ((c == ' ') || (c == '\t') || (c == '\r') || (c == '\n'))
-                    input.pop_front();
-                else
-                    break;
-            }
-            if ((input.size() < 2) || (input[0] != '/') || (input[1] != '/'))
-                break;
-            input = ostd::find(input, '\n');
-        }
-    }
-
-    bool parse() {
-        skip();
-        if (input.empty())
-            return false;
-        switch (input.front()) {
-        case '"':
-            quote = input;
-            input.pop_front();
-            item = input;
-            input = cs_parse_str(input);
-            item = ostd::slice_until(item, input);
-            if (!input.empty() && (input.front() == '"'))
-                input.pop_front();
-            quote = ostd::slice_until(quote, input);
-            break;
-        case '(':
-        case '[': {
-            quote = input;
-            input.pop_front();
-            item = input;
-            char btype = quote.front();
-            int brak = 1;
-            for (;;) {
-                input = ostd::find_one_of(input,
-                    ostd::ConstCharRange("\"/;()[]"));
-                if (input.empty())
-                    return true;
-                char c = input.front();
-                input.pop_front();
-                switch (c) {
-                case '"':
-                    input = cs_parse_str(input);
-                    if (!input.empty() && (input.front() == '"'))
-                        input.pop_front();
-                    break;
-                case '/':
-                    if (!input.empty() && (input.front() == '/'))
-                        input = ostd::find(input, '\n');
-                    break;
-                case '(':
-                case '[':
-                    brak += (c == btype);
-                    break;
-                case ')':
-                    if ((btype == '(') && (--brak <= 0))
-                        goto endblock;
-                    break;
-                case ']':
-                    if ((btype == '[') && (--brak <= 0))
-                        goto endblock;
-                    break;
-                }
-            }
-endblock:
-            item = ostd::slice_until(item, input);
-            item.pop_back();
-            quote = ostd::slice_until(quote, input);
-            break;
-        }
-        case ')':
-        case ']':
-            return false;
-        default: {
-            char const *e = parseword(input.data());
-            item = input;
-            input.pop_front_n(e - input.data());
-            item = ostd::slice_until(item, input);
-            quote = item;
-            break;
-        }
-        }
-        skip();
-        if (!input.empty() && (input.front() == ';'))
-            input.pop_front();
-        return true;
-    }
-
-    ostd::String element() {
-        ostd::String s;
-        s.reserve(item.size());
-        if (!quote.empty() && (quote.front() == '"')) {
-            auto writer = s.iter_cap();
-            util::unescape_string(writer, item);
-            writer.put('\0');
-        } else {
-            memcpy(s.data(), item.data(), item.size());
-            s[item.size()] = '\0';
-        }
-        s.advance(item.size());
-        return s;
-    }
-};
-
-
-namespace util {
-    ostd::Size list_length(ostd::ConstCharRange s) {
-        ListParser p(s);
-        ostd::Size ret = 0;
-        while (p.parse()) ++ret;
-        return ret;
-    }
-
-    ostd::Maybe<ostd::String> list_index(ostd::ConstCharRange s,
-                                         ostd::Size idx) {
-        ListParser p(s);
-        for (ostd::Size i = 0; i < idx; ++i)
-            if (!p.parse()) return ostd::nothing;
-        if (!p.parse())
-            return ostd::nothing;
-        return ostd::move(p.element());
-    }
-
-    ostd::Vector<ostd::String> list_explode(ostd::ConstCharRange s,
-                                            ostd::Size limit) {
-        ostd::Vector<ostd::String> ret;
-        ListParser p(s);
-        while ((ret.size() < limit) && p.parse())
-            ret.push(ostd::move(p.element()));
-        return ret;
-    }
-}
 
 static inline void cs_set_iter(Ident &id, char *val, IdentStack &stack) {
     if (id.stack == &stack) {
@@ -178,7 +31,7 @@ static void cs_loop_list_conc(
     IdentStack stack;
     ostd::Vector<char> r;
     int n = 0;
-    for (ListParser p(list); p.parse(); ++n) {
+    for (util::ListParser p(list); p.parse(); ++n) {
         char *val = p.element().disown();
         cs_set_iter(*id, val, stack);
         if (n && space)
@@ -198,7 +51,7 @@ static void cs_loop_list_conc(
 
 int cs_list_includes(ostd::ConstCharRange list, ostd::ConstCharRange needle) {
     int offset = 0;
-    for (ListParser p(list); p.parse();) {
+    for (util::ListParser p(list); p.parse();) {
         if (p.item == needle)
             return offset;
         ++offset;
@@ -217,7 +70,7 @@ void cs_init_lib_list(CsState &cs) {
         if (args.empty())
             return;
         ostd::String str = ostd::move(args[0].get_str());
-        ListParser p(str);
+        util::ListParser p(str);
         p.item = str;
         for (ostd::Size i = 1; i < args.size(); ++i) {
             p.input = str;
@@ -241,7 +94,7 @@ void cs_init_lib_list(CsState &cs) {
         CsInt offset = ostd::max(skip, 0),
               len = (numargs >= 3) ? ostd::max(count, 0) : -1;
 
-        ListParser p(args[0].get_strr());
+        util::ListParser p(args[0].get_strr());
         for (CsInt i = 0; i < offset; ++i)
             if (!p.parse()) break;
         if (len < 0) {
@@ -268,7 +121,7 @@ void cs_init_lib_list(CsState &cs) {
         }
         IdentStack stack;
         int n = -1;
-        for (ListParser p(args[1].get_strr()); p.parse();) {
+        for (util::ListParser p(args[1].get_strr()); p.parse();) {
             ++n;
             cs_set_iter(*id, cs_dup_ostr(p.item), stack);
             if (cs.run_bool(body)) {
@@ -289,7 +142,7 @@ found:
             return;
         IdentStack stack;
         int n = -1;
-        for (ListParser p(args[1].get_strr()); p.parse();) {
+        for (util::ListParser p(args[1].get_strr()); p.parse();) {
             ++n;
             cs_set_iter(*id, cs_dup_ostr(p.item), stack);
             if (cs.run_bool(body)) {
@@ -312,7 +165,7 @@ found:
     cs.add_command(name, "s" fmt "i", [&cs](TvalRange args, TaggedValue &res) { \
         CsInt n = 0, skip = args[2].get_int(); \
         auto val = args[1].gmeth(); \
-        for (ListParser p(args[0].get_strr()); p.parse(); ++n) { \
+        for (util::ListParser p(args[0].get_strr()); p.parse(); ++n) { \
             if (cmp) { \
                 res.set_int(n); \
                 return; \
@@ -336,7 +189,7 @@ found:
 #define CS_CMD_LIST_ASSOC(name, fmt, gmeth, cmp) \
     cs.add_command(name, "s" fmt, [&cs](TvalRange args, TaggedValue &res) { \
         auto val = args[1].gmeth(); \
-        for (ListParser p(args[0].get_strr()); p.parse();) { \
+        for (util::ListParser p(args[0].get_strr()); p.parse();) { \
             if (cmp) { \
                 if (p.parse()) { \
                     auto elem = p.element(); \
@@ -364,7 +217,7 @@ found:
             return;
         IdentStack stack;
         int n = 0;
-        for (ListParser p(args[1].get_strr()); p.parse(); ++n) {
+        for (util::ListParser p(args[1].get_strr()); p.parse(); ++n) {
             cs_set_iter(*id, p.element().disown(), stack);
             cs.run_int(body);
         }
@@ -379,7 +232,7 @@ found:
             return;
         IdentStack stack, stack2;
         int n = 0;
-        for (ListParser p(args[2].get_strr()); p.parse(); n += 2) {
+        for (util::ListParser p(args[2].get_strr()); p.parse(); n += 2) {
             cs_set_iter(*id, p.element().disown(), stack);
             cs_set_iter(*id2, p.parse() ? p.element().disown()
                                         : cs_dup_ostr(""), stack2);
@@ -400,7 +253,7 @@ found:
             return;
         IdentStack stack, stack2, stack3;
         int n = 0;
-        for (ListParser p(args[3].get_strr()); p.parse(); n += 3) {
+        for (util::ListParser p(args[3].get_strr()); p.parse(); n += 3) {
             cs_set_iter(*id, p.element().disown(), stack);
             cs_set_iter(*id2, p.parse() ? p.element().disown()
                                         : cs_dup_ostr(""), stack2);
@@ -437,7 +290,7 @@ found:
         IdentStack stack;
         ostd::Vector<char> r;
         int n = 0;
-        for (ListParser p(args[1].get_strr()); p.parse(); ++n) {
+        for (util::ListParser p(args[1].get_strr()); p.parse(); ++n) {
             char *val = cs_dup_ostr(p.item);
             cs_set_iter(*id, val, stack);
             if (cs.run_bool(body)) {
@@ -459,7 +312,7 @@ found:
             return;
         IdentStack stack;
         int n = 0, r = 0;
-        for (ListParser p(args[1].get_strr()); p.parse(); ++n) {
+        for (util::ListParser p(args[1].get_strr()); p.parse(); ++n) {
             char *val = cs_dup_ostr(p.item);
             cs_set_iter(*id, val, stack);
             if (cs.run_bool(body))
@@ -476,7 +329,7 @@ found:
         ostd::ConstCharRange conj = args[1].get_strr();
         ostd::Size len = util::list_length(s);
         ostd::Size n = 0;
-        for (ListParser p(s); p.parse(); ++n) {
+        for (util::ListParser p(s); p.parse(); ++n) {
             if (!p.quote.empty() && (p.quote.front() == '"')) {
                 buf.reserve(buf.size() + p.item.size());
                 auto writer = ostd::CharRange(&buf[buf.size()],
@@ -514,7 +367,7 @@ found:
         ostd::ConstCharRange elems = args[1].get_strr(); \
         ostd::Vector<char> buf; \
         init; \
-        for (ListParser p(iter); p.parse();) { \
+        for (util::ListParser p(iter); p.parse();) { \
             if (cs_list_includes(filter, p.item) dir 0) { \
                 if (!buf.empty()) \
                     buf.push(' '); \
@@ -539,7 +392,7 @@ found:
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange vals = args[1].get_strr();
         char const *list = s.data();
-        ListParser p(s);
+        util::ListParser p(s);
         for (CsInt i = 0; i < offset; ++i)
             if (!p.parse())
                 break;
@@ -613,7 +466,7 @@ static void cs_list_sort(
     ostd::Size total = 0;
 
     char *cstr = cs_dup_ostr(list);
-    for (ListParser p(list); p.parse();) {
+    for (util::ListParser p(list); p.parse();) {
         cstr[&p.item[p.item.size()] - list.data()] = '\0';
         ListSortItem item = { &cstr[p.item.data() - list.data()], p.quote };
         items.push(item);

@@ -571,6 +571,20 @@ namespace util {
         return ret;
     }
 
+    struct ListParser {
+        ostd::ConstCharRange input;
+        ostd::ConstCharRange quote = ostd::ConstCharRange();
+        ostd::ConstCharRange item = ostd::ConstCharRange();
+
+        ListParser() = delete;
+        ListParser(ostd::ConstCharRange src): input(src) {}
+
+        void skip();
+        bool parse();
+
+        ostd::String element();
+    };
+
     ostd::Size list_length(ostd::ConstCharRange s);
     ostd::Maybe<ostd::String> list_index(
         ostd::ConstCharRange s, ostd::Size idx
