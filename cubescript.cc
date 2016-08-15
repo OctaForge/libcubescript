@@ -4,8 +4,6 @@
 
 namespace cscript {
 
-CsFloat cs_parse_float(ostd::ConstCharRange s);
-
 ostd::String intstr(CsInt v) {
     char buf[256];
     snprintf(buf, sizeof(buf), IntFormat, v);

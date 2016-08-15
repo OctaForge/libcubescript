@@ -11,7 +11,7 @@ namespace cscript {
 
 char *cs_dup_ostr(ostd::ConstCharRange s);
 
-char const *parsestring(char const *p) {
+static char const *parsestring(char const *p) {
     for (; *p; p++) switch (*p) {
         case '\r':
         case '\n':
