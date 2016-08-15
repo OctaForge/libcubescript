@@ -55,6 +55,14 @@ static inline bool p_is_bindigit(char c) {
     return (c == '0') || (c == '1');
 }
 
+static inline bool p_check_neg(ostd::ConstCharRange &input) {
+    bool neg = (input.front() == '-');
+    if (neg || (input.front() == '+')) {
+        input.pop_front();
+    }
+    return neg;
+}
+
 CsInt parse_int(ostd::ConstCharRange input, ostd::ConstCharRange *end) {
     ostd::ConstCharRange orig = input;
     p_skip_white(input);
@@ -62,11 +70,7 @@ CsInt parse_int(ostd::ConstCharRange input, ostd::ConstCharRange *end) {
         p_set_end(orig, end);
         return CsInt(0);
     }
-    /* 1 for false, -1 for true */
-    int neg = -(int(input.front() == '-') * 2 - 1);
-    if (neg < 0 || (input.front() == '+')) {
-        input.pop_front();
-    }
+    bool neg = p_check_neg(input);
     CsInt ret = 0;
     ostd::ConstCharRange past = input;
     if (input.size() >= 2) {
@@ -99,7 +103,10 @@ done:
     } else {
         p_set_end(past, end);
     }
-    return ret * neg;
+    if (neg) {
+        return -ret;
+    }
+    return ret;
 }
 
 template<char e1, char e2>
@@ -114,10 +121,7 @@ static inline bool p_read_exp(ostd::ConstCharRange &input, CsInt &fn) {
     if (input.empty()) {
         return false;
     }
-    bool neg = (input.front() == '-');
-    if (neg || input.front() == '+') {
-        input.pop_front();
-    }
+    bool neg = p_check_neg(input);
     if (input.empty() || !p_is_decdigit(input.front())) {
         return false;
     }
@@ -198,26 +202,24 @@ CsFloat parse_float(ostd::ConstCharRange input, ostd::ConstCharRange *end) {
         p_set_end(orig, end);
         return CsFloat(0);
     }
-    bool neg = (input.front() == '-');
-    if (neg || (input.front() == '+')) {
-        input.pop_front();
-    }
-    bool hex = false;
+    bool neg = p_check_neg(input);
     CsFloat ret = CsFloat(0);
     if (input.size() >= 2) {
         ostd::ConstCharRange pfx = input.slice(0, 2);
-        if ((hex = ((pfx == "0x") || (pfx == "0X")))) {
+        if ((pfx == "0x") || (pfx == "0X")) {
             input.pop_front_n(2);
             if (!parse_hex_float(input, end, ret)) {
                 p_set_end(orig, end);
                 return ret;
             }
+            goto done;
         }
     }
-    if (!hex && !parse_dec_float(input, end, ret)) {
+    if (!parse_dec_float(input, end, ret)) {
         p_set_end(orig, end);
         return ret;
     }
+done:
     if (neg) {
         return -ret;
     }
