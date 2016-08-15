@@ -323,7 +323,7 @@ CsFloat TaggedValue::force_float() {
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR:
-        rf = parser::parse_float(s);
+        rf = cs_parse_float(s);
         break;
     case VAL_FLOAT:
         return f;
@@ -342,7 +342,7 @@ CsInt TaggedValue::force_int() {
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR:
-        ri = parser::parse_int(s);
+        ri = cs_parse_int(s);
         break;
     case VAL_INT:
         return i;
@@ -382,7 +382,7 @@ static inline CsInt cs_get_int(IdentValue const &v, int type) {
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR:
-        return parser::parse_int(v.s);
+        return cs_parse_int(v.s);
     }
     return 0;
 }
@@ -404,7 +404,7 @@ static inline CsFloat cs_get_float(IdentValue const &v, int type) {
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR:
-        return parser::parse_float(v.s);
+        return cs_parse_float(v.s);
     }
     return 0.0f;
 }
@@ -520,12 +520,12 @@ static inline bool cs_get_bool(ostd::ConstCharRange s) {
         return false;
     }
     ostd::ConstCharRange end = s;
-    CsInt ival = parser::parse_int(end, &end);
+    CsInt ival = cs_parse_int(end, &end);
     if (end.empty()) {
         return !!ival;
     }
     end = s;
-    CsFloat fval = parser::parse_float(end, &end);
+    CsFloat fval = cs_parse_float(end, &end);
     if (end.empty()) {
         return !!fval;
     }

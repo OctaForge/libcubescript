@@ -180,8 +180,8 @@ found:
         res.set_int(-1); \
     });
 
-    CS_CMD_LIST_FIND("listfind=", "i", get_int, parser::parse_int(p.item) == val);
-    CS_CMD_LIST_FIND("listfind=f", "f", get_float, parser::parse_float(p.item) == val);
+    CS_CMD_LIST_FIND("listfind=", "i", get_int, cs_parse_int(p.item) == val);
+    CS_CMD_LIST_FIND("listfind=f", "f", get_float, cs_parse_float(p.item) == val);
     CS_CMD_LIST_FIND("listfind=s", "s", get_strr, p.item == val);
 
 #undef CS_CMD_LIST_FIND
@@ -204,8 +204,8 @@ found:
         } \
     });
 
-    CS_CMD_LIST_ASSOC("listassoc=", "i", get_int, parser::parse_int(p.item) == val);
-    CS_CMD_LIST_ASSOC("listassoc=f", "f", get_float, parser::parse_float(p.item) == val);
+    CS_CMD_LIST_ASSOC("listassoc=", "i", get_int, cs_parse_int(p.item) == val);
+    CS_CMD_LIST_ASSOC("listassoc=f", "f", get_float, cs_parse_float(p.item) == val);
     CS_CMD_LIST_ASSOC("listassoc=s", "s", get_strr, p.item == val);
 
 #undef CS_CMD_LIST_ASSOC
