@@ -7,7 +7,7 @@
 namespace cscript {
 
 static inline void p_skip_white(ostd::ConstCharRange &v) {
-    while (!v.empty() && isspace(v.front())) {
+    while (!v.empty() && isspace(*v)) {
         ++v;
     }
 }
