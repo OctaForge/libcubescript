@@ -203,9 +203,6 @@ struct GenState {
     }
 };
 
-CsInt parseint(char const *s);
-CsFloat parsefloat(char const *s);
-
 ostd::String intstr(int v);
 ostd::String floatstr(CsFloat v);
 

@@ -1,10 +1,9 @@
 #include "cubescript.hh"
+#include "cs_util.hh"
 
 namespace cscript {
 
 char *cs_dup_ostr(ostd::ConstCharRange s);
-CsInt cs_parse_int(ostd::ConstCharRange s);
-CsFloat cs_parse_float(ostd::ConstCharRange s);
 ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str);
 char const *parseword(char const *p);
 
@@ -328,8 +327,8 @@ found:
         res.set_int(-1); \
     });
 
-    CS_CMD_LIST_FIND("listfind=", "i", get_int, cs_parse_int(p.item) == val);
-    CS_CMD_LIST_FIND("listfind=f", "f", get_float, cs_parse_float(p.item) == val);
+    CS_CMD_LIST_FIND("listfind=", "i", get_int, parser::parse_int(p.item) == val);
+    CS_CMD_LIST_FIND("listfind=f", "f", get_float, parser::parse_float(p.item) == val);
     CS_CMD_LIST_FIND("listfind=s", "s", get_strr, p.item == val);
 
 #undef CS_CMD_LIST_FIND
@@ -352,8 +351,8 @@ found:
         } \
     });
 
-    CS_CMD_LIST_ASSOC("listassoc=", "i", get_int, cs_parse_int(p.item) == val);
-    CS_CMD_LIST_ASSOC("listassoc=f", "f", get_float, cs_parse_float(p.item) == val);
+    CS_CMD_LIST_ASSOC("listassoc=", "i", get_int, parser::parse_int(p.item) == val);
+    CS_CMD_LIST_ASSOC("listassoc=f", "f", get_float, parser::parse_float(p.item) == val);
     CS_CMD_LIST_ASSOC("listassoc=s", "s", get_strr, p.item == val);
 
 #undef CS_CMD_LIST_ASSOC

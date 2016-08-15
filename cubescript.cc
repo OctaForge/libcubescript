@@ -1,18 +1,8 @@
 #include "cubescript.hh"
 #include "cs_vm.hh"
+#include "cs_util.hh"
 
 namespace cscript {
-
-CsInt parseint(char const *s) {
-    return CsInt(strtoul(s, nullptr, 0));
-}
-
-CsFloat parsefloat(char const *s) {
-    /* not all platforms (windows) can parse hexadecimal integers via strtod */
-    char *end;
-    double val = strtod(s, &end);
-    return val || end==s || (*end!='x' && *end!='X') ? CsFloat(val) : CsFloat(parseint(s));
-}
 
 CsFloat cs_parse_float(ostd::ConstCharRange s);
 
@@ -335,7 +325,7 @@ CsFloat TaggedValue::force_float() {
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR:
-        rf = parsefloat(s);
+        rf = parser::parse_float(s);
         break;
     case VAL_FLOAT:
         return f;
@@ -354,7 +344,7 @@ CsInt TaggedValue::force_int() {
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR:
-        ri = parseint(s);
+        ri = parser::parse_int(s);
         break;
     case VAL_INT:
         return i;
@@ -394,7 +384,7 @@ static inline CsInt cs_get_int(IdentValue const &v, int type) {
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR:
-        return parseint(v.s);
+        return parser::parse_int(v.s);
     }
     return 0;
 }
@@ -416,7 +406,7 @@ static inline CsFloat cs_get_float(IdentValue const &v, int type) {
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR:
-        return parsefloat(v.s);
+        return parser::parse_float(v.s);
     }
     return 0.0f;
 }
@@ -528,36 +518,18 @@ bool TaggedValue::code_is_empty() const {
 }
 
 static inline bool cs_get_bool(ostd::ConstCharRange s) {
-    if (s.empty())
+    if (s.empty()) {
         return false;
-    switch (s.front()) {
-    case '+':
-    case '-':
-        switch (s[1]) {
-        case '0':
-            break;
-        case '.':
-            return !isdigit(s[2]) || (cs_parse_float(s) != 0);
-        default:
-            return true;
-        }
-    /* fallthrough */
-    case '0': {
-        char *end;
-        int val = int(strtoul(s.data(), &end, 0));
-        if (val) return true;
-        switch (*end) {
-        case 'e':
-        case '.':
-            return (cs_parse_float(s) != 0);
-        default:
-            return false;
-        }
     }
-    case '.':
-        return !isdigit(s[1]) || (cs_parse_float(s) != 0);
-    case '\0':
-        return false;
+    ostd::ConstCharRange end = s;
+    CsInt ival = parser::parse_int(end, &end);
+    if (end.empty()) {
+        return !!ival;
+    }
+    end = s;
+    CsFloat fval = parser::parse_float(end, &end);
+    if (end.empty()) {
+        return !!fval;
     }
     return true;
 }

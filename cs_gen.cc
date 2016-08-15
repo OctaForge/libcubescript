@@ -1,5 +1,6 @@
 #include "cubescript.hh"
 #include "cs_vm.hh"
+#include "cs_util.hh"
 
 #include <limits.h>
 #include <ctype.h>
@@ -9,16 +10,6 @@
 namespace cscript {
 
 char *cs_dup_ostr(ostd::ConstCharRange s);
-
-CsInt cs_parse_int(ostd::ConstCharRange s) {
-    if (s.empty()) return 0;
-    return parseint(s.data());
-}
-
-CsFloat cs_parse_float(ostd::ConstCharRange s) {
-    if (s.empty()) return 0.0f;
-    return parsefloat(s.data());
-}
 
 char const *parsestring(char const *p) {
     for (; *p; p++) switch (*p) {
@@ -117,11 +108,11 @@ static void compilestatements(GenState &gs, int rettype, int brak = '\0', int pr
 static inline char const *compileblock(GenState &gs, char const *p, int rettype = RET_NULL, int brak = '\0');
 
 void GenState::gen_int(ostd::ConstCharRange word) {
-    gen_int(cs_parse_int(word));
+    gen_int(parser::parse_int(word));
 }
 
 void GenState::gen_float(ostd::ConstCharRange word) {
-    gen_float(cs_parse_float(word));
+    gen_float(parser::parse_float(word));
 }
 
 void GenState::gen_value(int wordtype, ostd::ConstCharRange word) {
@@ -801,10 +792,9 @@ noid:
                 switch (rettype) {
                 case VAL_ANY:
                 case VAL_CANY: {
-                    char *end = idname.get();
-                    ostd::Size idlen = strlen(idname.get());
-                    CsInt val = CsInt(strtoul(idname.get(), &end, 0));
-                    if (end < &idname[idlen]) gs.gen_str(idname.get(), rettype == VAL_CANY);
+                    ostd::ConstCharRange end = idname.get();
+                    CsInt val = parser::parse_int(end, &end);
+                    if (!end.empty()) gs.gen_str(idname.get(), rettype == VAL_CANY);
                     else gs.gen_int(val);
                     break;
                 }

@@ -1,5 +1,6 @@
 #include "cubescript.hh"
 #include "cs_vm.hh"
+#include "cs_util.hh"
 
 #include <limits.h>
 
@@ -719,7 +720,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             LOOKUPARG(args[numargs++].set_str(ostd::move(id->get_str())), args[numargs++].set_str(""));
         case CODE_LOOKUPU|RET_INT:
             LOOKUPU(arg.set_int(id->get_int()),
-                    arg.set_int(parseint(*id->storage.sp)),
+                    arg.set_int(parser::parse_int(*id->storage.sp)),
                     arg.set_int(*id->storage.ip),
                     arg.set_int(CsInt(*id->storage.fp)),
                     arg.set_int(0));
@@ -729,7 +730,7 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             LOOKUPARG(args[numargs++].set_int(id->get_int()), args[numargs++].set_int(0));
         case CODE_LOOKUPU|RET_FLOAT:
             LOOKUPU(arg.set_float(id->get_float()),
-                    arg.set_float(parsefloat(*id->storage.sp)),
+                    arg.set_float(parser::parse_float(*id->storage.sp)),
                     arg.set_float(CsFloat(*id->storage.ip)),
                     arg.set_float(*id->storage.fp),
                     arg.set_float(0.0f));
@@ -774,10 +775,10 @@ static ostd::Uint32 const *runcode(CsState &cs, ostd::Uint32 const *code, Tagged
             args[numargs++].set_str(*cs.identmap[op >> 8]->storage.sp);
             continue;
         case CODE_SVAR|RET_INT:
-            args[numargs++].set_int(parseint(*cs.identmap[op >> 8]->storage.sp));
+            args[numargs++].set_int(parser::parse_int(*cs.identmap[op >> 8]->storage.sp));
             continue;
         case CODE_SVAR|RET_FLOAT:
-            args[numargs++].set_float(parsefloat(*cs.identmap[op >> 8]->storage.sp));
+            args[numargs++].set_float(parser::parse_float(*cs.identmap[op >> 8]->storage.sp));
             continue;
         case CODE_SVARM:
             args[numargs++].set_cstr(*cs.identmap[op >> 8]->storage.sp);
