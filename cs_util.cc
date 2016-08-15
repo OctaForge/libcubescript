@@ -27,10 +27,10 @@ static inline CsInt p_hexd_to_int(char c) {
         return c - '0';
     }
     if ((c >= 65) && (c <= 70)) { /* A-F */
-        return c - 'A';
+        return (c - 'A') + 10;
     }
     if ((c >= 97) && (c <= 102)) { /* a-f */
-        return c - 'a';
+        return (c - 'a') + 10;
     }
     return 0;
 }
@@ -55,44 +55,6 @@ static inline bool p_is_bindigit(char c) {
     return (c == '0') || (c == '1');
 }
 
-template<typename T, int Base>
-static inline ostd::ConstCharRange parse_gen_int(
-    ostd::ConstCharRange input, T &retv
-) {
-    T ret = 0, mul = 1;
-    ostd::ConstCharRange oi = input;
-    while (!input.empty()) {
-        if (Base == 16) { /* hexadecimal */
-            if (!p_is_hexdigit(input.front())) {
-                break;
-            }
-        } else if (Base == 2) { /* binary */
-            if (!p_is_bindigit(input.front())) {
-                break;
-            }
-        } else { /* decimal */
-            if (!p_is_decdigit(input.front())) {
-                break;
-            }
-        }
-        mul *= Base;
-        input.pop_front();
-    }
-    while (!oi.equals_front(input)) {
-        mul /= Base;
-        if (Base == 16) {
-            ret += p_hexd_to_int(oi.front()) * mul;
-        } else if (Base == 2) {
-            ret += p_bind_to_int(oi.front()) * mul;
-        } else {
-            ret += p_decd_to_int(oi.front()) * mul;
-        }
-        oi.pop_front();
-    }
-    retv = ret;
-    return oi;
-}
-
 CsInt parse_int(ostd::ConstCharRange input, ostd::ConstCharRange *end) {
     ostd::ConstCharRange orig = input;
     p_skip_white(input);
@@ -111,15 +73,26 @@ CsInt parse_int(ostd::ConstCharRange input, ostd::ConstCharRange *end) {
         ostd::ConstCharRange pfx = input.slice(0, 2);
         if ((pfx == "0x") || (pfx == "0X")) {
             input.pop_front_n(2);
-            past = parse_gen_int<CsInt, 16>(input, ret);
+            past = input;
+            while (!past.empty() && p_is_hexdigit(past.front())) {
+                ret = ret * 16 + p_hexd_to_int(past.front());
+                past.pop_front();
+            }
             goto done;
         } else if ((pfx == "0b") || (pfx == "0B")) {
             input.pop_front_n(2);
-            past = parse_gen_int<CsInt, 2>(input, ret);
+            past = input;
+            while (!past.empty() && p_is_bindigit(past.front())) {
+                ret = ret * 2 + p_bind_to_int(past.front());
+                past.pop_front();
+            }
             goto done;
         }
     }
-    past = parse_gen_int<CsInt, 10>(input, ret);
+    while (!past.empty() && p_is_decdigit(past.front())) {
+        ret = ret * 10 + p_decd_to_int(past.front());
+        past.pop_front();
+    }
 done:
     if (past.equals_front(input)) {
         p_set_end(orig, end);
