@@ -10,7 +10,7 @@
 #include <ostd/types.hh>
 #include <ostd/string.hh>
 #include <ostd/vector.hh>
-#include <ostd/keyset.hh>
+#include <ostd/map.hh>
 #include <ostd/range.hh>
 #include <ostd/utility.hh>
 #include <ostd/maybe.hh>
@@ -280,10 +280,6 @@ struct OSTD_EXPORT Ident {
     void get_cstr(TaggedValue &v) const;
     void get_cval(TaggedValue &v) const;
 
-    ostd::ConstCharRange get_key() const {
-        return name.iter();
-    }
-
     void clean_code();
 
     void push_arg(TaggedValue const &v, IdentStack &st, bool um = true);
@@ -337,7 +333,7 @@ struct IdentLink {
 };
 
 struct OSTD_EXPORT CsState {
-    ostd::Keyset<Ident> idents;
+    ostd::Map<ostd::ConstCharRange, Ident *> idents;
     ostd::Vector<Ident *> identmap;
 
     Ident *dummy = nullptr;
@@ -359,18 +355,24 @@ struct OSTD_EXPORT CsState {
     void clear_override(Ident &id);
     void clear_overrides();
 
-    template<typename ...A>
-    Ident *add_ident(A &&...args) {
-        Ident &def = idents.emplace(ostd::forward<A>(args)...).first.front();
-        def.index = identmap.size();
-        return identmap.push(&def);
+    Ident *add_ident(Ident *id) {
+        if (!id) {
+            return nullptr;
+        }
+        idents[id->name] = id;
+        id->index = identmap.size();
+        return identmap.push(id);
     }
 
     Ident *new_ident(ostd::ConstCharRange name, int flags = IDF_UNKNOWN);
     Ident *force_ident(TaggedValue &v);
 
     Ident *get_ident(ostd::ConstCharRange name) {
-        return idents.at(name);
+        Ident **id = idents.at(name);
+        if (!id) {
+            return nullptr;
+        }
+        return *id;
     }
 
     bool have_ident(ostd::ConstCharRange name) {

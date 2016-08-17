@@ -122,20 +122,21 @@ CsState::CsState() {
         new_ident(static_cast<char const *>(buf), IDF_ARG);
     }
     dummy = new_ident("//dummy");
-    add_ident("numargs", MaxArguments, 0, &numargs);
-    add_ident("dbgalias", 0, 1000, &dbgalias);
+    add_ident(new Ident("numargs", MaxArguments, 0, &numargs));
+    add_ident(new Ident("dbgalias", 0, 1000, &dbgalias));
     cs_init_lib_base(*this);
 }
 
 CsState::~CsState() {
-    for (Ident &i: idents.iter()) {
-        if (i.type == ID_ALIAS) {
-            i.force_null();
-            delete[] reinterpret_cast<ostd::Uint32 *>(i.code);
-            i.code = nullptr;
-        } else if (i.type == ID_COMMAND || i.type >= ID_LOCAL) {
-            delete[] i.cargs;
+    for (auto &p: idents.iter()) {
+        Ident *i = p.second;
+        if (i->type == ID_ALIAS) {
+            i->force_null();
+            delete[] reinterpret_cast<ostd::Uint32 *>(i->code);
+        } else if (i->type == ID_COMMAND || i->type >= ID_LOCAL) {
+            delete[] i->cargs;
         }
+        delete i;
     }
 }
 
@@ -171,8 +172,8 @@ void CsState::clear_override(Ident &id) {
 }
 
 void CsState::clear_overrides() {
-    for (Ident &id: idents.iter()) {
-        clear_override(id);
+    for (auto &p: idents.iter()) {
+        clear_override(*(p.second));
     }
 }
 
@@ -185,7 +186,7 @@ Ident *CsState::new_ident(ostd::ConstCharRange name, int flags) {
             );
             return dummy;
         }
-        id = add_ident(name, flags);
+        id = add_ident(new Ident(name, flags));
     }
     return id;
 }
@@ -263,7 +264,7 @@ void CsState::set_alias(ostd::ConstCharRange name, TaggedValue &v) {
         cs_debug_code(*this, "cannot alias number %s", name);
         v.cleanup();
     } else {
-        add_ident(name, v, identflags);
+        add_ident(new Ident(name, v, identflags));
     }
 }
 
@@ -1026,7 +1027,7 @@ static bool cs_add_command(
                 return false;
         }
     }
-    cs.add_ident(type, name, args, argmask, nargs, ostd::move(func));
+    cs.add_ident(new Ident(type, name, args, argmask, nargs, ostd::move(func)));
     return true;
 }
 
