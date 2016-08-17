@@ -171,6 +171,12 @@ enum class IdentType {
     ivar, fvar, svar, command, alias
 };
 
+struct Command;
+struct Var;
+struct Ivar;
+struct Fvar;
+struct Svar;
+
 struct OSTD_EXPORT Ident {
     ostd::byte type; /* ID_something */
     ostd::ushort flags;
@@ -179,30 +185,29 @@ struct OSTD_EXPORT Ident {
 
     IdentType get_type() const;
 
-    bool is_alias() const {
-        return get_type() == IdentType::alias;
-    }
+    bool is_alias() const;
+    Alias *get_alias();
+    Alias const *get_alias() const;
 
-    bool is_command() const {
-        return get_type() == IdentType::command;
-    }
+    bool is_command() const;
+    Command *get_command();
+    Command const *get_command() const;
 
-    bool is_var() const {
-        IdentType tp = get_type();
-        return (tp >= IdentType::ivar) && (tp <= IdentType::svar);
-    }
+    bool is_var() const;
+    Var *get_var();
+    Var const *get_var() const;
 
-    bool is_ivar() const {
-        return get_type() == IdentType::ivar;
-    }
+    bool is_ivar() const;
+    Ivar *get_ivar();
+    Ivar const *get_ivar() const;
 
-    bool is_fvar() const {
-        return get_type() == IdentType::fvar;
-    }
+    bool is_fvar() const;
+    Fvar *get_fvar();
+    Fvar const *get_fvar() const;
 
-    bool is_svar() const {
-        return get_type() == IdentType::svar;
-    }
+    bool is_svar() const;
+    Svar *get_svar();
+    Svar const *get_svar() const;
 
 protected:
     Ident();

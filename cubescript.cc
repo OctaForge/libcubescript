@@ -124,6 +124,115 @@ Command::Command(
     name = n;
 }
 
+bool Ident::is_alias() const {
+    return get_type() == IdentType::alias;
+}
+
+Alias *Ident::get_alias() {
+    if (!is_alias()) {
+        return nullptr;
+    }
+    return static_cast<Alias *>(this);
+}
+
+Alias const *Ident::get_alias() const {
+    if (!is_alias()) {
+        return nullptr;
+    }
+    return static_cast<Alias const *>(this);
+}
+
+bool Ident::is_command() const {
+    return get_type() == IdentType::command;
+}
+
+Command *Ident::get_command() {
+    if (!is_command()) {
+        return nullptr;
+    }
+    return static_cast<Command *>(this);
+}
+
+Command const *Ident::get_command() const {
+    if (!is_command()) {
+        return nullptr;
+    }
+    return static_cast<Command const *>(this);
+}
+
+bool Ident::is_var() const {
+    IdentType tp = get_type();
+    return (tp >= IdentType::ivar) && (tp <= IdentType::svar);
+}
+
+Var *Ident::get_var() {
+    if (!is_var()) {
+        return nullptr;
+    }
+    return static_cast<Var *>(this);
+}
+
+Var const *Ident::get_var() const {
+    if (!is_var()) {
+        return nullptr;
+    }
+    return static_cast<Var const *>(this);
+}
+
+bool Ident::is_ivar() const {
+    return get_type() == IdentType::ivar;
+}
+
+Ivar *Ident::get_ivar() {
+    if (!is_ivar()) {
+        return nullptr;
+    }
+    return static_cast<Ivar *>(this);
+}
+
+Ivar const *Ident::get_ivar() const {
+    if (!is_ivar()) {
+        return nullptr;
+    }
+    return static_cast<Ivar const *>(this);
+}
+
+bool Ident::is_fvar() const {
+    return get_type() == IdentType::fvar;
+}
+
+Fvar *Ident::get_fvar() {
+    if (!is_fvar()) {
+        return nullptr;
+    }
+    return static_cast<Fvar *>(this);
+}
+
+Fvar const *Ident::get_fvar() const {
+    if (!is_fvar()) {
+        return nullptr;
+    }
+    return static_cast<Fvar const *>(this);
+}
+
+bool Ident::is_svar() const {
+    return get_type() == IdentType::svar;
+}
+
+Svar *Ident::get_svar() {
+    if (!is_svar()) {
+        return nullptr;
+    }
+    return static_cast<Svar *>(this);
+}
+
+Svar const *Ident::get_svar() const {
+    if (!is_svar()) {
+        return nullptr;
+    }
+    return static_cast<Svar const *>(this);
+}
+
 void cs_init_lib_base(CsState &cs);
 
 CsState::CsState() {
