@@ -494,7 +494,7 @@ static inline int cs_get_lookupu_type(
     ) {
         return -2; /* default case */
     }
-    id = cs.idents.at(arg.s);
+    id = cs.get_ident(arg.s);
     if (id) {
         switch(id->type) {
             case ID_ALIAS:
@@ -1382,7 +1382,7 @@ litval:
                     }
                     continue;
                 }
-                Ident *id = cs.idents.at(idarg.s);
+                Ident *id = cs.get_ident(idarg.s);
                 if (!id) {
 noid:
                     if (cs_check_num(idarg.s)) {

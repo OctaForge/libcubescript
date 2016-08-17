@@ -1147,7 +1147,7 @@ noid:
             }
             gs.code.push(CODE_CALLU | (numargs << 8));
         } else {
-            Ident *id = gs.cs.idents.at(idname.get());
+            Ident *id = gs.cs.get_ident(idname.get());
             if (!id) {
                 if (!cs_check_num(idname.get())) {
                     gs.gen_str(idname.get(), true);

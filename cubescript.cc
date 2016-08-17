@@ -177,7 +177,7 @@ void CsState::clear_overrides() {
 }
 
 Ident *CsState::new_ident(ostd::ConstCharRange name, int flags) {
-    Ident *id = idents.at(name);
+    Ident *id = get_ident(name);
     if (!id) {
         if (cs_check_num(name)) {
             cs_debug_code(
@@ -213,7 +213,7 @@ Ident *CsState::force_ident(TaggedValue &v) {
 }
 
 bool CsState::reset_var(ostd::ConstCharRange name) {
-    Ident *id = idents.at(name);
+    Ident *id = get_ident(name);
     if (!id) {
         return false;
     }
@@ -226,14 +226,14 @@ bool CsState::reset_var(ostd::ConstCharRange name) {
 }
 
 void CsState::touch_var(ostd::ConstCharRange name) {
-    Ident *id = idents.at(name);
+    Ident *id = get_ident(name);
     if (id && id->is_var()) {
         id->changed();
     }
 }
 
 void CsState::set_alias(ostd::ConstCharRange name, TaggedValue &v) {
-    Ident *id = idents.at(name);
+    Ident *id = get_ident(name);
     if (id) {
         switch (id->type) {
             case ID_ALIAS:
@@ -733,7 +733,7 @@ bool cs_override_var(CsState &cs, Ident *id, SF sf, RF rf, CF cf) {
 void CsState::set_var_int(
     ostd::ConstCharRange name, CsInt v, bool dofunc, bool doclamp
 ) {
-    Ident *id = idents.at(name);
+    Ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return;
     }
@@ -758,7 +758,7 @@ void CsState::set_var_int(
 void CsState::set_var_float(
     ostd::ConstCharRange name, CsFloat v, bool dofunc, bool doclamp
 ) {
-    Ident *id = idents.at(name);
+    Ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return;
     }
@@ -783,7 +783,7 @@ void CsState::set_var_float(
 void CsState::set_var_str(
     ostd::ConstCharRange name, ostd::ConstCharRange v, bool dofunc
 ) {
-    Ident *id = idents.at(name);
+    Ident *id = get_ident(name);
     if (!id || id->is_svar()) {
         return;
     }
@@ -803,7 +803,7 @@ void CsState::set_var_str(
 }
 
 ostd::Maybe<CsInt> CsState::get_var_int(ostd::ConstCharRange name) {
-    Ident *id = idents.at(name);
+    Ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return ostd::nothing;
     }
@@ -811,7 +811,7 @@ ostd::Maybe<CsInt> CsState::get_var_int(ostd::ConstCharRange name) {
 }
 
 ostd::Maybe<CsFloat> CsState::get_var_float(ostd::ConstCharRange name) {
-    Ident *id = idents.at(name);
+    Ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return ostd::nothing;
     }
@@ -819,7 +819,7 @@ ostd::Maybe<CsFloat> CsState::get_var_float(ostd::ConstCharRange name) {
 }
 
 ostd::Maybe<ostd::String> CsState::get_var_str(ostd::ConstCharRange name) {
-    Ident *id = idents.at(name);
+    Ident *id = get_ident(name);
     if (!id || id->is_svar()) {
         return ostd::nothing;
     }
@@ -827,7 +827,7 @@ ostd::Maybe<ostd::String> CsState::get_var_str(ostd::ConstCharRange name) {
 }
 
 ostd::Maybe<CsInt> CsState::get_var_min_int(ostd::ConstCharRange name) {
-    Ident *id = idents.at(name);
+    Ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return ostd::nothing;
     }
@@ -835,7 +835,7 @@ ostd::Maybe<CsInt> CsState::get_var_min_int(ostd::ConstCharRange name) {
 }
 
 ostd::Maybe<CsInt> CsState::get_var_max_int(ostd::ConstCharRange name) {
-    Ident *id = idents.at(name);
+    Ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return ostd::nothing;
     }
@@ -843,7 +843,7 @@ ostd::Maybe<CsInt> CsState::get_var_max_int(ostd::ConstCharRange name) {
 }
 
 ostd::Maybe<CsFloat> CsState::get_var_min_float(ostd::ConstCharRange name) {
-    Ident *id = idents.at(name);
+    Ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return ostd::nothing;
     }
@@ -851,7 +851,7 @@ ostd::Maybe<CsFloat> CsState::get_var_min_float(ostd::ConstCharRange name) {
 }
 
 ostd::Maybe<CsFloat> CsState::get_var_max_float(ostd::ConstCharRange name) {
-    Ident *id = idents.at(name);
+    Ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return ostd::nothing;
     }
@@ -860,7 +860,7 @@ ostd::Maybe<CsFloat> CsState::get_var_max_float(ostd::ConstCharRange name) {
 
 ostd::Maybe<ostd::String>
 CsState::get_alias(ostd::ConstCharRange name) {
-    Ident *id = idents.at(name);
+    Ident *id = get_ident(name);
     if (!id || id->is_alias()) {
         return ostd::nothing;
     }
