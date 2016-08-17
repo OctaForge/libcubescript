@@ -141,17 +141,13 @@ static inline bool parse_gen_float(
     if (!wn && !fn) {
         return false;
     }
-    if (Hex) {
-        fn *= -4;
-    } else {
-        fn = -fn;
-    }
+    fn = -fn;
     p_set_end(input, end); /* we have a valid number until here */
     if (p_read_exp<Hex>(input, fn)) {
         p_set_end(input, end);
     }
     if (Hex) {
-        ret = CsFloat(ldexp(r, fn));
+        ret = CsFloat(ldexp(r, fn * 4));
     } else {
         ret = CsFloat(r * pow(10, fn));
     }
