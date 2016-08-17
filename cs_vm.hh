@@ -70,7 +70,7 @@ static void cs_do_args(CsState &cs, F body) {
     int argmask1 = cs.stack->usedargs;
     for (int i = 0; argmask1; argmask1 >>= 1, ++i) {
         if (argmask1 & 1) {
-            cs.identmap[i]->undo_arg(argstack[i]);
+            static_cast<Alias *>(cs.identmap[i])->undo_arg(argstack[i]);
         }
     }
     IdentLink *prevstack = cs.stack->next;
@@ -84,7 +84,7 @@ static void cs_do_args(CsState &cs, F body) {
     int argmask2 = cs.stack->usedargs;
     for (int i = 0; argmask2; argmask2 >>= 1, ++i) {
         if (argmask2 & 1) {
-            cs.identmap[i]->redo_arg(argstack[i]);
+            static_cast<Alias *>(cs.identmap[i])->redo_arg(argstack[i]);
         }
     }
 }

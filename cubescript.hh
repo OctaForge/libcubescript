@@ -172,8 +172,6 @@ union IdentValuePtr {
 
 struct CsState;
 
-using VarCb = ostd::Function<void(Ident &)>;
-
 enum class IdentType {
     unknown = -1,
     ivar, fvar, svar, command, alias
@@ -199,7 +197,6 @@ struct OSTD_EXPORT Ident {
             IdentValue overrideval;
         };
         struct { /* ID_ALIAS */
-            Bytecode *code;
             IdentValue val;
             IdentStack *stack;
         };
@@ -222,19 +219,6 @@ struct OSTD_EXPORT Ident {
     void get_val(TaggedValue &r) const;
     void get_cstr(TaggedValue &v) const;
     void get_cval(TaggedValue &v) const;
-
-    void clean_code();
-
-    void push_arg(TaggedValue const &v, IdentStack &st, bool um = true);
-    void pop_arg();
-    void undo_arg(IdentStack &st);
-    void redo_arg(IdentStack const &st);
-
-    void push_alias(IdentStack &st);
-    void pop_alias();
-
-    void set_arg(CsState &cs, TaggedValue &v);
-    void set_alias(CsState &cs, TaggedValue &v);
 
     int get_valtype() const {
         return valtype;
@@ -271,6 +255,8 @@ protected:
     Ident();
 };
 
+using VarCb = ostd::Function<void(Ident &)>;
+
 struct OSTD_EXPORT Var: Ident {
     VarCb cb_var;
 
@@ -306,11 +292,23 @@ struct OSTD_EXPORT Svar: Var {
 };
 
 struct OSTD_EXPORT Alias: Ident {
+    Bytecode *code;
+
     Alias(ostd::ConstCharRange n, char *a, int flags);
     Alias(ostd::ConstCharRange n, CsInt a, int flags);
     Alias(ostd::ConstCharRange n, CsFloat a, int flags);
     Alias(ostd::ConstCharRange n, int flags);
     Alias(ostd::ConstCharRange n, TaggedValue const &v, int flags);
+
+    void push_arg(TaggedValue const &v, IdentStack &st, bool um = true);
+    void pop_arg();
+    void undo_arg(IdentStack &st);
+    void redo_arg(IdentStack const &st);
+
+    void set_arg(CsState &cs, TaggedValue &v);
+    void set_alias(CsState &cs, TaggedValue &v);
+
+    void clean_code();
 
     void force_null() {
         if (valtype == VAL_STR) {
@@ -475,52 +473,52 @@ enum {
 OSTD_EXPORT void init_libs(CsState &cs, int libs = CS_LIB_ALL);
 
 struct OSTD_EXPORT StackedValue: TaggedValue {
-    StackedValue(Ident *id = nullptr):
-        TaggedValue(), p_id(nullptr), p_stack(), p_pushed(false)
+    StackedValue(Alias *a = nullptr):
+        TaggedValue(), p_a(nullptr), p_stack(), p_pushed(false)
     {
-        set_id(id);
+        set_alias(a);
     }
 
     ~StackedValue() {
         pop();
     }
 
-    bool set_id(Ident *id) {
+    bool set_alias(Ident *id) {
         if (!id || !id->is_alias()) {
             return false;
         }
-        p_id = id;
+        p_a = static_cast<Alias *>(id);
         return true;
     }
 
-    Ident *get_id() const {
-        return p_id;
+    Alias *get_alias() const {
+        return p_a;
     }
 
-    bool has_id() const {
-        return p_id != nullptr;
+    bool has_alias() const {
+        return p_a != nullptr;
     }
 
     bool push() {
-        if (p_pushed || !p_id) {
+        if (p_pushed || !p_a) {
             return false;
         }
-        p_id->push_arg(*this, p_stack);
+        p_a->push_arg(*this, p_stack);
         p_pushed = true;
         return true;
     }
 
     bool pop() {
-        if (!p_pushed || !p_id) {
+        if (!p_pushed || !p_a) {
             return false;
         }
-        p_id->pop_arg();
+        p_a->pop_arg();
         p_pushed = false;
         return true;
     }
 
 private:
-    Ident *p_id;
+    Alias *p_a;
     IdentStack p_stack;
     bool p_pushed;
 };

@@ -159,8 +159,9 @@ CsState::~CsState() {
     for (auto &p: idents.iter()) {
         Ident *i = p.second;
         if (i->type == ID_ALIAS) {
-            static_cast<Alias *>(i)->force_null();
-            delete[] reinterpret_cast<ostd::Uint32 *>(i->code);
+            Alias *a = static_cast<Alias *>(i);
+            a->force_null();
+            delete[] reinterpret_cast<ostd::Uint32 *>(a->code);
         } else if (i->type == ID_COMMAND || i->type >= ID_LOCAL) {
             delete[] static_cast<Command *>(i)->cargs;
         }
@@ -660,7 +661,7 @@ void Ident::get_cval(TaggedValue &v) const {
     }
 }
 
-void Ident::clean_code() {
+void Alias::clean_code() {
     ostd::Uint32 *bcode = reinterpret_cast<ostd::Uint32 *>(code);
     if (bcode) {
         bcode_decr(bcode);
@@ -668,7 +669,7 @@ void Ident::clean_code() {
     }
 }
 
-void Ident::push_arg(TaggedValue const &v, IdentStack &st, bool um) {
+void Alias::push_arg(TaggedValue const &v, IdentStack &st, bool um) {
     st.val = val;
     st.valtype = valtype;
     st.next = stack;
@@ -680,7 +681,7 @@ void Ident::push_arg(TaggedValue const &v, IdentStack &st, bool um) {
     }
 }
 
-void Ident::pop_arg() {
+void Alias::pop_arg() {
     if (!stack) {
         return;
     }
@@ -693,7 +694,7 @@ void Ident::pop_arg() {
     stack = st->next;
 }
 
-void Ident::undo_arg(IdentStack &st) {
+void Alias::undo_arg(IdentStack &st) {
     IdentStack *prev = stack;
     st.val = val;
     st.valtype = valtype;
@@ -703,7 +704,7 @@ void Ident::undo_arg(IdentStack &st) {
     clean_code();
 }
 
-void Ident::redo_arg(IdentStack const &st) {
+void Alias::redo_arg(IdentStack const &st) {
     IdentStack *prev = st.next;
     prev->val = val;
     prev->valtype = valtype;
@@ -712,19 +713,7 @@ void Ident::redo_arg(IdentStack const &st) {
     clean_code();
 }
 
-void Ident::push_alias(IdentStack &stack) {
-    if (type == ID_ALIAS && index >= MaxArguments) {
-        push_arg(null_value, stack);
-    }
-}
-
-void Ident::pop_alias() {
-    if (type == ID_ALIAS && index >= MaxArguments) {
-        pop_arg();
-    }
-}
-
-void Ident::set_arg(CsState &cs, TaggedValue &v) {
+void Alias::set_arg(CsState &cs, TaggedValue &v) {
     if (cs.stack->usedargs & (1 << index)) {
         if (get_valtype() == VAL_STR) {
             delete[] val.s;
@@ -737,7 +726,7 @@ void Ident::set_arg(CsState &cs, TaggedValue &v) {
     }
 }
 
-void Ident::set_alias(CsState &cs, TaggedValue &v) {
+void Alias::set_alias(CsState &cs, TaggedValue &v) {
     if (get_valtype() == VAL_STR) {
         delete[] val.s;
     }
@@ -1106,23 +1095,23 @@ void cs_init_lib_io(CsState &cs) {
     });
 }
 
-static inline void cs_set_iter(Ident &id, CsInt i, IdentStack &stack) {
-    if (id.stack == &stack) {
-        if (id.get_valtype() != VAL_INT) {
-            if (id.get_valtype() == VAL_STR) {
-                delete[] id.val.s;
-                id.val.s = nullptr;
-                id.val.len = 0;
+static inline void cs_set_iter(Alias &a, CsInt i, IdentStack &stack) {
+    if (a.stack == &stack) {
+        if (a.get_valtype() != VAL_INT) {
+            if (a.get_valtype() == VAL_STR) {
+                delete[] a.val.s;
+                a.val.s = nullptr;
+                a.val.len = 0;
             }
-            id.clean_code();
-            id.valtype = VAL_INT;
+            a.clean_code();
+            a.valtype = VAL_INT;
         }
-        id.val.i = i;
+        a.val.i = i;
         return;
     }
     TaggedValue v;
     v.set_int(i);
-    id.push_arg(v, stack);
+    a.push_arg(v, stack);
 }
 
 static inline void cs_do_loop(
@@ -1132,15 +1121,16 @@ static inline void cs_do_loop(
     if (n <= 0 || !id.is_alias()) {
         return;
     }
+    Alias &a = static_cast<Alias &>(id);
     IdentStack stack;
     for (CsInt i = 0; i < n; ++i) {
-        cs_set_iter(id, offset + i * step, stack);
+        cs_set_iter(a, offset + i * step, stack);
         if (cond && !cs.run_bool(cond)) {
             break;
         }
         cs.run_int(body);
     }
-    id.pop_arg();
+    a.pop_arg();
 }
 
 static inline void cs_loop_conc(
@@ -1150,10 +1140,11 @@ static inline void cs_loop_conc(
     if (n <= 0 || !id.is_alias()) {
         return;
     }
+    Alias &a = static_cast<Alias &>(id);
     IdentStack stack;
     ostd::Vector<char> s;
     for (CsInt i = 0; i < n; ++i) {
-        cs_set_iter(id, offset + i * step, stack);
+        cs_set_iter(a, offset + i * step, stack);
         TaggedValue v;
         cs.run_ret(body, v);
         ostd::String vstr = ostd::move(v.get_str());
@@ -1164,7 +1155,7 @@ static inline void cs_loop_conc(
         v.cleanup();
     }
     if (n > 0) {
-        id.pop_arg();
+        a.pop_arg();
     }
     s.push('\0');
     ostd::Size len = s.size() - 1;
@@ -1293,12 +1284,13 @@ void cs_init_lib_base(CsState &cs) {
         if (!id->is_alias() || (id->index < MaxArguments)) {
             return;
         }
+        Alias *a = static_cast<Alias *>(id);
         if (v.get_bool()) {
             IdentStack stack;
-            id->push_arg(v, stack);
+            a->push_arg(v, stack);
             v.set_null();
             cs.run_ret(code, res);
-            id->pop_arg();
+            a->pop_arg();
         }
     });
 
@@ -1432,12 +1424,13 @@ void cs_init_lib_base(CsState &cs) {
         if (!id->is_alias() || (id->index < MaxArguments)) {
             return;
         }
+        Alias *a = static_cast<Alias *>(id);
         IdentStack stack;
         TaggedValue &v = args[1];
-        id->push_arg(v, stack);
+        a->push_arg(v, stack);
         v.set_null();
         cs.run_ret(args[2].get_code(), res);
-        id->pop_arg();
+        a->pop_arg();
     });
 
     cs_add_command(cs, "local", nullptr, nullptr, ID_LOCAL);

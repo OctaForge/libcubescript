@@ -68,21 +68,21 @@ static inline void cs_list_assoc(TvalRange args, TaggedValue &res, F cmp) {
     }
 }
 
-static inline void cs_set_iter(Ident &id, char *val, IdentStack &stack) {
-    if (id.stack == &stack) {
-        if (id.get_valtype() == VAL_STR) {
-            delete[] id.val.s;
+static inline void cs_set_iter(Alias &a, char *val, IdentStack &stack) {
+    if (a.stack == &stack) {
+        if (a.get_valtype() == VAL_STR) {
+            delete[] a.val.s;
         } else {
-            id.valtype = VAL_STR;
+            a.valtype = VAL_STR;
         }
-        id.clean_code();
-        id.val.s = val;
-        id.val.len = strlen(val);
+        a.clean_code();
+        a.val.s = val;
+        a.val.len = strlen(val);
         return;
     }
     TaggedValue v;
     v.set_mstr(val);
-    id.push_arg(v, stack);
+    a.push_arg(v, stack);
 }
 
 static void cs_loop_list_conc(
@@ -97,7 +97,7 @@ static void cs_loop_list_conc(
     int n = 0;
     for (util::ListParser p(list); p.parse(); ++n) {
         char *val = p.element().disown();
-        cs_set_iter(*id, val, stack);
+        cs_set_iter(*static_cast<Alias *>(id), val, stack);
         if (n && space) {
             r.push(' ');
         }
@@ -108,7 +108,7 @@ static void cs_loop_list_conc(
         v.cleanup();
     }
     if (n) {
-        id->pop_arg();
+        static_cast<Alias *>(id)->pop_arg();
     }
     r.push('\0');
     ostd::Size len = r.size();
@@ -222,7 +222,7 @@ void cs_init_lib_list(CsState &cs) {
         int n = -1;
         for (util::ListParser p(args[1].get_strr()); p.parse();) {
             ++n;
-            cs_set_iter(*id, cs_dup_ostr(p.item), stack);
+            cs_set_iter(*static_cast<Alias *>(id), cs_dup_ostr(p.item), stack);
             if (cs.run_bool(body)) {
                 res.set_int(CsInt(n));
                 goto found;
@@ -231,7 +231,7 @@ void cs_init_lib_list(CsState &cs) {
         res.set_int(-1);
 found:
         if (n >= 0) {
-            id->pop_arg();
+            static_cast<Alias *>(id)->pop_arg();
         }
     });
 
@@ -245,7 +245,7 @@ found:
         int n = -1;
         for (util::ListParser p(args[1].get_strr()); p.parse();) {
             ++n;
-            cs_set_iter(*id, cs_dup_ostr(p.item), stack);
+            cs_set_iter(*static_cast<Alias *>(id), cs_dup_ostr(p.item), stack);
             if (cs.run_bool(body)) {
                 if (p.parse()) {
                     auto elem = p.element();
@@ -260,7 +260,7 @@ found:
             }
         }
         if (n >= 0) {
-            id->pop_arg();
+            static_cast<Alias *>(id)->pop_arg();
         }
     });
 
@@ -317,11 +317,11 @@ found:
         IdentStack stack;
         int n = 0;
         for (util::ListParser p(args[1].get_strr()); p.parse(); ++n) {
-            cs_set_iter(*id, p.element().disown(), stack);
+            cs_set_iter(*static_cast<Alias *>(id), p.element().disown(), stack);
             cs.run_int(body);
         }
         if (n) {
-            id->pop_arg();
+            static_cast<Alias *>(id)->pop_arg();
         }
     });
 
@@ -334,15 +334,16 @@ found:
         IdentStack stack, stack2;
         int n = 0;
         for (util::ListParser p(args[2].get_strr()); p.parse(); n += 2) {
-            cs_set_iter(*id, p.element().disown(), stack);
+            cs_set_iter(*static_cast<Alias *>(id), p.element().disown(), stack);
             cs_set_iter(
-                *id2, p.parse() ? p.element().disown() : cs_dup_ostr(""), stack2
+                *static_cast<Alias *>(id2),
+                p.parse() ? p.element().disown() : cs_dup_ostr(""), stack2
             );
             cs.run_int(body);
         }
         if (n) {
-            id->pop_arg();
-            id2->pop_arg();
+            static_cast<Alias *>(id)->pop_arg();
+            static_cast<Alias *>(id2)->pop_arg();
         }
     });
 
@@ -357,19 +358,21 @@ found:
         IdentStack stack, stack2, stack3;
         int n = 0;
         for (util::ListParser p(args[3].get_strr()); p.parse(); n += 3) {
-            cs_set_iter(*id, p.element().disown(), stack);
+            cs_set_iter(*static_cast<Alias *>(id), p.element().disown(), stack);
             cs_set_iter(
-                *id2, p.parse() ? p.element().disown() : cs_dup_ostr(""), stack2
+                *static_cast<Alias *>(id2),
+                p.parse() ? p.element().disown() : cs_dup_ostr(""), stack2
             );
             cs_set_iter(
-                *id3, p.parse() ? p.element().disown() : cs_dup_ostr(""), stack3
+                *static_cast<Alias *>(id3),
+                p.parse() ? p.element().disown() : cs_dup_ostr(""), stack3
             );
             cs.run_int(body);
         }
         if (n) {
-            id->pop_arg();
-            id2->pop_arg();
-            id3->pop_arg();
+            static_cast<Alias *>(id)->pop_arg();
+            static_cast<Alias *>(id2)->pop_arg();
+            static_cast<Alias *>(id3)->pop_arg();
         }
     });
 
@@ -402,7 +405,7 @@ found:
         int n = 0;
         for (util::ListParser p(args[1].get_strr()); p.parse(); ++n) {
             char *val = cs_dup_ostr(p.item);
-            cs_set_iter(*id, val, stack);
+            cs_set_iter(*static_cast<Alias *>(id), val, stack);
             if (cs.run_bool(body)) {
                 if (r.size()) {
                     r.push(' ');
@@ -411,7 +414,7 @@ found:
             }
         }
         if (n) {
-            id->pop_arg();
+            static_cast<Alias *>(id)->pop_arg();
         }
         r.push('\0');
         ostd::Size len = r.size() - 1;
@@ -428,13 +431,13 @@ found:
         int n = 0, r = 0;
         for (util::ListParser p(args[1].get_strr()); p.parse(); ++n) {
             char *val = cs_dup_ostr(p.item);
-            cs_set_iter(*id, val, stack);
+            cs_set_iter(*static_cast<Alias *>(id), val, stack);
             if (cs.run_bool(body)) {
                 r++;
             }
         }
         if (n) {
-            id->pop_arg();
+            static_cast<Alias *>(id)->pop_arg();
         }
         res.set_int(r);
     });
@@ -546,7 +549,7 @@ struct ListSortItem {
 
 struct ListSortFun {
     CsState &cs;
-    Ident *x, *y;
+    Alias *x, *y;
     Bytecode *body;
 
     bool operator()(ListSortItem const &xval, ListSortItem const &yval) {
@@ -574,6 +577,8 @@ static void cs_list_sort(
         return;
     }
 
+    Alias *xa = static_cast<Alias *>(x), *ya = static_cast<Alias *>(y);
+
     ostd::Vector<ListSortItem> items;
     ostd::Size clen = list.size();
     ostd::Size total = 0;
@@ -596,13 +601,13 @@ static void cs_list_sort(
     nv.set_null();
 
     IdentStack xstack, ystack;
-    x->push_arg(nv, xstack);
-    y->push_arg(nv, ystack);
+    xa->push_arg(nv, xstack);
+    ya->push_arg(nv, ystack);
 
     ostd::Size totaluniq = total;
     ostd::Size nuniq = items.size();
     if (body) {
-        ListSortFun f = { cs, x, y, body };
+        ListSortFun f = { cs, xa, ya, body };
         ostd::sort_cmp(items.iter(), f);
         if (!code_is_empty(unique)) {
             f.body = unique;
@@ -619,7 +624,7 @@ static void cs_list_sort(
             }
         }
     } else {
-        ListSortFun f = { cs, x, y, unique };
+        ListSortFun f = { cs, xa, ya, unique };
         totaluniq = items[0].quote.size();
         nuniq = 1;
         for (ostd::Size i = 1; i < items.size(); i++) {
@@ -638,8 +643,8 @@ static void cs_list_sort(
         }
     }
 
-    x->pop_arg();
-    y->pop_arg();
+    xa->pop_arg();
+    ya->pop_arg();
 
     char *sorted = cstr;
     ostd::Size sortedlen = totaluniq + ostd::max(nuniq - 1, ostd::Size(0));
