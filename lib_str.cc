@@ -13,7 +13,10 @@ static inline void cs_strgcmp(TvalRange args, TaggedValue &res, F cfunc) {
             val = cfunc(args[i - 1].get_strr(), args[i].get_strr());
         }
     } else {
-        val = cfunc(!args.empty() ? args[0].get_strr() : ostd::ConstCharRange(), ostd::ConstCharRange());
+        val = cfunc(
+            !args.empty() ? args[0].get_strr() : ostd::ConstCharRange(),
+            ostd::ConstCharRange()
+        );
     }
     res.set_int(CsInt(val));
 };
