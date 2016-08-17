@@ -139,8 +139,9 @@ static inline void cs_list_merge(TvalRange args, TaggedValue &res, F cmp) {
     }
     for (util::ListParser p(list); p.parse();) {
         if (cmp(cs_list_includes(elems, p.item), 0)) {
-            if (!buf.empty())
+            if (!buf.empty()) {
                 buf.push(' ');
+            }
             buf.push_n(p.quote.data(), p.quote.size());
         }
     }
