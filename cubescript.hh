@@ -164,12 +164,6 @@ struct IdentStack {
     IdentStack *next;
 };
 
-union IdentValuePtr {
-    CsInt *ip;   /* ID_IVAR */
-    CsFloat *fp; /* ID_FVAR */
-    char **sp; /* ID_SVAR */
-};
-
 struct CsState;
 
 enum class IdentType {
@@ -182,18 +176,6 @@ struct OSTD_EXPORT Ident {
     ostd::ushort flags;
     int index;
     ostd::String name;
-    struct { /* ID_IVAR, ID_FVAR, ID_SVAR */
-        union {
-            struct { /* ID_IVAR */
-                CsInt minval, maxval;
-            };
-            struct { /* ID_FVAR */
-                CsFloat minvalf, maxvalf;
-            };
-        };
-        IdentValuePtr storage;
-        IdentValue overrideval;
-    };
 
     IdentType get_type() const;
 
@@ -242,6 +224,9 @@ protected:
 };
 
 struct OSTD_EXPORT Ivar: Var {
+    CsInt minval, maxval, overrideval;
+    CsInt *storage;
+
     Ivar(
         ostd::ConstCharRange n, CsInt m, CsInt x, CsInt *s,
         VarCb f = VarCb(), int flags = 0
@@ -249,6 +234,9 @@ struct OSTD_EXPORT Ivar: Var {
 };
 
 struct OSTD_EXPORT Fvar: Var {
+    CsFloat minval, maxval, overrideval;
+    CsFloat *storage;
+
     Fvar(
         ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat *s,
         VarCb f = VarCb(), int flags = 0
@@ -256,6 +244,9 @@ struct OSTD_EXPORT Fvar: Var {
 };
 
 struct OSTD_EXPORT Svar: Var {
+    char *overrideval;
+    char **storage;
+
     Svar(
         ostd::ConstCharRange n, char **s, VarCb f = VarCb(),
         int flags = 0

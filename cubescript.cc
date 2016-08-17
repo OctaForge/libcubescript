@@ -45,36 +45,29 @@ Var::Var(VarCb f): cb_var(ostd::move(f)) {}
 /* ID_IVAR */
 Ivar::Ivar(
     ostd::ConstCharRange n, CsInt m, CsInt x, CsInt *s, VarCb f, int flagsv
-): Var(ostd::move(f)) {
+): Var(ostd::move(f)), minval(m), maxval(x), overrideval(0), storage(s) {
     type = ID_IVAR;
     flags = flagsv | (m > x ? IDF_READONLY : 0);
     name = n;
-    minval = m;
-    maxval = x;
-    storage.ip = s;
 }
 
 /* ID_FVAR */
 Fvar::Fvar(
     ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat *s,
     VarCb f, int flagsv
-): Var(ostd::move(f)) {
+): Var(ostd::move(f)), minval(m), maxval(x), overrideval(0), storage(s) {
     type = ID_FVAR;
     flags = flagsv | (m > x ? IDF_READONLY : 0);
     name = n;
-    minvalf = m;
-    maxvalf = x;
-    storage.fp = s;
 }
 
 /* ID_SVAR */
 Svar::Svar(ostd::ConstCharRange n, char **s, VarCb f, int flagsv):
-    Var(ostd::move(f))
+    Var(ostd::move(f)), overrideval(nullptr), storage(s)
 {
     type = ID_SVAR;
     flags = flagsv;
     name = n;
-    storage.sp = s;
 }
 
 /* ID_ALIAS */
@@ -181,21 +174,21 @@ void CsState::clear_override(Ident &id) {
         }
         case ID_IVAR: {
             Ivar &iv = static_cast<Ivar &>(id);
-            *iv.storage.ip = iv.overrideval.i;
+            *iv.storage = iv.overrideval;
             iv.changed();
             break;
         }
         case ID_FVAR: {
-            Ivar &iv = static_cast<Ivar &>(id);
-            *iv.storage.fp = iv.overrideval.f;
-            iv.changed();
+            Fvar &fv = static_cast<Fvar &>(id);
+            *fv.storage = fv.overrideval;
+            fv.changed();
             break;
         }
         case ID_SVAR: {
-            Ivar &iv = static_cast<Ivar &>(id);
-            delete[] *iv.storage.sp;
-            *iv.storage.sp = iv.overrideval.s;
-            iv.changed();
+            Svar &sv = static_cast<Svar &>(id);
+            delete[] *sv.storage;
+            *sv.storage = sv.overrideval;
+            sv.changed();
             break;
         }
     }
@@ -336,17 +329,17 @@ void CsState::print_var(Var *v) {
     switch (v->get_type()) {
         case IdentType::ivar: {
             Ivar *iv = static_cast<Ivar *>(v);
-            print_var_int(iv, *iv->storage.ip);
+            print_var_int(iv, *iv->storage);
             break;
         }
         case IdentType::fvar: {
             Fvar *fv = static_cast<Fvar *>(v);
-            print_var_float(fv, *fv->storage.fp);
+            print_var_float(fv, *fv->storage);
             break;
         }
         case IdentType::svar: {
             Svar *sv = static_cast<Svar *>(v);
-            print_var_str(sv, *sv->storage.sp);
+            print_var_str(sv, *sv->storage);
             break;
         }
         default:
@@ -771,16 +764,16 @@ void CsState::set_var_int(
     Ivar *iv = static_cast<Ivar *>(id);
     bool success = cs_override_var(
         *this, iv,
-        [&iv]() { iv->overrideval.i = *iv->storage.ip; },
+        [&iv]() { iv->overrideval = *iv->storage; },
         []() {}, []() {}
     );
     if (!success) {
         return;
     }
     if (doclamp) {
-        *iv->storage.ip = ostd::clamp(v, iv->minval, iv->maxval);
+        *iv->storage = ostd::clamp(v, iv->minval, iv->maxval);
     } else {
-        *iv->storage.ip = v;
+        *iv->storage = v;
     }
     if (dofunc) {
         iv->changed();
@@ -797,16 +790,16 @@ void CsState::set_var_float(
     Fvar *fv = static_cast<Fvar *>(id);
     bool success = cs_override_var(
         *this, fv,
-        [&fv]() { fv->overrideval.f = *fv->storage.fp; },
+        [&fv]() { fv->overrideval = *fv->storage; },
         []() {}, []() {}
     );
     if (!success) {
         return;
     }
     if (doclamp) {
-        *fv->storage.fp = ostd::clamp(v, fv->minvalf, fv->maxvalf);
+        *fv->storage = ostd::clamp(v, fv->minval, fv->maxval);
     } else {
-        *fv->storage.fp = v;
+        *fv->storage = v;
     }
     if (dofunc) {
         fv->changed();
@@ -823,14 +816,14 @@ void CsState::set_var_str(
     Svar *sv = static_cast<Svar *>(id);
     bool success = cs_override_var(
         *this, sv,
-        [&sv]() { sv->overrideval.s = *sv->storage.sp; },
-        [&sv]() { delete[] sv->overrideval.s; },
-        [&sv]() { delete[] *sv->storage.sp; }
+        [&sv]() { sv->overrideval = *sv->storage; },
+        [&sv]() { delete[] sv->overrideval; },
+        [&sv]() { delete[] *sv->storage; }
     );
     if (!success) {
         return;
     }
-    *sv->storage.sp = cs_dup_ostr(v);
+    *sv->storage = cs_dup_ostr(v);
     if (dofunc) {
         sv->changed();
     }
@@ -841,7 +834,7 @@ ostd::Maybe<CsInt> CsState::get_var_int(ostd::ConstCharRange name) {
     if (!id || id->is_ivar()) {
         return ostd::nothing;
     }
-    return *static_cast<Ivar *>(id)->storage.ip;
+    return *static_cast<Ivar *>(id)->storage;
 }
 
 ostd::Maybe<CsFloat> CsState::get_var_float(ostd::ConstCharRange name) {
@@ -849,7 +842,7 @@ ostd::Maybe<CsFloat> CsState::get_var_float(ostd::ConstCharRange name) {
     if (!id || id->is_fvar()) {
         return ostd::nothing;
     }
-    return *static_cast<Fvar *>(id)->storage.fp;
+    return *static_cast<Fvar *>(id)->storage;
 }
 
 ostd::Maybe<ostd::String> CsState::get_var_str(ostd::ConstCharRange name) {
@@ -857,7 +850,7 @@ ostd::Maybe<ostd::String> CsState::get_var_str(ostd::ConstCharRange name) {
     if (!id || id->is_svar()) {
         return ostd::nothing;
     }
-    return ostd::String(*static_cast<Svar *>(id)->storage.sp);
+    return ostd::String(*static_cast<Svar *>(id)->storage);
 }
 
 ostd::Maybe<CsInt> CsState::get_var_min_int(ostd::ConstCharRange name) {
@@ -881,7 +874,7 @@ ostd::Maybe<CsFloat> CsState::get_var_min_float(ostd::ConstCharRange name) {
     if (!id || id->is_fvar()) {
         return ostd::nothing;
     }
-    return static_cast<Fvar *>(id)->minvalf;
+    return static_cast<Fvar *>(id)->minval;
 }
 
 ostd::Maybe<CsFloat> CsState::get_var_max_float(ostd::ConstCharRange name) {
@@ -889,7 +882,7 @@ ostd::Maybe<CsFloat> CsState::get_var_max_float(ostd::ConstCharRange name) {
     if (!id || id->is_fvar()) {
         return ostd::nothing;
     }
-    return static_cast<Fvar *>(id)->maxvalf;
+    return static_cast<Fvar *>(id)->maxval;
 }
 
 ostd::Maybe<ostd::String>
@@ -933,7 +926,7 @@ void CsState::set_var_int_checked(Ivar *iv, CsInt v) {
     }
     bool success = cs_override_var(
         *this, iv,
-        [&iv]() { iv->overrideval.i = *iv->storage.ip; },
+        [&iv]() { iv->overrideval = *iv->storage; },
         []() {}, []() {}
     );
     if (!success) {
@@ -942,7 +935,7 @@ void CsState::set_var_int_checked(Ivar *iv, CsInt v) {
     if ((v < iv->minval) || (v > iv->maxval)) {
         v = cs_clamp_var(*this, iv, v);
     }
-    *iv->storage.ip = v;
+    *iv->storage = v;
     iv->changed();
 }
 
@@ -958,16 +951,16 @@ void CsState::set_var_int_checked(Ivar *iv, TvalRange args) {
 }
 
 CsFloat cs_clamp_fvar(CsState &cs, Fvar *fv, CsFloat v) {
-    if (v < fv->minvalf) {
-        v = fv->minvalf;
-    } else if (v > fv->maxvalf) {
-        v = fv->maxvalf;
+    if (v < fv->minval) {
+        v = fv->minval;
+    } else if (v > fv->maxval) {
+        v = fv->maxval;
     } else {
         return v;
     }
     cs_debug_code(
-        cs, "valid range for '%s' is %s..%s", floatstr(fv->minvalf),
-        floatstr(fv->maxvalf)
+        cs, "valid range for '%s' is %s..%s", floatstr(fv->minval),
+        floatstr(fv->maxval)
     );
     return v;
 }
@@ -979,16 +972,16 @@ void CsState::set_var_float_checked(Fvar *fv, CsFloat v) {
     }
     bool success = cs_override_var(
         *this, fv,
-        [&fv]() { fv->overrideval.f = *fv->storage.fp; },
+        [&fv]() { fv->overrideval = *fv->storage; },
         []() {}, []() {}
     );
     if (!success) {
         return;
     }
-    if ((v < fv->minvalf) || (v > fv->maxvalf)) {
+    if ((v < fv->minval) || (v > fv->maxval)) {
         v = cs_clamp_fvar(*this, fv, v);
     }
-    *fv->storage.fp = v;
+    *fv->storage = v;
     fv->changed();
 }
 
@@ -999,14 +992,14 @@ void CsState::set_var_str_checked(Svar *sv, ostd::ConstCharRange v) {
     }
     bool success = cs_override_var(
         *this, sv,
-        [&sv]() { sv->overrideval.s = *sv->storage.sp; },
-        [&sv]() { delete[] sv->overrideval.s; },
-        [&sv]() { delete[] *sv->storage.sp; }
+        [&sv]() { sv->overrideval = *sv->storage; },
+        [&sv]() { delete[] sv->overrideval; },
+        [&sv]() { delete[] *sv->storage; }
     );
     if (!success) {
         return;
     }
-    *sv->storage.sp = cs_dup_ostr(v);
+    *sv->storage = cs_dup_ostr(v);
     sv->changed();
 }
 
