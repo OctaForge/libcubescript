@@ -464,7 +464,9 @@ static inline void cs_call_alias(
     };
     cs.stack = &aliaslink;
     if (!a->code) {
-        a->code = reinterpret_cast<Bytecode *>(compilecode(cs, a->get_str()));
+        a->code = reinterpret_cast<Bytecode *>(
+            compilecode(cs, a->val_v.get_str())
+        );
     }
     ostd::Uint32 *codep = reinterpret_cast<ostd::Uint32 *>(a->code);
     bcode_incr(codep);
@@ -972,7 +974,7 @@ static ostd::Uint32 const *runcode(
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
                         arg.set_str(ostd::move(
-                            static_cast<Alias *>(id)->get_str()
+                            static_cast<Alias *>(id)->val_v.get_str()
                         ));
                         continue;
                     case ID_SVAR:
@@ -997,7 +999,7 @@ static ostd::Uint32 const *runcode(
             }
             case CODE_LOOKUP | RET_STR:
                 args[numargs++].set_str(
-                    ostd::move(cs_get_lookup_id(cs, op)->get_str())
+                    ostd::move(cs_get_lookup_id(cs, op)->val_v.get_str())
                 );
                 continue;
             case CODE_LOOKUPARG | RET_STR: {
@@ -1005,7 +1007,7 @@ static ostd::Uint32 const *runcode(
                 if (!a) {
                     args[numargs++].set_str("");
                 } else {
-                    args[numargs++].set_str(ostd::move(a->get_str()));
+                    args[numargs++].set_str(ostd::move(a->val_v.get_str()));
                 }
                 continue;
             }
@@ -1014,7 +1016,7 @@ static ostd::Uint32 const *runcode(
                 TaggedValue &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
-                        arg.set_int(static_cast<Alias *>(id)->get_int());
+                        arg.set_int(static_cast<Alias *>(id)->val_v.get_int());
                         continue;
                     case ID_SVAR:
                         arg.set_int(cs_parse_int(
@@ -1036,7 +1038,7 @@ static ostd::Uint32 const *runcode(
             }
             case CODE_LOOKUP | RET_INT:
                 args[numargs++].set_int(
-                    cs_get_lookup_id(cs, op)->get_int()
+                    cs_get_lookup_id(cs, op)->val_v.get_int()
                 );
                 continue;
             case CODE_LOOKUPARG | RET_INT: {
@@ -1044,7 +1046,7 @@ static ostd::Uint32 const *runcode(
                 if (!a) {
                     args[numargs++].set_int(0);
                 } else {
-                    args[numargs++].set_int(a->get_int());
+                    args[numargs++].set_int(a->val_v.get_int());
                 }
                 continue;
             }
@@ -1053,7 +1055,9 @@ static ostd::Uint32 const *runcode(
                 TaggedValue &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
-                        arg.set_float(static_cast<Alias *>(id)->get_float());
+                        arg.set_float(
+                            static_cast<Alias *>(id)->val_v.get_float()
+                        );
                         continue;
                     case ID_SVAR:
                         arg.set_float(cs_parse_float(
@@ -1077,7 +1081,7 @@ static ostd::Uint32 const *runcode(
             }
             case CODE_LOOKUP | RET_FLOAT:
                 args[numargs++].set_float(
-                    cs_get_lookup_id(cs, op)->get_float()
+                    cs_get_lookup_id(cs, op)->val_v.get_float()
                 );
                 continue;
             case CODE_LOOKUPARG | RET_FLOAT: {
@@ -1085,7 +1089,7 @@ static ostd::Uint32 const *runcode(
                 if (!a) {
                     args[numargs++].set_float(CsFloat(0));
                 } else {
-                    args[numargs++].set_float(a->get_float());
+                    args[numargs++].set_float(a->val_v.get_float());
                 }
                 continue;
             }
@@ -1094,7 +1098,7 @@ static ostd::Uint32 const *runcode(
                 TaggedValue &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
-                        static_cast<Alias *>(id)->get_val(arg);
+                        static_cast<Alias *>(id)->val_v.get_val(arg);
                         continue;
                     case ID_SVAR:
                         arg.set_str(*static_cast<Svar *>(id)->storage);
@@ -1113,14 +1117,14 @@ static ostd::Uint32 const *runcode(
                 }
             }
             case CODE_LOOKUP | RET_NULL:
-                cs_get_lookup_id(cs, op)->get_val(args[numargs++]);
+                cs_get_lookup_id(cs, op)->val_v.get_val(args[numargs++]);
                 continue;
             case CODE_LOOKUPARG | RET_NULL: {
                 Alias *a = cs_get_lookuparg_id(cs, op);
                 if (!a) {
                     args[numargs++].set_null();
                 } else {
-                    a->get_val(args[numargs++]);
+                    a->val_v.get_val(args[numargs++]);
                 }
                 continue;
             }
@@ -1534,7 +1538,7 @@ noid:
                             force_arg(result, op & CODE_RET_MASK);
                             continue;
                         }
-                        if (a->get_valtype() == VAL_NULL) {
+                        if (a->val_v.get_type() == VAL_NULL) {
                             goto noid;
                         }
                         idarg.cleanup();
@@ -1630,7 +1634,7 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
                         break;
                     }
                 }
-                if (a->get_valtype() == VAL_NULL) {
+                if (a->val_v.get_type() == VAL_NULL) {
                     break;
                 }
                 cs_call_alias(

@@ -67,7 +67,9 @@ OSTD_EXPORT bool code_is_empty(Bytecode const *code);
 struct Ident;
 struct Alias;
 
-struct IdentValue {
+struct OSTD_EXPORT TaggedValue {
+    friend struct Alias;
+
     union {
         CsInt i;      /* ID_IVAR, VAL_INT */
         CsFloat f;    /* ID_FVAR, VAL_FLOAT */
@@ -77,10 +79,6 @@ struct IdentValue {
         char const *cstr; /* VAL_CSTR */
     };
     ostd::Size len;
-};
-
-struct OSTD_EXPORT TaggedValue: IdentValue {
-    friend struct Alias;
 
     int get_type() const {
         return p_type;
@@ -95,6 +93,13 @@ struct OSTD_EXPORT TaggedValue: IdentValue {
         f = val;
     }
     void set_str(ostd::String val) {
+        if (val.size() == 0) {
+            /* ostd zero length strings cannot be disowned */
+            char *buf = new char[1];
+            buf[0] = '\0';
+            set_mstr(buf);
+            return;
+        }
         ostd::CharRange cr = val.iter();
         val.disown();
         set_mstr(cr);
@@ -159,8 +164,7 @@ private:
 using TvalRange = ostd::PointerRange<TaggedValue>;
 
 struct IdentStack {
-    IdentValue val;
-    int valtype;
+    TaggedValue val_s;
     IdentStack *next;
 };
 
@@ -259,10 +263,9 @@ struct OSTD_EXPORT Svar: Var {
 };
 
 struct OSTD_EXPORT Alias: Ident {
-    int valtype;
     Bytecode *code;
     IdentStack *stack;
-    IdentValue val;
+    TaggedValue val_v;
 
     Alias(ostd::ConstCharRange n, char *a, int flags);
     Alias(ostd::ConstCharRange n, CsInt a, int flags);
@@ -271,26 +274,15 @@ struct OSTD_EXPORT Alias: Ident {
     Alias(ostd::ConstCharRange n, TaggedValue const &v, int flags);
 
     void set_value(TaggedValue const &v) {
-        valtype = v.get_type();
-        val = v;
+        val_v = v;
     }
 
     void set_value(IdentStack const &v) {
-        valtype = v.valtype;
-        val = v.val;
+        val_v = v.val_s;
     }
 
-    CsFloat get_float() const;
-    CsInt get_int() const;
-    ostd::String get_str() const;
-    ostd::ConstCharRange get_strr() const;
-    void get_val(TaggedValue &r) const;
     void get_cstr(TaggedValue &v) const;
     void get_cval(TaggedValue &v) const;
-
-    int get_valtype() const {
-        return valtype;
-    }
 
     void push_arg(TaggedValue const &v, IdentStack &st, bool um = true);
     void pop_arg();
@@ -303,12 +295,8 @@ struct OSTD_EXPORT Alias: Ident {
     void clean_code();
 
     void force_null() {
-        if (valtype == VAL_STR) {
-            delete[] val.s;
-            val.s = nullptr;
-            val.len = 0;
-        }
-        valtype = VAL_NULL;
+        val_v.cleanup();
+        val_v.set_null();
     }
 };
 

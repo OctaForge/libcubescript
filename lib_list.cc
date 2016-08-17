@@ -70,14 +70,9 @@ static inline void cs_list_assoc(TvalRange args, TaggedValue &res, F cmp) {
 
 static inline void cs_set_iter(Alias &a, char *val, IdentStack &stack) {
     if (a.stack == &stack) {
-        if (a.get_valtype() == VAL_STR) {
-            delete[] a.val.s;
-        } else {
-            a.valtype = VAL_STR;
-        }
+        a.val_v.cleanup();
         a.clean_code();
-        a.val.s = val;
-        a.val.len = strlen(val);
+        a.val_v.set_mstr(val);
         return;
     }
     TaggedValue v;
@@ -554,17 +549,9 @@ struct ListSortFun {
 
     bool operator()(ListSortItem const &xval, ListSortItem const &yval) {
         x->clean_code();
-        if (x->get_valtype() != VAL_CSTR) {
-            x->valtype = VAL_CSTR;
-        }
-        x->val.cstr = xval.str;
-        x->val.len = strlen(xval.str);
+        x->val_v.set_cstr(xval.str);
         y->clean_code();
-        if (y->get_valtype() != VAL_CSTR) {
-            y->valtype = VAL_CSTR;
-        }
-        y->val.cstr = yval.str;
-        y->val.len = strlen(yval.str);
+        y->val_v.set_cstr(yval.str);
         return cs.run_bool(body);
     }
 };
