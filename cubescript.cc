@@ -41,73 +41,100 @@ bool cs_check_num(ostd::ConstCharRange s) {
 Ident::Ident(): type(ID_UNKNOWN) {}
 
 /* ID_IVAR */
-Ident::Ident(
+Ivar::Ivar(
     ostd::ConstCharRange n, CsInt m, CsInt x, CsInt *s, VarCb f, int flagsv
-):
-    type(ID_IVAR), flags(flagsv | (m > x ? IDF_READONLY : 0)), name(n),
-    minval(m), maxval(x), cb_var(ostd::move(f))
-{
+) {
+    type = ID_IVAR;
+    flags = flagsv | (m > x ? IDF_READONLY : 0);
+    name = n;
+    minval = m;
+    maxval = x;
+    cb_var = ostd::move(f);
     storage.ip = s;
 }
 
 /* ID_FVAR */
-Ident::Ident(
+Fvar::Fvar(
     ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat *s,
     VarCb f, int flagsv
-):
-    type(ID_FVAR), flags(flagsv | (m > x ? IDF_READONLY : 0)), name(n),
-    minvalf(m), maxvalf(x), cb_var(ostd::move(f))
-{
+) {
+    type = ID_FVAR;
+    flags = flagsv | (m > x ? IDF_READONLY : 0);
+    name = n;
+    minvalf = m;
+    maxvalf = x;
+    cb_var = ostd::move(f);
     storage.fp = s;
 }
 
 /* ID_SVAR */
-Ident::Ident(ostd::ConstCharRange n, char **s, VarCb f, int flagsv):
-    type(ID_SVAR), flags(flagsv), name(n), cb_var(ostd::move(f))
-{
+Svar::Svar(ostd::ConstCharRange n, char **s, VarCb f, int flagsv) {
+    type = ID_SVAR;
+    flags = flagsv;
+    name = n;
+    cb_var = ostd::move(f);
     storage.sp = s;
 }
 
 /* ID_ALIAS */
-Ident::Ident(ostd::ConstCharRange n, char *a, int flagsv):
-    type(ID_ALIAS), valtype(VAL_STR), flags(flagsv), name(n), code(nullptr),
-    stack(nullptr)
-{
+Alias::Alias(ostd::ConstCharRange n, char *a, int flagsv) {
+    type = ID_ALIAS;
+    valtype = VAL_STR;
+    flags = flagsv;
+    name = n;
+    code = nullptr;
+    stack = nullptr;
     val.s = a;
     val.len = strlen(a);
 }
-Ident::Ident(ostd::ConstCharRange n, CsInt a, int flagsv):
-    type(ID_ALIAS), valtype(VAL_INT), flags(flagsv), name(n), code(nullptr),
-    stack(nullptr)
-{
+Alias::Alias(ostd::ConstCharRange n, CsInt a, int flagsv) {
+    type = ID_ALIAS;
+    valtype = VAL_INT;
+    flags = flagsv;
+    name = n;
+    code = nullptr;
+    stack = nullptr;
     val.i = a;
 }
-Ident::Ident(ostd::ConstCharRange n, CsFloat a, int flagsv):
-    type(ID_ALIAS), valtype(VAL_FLOAT), flags(flagsv), name(n), code(nullptr),
-    stack(nullptr)
-{
+Alias::Alias(ostd::ConstCharRange n, CsFloat a, int flagsv) {
+    type = ID_ALIAS;
+    valtype = VAL_FLOAT;
+    flags = flagsv;
+    name = n;
+    code = nullptr;
+    stack = nullptr;
     val.f = a;
 }
-Ident::Ident(ostd::ConstCharRange n, int flagsv):
-    type(ID_ALIAS), valtype(VAL_NULL), flags(flagsv), name(n), code(nullptr),
-    stack(nullptr)
-{}
-Ident::Ident(ostd::ConstCharRange n, TaggedValue const &v, int flagsv):
-    type(ID_ALIAS), valtype(v.p_type), flags(flagsv), name(n), code(nullptr),
-    stack(nullptr)
-{
+Alias::Alias(ostd::ConstCharRange n, int flagsv) {
+    type = ID_ALIAS;
+    valtype = VAL_NULL;
+    flags = flagsv;
+    name = n;
+    code = nullptr;
+    stack = nullptr;
+}
+Alias::Alias(ostd::ConstCharRange n, TaggedValue const &v, int flagsv) {
+    type = ID_ALIAS;
+    valtype = v.p_type;
+    flags = flagsv;
+    name = n;
+    code = nullptr;
+    stack = nullptr;
     val = v;
 }
 
 /* ID_COMMAND */
-Ident::Ident(
+Command::Command(
     int t, ostd::ConstCharRange n, ostd::ConstCharRange args,
-    ostd::Uint32 argmask, int numargs, CmdFunc f
+    ostd::Uint32 amask, int nargs, CmdFunc f
 ):
-    type(t), numargs(numargs), flags(0), name(n),
     cargs(!args.empty() ? cs_dup_ostr(args) : nullptr),
-    argmask(argmask), cb_cftv(ostd::move(f))
-{}
+    argmask(amask), numargs(nargs), cb_cftv(ostd::move(f))
+{
+    type = t;
+    flags = 0;
+    name = n;
+}
 
 void cs_init_lib_base(CsState &cs);
 
@@ -122,8 +149,8 @@ CsState::CsState() {
         new_ident(static_cast<char const *>(buf), IDF_ARG);
     }
     dummy = new_ident("//dummy");
-    add_ident(new Ident("numargs", MaxArguments, 0, &numargs));
-    add_ident(new Ident("dbgalias", 0, 1000, &dbgalias));
+    add_ident(new Ivar("numargs", MaxArguments, 0, &numargs));
+    add_ident(new Ivar("dbgalias", 0, 1000, &dbgalias));
     cs_init_lib_base(*this);
 }
 
@@ -131,10 +158,10 @@ CsState::~CsState() {
     for (auto &p: idents.iter()) {
         Ident *i = p.second;
         if (i->type == ID_ALIAS) {
-            i->force_null();
+            static_cast<Alias *>(i)->force_null();
             delete[] reinterpret_cast<ostd::Uint32 *>(i->code);
         } else if (i->type == ID_COMMAND || i->type >= ID_LOCAL) {
-            delete[] i->cargs;
+            delete[] static_cast<Command *>(i)->cargs;
         }
         delete i;
     }
@@ -186,7 +213,7 @@ Ident *CsState::new_ident(ostd::ConstCharRange name, int flags) {
             );
             return dummy;
         }
-        id = add_ident(new Ident(name, flags));
+        id = add_ident(new Alias(name, flags));
     }
     return id;
 }
@@ -264,7 +291,7 @@ void CsState::set_alias(ostd::ConstCharRange name, TaggedValue &v) {
         cs_debug_code(*this, "cannot alias number %s", name);
         v.cleanup();
     } else {
-        add_ident(new Ident(name, v, identflags));
+        add_ident(new Alias(name, v, identflags));
     }
 }
 
@@ -860,7 +887,7 @@ ostd::Maybe<CsFloat> CsState::get_var_max_float(ostd::ConstCharRange name) {
 }
 
 ostd::Maybe<ostd::String>
-CsState::get_alias(ostd::ConstCharRange name) {
+CsState::get_alias_val(ostd::ConstCharRange name) {
     Ident *id = get_ident(name);
     if (!id || id->is_alias()) {
         return ostd::nothing;
@@ -1027,7 +1054,7 @@ static bool cs_add_command(
                 return false;
         }
     }
-    cs.add_ident(new Ident(type, name, args, argmask, nargs, ostd::move(func)));
+    cs.add_ident(new Command(type, name, args, argmask, nargs, ostd::move(func)));
     return true;
 }
 
@@ -1420,7 +1447,7 @@ void cs_init_lib_base(CsState &cs) {
     });
 
     cs_add_command(cs, "getalias", "s", [&cs](TvalRange args, TaggedValue &res) {
-        res.set_str(ostd::move(cs.get_alias(args[0].get_strr()).value_or("")));
+        res.set_str(ostd::move(cs.get_alias_val(args[0].get_strr()).value_or("")));
     });
 }
 

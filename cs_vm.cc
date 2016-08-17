@@ -6,6 +6,14 @@
 
 namespace cscript {
 
+static inline bool cs_has_cmd_cb(Ident *id) {
+    if ((id->type != ID_COMMAND) && (id->type < ID_LOCAL)) {
+        return false;
+    }
+    Command *cb = static_cast<Command *>(id);
+    return !!cb->cb_cftv;
+}
+
 ostd::ConstCharRange cs_debug_line(
     CsState &cs, ostd::ConstCharRange p, ostd::ConstCharRange fmt,
     ostd::CharRange buf
@@ -256,7 +264,7 @@ void TaggedValue::copy_arg(TaggedValue &r) const {
 }
 
 static inline void callcommand(
-    CsState &cs, Ident *id, TaggedValue *args, TaggedValue &res, int numargs,
+    CsState &cs, Command *id, TaggedValue *args, TaggedValue &res, int numargs,
     bool lookup = false
 ) {
     int i = -1, fakeargs = 0;
@@ -522,7 +530,7 @@ static inline int cs_get_lookupu_type(
                 arg.cleanup();
                 arg.set_null();
                 TaggedValue buf[MaxArguments];
-                callcommand(cs, id, buf, arg, 0, true);
+                callcommand(cs, static_cast<Command *>(id), buf, arg, 0, true);
                 force_arg(arg, op & CODE_RET_MASK);
                 return -2; /* ignore */
             }
@@ -1234,7 +1242,7 @@ static ostd::Uint32 const *runcode(
             case CODE_COM | RET_STR:
             case CODE_COM | RET_FLOAT:
             case CODE_COM | RET_INT: {
-                Ident *id = cs.identmap[op >> 8];
+                Command *id = static_cast<Command *>(cs.identmap[op >> 8]);
                 int offset = numargs - id->numargs;
                 result.force_null();
                 id->cb_cftv(TvalRange(args + offset, id->numargs), result);
@@ -1247,7 +1255,7 @@ static ostd::Uint32 const *runcode(
             case CODE_COMV | RET_STR:
             case CODE_COMV | RET_FLOAT:
             case CODE_COMV | RET_INT: {
-                Ident *id = cs.identmap[op >> 13];
+                Command *id = static_cast<Command *>(cs.identmap[op >> 13]);
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
                 result.force_null();
                 id->cb_cftv(ostd::iter(&args[offset], callargs), result);
@@ -1259,7 +1267,7 @@ static ostd::Uint32 const *runcode(
             case CODE_COMC | RET_STR:
             case CODE_COMC | RET_FLOAT:
             case CODE_COMC | RET_INT: {
-                Ident *id = cs.identmap[op >> 13];
+                Command *id = static_cast<Command *>(cs.identmap[op >> 13]);
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
                 result.force_null();
                 {
@@ -1397,7 +1405,7 @@ noid:
                 result.force_null();
                 switch (id->type) {
                     default:
-                        if (!id->cb_cftv) {
+                        if (!cs_has_cmd_cb(id)) {
                             free_args(args, numargs, offset - 1);
                             force_arg(result, op & CODE_RET_MASK);
                             continue;
@@ -1405,7 +1413,10 @@ noid:
                     /* fallthrough */
                     case ID_COMMAND:
                         idarg.cleanup();
-                        callcommand(cs, id, &args[offset], result, callargs);
+                        callcommand(
+                            cs, static_cast<Command *>(id), &args[offset],
+                            result, callargs
+                        );
                         force_arg(result, op & CODE_RET_MASK);
                         numargs = offset - 1;
                         continue;
@@ -1506,17 +1517,23 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
     } else if (id) {
         switch (id->type) {
             default:
-                if (!id->cb_cftv) {
+                if (!cs_has_cmd_cb(id)) {
                     break;
                 }
             /* fallthrough */
             case ID_COMMAND:
-                if (nargs < id->numargs) {
+                if (nargs < static_cast<Command *>(id)->numargs) {
                     TaggedValue buf[MaxArguments];
                     memcpy(buf, args.data(), args.size() * sizeof(TaggedValue));
-                    callcommand(*this, id, buf, ret, nargs, false);
+                    callcommand(
+                        *this, static_cast<Command *>(id), buf, ret,
+                        nargs, false
+                    );
                 } else {
-                    callcommand(*this, id, args.data(), ret, nargs, false);
+                    callcommand(
+                        *this, static_cast<Command *>(id), args.data(),
+                        ret, nargs, false
+                    );
                 }
                 nargs = 0;
                 break;

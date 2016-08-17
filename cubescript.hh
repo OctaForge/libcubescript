@@ -65,6 +65,7 @@ private:
 OSTD_EXPORT bool code_is_empty(Bytecode const *code);
 
 struct Ident;
+struct Alias;
 
 struct IdentValue {
     union {
@@ -79,7 +80,7 @@ struct IdentValue {
 };
 
 struct OSTD_EXPORT TaggedValue: IdentValue {
-    friend struct Ident;
+    friend struct Alias;
 
     int get_type() const {
         return p_type;
@@ -172,7 +173,6 @@ union IdentValuePtr {
 struct CsState;
 
 using VarCb = ostd::Function<void(Ident &)>;
-using CmdFunc = ostd::Function<void(TvalRange, TaggedValue &)>;
 
 enum class IdentType {
     unknown = -1,
@@ -181,10 +181,7 @@ enum class IdentType {
 
 struct OSTD_EXPORT Ident {
     ostd::byte type; /* ID_something */
-    union {
-        int valtype; /* ID_ALIAS */
-        int numargs; /* ID_COMMAND */
-    };
+    int valtype; /* ID_ALIAS */
     ostd::ushort flags;
     int index;
     ostd::String name;
@@ -206,46 +203,8 @@ struct OSTD_EXPORT Ident {
             IdentValue val;
             IdentStack *stack;
         };
-        struct { /* ID_COMMAND */
-            char *cargs;
-            ostd::Uint32 argmask;
-        };
     };
     VarCb cb_var;
-    CmdFunc cb_cftv;
-
-    Ident();
-
-    /* ID_IVAR */
-    Ident(
-        ostd::ConstCharRange n, CsInt m, CsInt x, CsInt *s,
-        VarCb f = VarCb(), int flags = 0
-    );
-
-    /* ID_FVAR */
-    Ident(
-        ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat *s,
-        VarCb f = VarCb(), int flags = 0
-    );
-
-    /* ID_SVAR */
-    Ident(
-        ostd::ConstCharRange n, char **s, VarCb f = VarCb(),
-        int flags = 0
-    );
-
-    /* ID_ALIAS */
-    Ident(ostd::ConstCharRange n, char *a, int flags);
-    Ident(ostd::ConstCharRange n, CsInt a, int flags);
-    Ident(ostd::ConstCharRange n, CsFloat a, int flags);
-    Ident(ostd::ConstCharRange n, int flags);
-    Ident(ostd::ConstCharRange n, TaggedValue const &v, int flags);
-
-    /* ID_COMMAND */
-    Ident(
-        int t, ostd::ConstCharRange n, ostd::ConstCharRange args,
-        ostd::Uint32 argmask, int numargs, CmdFunc f = CmdFunc()
-    );
 
     void changed() {
         if (cb_var) {
@@ -261,15 +220,6 @@ struct OSTD_EXPORT Ident {
     void set_value(IdentStack const &v) {
         valtype = v.valtype;
         val = v.val;
-    }
-
-    void force_null() {
-        if (valtype == VAL_STR) {
-            delete[] val.s;
-            val.s = nullptr;
-            val.len = 0;
-        }
-        valtype = VAL_NULL;
     }
 
     CsFloat get_float() const;
@@ -323,6 +273,64 @@ struct OSTD_EXPORT Ident {
     bool is_svar() const {
         return get_type() == IdentType::svar;
     }
+
+protected:
+    Ident();
+};
+
+struct Var: Ident {
+};
+
+struct Ivar: Var {
+    Ivar(
+        ostd::ConstCharRange n, CsInt m, CsInt x, CsInt *s,
+        VarCb f = VarCb(), int flags = 0
+    );
+};
+
+struct Fvar: Var {
+    Fvar(
+        ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat *s,
+        VarCb f = VarCb(), int flags = 0
+    );
+};
+
+struct Svar: Var {
+    Svar(
+        ostd::ConstCharRange n, char **s, VarCb f = VarCb(),
+        int flags = 0
+    );
+};
+
+struct Alias: Ident {
+    Alias(ostd::ConstCharRange n, char *a, int flags);
+    Alias(ostd::ConstCharRange n, CsInt a, int flags);
+    Alias(ostd::ConstCharRange n, CsFloat a, int flags);
+    Alias(ostd::ConstCharRange n, int flags);
+    Alias(ostd::ConstCharRange n, TaggedValue const &v, int flags);
+
+    void force_null() {
+        if (valtype == VAL_STR) {
+            delete[] val.s;
+            val.s = nullptr;
+            val.len = 0;
+        }
+        valtype = VAL_NULL;
+    }
+};
+
+using CmdFunc = ostd::Function<void(TvalRange, TaggedValue &)>;
+
+struct Command: Ident {
+    char *cargs;
+    ostd::Uint32 argmask;
+    int numargs;
+    CmdFunc cb_cftv;
+
+    Command(
+        int t, ostd::ConstCharRange n, ostd::ConstCharRange args,
+        ostd::Uint32 argmask, int numargs, CmdFunc f = CmdFunc()
+    );
 };
 
 struct IdentLink {
@@ -373,6 +381,14 @@ struct OSTD_EXPORT CsState {
             return nullptr;
         }
         return *id;
+    }
+
+    Alias *get_alias(ostd::ConstCharRange name) {
+        Ident *id = get_ident(name);
+        if (!id->is_alias()) {
+            return nullptr;
+        }
+        return static_cast<Alias *>(id);
     }
 
     bool have_ident(ostd::ConstCharRange name) {
@@ -437,7 +453,7 @@ struct OSTD_EXPORT CsState {
     ostd::Maybe<CsFloat> get_var_min_float(ostd::ConstCharRange name);
     ostd::Maybe<CsFloat> get_var_max_float(ostd::ConstCharRange name);
 
-    ostd::Maybe<ostd::String> get_alias(ostd::ConstCharRange name);
+    ostd::Maybe<ostd::String> get_alias_val(ostd::ConstCharRange name);
 
     void print_var(Ident *id);
     void print_var_int(Ident *id, CsInt i);

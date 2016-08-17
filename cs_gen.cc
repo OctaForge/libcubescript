@@ -515,7 +515,8 @@ lookupid:
                         if (prevargs >= MaxResults) {
                             gs.code.push(CODE_ENTER);
                         }
-                        for (char const *fmt = id->cargs; *fmt; fmt++) {
+                        char const *fmt = static_cast<Command *>(id)->cargs;
+                        for (; *fmt; fmt++) {
                             switch (*fmt) {
                                 case 'S':
                                     gs.gen_str();
@@ -1190,7 +1191,8 @@ noid:
                     case ID_COMMAND: {
                         int comtype = CODE_COM, fakeargs = 0;
                         bool rep = false;
-                        for (char const *fmt = id->cargs; *fmt; fmt++) {
+                        char const *fmt = static_cast<Command *>(id)->cargs;
+                        for (; *fmt; fmt++) {
                             switch (*fmt) {
                                 case 'S':
                                 case 's':
