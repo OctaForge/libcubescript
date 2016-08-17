@@ -2,8 +2,6 @@
 #include "cs_vm.hh"
 #include "cs_util.hh"
 
-#include <limits.h>
-
 #include <ostd/memory.hh>
 
 namespace cscript {

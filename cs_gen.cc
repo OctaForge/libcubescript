@@ -2,7 +2,6 @@
 #include "cs_vm.hh"
 #include "cs_util.hh"
 
-#include <limits.h>
 #include <ctype.h>
 
 #include <ostd/memory.hh>
