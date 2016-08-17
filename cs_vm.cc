@@ -654,7 +654,7 @@ static ostd::Uint32 const *runcode(
                 result.set_null();
                 continue;
             case CODE_PRINT:
-                cs.print_var(cs.identmap[op >> 8]);
+                cs.print_var(static_cast<Var *>(cs.identmap[op >> 8]));
                 continue;
 
             case CODE_LOCAL: {
@@ -1186,7 +1186,9 @@ static ostd::Uint32 const *runcode(
                 args[numargs++].set_cstr(*cs.identmap[op >> 8]->storage.sp);
                 continue;
             case CODE_SVAR1:
-                cs.set_var_str_checked(cs.identmap[op >> 8], args[--numargs].s);
+                cs.set_var_str_checked(
+                    static_cast<Svar *>(cs.identmap[op >> 8]), args[--numargs].s
+                );
                 args[numargs].cleanup();
                 continue;
 
@@ -1205,18 +1207,20 @@ static ostd::Uint32 const *runcode(
                 );
                 continue;
             case CODE_IVAR1:
-                cs.set_var_int_checked(cs.identmap[op >> 8], args[--numargs].i);
+                cs.set_var_int_checked(
+                    static_cast<Ivar *>(cs.identmap[op >> 8]), args[--numargs].i
+                );
                 continue;
             case CODE_IVAR2:
                 numargs -= 2;
                 cs.set_var_int_checked(
-                    cs.identmap[op >> 8],
+                    static_cast<Ivar *>(cs.identmap[op >> 8]),
                     (args[numargs].i << 16) | (args[numargs + 1].i << 8));
                 continue;
             case CODE_IVAR3:
                 numargs -= 3;
                 cs.set_var_int_checked(
-                    cs.identmap[op >> 8],
+                    static_cast<Ivar *>(cs.identmap[op >> 8]),
                     (args[numargs].i << 16)
                         | (args[numargs + 1].i << 8)
                         | args[numargs + 2].i);
@@ -1235,7 +1239,9 @@ static ostd::Uint32 const *runcode(
                 args[numargs++].set_int(int(*cs.identmap[op >> 8]->storage.fp));
                 continue;
             case CODE_FVAR1:
-                cs.set_var_float_checked(cs.identmap[op >> 8], args[--numargs].f);
+                cs.set_var_float_checked(
+                    static_cast<Fvar *>(cs.identmap[op >> 8]), args[--numargs].f
+                );
                 continue;
 
             case CODE_COM | RET_NULL:
@@ -1436,10 +1442,11 @@ noid:
                     }
                     case ID_IVAR:
                         if (callargs <= 0) {
-                            cs.print_var(id);
+                            cs.print_var(static_cast<Ivar *>(id));
                         } else {
                             cs.set_var_int_checked(
-                                id, ostd::iter(&args[offset], callargs)
+                                static_cast<Ivar *>(id),
+                                ostd::iter(&args[offset], callargs)
                             );
                         }
                         free_args(args, numargs, offset - 1);
@@ -1447,10 +1454,11 @@ noid:
                         continue;
                     case ID_FVAR:
                         if (callargs <= 0) {
-                            cs.print_var(id);
+                            cs.print_var(static_cast<Fvar *>(id));
                         } else {
                             cs.set_var_float_checked(
-                                id, args[offset].force_float()
+                                static_cast<Fvar *>(id),
+                                args[offset].force_float()
                             );
                         }
                         free_args(args, numargs, offset - 1);
@@ -1458,9 +1466,12 @@ noid:
                         continue;
                     case ID_SVAR:
                         if (callargs <= 0) {
-                            cs.print_var(id);
+                            cs.print_var(static_cast<Svar *>(id));
                         } else {
-                            cs.set_var_str_checked(id, args[offset].force_str());
+                            cs.set_var_str_checked(
+                                static_cast<Svar *>(id),
+                                args[offset].force_str()
+                            );
                         }
                         free_args(args, numargs, offset - 1);
                         force_arg(result, op & CODE_RET_MASK);
@@ -1539,23 +1550,27 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
                 break;
             case ID_IVAR:
                 if (args.empty()) {
-                    print_var(id);
+                    print_var(static_cast<Ivar *>(id));
                 } else {
-                    set_var_int_checked(id, args);
+                    set_var_int_checked(static_cast<Ivar *>(id), args);
                 }
                 break;
             case ID_FVAR:
                 if (args.empty()) {
-                    print_var(id);
+                    print_var(static_cast<Fvar *>(id));
                 } else {
-                    set_var_float_checked(id, args[0].force_float());
+                    set_var_float_checked(
+                        static_cast<Fvar *>(id), args[0].force_float()
+                    );
                 }
                 break;
             case ID_SVAR:
                 if (args.empty()) {
-                    print_var(id);
+                    print_var(static_cast<Svar *>(id));
                 } else {
-                    set_var_str_checked(id, args[0].force_str());
+                    set_var_str_checked(
+                        static_cast<Svar *>(id), args[0].force_str()
+                    );
                 }
                 break;
             case ID_ALIAS:

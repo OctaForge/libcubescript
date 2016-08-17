@@ -204,13 +204,6 @@ struct OSTD_EXPORT Ident {
             IdentStack *stack;
         };
     };
-    VarCb cb_var;
-
-    void changed() {
-        if (cb_var) {
-            cb_var(*this);
-        }
-    }
 
     void set_value(TaggedValue const &v) {
         valtype = v.get_type();
@@ -279,6 +272,16 @@ protected:
 };
 
 struct Var: Ident {
+    VarCb cb_var;
+
+    void changed() {
+        if (cb_var) {
+            cb_var(*this);
+        }
+    }
+
+protected:
+    Var(VarCb f);
 };
 
 struct Ivar: Var {
@@ -438,10 +441,10 @@ struct OSTD_EXPORT CsState {
         ostd::ConstCharRange name, ostd::ConstCharRange v, bool dofunc = true
     );
 
-    void set_var_int_checked(Ident *id, CsInt v);
-    void set_var_int_checked(Ident *id, TvalRange args);
-    void set_var_float_checked(Ident *id, CsFloat v);
-    void set_var_str_checked(Ident *id, ostd::ConstCharRange v);
+    void set_var_int_checked(Ivar *iv, CsInt v);
+    void set_var_int_checked(Ivar *iv, TvalRange args);
+    void set_var_float_checked(Fvar *fv, CsFloat v);
+    void set_var_str_checked(Svar *fv, ostd::ConstCharRange v);
 
     ostd::Maybe<CsInt> get_var_int(ostd::ConstCharRange name);
     ostd::Maybe<CsFloat> get_var_float(ostd::ConstCharRange name);
@@ -455,10 +458,10 @@ struct OSTD_EXPORT CsState {
 
     ostd::Maybe<ostd::String> get_alias_val(ostd::ConstCharRange name);
 
-    void print_var(Ident *id);
-    void print_var_int(Ident *id, CsInt i);
-    void print_var_float(Ident *id, CsFloat f);
-    void print_var_str(Ident *id, ostd::ConstCharRange s);
+    void print_var(Var *v);
+    void print_var_int(Ivar *iv, CsInt i);
+    void print_var_float(Fvar *fv, CsFloat f);
+    void print_var_str(Svar *sv, ostd::ConstCharRange s);
 };
 
 enum {
