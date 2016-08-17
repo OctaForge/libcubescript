@@ -68,8 +68,11 @@ template<typename F>
 static void cs_do_args(CsState &cs, F body) {
     IdentStack argstack[MaxArguments];
     int argmask1 = cs.stack->usedargs;
-    for (int i = 0; argmask1; argmask1 >>= 1, ++i) if(argmask1 & 1)
-        cs.identmap[i]->undo_arg(argstack[i]);
+    for (int i = 0; argmask1; argmask1 >>= 1, ++i) {
+        if (argmask1 & 1) {
+            cs.identmap[i]->undo_arg(argstack[i]);
+        }
+    }
     IdentLink *prevstack = cs.stack->next;
     IdentLink aliaslink = {
         cs.stack->id, cs.stack, prevstack->usedargs, prevstack->argstack
@@ -79,32 +82,41 @@ static void cs_do_args(CsState &cs, F body) {
     prevstack->usedargs = aliaslink.usedargs;
     cs.stack = aliaslink.next;
     int argmask2 = cs.stack->usedargs;
-    for(int i = 0; argmask2; argmask2 >>= 1, ++i) if(argmask2 & 1)
-        cs.identmap[i]->redo_arg(argstack[i]);
+    for (int i = 0; argmask2; argmask2 >>= 1, ++i) {
+        if (argmask2 & 1) {
+            cs.identmap[i]->redo_arg(argstack[i]);
+        }
+    }
 }
 
-ostd::ConstCharRange cs_debug_line(CsState &cs,
-                                   ostd::ConstCharRange p,
-                                   ostd::ConstCharRange fmt,
-                                   ostd::CharRange buf);
+ostd::ConstCharRange cs_debug_line(
+    CsState &cs, ostd::ConstCharRange p, ostd::ConstCharRange fmt,
+    ostd::CharRange buf
+);
 
 void cs_debug_alias(CsState &cs);
 
 template<typename ...A>
 void cs_debug_code(CsState &cs, ostd::ConstCharRange fmt, A &&...args) {
-    if (cs.nodebug) return;
+    if (cs.nodebug) {
+        return;
+    }
     ostd::err.writefln(fmt, ostd::forward<A>(args)...);
     cs_debug_alias(cs);
 }
 
 template<typename ...A>
-void cs_debug_code_line(CsState &cs, ostd::ConstCharRange p,
-                        ostd::ConstCharRange fmt, A &&...args) {
-    if (cs.nodebug) return;
+void cs_debug_code_line(
+    CsState &cs, ostd::ConstCharRange p, ostd::ConstCharRange fmt, A &&...args
+) {
+    if (cs.nodebug) {
+        return;
+    }
     ostd::Array<char, 256> buf;
-    ostd::err.writefln(cs_debug_line(cs, p, fmt, ostd::CharRange(buf.data(),
-                                                                 buf.size())),
-                       ostd::forward<A>(args)...);
+    ostd::err.writefln(
+        cs_debug_line(cs, p, fmt, ostd::CharRange(buf.data(), buf.size())),
+        ostd::forward<A>(args)...
+    );
     cs_debug_alias(cs);
 }
 
@@ -121,15 +133,19 @@ struct GenState {
     void gen_str(ostd::ConstCharRange word, bool macro = false) {
         if (word.size() <= 3 && !macro) {
             ostd::Uint32 op = CODE_VALI | RET_STR;
-            for (ostd::Size i = 0; i < word.size(); ++i)
+            for (ostd::Size i = 0; i < word.size(); ++i) {
                 op |= ostd::Uint32(ostd::byte(word[i])) << ((i + 1) * 8);
+            }
             code.push(op);
             return;
         }
-        code.push((macro ? CODE_MACRO : (CODE_VAL | RET_STR)) |
-                  (word.size() << 8));
-        code.push_n(reinterpret_cast<ostd::Uint32 const *>(word.data()),
-                    word.size() / sizeof(ostd::Uint32));
+        code.push(
+            (macro ? CODE_MACRO : (CODE_VAL | RET_STR)) | (word.size() << 8)
+        );
+        code.push_n(
+            reinterpret_cast<ostd::Uint32 const *>(word.data()),
+            word.size() / sizeof(ostd::Uint32)
+        );
         ostd::Size esz = word.size() % sizeof(ostd::Uint32);
         union {
             char c[sizeof(ostd::Uint32)];
@@ -149,9 +165,9 @@ struct GenState {
     }
 
     void gen_int(CsInt i = 0) {
-        if (i >= -0x800000 && i <= 0x7FFFFF)
+        if (i >= -0x800000 && i <= 0x7FFFFF) {
             code.push(CODE_VALI | RET_INT | (i << 8));
-        else {
+        } else {
             code.push(CODE_VAL | RET_INT);
             code.push(i);
         }
@@ -160,9 +176,9 @@ struct GenState {
     void gen_int(ostd::ConstCharRange word);
 
     void gen_float(CsFloat f = 0.0f) {
-        if (CsInt(f) == f && f >= -0x800000 && f <= 0x7FFFFF)
+        if (CsInt(f) == f && f >= -0x800000 && f <= 0x7FFFFF) {
             code.push(CODE_VALI | RET_FLOAT | (CsInt(f) << 8));
-        else {
+        } else {
             union {
                 CsFloat f;
                 ostd::Uint32 u;
@@ -176,9 +192,12 @@ struct GenState {
     void gen_float(ostd::ConstCharRange word);
 
     void gen_ident(Ident *id) {
-        code.push(((id->index < MaxArguments) ? CODE_IDENTARG
-                                               : CODE_IDENT) |
-                  (id->index << 8));
+        code.push(
+            ((id->index < MaxArguments)
+                ? CODE_IDENTARG
+                : CODE_IDENT
+            ) | (id->index << 8)
+        );
     }
 
     void gen_ident() {
@@ -189,8 +208,9 @@ struct GenState {
         gen_ident(cs.new_ident(word));
     }
 
-    void gen_value(int wordtype, ostd::ConstCharRange word
-                                     = ostd::ConstCharRange());
+    void gen_value(
+        int wordtype, ostd::ConstCharRange word = ostd::ConstCharRange()
+    );
 
     void gen_main(ostd::ConstCharRange s, int ret_type = VAL_ANY);
 
