@@ -88,7 +88,7 @@ done:
     return ret;
 }
 
-template<char e1, char e2>
+template<bool Hex, char e1 = Hex ? 'p' : 'e', char e2 = Hex ? 'P' : 'E'>
 static inline bool p_read_exp(ostd::ConstCharRange &input, CsInt &fn) {
     if (input.empty()) {
         return true;
@@ -116,61 +116,45 @@ static inline bool p_read_exp(ostd::ConstCharRange &input, CsInt &fn) {
     return true;
 }
 
-static inline bool parse_hex_float(
+template<bool Hex>
+static inline bool parse_gen_float(
     ostd::ConstCharRange input, ostd::ConstCharRange *end, CsFloat &ret
 ) {
-    auto read_hd = [&input](double r, CsInt &n) {
-        while (!input.empty() && isxdigit(*input)) {
-            r = r * 16.0 + double(p_hexd_to_int(*input));
+    auto read_digits = [&input](double r, CsInt &n) {
+        while (!input.empty() && (Hex ? isxdigit(*input) : isdigit(*input))) {
+            if (Hex) {
+                r = r * 16.0 + double(p_hexd_to_int(*input));
+            } else {
+                r = r * 10.0 + double(*input - '0');
+            }
             ++n;
             ++input;
         }
         return r;
     };
     CsInt wn = 0, fn = 0;
-    double r = read_hd(0.0, wn);
+    double r = read_digits(0.0, wn);
     if (!input.empty() && (*input == '.')) {
         ++input;
-        r = read_hd(r, fn);
+        r = read_digits(r, fn);
     }
     if (!wn && !fn) {
         return false;
     }
-    fn *= -4;
+    if (Hex) {
+        fn *= -4;
+    } else {
+        fn = -fn;
+    }
     p_set_end(input, end); /* we have a valid number until here */
-    if (p_read_exp<'p', 'P'>(input, fn)) {
+    if (p_read_exp<Hex>(input, fn)) {
         p_set_end(input, end);
     }
-    ret = CsFloat(ldexp(r, fn));
-    return true;
-}
-
-static inline bool parse_dec_float(
-    ostd::ConstCharRange input, ostd::ConstCharRange *end, CsFloat &ret
-) {
-    auto read_hd = [&input](double r, CsInt &n) {
-        while (!input.empty() && isdigit(*input)) {
-            r = r * 10.0 + double(*input - '0');
-            ++n;
-            ++input;
-        }
-        return r;
-    };
-    CsInt wn = 0, fn = 0;
-    double r = read_hd(0.0, wn);
-    if (!input.empty() && (*input == '.')) {
-        ++input;
-        r = read_hd(r, fn);
+    if (Hex) {
+        ret = CsFloat(ldexp(r, fn));
+    } else {
+        ret = CsFloat(r * pow(10, fn));
     }
-    if (!wn && !fn) {
-        return false;
-    }
-    fn = -fn;
-    p_set_end(input, end);
-    if (p_read_exp<'e', 'E'>(input, fn)) {
-        p_set_end(input, end);
-    }
-    ret = CsFloat(r * pow(10, fn));
     return true;
 }
 
@@ -187,14 +171,14 @@ CsFloat cs_parse_float(ostd::ConstCharRange input, ostd::ConstCharRange *end) {
         ostd::ConstCharRange pfx = input.slice(0, 2);
         if ((pfx == "0x") || (pfx == "0X")) {
             input += 2;
-            if (!parse_hex_float(input, end, ret)) {
+            if (!parse_gen_float<true>(input, end, ret)) {
                 p_set_end(orig, end);
                 return ret;
             }
             goto done;
         }
     }
-    if (!parse_dec_float(input, end, ret)) {
+    if (!parse_gen_float<false>(input, end, ret)) {
         p_set_end(orig, end);
         return ret;
     }
