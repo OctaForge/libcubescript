@@ -78,50 +78,44 @@ Svar::Svar(ostd::ConstCharRange n, char **s, VarCb f, int flagsv):
 }
 
 /* ID_ALIAS */
-Alias::Alias(ostd::ConstCharRange n, char *a, int flagsv) {
+Alias::Alias(ostd::ConstCharRange n, char *a, int flagsv):
+    valtype(VAL_STR), code(nullptr), stack(nullptr)
+{
     type = ID_ALIAS;
-    valtype = VAL_STR;
     flags = flagsv;
     name = n;
-    code = nullptr;
-    stack = nullptr;
     val.s = a;
     val.len = strlen(a);
 }
-Alias::Alias(ostd::ConstCharRange n, CsInt a, int flagsv) {
+Alias::Alias(ostd::ConstCharRange n, CsInt a, int flagsv):
+    valtype(VAL_INT), code(nullptr), stack(nullptr)
+{
     type = ID_ALIAS;
-    valtype = VAL_INT;
     flags = flagsv;
     name = n;
-    code = nullptr;
-    stack = nullptr;
     val.i = a;
 }
-Alias::Alias(ostd::ConstCharRange n, CsFloat a, int flagsv) {
+Alias::Alias(ostd::ConstCharRange n, CsFloat a, int flagsv):
+    valtype(VAL_FLOAT), code(nullptr), stack(nullptr)
+{
     type = ID_ALIAS;
-    valtype = VAL_FLOAT;
     flags = flagsv;
     name = n;
-    code = nullptr;
-    stack = nullptr;
     val.f = a;
 }
-Alias::Alias(ostd::ConstCharRange n, int flagsv) {
+Alias::Alias(ostd::ConstCharRange n, int flagsv):
+    valtype(VAL_NULL), code(nullptr), stack(nullptr)
+{
     type = ID_ALIAS;
-    valtype = VAL_NULL;
     flags = flagsv;
     name = n;
-    code = nullptr;
-    stack = nullptr;
 }
-Alias::Alias(ostd::ConstCharRange n, TaggedValue const &v, int flagsv) {
+Alias::Alias(ostd::ConstCharRange n, TaggedValue const &v, int flagsv):
+    valtype(v.p_type), code(nullptr), stack(nullptr), val(v)
+{
     type = ID_ALIAS;
-    valtype = v.p_type;
     flags = flagsv;
     name = n;
-    code = nullptr;
-    stack = nullptr;
-    val = v;
 }
 
 /* ID_COMMAND */
@@ -461,7 +455,7 @@ CsInt TaggedValue::get_int() const {
     return cs_get_int(*this, get_type());
 }
 
-CsInt Ident::get_int() const {
+CsInt Alias::get_int() const {
     return cs_get_int(val, get_valtype());
 }
 
@@ -483,7 +477,7 @@ CsFloat TaggedValue::get_float() const {
     return cs_get_float(*this, get_type());
 }
 
-CsFloat Ident::get_float() const {
+CsFloat Alias::get_float() const {
     return cs_get_float(val, get_valtype());
 }
 
@@ -519,7 +513,7 @@ ostd::String TaggedValue::get_str() const {
     return cs_get_str(*this, get_type());
 }
 
-ostd::String Ident::get_str() const {
+ostd::String Alias::get_str() const {
     return cs_get_str(val, get_valtype());
 }
 
@@ -539,7 +533,7 @@ ostd::ConstCharRange TaggedValue::get_strr() const {
     return cs_get_strr(*this, get_type());
 }
 
-ostd::ConstCharRange Ident::get_strr() const {
+ostd::ConstCharRange Alias::get_strr() const {
     return cs_get_strr(val, get_valtype());
 }
 
@@ -567,7 +561,7 @@ void TaggedValue::get_val(TaggedValue &r) const {
     cs_get_val(*this, get_type(), r);
 }
 
-void Ident::get_val(TaggedValue &r) const {
+void Alias::get_val(TaggedValue &r) const {
     cs_get_val(val, get_valtype(), r);
 }
 
@@ -619,7 +613,7 @@ bool TaggedValue::get_bool() const {
     }
 }
 
-void Ident::get_cstr(TaggedValue &v) const {
+void Alias::get_cstr(TaggedValue &v) const {
     switch (get_valtype()) {
         case VAL_MACRO:
             v.set_macro(val.code, val.len);
@@ -640,7 +634,7 @@ void Ident::get_cstr(TaggedValue &v) const {
     }
 }
 
-void Ident::get_cval(TaggedValue &v) const {
+void Alias::get_cval(TaggedValue &v) const {
     switch (get_valtype()) {
         case VAL_MACRO:
             v.set_macro(val.code, val.len);

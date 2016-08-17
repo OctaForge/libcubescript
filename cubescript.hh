@@ -179,50 +179,21 @@ enum class IdentType {
 
 struct OSTD_EXPORT Ident {
     ostd::byte type; /* ID_something */
-    int valtype; /* ID_ALIAS */
     ostd::ushort flags;
     int index;
     ostd::String name;
-    union {
-        struct { /* ID_IVAR, ID_FVAR, ID_SVAR */
-            union {
-                struct { /* ID_IVAR */
-                    CsInt minval, maxval;
-                };
-                struct { /* ID_FVAR */
-                    CsFloat minvalf, maxvalf;
-                };
+    struct { /* ID_IVAR, ID_FVAR, ID_SVAR */
+        union {
+            struct { /* ID_IVAR */
+                CsInt minval, maxval;
             };
-            IdentValuePtr storage;
-            IdentValue overrideval;
+            struct { /* ID_FVAR */
+                CsFloat minvalf, maxvalf;
+            };
         };
-        struct { /* ID_ALIAS */
-            IdentValue val;
-            IdentStack *stack;
-        };
+        IdentValuePtr storage;
+        IdentValue overrideval;
     };
-
-    void set_value(TaggedValue const &v) {
-        valtype = v.get_type();
-        val = v;
-    }
-
-    void set_value(IdentStack const &v) {
-        valtype = v.valtype;
-        val = v.val;
-    }
-
-    CsFloat get_float() const;
-    CsInt get_int() const;
-    ostd::String get_str() const;
-    ostd::ConstCharRange get_strr() const;
-    void get_val(TaggedValue &r) const;
-    void get_cstr(TaggedValue &v) const;
-    void get_cval(TaggedValue &v) const;
-
-    int get_valtype() const {
-        return valtype;
-    }
 
     IdentType get_type() const;
 
@@ -292,13 +263,38 @@ struct OSTD_EXPORT Svar: Var {
 };
 
 struct OSTD_EXPORT Alias: Ident {
+    int valtype;
     Bytecode *code;
+    IdentStack *stack;
+    IdentValue val;
 
     Alias(ostd::ConstCharRange n, char *a, int flags);
     Alias(ostd::ConstCharRange n, CsInt a, int flags);
     Alias(ostd::ConstCharRange n, CsFloat a, int flags);
     Alias(ostd::ConstCharRange n, int flags);
     Alias(ostd::ConstCharRange n, TaggedValue const &v, int flags);
+
+    void set_value(TaggedValue const &v) {
+        valtype = v.get_type();
+        val = v;
+    }
+
+    void set_value(IdentStack const &v) {
+        valtype = v.valtype;
+        val = v.val;
+    }
+
+    CsFloat get_float() const;
+    CsInt get_int() const;
+    ostd::String get_str() const;
+    ostd::ConstCharRange get_strr() const;
+    void get_val(TaggedValue &r) const;
+    void get_cstr(TaggedValue &v) const;
+    void get_cval(TaggedValue &v) const;
+
+    int get_valtype() const {
+        return valtype;
+    }
 
     void push_arg(TaggedValue const &v, IdentStack &st, bool um = true);
     void pop_arg();
@@ -473,10 +469,10 @@ enum {
 OSTD_EXPORT void init_libs(CsState &cs, int libs = CS_LIB_ALL);
 
 struct OSTD_EXPORT StackedValue: TaggedValue {
-    StackedValue(Alias *a = nullptr):
+    StackedValue(Ident *id = nullptr):
         TaggedValue(), p_a(nullptr), p_stack(), p_pushed(false)
     {
-        set_alias(a);
+        set_alias(id);
     }
 
     ~StackedValue() {
