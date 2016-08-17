@@ -271,7 +271,7 @@ protected:
     Ident();
 };
 
-struct Var: Ident {
+struct OSTD_EXPORT Var: Ident {
     VarCb cb_var;
 
     void changed() {
@@ -284,28 +284,28 @@ protected:
     Var(VarCb f);
 };
 
-struct Ivar: Var {
+struct OSTD_EXPORT Ivar: Var {
     Ivar(
         ostd::ConstCharRange n, CsInt m, CsInt x, CsInt *s,
         VarCb f = VarCb(), int flags = 0
     );
 };
 
-struct Fvar: Var {
+struct OSTD_EXPORT Fvar: Var {
     Fvar(
         ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat *s,
         VarCb f = VarCb(), int flags = 0
     );
 };
 
-struct Svar: Var {
+struct OSTD_EXPORT Svar: Var {
     Svar(
         ostd::ConstCharRange n, char **s, VarCb f = VarCb(),
         int flags = 0
     );
 };
 
-struct Alias: Ident {
+struct OSTD_EXPORT Alias: Ident {
     Alias(ostd::ConstCharRange n, char *a, int flags);
     Alias(ostd::ConstCharRange n, CsInt a, int flags);
     Alias(ostd::ConstCharRange n, CsFloat a, int flags);
@@ -324,7 +324,7 @@ struct Alias: Ident {
 
 using CmdFunc = ostd::Function<void(TvalRange, TaggedValue &)>;
 
-struct Command: Ident {
+struct OSTD_EXPORT Command: Ident {
     char *cargs;
     ostd::Uint32 argmask;
     int numargs;
