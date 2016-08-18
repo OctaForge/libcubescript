@@ -1754,8 +1754,28 @@ bool CsState::run_bool(Ident *id, TvalRange args) {
     return b;
 }
 
-bool CsState::run_file(ostd::ConstCharRange fname) {
-    ostd::ConstCharRange oldsrcfile = src_file, oldsrcstr = src_str;
+void CsState::run(Bytecode const *code) {
+    TaggedValue ret;
+    run_ret(code, ret);
+    ret.cleanup();
+}
+
+void CsState::run(ostd::ConstCharRange code) {
+    TaggedValue ret;
+    run_ret(code, ret);
+    ret.cleanup();
+}
+
+void CsState::run(Ident *id, TvalRange args) {
+    TaggedValue ret;
+    run_ret(id, args, ret);
+    ret.cleanup();
+}
+
+static bool cs_run_file(
+    CsState &cs, ostd::ConstCharRange fname, TaggedValue &ret
+) {
+    ostd::ConstCharRange oldsrcfile = cs.src_file, oldsrcstr = cs.src_str;
     ostd::Box<char[]> buf;
     ostd::Size len;
 
@@ -1771,11 +1791,64 @@ bool CsState::run_file(ostd::ConstCharRange fname) {
     }
     buf[len] = '\0';
 
-    src_file = fname;
-    src_str = ostd::ConstCharRange(buf.get(), len);
-    run_int(src_str);
-    src_file = oldsrcfile;
-    src_str = oldsrcstr;
+    cs.src_file = fname;
+    cs.src_str = ostd::ConstCharRange(buf.get(), len);
+    cs.run_ret(cs.src_str, ret);
+    cs.src_file = oldsrcfile;
+    cs.src_str = oldsrcstr;
+    return true;
+}
+
+ostd::Maybe<ostd::String> CsState::run_file_str(ostd::ConstCharRange fname) {
+    TaggedValue ret;
+    if (!cs_run_file(*this, fname, ret)) {
+        return ostd::nothing;
+    }
+    ostd::String s = ret.get_str();
+    ret.cleanup();
+    return ostd::move(s);
+}
+
+ostd::Maybe<CsInt> CsState::run_file_int(ostd::ConstCharRange fname) {
+    TaggedValue ret;
+    if (!cs_run_file(*this, fname, ret)) {
+        return ostd::nothing;
+    }
+    CsInt i = ret.get_int();
+    ret.cleanup();
+    return i;
+}
+
+ostd::Maybe<CsFloat> CsState::run_file_float(ostd::ConstCharRange fname) {
+    TaggedValue ret;
+    if (!cs_run_file(*this, fname, ret)) {
+        return ostd::nothing;
+    }
+    CsFloat f = ret.get_float();
+    ret.cleanup();
+    return f;
+}
+
+ostd::Maybe<bool> CsState::run_file_bool(ostd::ConstCharRange fname) {
+    TaggedValue ret;
+    if (!cs_run_file(*this, fname, ret)) {
+        return ostd::nothing;
+    }
+    bool i = ret.get_bool();
+    ret.cleanup();
+    return i;
+}
+
+bool CsState::run_file_ret(ostd::ConstCharRange fname, TaggedValue &ret) {
+    return cs_run_file(*this, fname, ret);
+}
+
+bool CsState::run_file(ostd::ConstCharRange fname) {
+    TaggedValue ret;
+    if (!cs_run_file(*this, fname, ret)) {
+        return false;
+    }
+    ret.cleanup();
     return true;
 }
 

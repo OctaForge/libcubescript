@@ -415,6 +415,15 @@ struct OSTD_EXPORT CsState {
     void run_ret(ostd::ConstCharRange code, TaggedValue &ret);
     void run_ret(Ident *id, TvalRange args, TaggedValue &ret);
 
+    void run(Bytecode const *code);
+    void run(ostd::ConstCharRange code);
+    void run(Ident *id, TvalRange args);
+
+    ostd::Maybe<ostd::String> run_file_str(ostd::ConstCharRange fname);
+    ostd::Maybe<CsInt> run_file_int(ostd::ConstCharRange fname);
+    ostd::Maybe<CsFloat> run_file_float(ostd::ConstCharRange fname);
+    ostd::Maybe<bool> run_file_bool(ostd::ConstCharRange fname);
+    bool run_file_ret(ostd::ConstCharRange fname, TaggedValue &ret);
     bool run_file(ostd::ConstCharRange fname);
 
     void set_alias(ostd::ConstCharRange name, TaggedValue &v);
