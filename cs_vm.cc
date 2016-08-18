@@ -145,7 +145,7 @@ BytecodeRef &BytecodeRef::operator=(BytecodeRef &&v) {
     return *this;
 }
 
-static inline ostd::Uint32 const *forcecode(CsState &cs, TaggedValue &v) {
+static inline ostd::Uint32 const *forcecode(CsState &cs, CsValue &v) {
     if (v.get_type() != VAL_CODE) {
         GenState gs(cs);
         gs.code.reserve(64);
@@ -156,7 +156,7 @@ static inline ostd::Uint32 const *forcecode(CsState &cs, TaggedValue &v) {
     return reinterpret_cast<ostd::Uint32 const *>(v.code);
 }
 
-static inline void forcecond(CsState &cs, TaggedValue &v) {
+static inline void forcecond(CsState &cs, CsValue &v) {
     switch (v.get_type()) {
         case VAL_STR:
         case VAL_MACRO:
@@ -177,7 +177,7 @@ static ostd::Uint32 emptyblock[VAL_ANY][2] = {
     { CODE_START + 0x100, CODE_EXIT | RET_STR }
 };
 
-static inline void force_arg(TaggedValue &v, int type) {
+static inline void force_arg(CsValue &v, int type) {
     switch (type) {
         case RET_STR:
             if (v.get_type() != VAL_STR) {
@@ -197,7 +197,7 @@ static inline void force_arg(TaggedValue &v, int type) {
     }
 }
 
-static inline void free_args(TaggedValue *args, int &oldnum, int newnum) {
+static inline void free_args(CsValue *args, int &oldnum, int newnum) {
     for (int i = newnum; i < oldnum; i++) {
         args[i].cleanup();
     }
@@ -205,7 +205,7 @@ static inline void free_args(TaggedValue *args, int &oldnum, int newnum) {
 }
 
 static ostd::Uint32 const *skipcode(
-    ostd::Uint32 const *code, TaggedValue *result = nullptr
+    ostd::Uint32 const *code, CsValue *result = nullptr
 ) {
     int depth = 0;
     for (;;) {
@@ -247,7 +247,7 @@ static ostd::Uint32 const *skipcode(
     }
 }
 
-void TaggedValue::copy_arg(TaggedValue &r) const {
+void CsValue::copy_arg(CsValue &r) const {
     r.cleanup();
     switch (get_type()) {
         case VAL_INT:
@@ -276,7 +276,7 @@ void TaggedValue::copy_arg(TaggedValue &r) const {
 }
 
 static inline void callcommand(
-    CsState &cs, Command *id, TaggedValue *args, TaggedValue &res, int numargs,
+    CsState &cs, Command *id, CsValue *args, CsValue &res, int numargs,
     bool lookup = false
 ) {
     int i = -1, fakeargs = 0;
@@ -410,9 +410,9 @@ static inline void callcommand(
                 i = ostd::max(i + 1, numargs);
                 auto buf = ostd::appender<ostd::String>();
                 cscript::util::tvals_concat(buf, ostd::iter(args, i), " ");
-                TaggedValue tv;
+                CsValue tv;
                 tv.set_mstr(buf.get().iter());
-                id->cb_cftv(TvalRange(&tv, 1), res);
+                id->cb_cftv(CsValueRange(&tv, 1), res);
                 goto cleanup;
             }
             case 'V':
@@ -431,7 +431,7 @@ static inline void callcommand(
         }
     }
     ++i;
-    id->cb_cftv(TvalRange(args, i), res);
+    id->cb_cftv(CsValueRange(args, i), res);
 cleanup:
     for (ostd::Size k = 0; k < ostd::Size(i); ++k) {
         args[k].cleanup();
@@ -442,11 +442,11 @@ cleanup:
 }
 
 static ostd::Uint32 const *runcode(
-    CsState &cs, ostd::Uint32 const *code, TaggedValue &result
+    CsState &cs, ostd::Uint32 const *code, CsValue &result
 );
 
 static inline void cs_call_alias(
-    CsState &cs, Alias *a, TaggedValue *args, TaggedValue &result,
+    CsState &cs, Alias *a, CsValue *args, CsValue &result,
     int callargs, int &nargs, int offset, int skip, ostd::Uint32 op
 ) {
     IdentStack argstack[MaxArguments];
@@ -509,7 +509,7 @@ static inline Alias *cs_get_lookuparg_id(CsState &cs, ostd::Uint32 op) {
 }
 
 static inline int cs_get_lookupu_type(
-    CsState &cs, TaggedValue &arg, Ident *&id, ostd::Uint32 op
+    CsState &cs, CsValue &arg, Ident *&id, ostd::Uint32 op
 ) {
     if (
         arg.get_type() != VAL_STR &&
@@ -545,7 +545,7 @@ static inline int cs_get_lookupu_type(
             case IdentType::command: {
                 arg.cleanup();
                 arg.set_null();
-                TaggedValue buf[MaxArguments];
+                CsValue buf[MaxArguments];
                 callcommand(cs, static_cast<Command *>(id), buf, arg, 0, true);
                 force_arg(arg, op & CODE_RET_MASK);
                 return -2; /* ignore */
@@ -561,7 +561,7 @@ static inline int cs_get_lookupu_type(
 }
 
 static ostd::Uint32 const *runcode(
-    CsState &cs, ostd::Uint32 const *code, TaggedValue &result
+    CsState &cs, ostd::Uint32 const *code, CsValue &result
 ) {
     result.set_null();
     if (rundepth >= MaxRunDepth) {
@@ -570,7 +570,7 @@ static ostd::Uint32 const *runcode(
     }
     ++rundepth;
     int numargs = 0;
-    TaggedValue args[MaxArguments + MaxResults];
+    CsValue args[MaxArguments + MaxResults];
     for (;;) {
         ostd::Uint32 op = *code++;
         switch (op & 0xFF) {
@@ -876,7 +876,7 @@ static ostd::Uint32 const *runcode(
                 continue;
             }
             case CODE_COMPILE: {
-                TaggedValue &arg = args[numargs - 1];
+                CsValue &arg = args[numargs - 1];
                 GenState gs(cs);
                 switch (arg.get_type()) {
                     case VAL_INT:
@@ -914,7 +914,7 @@ static ostd::Uint32 const *runcode(
                 continue;
             }
             case CODE_COND: {
-                TaggedValue &arg = args[numargs - 1];
+                CsValue &arg = args[numargs - 1];
                 switch (arg.get_type()) {
                     case VAL_STR:
                     case VAL_MACRO:
@@ -950,7 +950,7 @@ static ostd::Uint32 const *runcode(
                 continue;
             }
             case CODE_IDENTU: {
-                TaggedValue &arg = args[numargs - 1];
+                CsValue &arg = args[numargs - 1];
                 Ident *id = cs.dummy;
                 if (
                     arg.get_type() == VAL_STR ||
@@ -975,7 +975,7 @@ static ostd::Uint32 const *runcode(
 
             case CODE_LOOKUPU | RET_STR: {
                 Ident *id = nullptr;
-                TaggedValue &arg = args[numargs - 1];
+                CsValue &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
                         arg.set_str(ostd::move(
@@ -1018,7 +1018,7 @@ static ostd::Uint32 const *runcode(
             }
             case CODE_LOOKUPU | RET_INT: {
                 Ident *id = nullptr;
-                TaggedValue &arg = args[numargs - 1];
+                CsValue &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
                         arg.set_int(static_cast<Alias *>(id)->val_v.get_int());
@@ -1059,7 +1059,7 @@ static ostd::Uint32 const *runcode(
             }
             case CODE_LOOKUPU | RET_FLOAT: {
                 Ident *id = nullptr;
-                TaggedValue &arg = args[numargs - 1];
+                CsValue &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
                         arg.set_float(
@@ -1104,7 +1104,7 @@ static ostd::Uint32 const *runcode(
             }
             case CODE_LOOKUPU | RET_NULL: {
                 Ident *id = nullptr;
-                TaggedValue &arg = args[numargs - 1];
+                CsValue &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
                         static_cast<Alias *>(id)->val_v.get_val(arg);
@@ -1142,7 +1142,7 @@ static ostd::Uint32 const *runcode(
 
             case CODE_LOOKUPMU | RET_STR: {
                 Ident *id = nullptr;
-                TaggedValue &arg = args[numargs - 1];
+                CsValue &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
                         static_cast<Alias *>(id)->get_cstr(arg);
@@ -1181,7 +1181,7 @@ static ostd::Uint32 const *runcode(
             }
             case CODE_LOOKUPMU | RET_NULL: {
                 Ident *id = nullptr;
-                TaggedValue &arg = args[numargs - 1];
+                CsValue &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
                         static_cast<Alias *>(id)->get_cval(arg);
@@ -1308,7 +1308,7 @@ static ostd::Uint32 const *runcode(
                 Command *id = static_cast<Command *>(cs.identmap[op >> 8]);
                 int offset = numargs - id->numargs;
                 result.force_null();
-                id->cb_cftv(TvalRange(args + offset, id->numargs), result);
+                id->cb_cftv(CsValueRange(args + offset, id->numargs), result);
                 force_arg(result, op & CODE_RET_MASK);
                 free_args(args, numargs, offset);
                 continue;
@@ -1338,9 +1338,9 @@ static ostd::Uint32 const *runcode(
                     cscript::util::tvals_concat(
                         buf, ostd::iter(&args[offset], callargs), " "
                     );
-                    TaggedValue tv;
+                    CsValue tv;
                     tv.set_mstr(buf.get().iter());
-                    id->cb_cftv(TvalRange(&tv, 1), result);
+                    id->cb_cftv(CsValueRange(&tv, 1), result);
                 }
                 force_arg(result, op & CODE_RET_MASK);
                 free_args(args, numargs, offset);
@@ -1444,7 +1444,7 @@ static ostd::Uint32 const *runcode(
             case CODE_CALLU | RET_FLOAT:
             case CODE_CALLU | RET_INT: {
                 int callargs = op >> 8, offset = numargs - callargs;
-                TaggedValue &idarg = args[offset - 1];
+                CsValue &idarg = args[offset - 1];
                 if (
                     idarg.get_type() != VAL_STR &&
                     idarg.get_type() != VAL_MACRO &&
@@ -1568,11 +1568,11 @@ exit:
     return code;
 }
 
-void CsState::run_ret(Bytecode const *code, TaggedValue &ret) {
+void CsState::run_ret(Bytecode const *code, CsValue &ret) {
     runcode(*this, reinterpret_cast<ostd::Uint32 const *>(code), ret);
 }
 
-void CsState::run_ret(ostd::ConstCharRange code, TaggedValue &ret) {
+void CsState::run_ret(ostd::ConstCharRange code, CsValue &ret) {
     GenState gs(*this);
     gs.code.reserve(64);
     /* FIXME range */
@@ -1583,7 +1583,7 @@ void CsState::run_ret(ostd::ConstCharRange code, TaggedValue &ret) {
     }
 }
 
-void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
+void CsState::run_ret(Ident *id, CsValueRange args, CsValue &ret) {
     int nargs = int(args.size());
     ret.set_null();
     ++rundepth;
@@ -1598,8 +1598,8 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
             /* fallthrough */
             case IdentType::command:
                 if (nargs < static_cast<Command *>(id)->numargs) {
-                    TaggedValue buf[MaxArguments];
-                    memcpy(buf, args.data(), args.size() * sizeof(TaggedValue));
+                    CsValue buf[MaxArguments];
+                    memcpy(buf, args.data(), args.size() * sizeof(CsValue));
                     callcommand(
                         *this, static_cast<Command *>(id), buf, ret,
                         nargs, false
@@ -1659,7 +1659,7 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
 }
 
 ostd::String CsState::run_str(Bytecode const *code) {
-    TaggedValue ret;
+    CsValue ret;
     run_ret(code, ret);
     ostd::String s = ret.get_str();
     ret.cleanup();
@@ -1667,15 +1667,15 @@ ostd::String CsState::run_str(Bytecode const *code) {
 }
 
 ostd::String CsState::run_str(ostd::ConstCharRange code) {
-    TaggedValue ret;
+    CsValue ret;
     run_ret(code, ret);
     ostd::String s = ret.get_str();
     ret.cleanup();
     return s;
 }
 
-ostd::String CsState::run_str(Ident *id, TvalRange args) {
-    TaggedValue ret;
+ostd::String CsState::run_str(Ident *id, CsValueRange args) {
+    CsValue ret;
     run_ret(id, args, ret);
     ostd::String s = ret.get_str();
     ret.cleanup();
@@ -1683,7 +1683,7 @@ ostd::String CsState::run_str(Ident *id, TvalRange args) {
 }
 
 CsInt CsState::run_int(Bytecode const *code) {
-    TaggedValue ret;
+    CsValue ret;
     run_ret(code, ret);
     CsInt i = ret.get_int();
     ret.cleanup();
@@ -1691,15 +1691,15 @@ CsInt CsState::run_int(Bytecode const *code) {
 }
 
 CsInt CsState::run_int(ostd::ConstCharRange code) {
-    TaggedValue ret;
+    CsValue ret;
     run_ret(code, ret);
     CsInt i = ret.get_int();
     ret.cleanup();
     return i;
 }
 
-CsInt CsState::run_int(Ident *id, TvalRange args) {
-    TaggedValue ret;
+CsInt CsState::run_int(Ident *id, CsValueRange args) {
+    CsValue ret;
     run_ret(id, args, ret);
     CsInt i = ret.get_int();
     ret.cleanup();
@@ -1707,7 +1707,7 @@ CsInt CsState::run_int(Ident *id, TvalRange args) {
 }
 
 CsFloat CsState::run_float(Bytecode const *code) {
-    TaggedValue ret;
+    CsValue ret;
     run_ret(code, ret);
     CsFloat f = ret.get_float();
     ret.cleanup();
@@ -1715,15 +1715,15 @@ CsFloat CsState::run_float(Bytecode const *code) {
 }
 
 CsFloat CsState::run_float(ostd::ConstCharRange code) {
-    TaggedValue ret;
+    CsValue ret;
     run_ret(code, ret);
     CsFloat f = ret.get_float();
     ret.cleanup();
     return f;
 }
 
-CsFloat CsState::run_float(Ident *id, TvalRange args) {
-    TaggedValue ret;
+CsFloat CsState::run_float(Ident *id, CsValueRange args) {
+    CsValue ret;
     run_ret(id, args, ret);
     CsFloat f = ret.get_float();
     ret.cleanup();
@@ -1731,7 +1731,7 @@ CsFloat CsState::run_float(Ident *id, TvalRange args) {
 }
 
 bool CsState::run_bool(Bytecode const *code) {
-    TaggedValue ret;
+    CsValue ret;
     run_ret(code, ret);
     bool b = ret.get_bool();
     ret.cleanup();
@@ -1739,15 +1739,15 @@ bool CsState::run_bool(Bytecode const *code) {
 }
 
 bool CsState::run_bool(ostd::ConstCharRange code) {
-    TaggedValue ret;
+    CsValue ret;
     run_ret(code, ret);
     bool b = ret.get_bool();
     ret.cleanup();
     return b;
 }
 
-bool CsState::run_bool(Ident *id, TvalRange args) {
-    TaggedValue ret;
+bool CsState::run_bool(Ident *id, CsValueRange args) {
+    CsValue ret;
     run_ret(id, args, ret);
     bool b = ret.get_bool();
     ret.cleanup();
@@ -1755,25 +1755,25 @@ bool CsState::run_bool(Ident *id, TvalRange args) {
 }
 
 void CsState::run(Bytecode const *code) {
-    TaggedValue ret;
+    CsValue ret;
     run_ret(code, ret);
     ret.cleanup();
 }
 
 void CsState::run(ostd::ConstCharRange code) {
-    TaggedValue ret;
+    CsValue ret;
     run_ret(code, ret);
     ret.cleanup();
 }
 
-void CsState::run(Ident *id, TvalRange args) {
-    TaggedValue ret;
+void CsState::run(Ident *id, CsValueRange args) {
+    CsValue ret;
     run_ret(id, args, ret);
     ret.cleanup();
 }
 
 static bool cs_run_file(
-    CsState &cs, ostd::ConstCharRange fname, TaggedValue &ret
+    CsState &cs, ostd::ConstCharRange fname, CsValue &ret
 ) {
     ostd::ConstCharRange oldsrcfile = cs.src_file, oldsrcstr = cs.src_str;
     ostd::Box<char[]> buf;
@@ -1800,7 +1800,7 @@ static bool cs_run_file(
 }
 
 ostd::Maybe<ostd::String> CsState::run_file_str(ostd::ConstCharRange fname) {
-    TaggedValue ret;
+    CsValue ret;
     if (!cs_run_file(*this, fname, ret)) {
         return ostd::nothing;
     }
@@ -1810,7 +1810,7 @@ ostd::Maybe<ostd::String> CsState::run_file_str(ostd::ConstCharRange fname) {
 }
 
 ostd::Maybe<CsInt> CsState::run_file_int(ostd::ConstCharRange fname) {
-    TaggedValue ret;
+    CsValue ret;
     if (!cs_run_file(*this, fname, ret)) {
         return ostd::nothing;
     }
@@ -1820,7 +1820,7 @@ ostd::Maybe<CsInt> CsState::run_file_int(ostd::ConstCharRange fname) {
 }
 
 ostd::Maybe<CsFloat> CsState::run_file_float(ostd::ConstCharRange fname) {
-    TaggedValue ret;
+    CsValue ret;
     if (!cs_run_file(*this, fname, ret)) {
         return ostd::nothing;
     }
@@ -1830,7 +1830,7 @@ ostd::Maybe<CsFloat> CsState::run_file_float(ostd::ConstCharRange fname) {
 }
 
 ostd::Maybe<bool> CsState::run_file_bool(ostd::ConstCharRange fname) {
-    TaggedValue ret;
+    CsValue ret;
     if (!cs_run_file(*this, fname, ret)) {
         return ostd::nothing;
     }
@@ -1839,12 +1839,12 @@ ostd::Maybe<bool> CsState::run_file_bool(ostd::ConstCharRange fname) {
     return i;
 }
 
-bool CsState::run_file_ret(ostd::ConstCharRange fname, TaggedValue &ret) {
+bool CsState::run_file_ret(ostd::ConstCharRange fname, CsValue &ret) {
     return cs_run_file(*this, fname, ret);
 }
 
 bool CsState::run_file(ostd::ConstCharRange fname) {
-    TaggedValue ret;
+    CsValue ret;
     if (!cs_run_file(*this, fname, ret)) {
         return false;
     }

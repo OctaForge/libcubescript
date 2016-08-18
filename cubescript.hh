@@ -66,7 +66,7 @@ OSTD_EXPORT bool code_is_empty(Bytecode const *code);
 
 struct Ident;
 
-struct OSTD_EXPORT TaggedValue {
+struct OSTD_EXPORT CsValue {
     union {
         CsInt i;      /* ID_IVAR, VAL_INT */
         CsFloat f;    /* ID_FVAR, VAL_FLOAT */
@@ -129,7 +129,7 @@ struct OSTD_EXPORT TaggedValue {
         code = val;
     }
 
-    void set(TaggedValue &tv) {
+    void set(CsValue &tv) {
         *this = tv;
         tv.p_type = VAL_NULL;
     }
@@ -140,7 +140,7 @@ struct OSTD_EXPORT TaggedValue {
     CsFloat get_float() const;
     Bytecode *get_code() const;
     Ident *get_ident() const;
-    void get_val(TaggedValue &r) const;
+    void get_val(CsValue &r) const;
 
     bool get_bool() const;
 
@@ -152,16 +152,16 @@ struct OSTD_EXPORT TaggedValue {
     bool code_is_empty() const;
 
     void cleanup();
-    void copy_arg(TaggedValue &r) const;
+    void copy_arg(CsValue &r) const;
 
 private:
     int p_type;
 };
 
-using TvalRange = ostd::PointerRange<TaggedValue>;
+using CsValueRange = ostd::PointerRange<CsValue>;
 
 struct IdentStack {
-    TaggedValue val_s;
+    CsValue val_s;
     IdentStack *next;
 };
 
@@ -297,15 +297,15 @@ private:
 struct OSTD_EXPORT Alias: Ident {
     Bytecode *code;
     IdentStack *stack;
-    TaggedValue val_v;
+    CsValue val_v;
 
     Alias(ostd::ConstCharRange n, char *a, int flags);
     Alias(ostd::ConstCharRange n, CsInt a, int flags);
     Alias(ostd::ConstCharRange n, CsFloat a, int flags);
     Alias(ostd::ConstCharRange n, int flags);
-    Alias(ostd::ConstCharRange n, TaggedValue const &v, int flags);
+    Alias(ostd::ConstCharRange n, CsValue const &v, int flags);
 
-    void set_value(TaggedValue const &v) {
+    void set_value(CsValue const &v) {
         val_v = v;
     }
 
@@ -313,16 +313,16 @@ struct OSTD_EXPORT Alias: Ident {
         val_v = v.val_s;
     }
 
-    void get_cstr(TaggedValue &v) const;
-    void get_cval(TaggedValue &v) const;
+    void get_cstr(CsValue &v) const;
+    void get_cval(CsValue &v) const;
 
-    void push_arg(TaggedValue const &v, IdentStack &st, bool um = true);
+    void push_arg(CsValue const &v, IdentStack &st, bool um = true);
     void pop_arg();
     void undo_arg(IdentStack &st);
     void redo_arg(IdentStack const &st);
 
-    void set_arg(CsState &cs, TaggedValue &v);
-    void set_alias(CsState &cs, TaggedValue &v);
+    void set_arg(CsState &cs, CsValue &v);
+    void set_alias(CsState &cs, CsValue &v);
 
     void clean_code();
 
@@ -339,7 +339,7 @@ struct IdentLink {
     IdentStack *argstack;
 };
 
-using CmdFunc = ostd::Function<void(TvalRange, TaggedValue &)>;
+using CmdFunc = ostd::Function<void(CsValueRange, CsValue &)>;
 
 struct OSTD_EXPORT CsState {
     ostd::Map<ostd::ConstCharRange, Ident *> idents;
@@ -366,7 +366,7 @@ struct OSTD_EXPORT CsState {
 
     Ident *add_ident(Ident *id);
     Ident *new_ident(ostd::ConstCharRange name, int flags = IDF_UNKNOWN);
-    Ident *force_ident(TaggedValue &v);
+    Ident *force_ident(CsValue &v);
 
     Ident *get_ident(ostd::ConstCharRange name) {
         Ident **id = idents.at(name);
@@ -397,36 +397,36 @@ struct OSTD_EXPORT CsState {
 
     ostd::String run_str(Bytecode const *code);
     ostd::String run_str(ostd::ConstCharRange code);
-    ostd::String run_str(Ident *id, TvalRange args);
+    ostd::String run_str(Ident *id, CsValueRange args);
 
     CsInt run_int(Bytecode const *code);
     CsInt run_int(ostd::ConstCharRange code);
-    CsInt run_int(Ident *id, TvalRange args);
+    CsInt run_int(Ident *id, CsValueRange args);
 
     CsFloat run_float(Bytecode const *code);
     CsFloat run_float(ostd::ConstCharRange code);
-    CsFloat run_float(Ident *id, TvalRange args);
+    CsFloat run_float(Ident *id, CsValueRange args);
 
     bool run_bool(Bytecode const *code);
     bool run_bool(ostd::ConstCharRange code);
-    bool run_bool(Ident *id, TvalRange args);
+    bool run_bool(Ident *id, CsValueRange args);
 
-    void run_ret(Bytecode const *code, TaggedValue &ret);
-    void run_ret(ostd::ConstCharRange code, TaggedValue &ret);
-    void run_ret(Ident *id, TvalRange args, TaggedValue &ret);
+    void run_ret(Bytecode const *code, CsValue &ret);
+    void run_ret(ostd::ConstCharRange code, CsValue &ret);
+    void run_ret(Ident *id, CsValueRange args, CsValue &ret);
 
     void run(Bytecode const *code);
     void run(ostd::ConstCharRange code);
-    void run(Ident *id, TvalRange args);
+    void run(Ident *id, CsValueRange args);
 
     ostd::Maybe<ostd::String> run_file_str(ostd::ConstCharRange fname);
     ostd::Maybe<CsInt> run_file_int(ostd::ConstCharRange fname);
     ostd::Maybe<CsFloat> run_file_float(ostd::ConstCharRange fname);
     ostd::Maybe<bool> run_file_bool(ostd::ConstCharRange fname);
-    bool run_file_ret(ostd::ConstCharRange fname, TaggedValue &ret);
+    bool run_file_ret(ostd::ConstCharRange fname, CsValue &ret);
     bool run_file(ostd::ConstCharRange fname);
 
-    void set_alias(ostd::ConstCharRange name, TaggedValue &v);
+    void set_alias(ostd::ConstCharRange name, CsValue &v);
 
     void set_var_int(
         ostd::ConstCharRange name, CsInt v,
@@ -441,7 +441,7 @@ struct OSTD_EXPORT CsState {
     );
 
     void set_var_int_checked(Ivar *iv, CsInt v);
-    void set_var_int_checked(Ivar *iv, TvalRange args);
+    void set_var_int_checked(Ivar *iv, CsValueRange args);
     void set_var_float_checked(Fvar *fv, CsFloat v);
     void set_var_str_checked(Svar *fv, ostd::ConstCharRange v);
 
@@ -473,9 +473,9 @@ enum {
 
 OSTD_EXPORT void init_libs(CsState &cs, int libs = CS_LIB_ALL);
 
-struct OSTD_EXPORT StackedValue: TaggedValue {
+struct OSTD_EXPORT StackedValue: CsValue {
     StackedValue(Ident *id = nullptr):
-        TaggedValue(), p_a(nullptr), p_stack(), p_pushed(false)
+        CsValue(), p_a(nullptr), p_stack(), p_pushed(false)
     {
         set_alias(id);
     }
@@ -628,7 +628,7 @@ namespace util {
 
     template<typename R>
     inline ostd::Size tvals_concat(
-        R &&writer, TvalRange vals,
+        R &&writer, CsValueRange vals,
         ostd::ConstCharRange sep = ostd::ConstCharRange()
     ) {
         ostd::Size ret = 0;

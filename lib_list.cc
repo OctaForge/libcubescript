@@ -10,27 +10,27 @@ struct CsArgVal;
 
 template<>
 struct CsArgVal<CsInt> {
-    static CsInt get(TaggedValue &tv) {
+    static CsInt get(CsValue &tv) {
         return tv.get_int();
     }
 };
 
 template<>
 struct CsArgVal<CsFloat> {
-    static CsFloat get(TaggedValue &tv) {
+    static CsFloat get(CsValue &tv) {
         return tv.get_float();
     }
 };
 
 template<>
 struct CsArgVal<ostd::ConstCharRange> {
-    static ostd::ConstCharRange get(TaggedValue &tv) {
+    static ostd::ConstCharRange get(CsValue &tv) {
         return tv.get_strr();
     }
 };
 
 template<typename T, typename F>
-static inline void cs_list_find(TvalRange args, TaggedValue &res, F cmp) {
+static inline void cs_list_find(CsValueRange args, CsValue &res, F cmp) {
     CsInt n = 0, skip = args[2].get_int();
     T val = CsArgVal<T>::get(args[1]);
     for (util::ListParser p(args[0].get_strr()); p.parse(); ++n) {
@@ -50,7 +50,7 @@ notfound:
 }
 
 template<typename T, typename F>
-static inline void cs_list_assoc(TvalRange args, TaggedValue &res, F cmp) {
+static inline void cs_list_assoc(CsValueRange args, CsValue &res, F cmp) {
     T val = CsArgVal<T>::get(args[1]);
     for (util::ListParser p(args[0].get_strr()); p.parse();) {
         if (cmp(p, val)) {
@@ -75,13 +75,13 @@ static inline void cs_set_iter(Alias &a, char *val, IdentStack &stack) {
         a.val_v.set_mstr(val);
         return;
     }
-    TaggedValue v;
+    CsValue v;
     v.set_mstr(val);
     a.push_arg(v, stack);
 }
 
 static void cs_loop_list_conc(
-    CsState &cs, TaggedValue &res, Ident *id, ostd::ConstCharRange list,
+    CsState &cs, CsValue &res, Ident *id, ostd::ConstCharRange list,
     Bytecode const *body, bool space
 ) {
     if (!id->is_alias()) {
@@ -96,7 +96,7 @@ static void cs_loop_list_conc(
         if (n && space) {
             r.push(' ');
         }
-        TaggedValue v;
+        CsValue v;
         cs.run_ret(body, v);
         ostd::String vstr = ostd::move(v.get_str());
         r.push_n(vstr.data(), vstr.size());
@@ -122,7 +122,7 @@ int cs_list_includes(ostd::ConstCharRange list, ostd::ConstCharRange needle) {
 }
 
 template<bool PushList, bool Swap, typename F>
-static inline void cs_list_merge(TvalRange args, TaggedValue &res, F cmp) {
+static inline void cs_list_merge(CsValueRange args, CsValue &res, F cmp) {
     ostd::ConstCharRange list = args[0].get_strr();
     ostd::ConstCharRange elems = args[1].get_strr();
     ostd::Vector<char> buf;
@@ -148,11 +148,11 @@ static inline void cs_list_merge(TvalRange args, TaggedValue &res, F cmp) {
 static void cs_init_lib_list_sort(CsState &cs);
 
 void cs_init_lib_list(CsState &cs) {
-    cs.add_command("listlen", "s", [](TvalRange args, TaggedValue &res) {
+    cs.add_command("listlen", "s", [](CsValueRange args, CsValue &res) {
         res.set_int(CsInt(util::list_length(args[0].get_strr())));
     });
 
-    cs.add_command("at", "si1V", [](TvalRange args, TaggedValue &res) {
+    cs.add_command("at", "si1V", [](CsValueRange args, CsValue &res) {
         if (args.empty()) {
             return;
         }
@@ -177,7 +177,7 @@ void cs_init_lib_list(CsState &cs) {
         res.set_mstr(er);
     });
 
-    cs.add_command("sublist", "siiN", [](TvalRange args, TaggedValue &res) {
+    cs.add_command("sublist", "siiN", [](CsValueRange args, CsValue &res) {
         CsInt skip    = args[1].get_int(),
               count   = args[2].get_int(),
               numargs = args[2].get_int();
@@ -206,7 +206,7 @@ void cs_init_lib_list(CsState &cs) {
         res.set_str(ostd::ConstCharRange(list, qend - list));
     });
 
-    cs.add_command("listfind", "rse", [&cs](TvalRange args, TaggedValue &res) {
+    cs.add_command("listfind", "rse", [&cs](CsValueRange args, CsValue &res) {
         Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
         if (!id->is_alias()) {
@@ -230,7 +230,7 @@ found:
         }
     });
 
-    cs.add_command("listassoc", "rse", [&cs](TvalRange args, TaggedValue &res) {
+    cs.add_command("listassoc", "rse", [&cs](CsValueRange args, CsValue &res) {
         Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
         if (!id->is_alias()) {
@@ -259,21 +259,21 @@ found:
         }
     });
 
-    cs.add_command("listfind=", "i", [](TvalRange args, TaggedValue &res) {
+    cs.add_command("listfind=", "i", [](CsValueRange args, CsValue &res) {
         cs_list_find<CsInt>(
             args, res, [](const util::ListParser &p, CsInt val) {
                 return cs_parse_int(p.item) == val;
             }
         );
     });
-    cs.add_command("listfind=f", "f", [](TvalRange args, TaggedValue &res) {
+    cs.add_command("listfind=f", "f", [](CsValueRange args, CsValue &res) {
         cs_list_find<CsFloat>(
             args, res, [](const util::ListParser &p, CsFloat val) {
                 return cs_parse_float(p.item) == val;
             }
         );
     });
-    cs.add_command("listfind=s", "s", [](TvalRange args, TaggedValue &res) {
+    cs.add_command("listfind=s", "s", [](CsValueRange args, CsValue &res) {
         cs_list_find<ostd::ConstCharRange>(
             args, res, [](const util::ListParser &p, ostd::ConstCharRange val) {
                 return p.item == val;
@@ -281,21 +281,21 @@ found:
         );
     });
 
-    cs.add_command("listassoc=", "i", [](TvalRange args, TaggedValue &res) {
+    cs.add_command("listassoc=", "i", [](CsValueRange args, CsValue &res) {
         cs_list_assoc<CsInt>(
             args, res, [](const util::ListParser &p, CsInt val) {
                 return cs_parse_int(p.item) == val;
             }
         );
     });
-    cs.add_command("listassoc=f", "f", [](TvalRange args, TaggedValue &res) {
+    cs.add_command("listassoc=f", "f", [](CsValueRange args, CsValue &res) {
         cs_list_assoc<CsFloat>(
             args, res, [](const util::ListParser &p, CsFloat val) {
                 return cs_parse_float(p.item) == val;
             }
         );
     });
-    cs.add_command("listassoc=s", "s", [](TvalRange args, TaggedValue &res) {
+    cs.add_command("listassoc=s", "s", [](CsValueRange args, CsValue &res) {
         cs_list_assoc<ostd::ConstCharRange>(
             args, res, [](const util::ListParser &p, ostd::ConstCharRange val) {
                 return p.item == val;
@@ -303,7 +303,7 @@ found:
         );
     });
 
-    cs.add_command("looplist", "rse", [&cs](TvalRange args, TaggedValue &) {
+    cs.add_command("looplist", "rse", [&cs](CsValueRange args, CsValue &) {
         Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
         if (!id->is_alias()) {
@@ -320,7 +320,7 @@ found:
         }
     });
 
-    cs.add_command("looplist2", "rrse", [&cs](TvalRange args, TaggedValue &) {
+    cs.add_command("looplist2", "rrse", [&cs](CsValueRange args, CsValue &) {
         Ident *id = args[0].get_ident(), *id2 = args[1].get_ident();
         auto body = args[3].get_code();
         if (!id->is_alias() || !id2->is_alias()) {
@@ -342,7 +342,7 @@ found:
         }
     });
 
-    cs.add_command("looplist3", "rrrse", [&cs](TvalRange args, TaggedValue &) {
+    cs.add_command("looplist3", "rrrse", [&cs](CsValueRange args, CsValue &) {
         Ident *id = args[0].get_ident();
         Ident *id2 = args[1].get_ident();
         Ident *id3 = args[2].get_ident();
@@ -372,7 +372,7 @@ found:
     });
 
     cs.add_command("looplistconcat", "rse", [&cs](
-        TvalRange args, TaggedValue &res
+        CsValueRange args, CsValue &res
     ) {
         cs_loop_list_conc(
             cs, res, args[0].get_ident(), args[1].get_strr(),
@@ -381,7 +381,7 @@ found:
     });
 
     cs.add_command("looplistconcatword", "rse", [&cs](
-        TvalRange args, TaggedValue &res
+        CsValueRange args, CsValue &res
     ) {
         cs_loop_list_conc(
             cs, res, args[0].get_ident(), args[1].get_strr(),
@@ -389,7 +389,7 @@ found:
         );
     });
 
-    cs.add_command("listfilter", "rse", [&cs](TvalRange args, TaggedValue &res) {
+    cs.add_command("listfilter", "rse", [&cs](CsValueRange args, CsValue &res) {
         Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
         if (!id->is_alias()) {
@@ -416,7 +416,7 @@ found:
         res.set_mstr(ostd::CharRange(r.disown(), len));
     });
 
-    cs.add_command("listcount", "rse", [&cs](TvalRange args, TaggedValue &res) {
+    cs.add_command("listcount", "rse", [&cs](CsValueRange args, CsValue &res) {
         Ident *id = args[0].get_ident();
         auto body = args[2].get_code();
         if (!id->is_alias()) {
@@ -437,7 +437,7 @@ found:
         res.set_int(r);
     });
 
-    cs.add_command("prettylist", "ss", [](TvalRange args, TaggedValue &res) {
+    cs.add_command("prettylist", "ss", [](CsValueRange args, CsValue &res) {
         ostd::Vector<char> buf;
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange conj = args[1].get_strr();
@@ -471,23 +471,23 @@ found:
         res.set_mstr(ostd::CharRange(buf.disown(), slen));
     });
 
-    cs.add_command("indexof", "ss", [](TvalRange args, TaggedValue &res) {
+    cs.add_command("indexof", "ss", [](CsValueRange args, CsValue &res) {
         res.set_int(
             cs_list_includes(args[0].get_strr(), args[1].get_strr())
         );
     });
 
-    cs.add_command("listdel", "ss", [](TvalRange args, TaggedValue &res) {
+    cs.add_command("listdel", "ss", [](CsValueRange args, CsValue &res) {
         cs_list_merge<false, false>(args, res, ostd::Less<int>());
     });
-    cs.add_command("listintersect", "ss", [](TvalRange args, TaggedValue &res) {
+    cs.add_command("listintersect", "ss", [](CsValueRange args, CsValue &res) {
         cs_list_merge<false, false>(args, res, ostd::GreaterEqual<int>());
     });
-    cs.add_command("listunion", "ss", [](TvalRange args, TaggedValue &res) {
+    cs.add_command("listunion", "ss", [](CsValueRange args, CsValue &res) {
         cs_list_merge<true, true>(args, res, ostd::Less<int>());
     });
 
-    cs.add_command("listsplice", "ssii", [](TvalRange args, TaggedValue &res) {
+    cs.add_command("listsplice", "ssii", [](CsValueRange args, CsValue &res) {
         CsInt offset = ostd::max(args[2].get_int(), 0);
         CsInt len    = ostd::max(args[3].get_int(), 0);
         ostd::ConstCharRange s = args[0].get_strr();
@@ -557,7 +557,7 @@ struct ListSortFun {
 };
 
 static void cs_list_sort(
-    CsState &cs, TaggedValue &res, ostd::ConstCharRange list, Ident *x, Ident *y,
+    CsState &cs, CsValue &res, ostd::ConstCharRange list, Ident *x, Ident *y,
     Bytecode *body, Bytecode *unique
 ) {
     if (x == y || !x->is_alias() || !y->is_alias()) {
@@ -584,7 +584,7 @@ static void cs_list_sort(
     }
 
     /* default null value, set later from callback */
-    TaggedValue nv;
+    CsValue nv;
     nv.set_null();
 
     IdentStack xstack, ystack;
@@ -659,7 +659,7 @@ static void cs_list_sort(
 
 static void cs_init_lib_list_sort(CsState &cs) {
     cs.add_command("sortlist", "srree", [&cs](
-        TvalRange args, TaggedValue &res
+        CsValueRange args, CsValue &res
     ) {
         cs_list_sort(
             cs, res, args[0].get_strr(), args[1].get_ident(),
@@ -667,7 +667,7 @@ static void cs_init_lib_list_sort(CsState &cs) {
         );
     });
     cs.add_command("uniquelist", "srre", [&cs](
-        TvalRange args, TaggedValue &res
+        CsValueRange args, CsValue &res
     ) {
         cs_list_sort(
             cs, res, args[0].get_strr(), args[1].get_ident(),

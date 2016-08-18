@@ -72,7 +72,7 @@ enum {
     RET_FLOAT  = VAL_FLOAT << CODE_RET,
 };
 
-struct NullValue: TaggedValue {
+struct NullValue: CsValue {
     NullValue() { set_null(); }
 } const null_value;
 
