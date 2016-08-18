@@ -18,6 +18,18 @@ enum {
     ID_LOCAL, ID_DO, ID_DOARGS, ID_IF, ID_RESULT, ID_NOT, ID_AND, ID_OR
 };
 
+struct Command: Ident {
+    char *cargs;
+    ostd::Uint32 argmask;
+    int numargs;
+    CmdFunc cb_cftv;
+
+    Command(
+        int type, ostd::ConstCharRange name, ostd::ConstCharRange args,
+        ostd::Uint32 argmask, int numargs, CmdFunc func
+    );
+};
+
 enum {
     CODE_START = 0,
     CODE_OFFSET,

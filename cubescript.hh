@@ -65,11 +65,8 @@ private:
 OSTD_EXPORT bool code_is_empty(Bytecode const *code);
 
 struct Ident;
-struct Alias;
 
 struct OSTD_EXPORT TaggedValue {
-    friend struct Alias;
-
     union {
         CsInt i;      /* ID_IVAR, VAL_INT */
         CsFloat f;    /* ID_FVAR, VAL_FLOAT */
@@ -175,16 +172,16 @@ enum class IdentType {
     ivar, fvar, svar, command, alias
 };
 
-struct Command;
 struct Var;
 struct Ivar;
 struct Fvar;
 struct Svar;
+struct Alias;
 
 struct OSTD_EXPORT Ident {
-    ostd::byte type; /* ID_something */
+    int type; /* ID_something */
     ostd::ushort flags;
-    int index;
+    int index = -1;
     ostd::String name;
 
     IdentType get_type() const;
@@ -194,8 +191,6 @@ struct OSTD_EXPORT Ident {
     Alias const *get_alias() const;
 
     bool is_command() const;
-    Command *get_command();
-    Command const *get_command() const;
 
     bool is_var() const;
     Var *get_var();
@@ -214,7 +209,7 @@ struct OSTD_EXPORT Ident {
     Svar const *get_svar() const;
 
 protected:
-    Ident();
+    Ident(IdentType tp, ostd::ConstCharRange name, int flags = 0);
 };
 
 using VarCb = ostd::Function<void(Ident &)>;
@@ -229,7 +224,7 @@ struct OSTD_EXPORT Var: Ident {
     }
 
 protected:
-    Var(VarCb f);
+    Var(IdentType tp, ostd::ConstCharRange name, VarCb func, int flags = 0);
 };
 
 struct OSTD_EXPORT Ivar: Var {
@@ -300,26 +295,14 @@ struct OSTD_EXPORT Alias: Ident {
     }
 };
 
-using CmdFunc = ostd::Function<void(TvalRange, TaggedValue &)>;
-
-struct OSTD_EXPORT Command: Ident {
-    char *cargs;
-    ostd::Uint32 argmask;
-    int numargs;
-    CmdFunc cb_cftv;
-
-    Command(
-        int t, ostd::ConstCharRange n, ostd::ConstCharRange args,
-        ostd::Uint32 argmask, int numargs, CmdFunc f = CmdFunc()
-    );
-};
-
 struct IdentLink {
     Ident *id;
     IdentLink *next;
     int usedargs;
     IdentStack *argstack;
 };
+
+using CmdFunc = ostd::Function<void(TvalRange, TaggedValue &)>;
 
 struct OSTD_EXPORT CsState {
     ostd::Map<ostd::ConstCharRange, Ident *> idents;

@@ -38,90 +38,71 @@ bool cs_check_num(ostd::ConstCharRange s) {
     }
 }
 
-Ident::Ident(): type(ID_UNKNOWN) {}
+Ident::Ident(IdentType tp, ostd::ConstCharRange nm, int fl):
+    type(int(tp)), flags(fl), name(nm)
+{}
 
-Var::Var(VarCb f): cb_var(ostd::move(f)) {}
+Var::Var(IdentType tp, ostd::ConstCharRange name, VarCb f, int fl):
+    Ident(tp, name, fl), cb_var(ostd::move(f))
+{}
 
-/* ID_IVAR */
 Ivar::Ivar(
-    ostd::ConstCharRange n, CsInt m, CsInt x, CsInt *s, VarCb f, int flagsv
-): Var(ostd::move(f)), minval(m), maxval(x), overrideval(0), storage(s) {
-    type = ID_IVAR;
-    flags = flagsv | (m > x ? IDF_READONLY : 0);
-    name = n;
-}
+    ostd::ConstCharRange name, CsInt m, CsInt x, CsInt *s, VarCb f, int fl
+):
+    Var(IdentType::ivar, name, ostd::move(f), fl | ((m > x) ? IDF_READONLY : 0)),
+    minval(m), maxval(x), overrideval(0), storage(s)
+{}
 
-/* ID_FVAR */
 Fvar::Fvar(
-    ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat *s,
-    VarCb f, int flagsv
-): Var(ostd::move(f)), minval(m), maxval(x), overrideval(0), storage(s) {
-    type = ID_FVAR;
-    flags = flagsv | (m > x ? IDF_READONLY : 0);
-    name = n;
-}
+    ostd::ConstCharRange name, CsFloat m, CsFloat x, CsFloat *s, VarCb f, int fl
+):
+    Var(IdentType::fvar, name, ostd::move(f), fl | ((m > x) ? IDF_READONLY : 0)),
+    minval(m), maxval(x), overrideval(0), storage(s)
+{}
 
-/* ID_SVAR */
-Svar::Svar(ostd::ConstCharRange n, char **s, VarCb f, int flagsv):
-    Var(ostd::move(f)), overrideval(nullptr), storage(s)
-{
-    type = ID_SVAR;
-    flags = flagsv;
-    name = n;
-}
+Svar::Svar(ostd::ConstCharRange name, char **s, VarCb f, int fl):
+    Var(IdentType::svar, name, ostd::move(f), fl),
+    overrideval(nullptr), storage(s)
+{}
 
-/* ID_ALIAS */
-Alias::Alias(ostd::ConstCharRange n, char *a, int flagsv):
+Alias::Alias(ostd::ConstCharRange name, char *a, int fl):
+    Ident(IdentType::alias, name, fl),
     code(nullptr), stack(nullptr)
 {
-    type = ID_ALIAS;
-    flags = flagsv;
-    name = n;
     val_v.set_mstr(a);
 }
-Alias::Alias(ostd::ConstCharRange n, CsInt a, int flagsv):
+Alias::Alias(ostd::ConstCharRange name, CsInt a, int fl):
+    Ident(IdentType::alias, name, fl),
     code(nullptr), stack(nullptr)
 {
-    type = ID_ALIAS;
-    flags = flagsv;
-    name = n;
     val_v.set_int(a);
 }
-Alias::Alias(ostd::ConstCharRange n, CsFloat a, int flagsv):
+Alias::Alias(ostd::ConstCharRange name, CsFloat a, int fl):
+    Ident(IdentType::alias, name, fl),
     code(nullptr), stack(nullptr)
 {
-    type = ID_ALIAS;
-    flags = flagsv;
-    name = n;
     val_v.set_float(a);
 }
-Alias::Alias(ostd::ConstCharRange n, int flagsv):
+Alias::Alias(ostd::ConstCharRange name, int fl):
+    Ident(IdentType::alias, name, fl),
     code(nullptr), stack(nullptr)
 {
-    type = ID_ALIAS;
-    flags = flagsv;
-    name = n;
     val_v.set_null();
 }
-Alias::Alias(ostd::ConstCharRange n, TaggedValue const &v, int flagsv):
+Alias::Alias(ostd::ConstCharRange name, TaggedValue const &v, int fl):
+    Ident(IdentType::alias, name, fl),
     code(nullptr), stack(nullptr), val_v(v)
-{
-    type = ID_ALIAS;
-    flags = flagsv;
-    name = n;
-}
+{}
 
-/* ID_COMMAND */
 Command::Command(
-    int t, ostd::ConstCharRange n, ostd::ConstCharRange args,
+    int tp, ostd::ConstCharRange name, ostd::ConstCharRange args,
     ostd::Uint32 amask, int nargs, CmdFunc f
 ):
+    Ident(IdentType::unknown, name, 0),
     cargs(!args.empty() ? cs_dup_ostr(args) : nullptr),
     argmask(amask), numargs(nargs), cb_cftv(ostd::move(f))
 {
-    type = t;
-    flags = 0;
-    name = n;
+    type = tp;
 }
 
 bool Ident::is_alias() const {
@@ -144,20 +125,6 @@ Alias const *Ident::get_alias() const {
 
 bool Ident::is_command() const {
     return get_type() == IdentType::command;
-}
-
-Command *Ident::get_command() {
-    if (!is_command()) {
-        return nullptr;
-    }
-    return static_cast<Command *>(this);
-}
-
-Command const *Ident::get_command() const {
-    if (!is_command()) {
-        return nullptr;
-    }
-    return static_cast<Command const *>(this);
 }
 
 bool Ident::is_var() const {
