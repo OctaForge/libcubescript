@@ -228,6 +228,12 @@ private:
 using VarCb = ostd::Function<void(Ident &)>;
 
 struct OSTD_EXPORT Var: Ident {
+    friend struct CsState;
+
+protected:
+    Var(IdentType tp, ostd::ConstCharRange name, VarCb func, int flags = 0);
+
+private:
     VarCb cb_var;
 
     void changed() {
@@ -235,39 +241,57 @@ struct OSTD_EXPORT Var: Ident {
             cb_var(*this);
         }
     }
-
-protected:
-    Var(IdentType tp, ostd::ConstCharRange name, VarCb func, int flags = 0);
 };
 
 struct OSTD_EXPORT Ivar: Var {
-    CsInt minval, maxval, overrideval;
-    CsInt *storage;
+    friend struct CsState;
+
+    CsInt get_val_min() const;
+    CsInt get_val_max() const;
+
+    CsInt get_var_value() const;
 
     Ivar(
         ostd::ConstCharRange n, CsInt m, CsInt x, CsInt *s,
         VarCb f = VarCb(), int flags = 0
     );
+
+private:
+    CsInt *p_storage;
+    CsInt p_minval, p_maxval, p_overrideval;
 };
 
 struct OSTD_EXPORT Fvar: Var {
-    CsFloat minval, maxval, overrideval;
-    CsFloat *storage;
+    friend struct CsState;
+
+    CsFloat get_val_min() const;
+    CsFloat get_val_max() const;
+
+    CsFloat get_var_value() const;
 
     Fvar(
         ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat *s,
         VarCb f = VarCb(), int flags = 0
     );
+
+private:
+    CsFloat *p_storage;
+    CsFloat p_minval, p_maxval, p_overrideval;
 };
 
 struct OSTD_EXPORT Svar: Var {
-    char *overrideval;
-    char **storage;
+    friend struct CsState;
+
+    ostd::ConstCharRange get_var_value() const;
 
     Svar(
         ostd::ConstCharRange n, char **s, VarCb f = VarCb(),
         int flags = 0
     );
+
+private:
+    char **p_storage;
+    char *p_overrideval;
 };
 
 struct OSTD_EXPORT Alias: Ident {

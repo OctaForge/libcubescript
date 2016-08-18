@@ -983,16 +983,16 @@ static ostd::Uint32 const *runcode(
                         ));
                         continue;
                     case ID_SVAR:
-                        arg.set_str(*static_cast<Svar *>(id)->storage);
+                        arg.set_str(static_cast<Svar *>(id)->get_var_value());
                         continue;
                     case ID_IVAR:
                         arg.set_str(ostd::move(
-                            intstr(*static_cast<Ivar *>(id)->storage)
+                            intstr(static_cast<Ivar *>(id)->get_var_value())
                         ));
                         continue;
                     case ID_FVAR:
                         arg.set_str(ostd::move(
-                            floatstr(*static_cast<Fvar *>(id)->storage)
+                            floatstr(static_cast<Fvar *>(id)->get_var_value())
                         ));
                         continue;
                     case ID_UNKNOWN:
@@ -1025,14 +1025,16 @@ static ostd::Uint32 const *runcode(
                         continue;
                     case ID_SVAR:
                         arg.set_int(cs_parse_int(
-                            *static_cast<Svar *>(id)->storage
+                            static_cast<Svar *>(id)->get_var_value()
                         ));
                         continue;
                     case ID_IVAR:
-                        arg.set_int(*static_cast<Ivar *>(id)->storage);
+                        arg.set_int(static_cast<Ivar *>(id)->get_var_value());
                         continue;
                     case ID_FVAR:
-                        arg.set_int(CsInt(*static_cast<Fvar *>(id)->storage));
+                        arg.set_int(
+                            CsInt(static_cast<Fvar *>(id)->get_var_value())
+                        );
                         continue;
                     case ID_UNKNOWN:
                         arg.set_int(0);
@@ -1066,16 +1068,18 @@ static ostd::Uint32 const *runcode(
                         continue;
                     case ID_SVAR:
                         arg.set_float(cs_parse_float(
-                            *static_cast<Svar *>(id)->storage
+                            static_cast<Svar *>(id)->get_var_value()
                         ));
                         continue;
                     case ID_IVAR:
                         arg.set_float(CsFloat(
-                            *static_cast<Ivar *>(id)->storage
+                            static_cast<Ivar *>(id)->get_var_value()
                         ));
                         continue;
                     case ID_FVAR:
-                        arg.set_float(*static_cast<Fvar *>(id)->storage);
+                        arg.set_float(
+                            static_cast<Fvar *>(id)->get_var_value()
+                        );
                         continue;
                     case ID_UNKNOWN:
                         arg.set_float(CsFloat(0));
@@ -1106,13 +1110,15 @@ static ostd::Uint32 const *runcode(
                         static_cast<Alias *>(id)->val_v.get_val(arg);
                         continue;
                     case ID_SVAR:
-                        arg.set_str(*static_cast<Svar *>(id)->storage);
+                        arg.set_str(static_cast<Svar *>(id)->get_var_value());
                         continue;
                     case ID_IVAR:
-                        arg.set_int(*static_cast<Ivar *>(id)->storage);
+                        arg.set_int(static_cast<Ivar *>(id)->get_var_value());
                         continue;
                     case ID_FVAR:
-                        arg.set_float(*static_cast<Fvar *>(id)->storage);
+                        arg.set_float(
+                            static_cast<Fvar *>(id)->get_var_value()
+                        );
                         continue;
                     case ID_UNKNOWN:
                         arg.set_null();
@@ -1142,16 +1148,16 @@ static ostd::Uint32 const *runcode(
                         static_cast<Alias *>(id)->get_cstr(arg);
                         continue;
                     case ID_SVAR:
-                        arg.set_cstr(*static_cast<Svar *>(id)->storage);
+                        arg.set_cstr(static_cast<Svar *>(id)->get_var_value());
                         continue;
                     case ID_IVAR:
                         arg.set_str(ostd::move(
-                            intstr(*static_cast<Ivar *>(id)->storage)
+                            intstr(static_cast<Ivar *>(id)->get_var_value())
                         ));
                         continue;
                     case ID_FVAR:
                         arg.set_str(ostd::move(
-                            floatstr(*static_cast<Fvar *>(id)->storage)
+                            floatstr(static_cast<Fvar *>(id)->get_var_value())
                         ));
                         continue;
                     case ID_UNKNOWN:
@@ -1181,13 +1187,13 @@ static ostd::Uint32 const *runcode(
                         static_cast<Alias *>(id)->get_cval(arg);
                         continue;
                     case ID_SVAR:
-                        arg.set_cstr(*static_cast<Svar *>(id)->storage);
+                        arg.set_cstr(static_cast<Svar *>(id)->get_var_value());
                         continue;
                     case ID_IVAR:
-                        arg.set_int(*static_cast<Ivar *>(id)->storage);
+                        arg.set_int(static_cast<Ivar *>(id)->get_var_value());
                         continue;
                     case ID_FVAR:
-                        arg.set_float(*static_cast<Fvar *>(id)->storage);
+                        arg.set_float(static_cast<Fvar *>(id)->get_var_value());
                         continue;
                     case ID_UNKNOWN:
                         arg.set_null();
@@ -1212,22 +1218,22 @@ static ostd::Uint32 const *runcode(
             case CODE_SVAR | RET_STR:
             case CODE_SVAR | RET_NULL:
                 args[numargs++].set_str(
-                    *static_cast<Svar *>(cs.identmap[op >> 8])->storage
+                    static_cast<Svar *>(cs.identmap[op >> 8])->get_var_value()
                 );
                 continue;
             case CODE_SVAR | RET_INT:
                 args[numargs++].set_int(cs_parse_int(
-                    *static_cast<Svar *>(cs.identmap[op >> 8])->storage
+                    static_cast<Svar *>(cs.identmap[op >> 8])->get_var_value()
                 ));
                 continue;
             case CODE_SVAR | RET_FLOAT:
                 args[numargs++].set_float(cs_parse_float(
-                    *static_cast<Svar *>(cs.identmap[op >> 8])->storage
+                    static_cast<Svar *>(cs.identmap[op >> 8])->get_var_value()
                 ));
                 continue;
             case CODE_SVARM:
                 args[numargs++].set_cstr(
-                    *static_cast<Svar *>(cs.identmap[op >> 8])->storage
+                    static_cast<Svar *>(cs.identmap[op >> 8])->get_var_value()
                 );
                 continue;
             case CODE_SVAR1:
@@ -1240,17 +1246,17 @@ static ostd::Uint32 const *runcode(
             case CODE_IVAR | RET_INT:
             case CODE_IVAR | RET_NULL:
                 args[numargs++].set_int(
-                    *static_cast<Ivar *>(cs.identmap[op >> 8])->storage
+                    static_cast<Ivar *>(cs.identmap[op >> 8])->get_var_value()
                 );
                 continue;
             case CODE_IVAR | RET_STR:
                 args[numargs++].set_str(ostd::move(intstr(
-                    *static_cast<Ivar *>(cs.identmap[op >> 8])->storage
+                    static_cast<Ivar *>(cs.identmap[op >> 8])->get_var_value()
                 )));
                 continue;
             case CODE_IVAR | RET_FLOAT:
                 args[numargs++].set_float(CsFloat(
-                    *static_cast<Ivar *>(cs.identmap[op >> 8])->storage
+                    static_cast<Ivar *>(cs.identmap[op >> 8])->get_var_value()
                 ));
                 continue;
             case CODE_IVAR1:
@@ -1276,17 +1282,17 @@ static ostd::Uint32 const *runcode(
             case CODE_FVAR | RET_FLOAT:
             case CODE_FVAR | RET_NULL:
                 args[numargs++].set_float(
-                    *static_cast<Fvar *>(cs.identmap[op >> 8])->storage
+                    static_cast<Fvar *>(cs.identmap[op >> 8])->get_var_value()
                 );
                 continue;
             case CODE_FVAR | RET_STR:
                 args[numargs++].set_str(ostd::move(floatstr(
-                    *static_cast<Fvar *>(cs.identmap[op >> 8])->storage
+                    static_cast<Fvar *>(cs.identmap[op >> 8])->get_var_value()
                 )));
                 continue;
             case CODE_FVAR | RET_INT:
                 args[numargs++].set_int(int(
-                    *static_cast<Fvar *>(cs.identmap[op >> 8])->storage
+                    static_cast<Fvar *>(cs.identmap[op >> 8])->get_var_value()
                 ));
                 continue;
             case CODE_FVAR1:
