@@ -339,6 +339,14 @@ struct IdentLink {
     IdentStack *argstack;
 };
 
+enum {
+    CS_LIB_IO     = 1 << 0,
+    CS_LIB_MATH   = 1 << 1,
+    CS_LIB_STRING = 1 << 2,
+    CS_LIB_LIST   = 1 << 3,
+    CS_LIB_ALL    = 0b1111
+};
+
 using CmdFunc = ostd::Function<void(CsValueRange, CsValue &)>;
 
 struct OSTD_EXPORT CsState {
@@ -360,6 +368,8 @@ struct OSTD_EXPORT CsState {
 
     CsState();
     ~CsState();
+
+    void init_libs(int libs = CS_LIB_ALL);
 
     void clear_override(Ident &id);
     void clear_overrides();
@@ -462,16 +472,6 @@ struct OSTD_EXPORT CsState {
     void print_var_float(Fvar *fv, CsFloat f);
     void print_var_str(Svar *sv, ostd::ConstCharRange s);
 };
-
-enum {
-    CS_LIB_IO     = 1 << 0,
-    CS_LIB_MATH   = 1 << 1,
-    CS_LIB_STRING = 1 << 2,
-    CS_LIB_LIST   = 1 << 3,
-    CS_LIB_ALL    = 0b1111
-};
-
-OSTD_EXPORT void init_libs(CsState &cs, int libs = CS_LIB_ALL);
 
 struct OSTD_EXPORT StackedValue: CsValue {
     StackedValue(Ident *id = nullptr):

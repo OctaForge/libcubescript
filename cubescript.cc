@@ -1532,18 +1532,18 @@ void cs_init_lib_math(CsState &cs);
 void cs_init_lib_string(CsState &cs);
 void cs_init_lib_list(CsState &cs);
 
-OSTD_EXPORT void init_libs(CsState &cs, int libs) {
+OSTD_EXPORT void CsState::init_libs(int libs) {
     if (libs & CS_LIB_IO) {
-        cs_init_lib_io(cs);
+        cs_init_lib_io(*this);
     }
     if (libs & CS_LIB_MATH) {
-        cs_init_lib_math(cs);
+        cs_init_lib_math(*this);
     }
     if (libs & CS_LIB_STRING) {
-        cs_init_lib_string(cs);
+        cs_init_lib_string(*this);
     }
     if (libs & CS_LIB_LIST) {
-        cs_init_lib_list(cs);
+        cs_init_lib_list(*this);
     }
 }
 
