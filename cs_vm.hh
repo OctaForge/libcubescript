@@ -205,10 +205,10 @@ struct GenState {
 
     void gen_ident(Ident *id) {
         code.push(
-            ((id->index < MaxArguments)
+            ((id->get_index() < MaxArguments)
                 ? CODE_IDENTARG
                 : CODE_IDENT
-            ) | (id->index << 8)
+            ) | (id->get_index() << 8)
         );
     }
 

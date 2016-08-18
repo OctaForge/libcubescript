@@ -422,11 +422,11 @@ static void compilelookup(GenState &gs, int ltype, int prevargs = MaxResults) {
 lookupid:
             Ident *id = gs.cs.new_ident(lookup.get());
             if (id) {
-                switch (id->type) {
-                    case ID_IVAR:
+                switch (id->get_type()) {
+                    case IdentType::ivar:
                         gs.code.push(
                             CODE_IVAR | cs_ret_code(ltype, RET_INT) |
-                                (id->index << 8)
+                                (id->get_index() << 8)
                         );
                         switch (ltype) {
                             case VAL_POP:
@@ -440,10 +440,10 @@ lookupid:
                                 break;
                         }
                         return;
-                    case ID_FVAR:
+                    case IdentType::fvar:
                         gs.code.push(
                             CODE_FVAR | cs_ret_code(ltype, RET_FLOAT) |
-                                (id->index << 8)
+                                (id->get_index() << 8)
                         );
                         switch (ltype) {
                             case VAL_POP:
@@ -457,7 +457,7 @@ lookupid:
                                 break;
                         }
                         return;
-                    case ID_SVAR:
+                    case IdentType::svar:
                         switch (ltype) {
                             case VAL_POP:
                                 return;
@@ -466,51 +466,53 @@ lookupid:
                             case VAL_CODE:
                             case VAL_IDENT:
                             case VAL_COND:
-                                gs.code.push(CODE_SVARM | (id->index << 8));
+                                gs.code.push(
+                                    CODE_SVARM | (id->get_index() << 8)
+                                );
                                 break;
                             default:
                                 gs.code.push(
                                     CODE_SVAR | cs_ret_code(ltype, RET_STR) |
-                                        (id->index << 8)
+                                        (id->get_index() << 8)
                                 );
                                 break;
                         }
                         goto done;
-                    case ID_ALIAS:
+                    case IdentType::alias:
                         switch (ltype) {
                             case VAL_POP:
                                 return;
                             case VAL_CANY:
                             case VAL_COND:
                                 gs.code.push(
-                                    (id->index < MaxArguments
+                                    (id->get_index() < MaxArguments
                                         ? CODE_LOOKUPMARG
                                         : CODE_LOOKUPM
-                                    ) | (id->index << 8)
+                                    ) | (id->get_index() << 8)
                                 );
                                 break;
                             case VAL_CSTR:
                             case VAL_CODE:
                             case VAL_IDENT:
                                 gs.code.push(
-                                    (id->index < MaxArguments
+                                    (id->get_index() < MaxArguments
                                         ? CODE_LOOKUPMARG
                                         : CODE_LOOKUPM
-                                    ) | RET_STR | (id->index << 8)
+                                    ) | RET_STR | (id->get_index() << 8)
                                 );
                                 break;
                             default:
                                 gs.code.push(
-                                    (id->index < MaxArguments
+                                    (id->get_index() < MaxArguments
                                         ? CODE_LOOKUPARG
                                         : CODE_LOOKUP
                                     ) | cs_ret_code(ltype, RET_STR) |
-                                        (id->index << 8)
+                                        (id->get_index() << 8)
                                 );
                                 break;
                         }
                         goto done;
-                    case ID_COMMAND: {
+                    case IdentType::command: {
                         int comtype = CODE_COM, numargs = 0;
                         if (prevargs >= MaxResults) {
                             gs.code.push(CODE_ENTER);
@@ -578,7 +580,7 @@ lookupid:
                             }
                         }
                         gs.code.push(
-                            comtype | cs_ret_code(ltype) | (id->index << 8)
+                            comtype | cs_ret_code(ltype) | (id->get_index() << 8)
                         );
                         gs.code.push(
                             (prevargs >= MaxResults
@@ -590,7 +592,7 @@ lookupid:
         compilecomv:
                         gs.code.push(
                             comtype | cs_ret_code(ltype) | (numargs << 8) |
-                                (id->index << 13)
+                                (id->get_index() << 13)
                         );
                         gs.code.push(
                             (prevargs >= MaxResults
@@ -740,24 +742,26 @@ static bool compileblocksub(GenState &gs, int prevargs) {
 lookupid:
             Ident *id = gs.cs.new_ident(lookup.get());
             if (id) {
-                switch (id->type) {
-                    case ID_IVAR:
-                        gs.code.push(CODE_IVAR | (id->index << 8));
+                switch (id->get_type()) {
+                    case IdentType::ivar:
+                        gs.code.push(CODE_IVAR | (id->get_index() << 8));
                         goto done;
-                    case ID_FVAR:
-                        gs.code.push(CODE_FVAR | (id->index << 8));
+                    case IdentType::fvar:
+                        gs.code.push(CODE_FVAR | (id->get_index() << 8));
                         goto done;
-                    case ID_SVAR:
-                        gs.code.push(CODE_SVARM | (id->index << 8));
+                    case IdentType::svar:
+                        gs.code.push(CODE_SVARM | (id->get_index() << 8));
                         goto done;
-                    case ID_ALIAS:
+                    case IdentType::alias:
                         gs.code.push(
-                            (id->index < MaxArguments
+                            (id->get_index() < MaxArguments
                                 ? CODE_LOOKUPMARG
                                 : CODE_LOOKUPM
-                            ) | (id->index << 8)
+                            ) | (id->get_index() << 8)
                         );
                         goto done;
+                    default:
+                        break;
                 }
             }
             gs.gen_str(lookup.get(), true);
@@ -1091,39 +1095,48 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
                     if (idname) {
                         Ident *id = gs.cs.new_ident(idname.get());
                         if (id) {
-                            switch (id->type) {
-                                case ID_ALIAS:
+                            switch (id->get_type()) {
+                                case IdentType::alias:
                                     more = compilearg(gs, VAL_ANY, prevargs);
                                     if (!more) {
                                         gs.gen_str();
                                     }
                                     gs.code.push(
-                                        (id->index < MaxArguments
+                                        (id->get_index() < MaxArguments
                                             ? CODE_ALIASARG
-                                            : CODE_ALIAS) | (id->index << 8)
+                                            : CODE_ALIAS
+                                        ) | (id->get_index() << 8)
                                     );
                                     goto endstatement;
-                                case ID_IVAR:
+                                case IdentType::ivar:
                                     more = compilearg(gs, VAL_INT, prevargs);
                                     if (!more) {
                                         gs.gen_int();
                                     }
-                                    gs.code.push(CODE_IVAR1 | (id->index << 8));
+                                    gs.code.push(
+                                        CODE_IVAR1 | (id->get_index() << 8)
+                                    );
                                     goto endstatement;
-                                case ID_FVAR:
+                                case IdentType::fvar:
                                     more = compilearg(gs, VAL_FLOAT, prevargs);
                                     if (!more) {
                                         gs.gen_float();
                                     }
-                                    gs.code.push(CODE_FVAR1 | (id->index << 8));
+                                    gs.code.push(
+                                        CODE_FVAR1 | (id->get_index() << 8)
+                                    );
                                     goto endstatement;
-                                case ID_SVAR:
+                                case IdentType::svar:
                                     more = compilearg(gs, VAL_CSTR, prevargs);
                                     if (!more) {
                                         gs.gen_str();
                                     }
-                                    gs.code.push(CODE_SVAR1 | (id->index << 8));
+                                    gs.code.push(
+                                        CODE_SVAR1 | (id->get_index() << 8)
+                                    );
                                     goto endstatement;
+                                default:
+                                    break;
                             }
                         }
                         gs.gen_str(idname.get(), true);
@@ -1172,7 +1185,7 @@ noid:
                 }
                 gs.code.push(CODE_RESULT);
             } else {
-                switch (id->type) {
+                switch (id->get_type_raw()) {
                     case ID_ALIAS:
                         while (numargs < MaxArguments) {
                             more = compilearg(gs, VAL_ANY, prevargs + numargs);
@@ -1182,10 +1195,10 @@ noid:
                             ++numargs;
                         }
                         gs.code.push(
-                            (id->index < MaxArguments
+                            (id->get_index() < MaxArguments
                                 ? CODE_CALLARG
                                 : CODE_CALL
-                            ) | (numargs << 8) | (id->index << 13)
+                            ) | (numargs << 8) | (id->get_index() << 13)
                         );
                         break;
                     case ID_COMMAND: {
@@ -1406,13 +1419,14 @@ noid:
                             }
                         }
                         gs.code.push(
-                            comtype | cs_ret_code(rettype) | (id->index << 8)
+                            comtype | cs_ret_code(rettype) |
+                                (id->get_index() << 8)
                         );
                         break;
 compilecomv:
                         gs.code.push(
                             comtype | cs_ret_code(rettype) | (numargs << 8) |
-                                (id->index << 13)
+                                (id->get_index() << 13)
                         );
                         break;
                     }
@@ -1512,7 +1526,7 @@ compilecomv:
                                 }
                                 gs.code.push(
                                     CODE_COM | cs_ret_code(rettype) |
-                                        (id->index << 8)
+                                        (id->get_index() << 8)
                                 );
                             }
                         }
@@ -1541,7 +1555,7 @@ compilecomv:
                         }
                         if (!more) {
                             gs.code.push(
-                                (id->type == ID_AND
+                                ((id->get_type_raw() == ID_AND)
                                     ? CODE_TRUE
                                     : CODE_FALSE
                                 ) | cs_ret_code(rettype)
@@ -1580,10 +1594,10 @@ compilecomv:
                                 }
                                 gs.code.push(
                                     CODE_COMV | cs_ret_code(rettype) |
-                                        (numargs << 8) | (id->index << 13)
+                                        (numargs << 8) | (id->get_index() << 13)
                                 );
                             } else {
-                                ostd::Uint32 op = id->type == ID_AND
+                                ostd::Uint32 op = (id->get_type_raw() == ID_AND)
                                     ? CODE_JUMP_RESULT_FALSE
                                     : CODE_JUMP_RESULT_TRUE;
                                 gs.code.push(op);
@@ -1604,29 +1618,29 @@ compilecomv:
                         break;
                     case ID_IVAR:
                         if (!(more = compilearg(gs, VAL_INT, prevargs))) {
-                            gs.code.push(CODE_PRINT | (id->index << 8));
-                        } else if (!(id->flags & IDF_HEX) || !(
+                            gs.code.push(CODE_PRINT | (id->get_index() << 8));
+                        } else if (!(id->get_flags() & IDF_HEX) || !(
                             more = compilearg(gs, VAL_INT, prevargs + 1)
                         )) {
-                            gs.code.push(CODE_IVAR1 | (id->index << 8));
+                            gs.code.push(CODE_IVAR1 | (id->get_index() << 8));
                         } else if (!(
                             more = compilearg(gs, VAL_INT, prevargs + 2)
                         )) {
-                            gs.code.push(CODE_IVAR2 | (id->index << 8));
+                            gs.code.push(CODE_IVAR2 | (id->get_index() << 8));
                         } else {
-                            gs.code.push(CODE_IVAR3 | (id->index << 8));
+                            gs.code.push(CODE_IVAR3 | (id->get_index() << 8));
                         }
                         break;
                     case ID_FVAR:
                         if (!(more = compilearg(gs, VAL_FLOAT, prevargs))) {
-                            gs.code.push(CODE_PRINT | (id->index << 8));
+                            gs.code.push(CODE_PRINT | (id->get_index() << 8));
                         } else {
-                            gs.code.push(CODE_FVAR1 | (id->index << 8));
+                            gs.code.push(CODE_FVAR1 | (id->get_index() << 8));
                         }
                         break;
                     case ID_SVAR:
                         if (!(more = compilearg(gs, VAL_CSTR, prevargs))) {
-                            gs.code.push(CODE_PRINT | (id->index << 8));
+                            gs.code.push(CODE_PRINT | (id->get_index() << 8));
                         } else {
                             do {
                                 ++numargs;
@@ -1638,7 +1652,7 @@ compilecomv:
                             if (numargs > 1) {
                                 gs.code.push(CODE_CONC | RET_STR | (numargs << 8));
                             }
-                            gs.code.push(CODE_SVAR1 | (id->index << 8));
+                            gs.code.push(CODE_SVAR1 | (id->get_index() << 8));
                         }
                         break;
                 }

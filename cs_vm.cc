@@ -7,7 +7,7 @@
 namespace cscript {
 
 static inline bool cs_has_cmd_cb(Ident *id) {
-    if ((id->type != ID_COMMAND) && (id->type < ID_LOCAL)) {
+    if (!id->is_command() && !id->is_special()) {
         return false;
     }
     Command *cb = static_cast<Command *>(id);
@@ -15,13 +15,13 @@ static inline bool cs_has_cmd_cb(Ident *id) {
 }
 
 static inline void cs_push_alias(Ident *id, IdentStack &st) {
-    if ((id->type == ID_ALIAS) && (id->index >= MaxArguments)) {
+    if (id->is_alias() && (id->get_index() >= MaxArguments)) {
         static_cast<Alias *>(id)->push_arg(null_value, st);
     }
 }
 
 static inline void cs_pop_alias(Ident *id) {
-    if ((id->type == ID_ALIAS) && (id->index >= MaxArguments)) {
+    if (id->is_alias() && (id->get_index() >= MaxArguments)) {
         static_cast<Alias *>(id)->pop_arg();
     }
 }
@@ -72,11 +72,11 @@ void cs_debug_alias(CsState &cs) {
         Ident *id = l->id;
         ++depth;
         if (depth < cs.dbgalias) {
-            ostd::err.writefln("  %d) %s", total - depth + 1, id->name);
+            ostd::err.writefln("  %d) %s", total - depth + 1, id->get_name());
         } else if (l->next == &cs.noalias) {
             ostd::err.writefln(
                 depth == cs.dbgalias ? "  %d) %s" : "  ..%d) %s",
-                total - depth + 1, id->name
+                total - depth + 1, id->get_name()
             );
         }
     }
@@ -458,7 +458,7 @@ static inline void cs_call_alias(
     int oldargs = cs.numargs;
     cs.numargs = callargs;
     int oldflags = cs.identflags;
-    cs.identflags |= a->flags&IDF_OVERRIDDEN;
+    cs.identflags |= a->get_flags()&IDF_OVERRIDDEN;
     IdentLink aliaslink = {
         a, cs.stack, (1<<callargs)-1, argstack
     };
@@ -494,15 +494,15 @@ static thread_local int rundepth = 0;
 
 static inline Alias *cs_get_lookup_id(CsState &cs, ostd::Uint32 op) {
     Ident *id = cs.identmap[op >> 8];
-    if (id->flags & IDF_UNKNOWN) {
-        cs_debug_code(cs, "unknown alias lookup: %s", id->name);
+    if (id->get_flags() & IDF_UNKNOWN) {
+        cs_debug_code(cs, "unknown alias lookup: %s", id->get_name());
     }
     return static_cast<Alias *>(id);
 }
 
 static inline Alias *cs_get_lookuparg_id(CsState &cs, ostd::Uint32 op) {
     Ident *id = cs.identmap[op >> 8];
-    if (!(cs.stack->usedargs&(1<<id->index))) {
+    if (!(cs.stack->usedargs & (1 << id->get_index()))) {
         return nullptr;
     }
     return static_cast<Alias *>(id);
@@ -520,29 +520,29 @@ static inline int cs_get_lookupu_type(
     }
     id = cs.get_ident(arg.s);
     if (id) {
-        switch(id->type) {
-            case ID_ALIAS:
-                if (id->flags & IDF_UNKNOWN) {
+        switch(id->get_type()) {
+            case IdentType::alias:
+                if (id->get_flags() & IDF_UNKNOWN) {
                     break;
                 }
                 arg.cleanup();
                 if (
-                    (id->index < MaxArguments) &&
-                    !(cs.stack->usedargs & (1 << id->index))
+                    (id->get_index() < MaxArguments) &&
+                    !(cs.stack->usedargs & (1 << id->get_index()))
                 ) {
                     return ID_UNKNOWN;
                 }
                 return ID_ALIAS;
-            case ID_SVAR:
+            case IdentType::svar:
                 arg.cleanup();
                 return ID_SVAR;
-            case ID_IVAR:
+            case IdentType::ivar:
                 arg.cleanup();
                 return ID_IVAR;
-            case ID_FVAR:
+            case IdentType::fvar:
                 arg.cleanup();
                 return ID_FVAR;
-            case ID_COMMAND: {
+            case IdentType::command: {
                 arg.cleanup();
                 arg.set_null();
                 TaggedValue buf[MaxArguments];
@@ -940,9 +940,11 @@ static ostd::Uint32 const *runcode(
                 continue;
             case CODE_IDENTARG: {
                 Alias *a = static_cast<Alias *>(cs.identmap[op >> 8]);
-                if (!(cs.stack->usedargs & (1 << a->index))) {
-                    a->push_arg(null_value, cs.stack->argstack[a->index], false);
-                    cs.stack->usedargs |= 1 << a->index;
+                if (!(cs.stack->usedargs & (1 << a->get_index()))) {
+                    a->push_arg(
+                        null_value, cs.stack->argstack[a->get_index()], false
+                    );
+                    cs.stack->usedargs |= 1 << a->get_index();
                 }
                 args[numargs++].set_ident(a);
                 continue;
@@ -957,11 +959,14 @@ static ostd::Uint32 const *runcode(
                 ) {
                     id = cs.new_ident(ostd::ConstCharRange(arg.cstr, arg.len));
                 }
-                if (id->index < MaxArguments && !(cs.stack->usedargs & (1 << id->index))) {
+                if (
+                    id->get_index() < MaxArguments &&
+                    !(cs.stack->usedargs & (1 << id->get_index()))
+                ) {
                     static_cast<Alias *>(id)->push_arg(
-                        null_value, cs.stack->argstack[id->index], false
+                        null_value, cs.stack->argstack[id->get_index()], false
                     );
-                    cs.stack->usedargs |= 1 << id->index;
+                    cs.stack->usedargs |= 1 << id->get_index();
                 }
                 arg.cleanup();
                 arg.set_ident(id);
@@ -1397,8 +1402,8 @@ static ostd::Uint32 const *runcode(
                 result.force_null();
                 Ident *id = cs.identmap[op >> 13];
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
-                if (id->flags & IDF_UNKNOWN) {
-                    cs_debug_code(cs, "unknown command: %s", id->name);
+                if (id->get_flags() & IDF_UNKNOWN) {
+                    cs_debug_code(cs, "unknown command: %s", id->get_name());
                     free_args(args, numargs, offset);
                     force_arg(result, op & CODE_RET_MASK);
                     continue;
@@ -1416,7 +1421,7 @@ static ostd::Uint32 const *runcode(
                 result.force_null();
                 Ident *id = cs.identmap[op >> 13];
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
-                if (!(cs.stack->usedargs & (1 << id->index))) {
+                if (!(cs.stack->usedargs & (1 << id->get_index()))) {
                     free_args(args, numargs, offset);
                     force_arg(result, op & CODE_RET_MASK);
                     continue;
@@ -1461,7 +1466,7 @@ noid:
                     continue;
                 }
                 result.force_null();
-                switch (id->type) {
+                switch (id->get_type_raw()) {
                     default:
                         if (!cs_has_cmd_cb(id)) {
                             free_args(args, numargs, offset - 1);
@@ -1531,8 +1536,8 @@ noid:
                     case ID_ALIAS: {
                         Alias *a = static_cast<Alias *>(id);
                         if (
-                            a->index < MaxArguments &&
-                            !(cs.stack->usedargs & (1 << a->index))
+                            a->get_index() < MaxArguments &&
+                            !(cs.stack->usedargs & (1 << a->get_index()))
                         ) {
                             free_args(args, numargs, offset - 1);
                             force_arg(result, op & CODE_RET_MASK);
@@ -1572,7 +1577,6 @@ void CsState::run_ret(ostd::ConstCharRange code, TaggedValue &ret) {
     }
 }
 
-/* TODO */
 void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
     int nargs = int(args.size());
     ret.set_null();
@@ -1580,13 +1584,13 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
     if (rundepth > MaxRunDepth) {
         cs_debug_code(*this, "exceeded recursion limit");
     } else if (id) {
-        switch (id->type) {
+        switch (id->get_type()) {
             default:
                 if (!cs_has_cmd_cb(id)) {
                     break;
                 }
             /* fallthrough */
-            case ID_COMMAND:
+            case IdentType::command:
                 if (nargs < static_cast<Command *>(id)->numargs) {
                     TaggedValue buf[MaxArguments];
                     memcpy(buf, args.data(), args.size() * sizeof(TaggedValue));
@@ -1602,14 +1606,14 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
                 }
                 nargs = 0;
                 break;
-            case ID_IVAR:
+            case IdentType::ivar:
                 if (args.empty()) {
                     print_var(static_cast<Ivar *>(id));
                 } else {
                     set_var_int_checked(static_cast<Ivar *>(id), args);
                 }
                 break;
-            case ID_FVAR:
+            case IdentType::fvar:
                 if (args.empty()) {
                     print_var(static_cast<Fvar *>(id));
                 } else {
@@ -1618,7 +1622,7 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
                     );
                 }
                 break;
-            case ID_SVAR:
+            case IdentType::svar:
                 if (args.empty()) {
                     print_var(static_cast<Svar *>(id));
                 } else {
@@ -1627,10 +1631,10 @@ void CsState::run_ret(Ident *id, TvalRange args, TaggedValue &ret) {
                     );
                 }
                 break;
-            case ID_ALIAS: {
+            case IdentType::alias: {
                 Alias *a = static_cast<Alias *>(id);
-                if (a->index < MaxArguments) {
-                    if (!(stack->usedargs & (1 << a->index))) {
+                if (a->get_index() < MaxArguments) {
+                    if (!(stack->usedargs & (1 << a->get_index()))) {
                         break;
                     }
                 }

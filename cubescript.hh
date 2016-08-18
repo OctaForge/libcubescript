@@ -168,8 +168,7 @@ struct IdentStack {
 struct CsState;
 
 enum class IdentType {
-    unknown = -1,
-    ivar, fvar, svar, command, alias
+    ivar = 0, fvar, svar, command, alias, special
 };
 
 struct Var;
@@ -179,18 +178,19 @@ struct Svar;
 struct Alias;
 
 struct OSTD_EXPORT Ident {
-    int type; /* ID_something */
-    ostd::ushort flags;
-    int index = -1;
-    ostd::String name;
+    friend struct CsState;
 
     IdentType get_type() const;
+    ostd::ConstCharRange get_name() const;
+    int get_flags() const;
+    int get_index() const;
 
     bool is_alias() const;
     Alias *get_alias();
     Alias const *get_alias() const;
 
     bool is_command() const;
+    bool is_special() const;
 
     bool is_var() const;
     Var *get_var();
@@ -208,8 +208,21 @@ struct OSTD_EXPORT Ident {
     Svar *get_svar();
     Svar const *get_svar() const;
 
+    int get_type_raw() const {
+        return p_type;
+    }
+
 protected:
     Ident(IdentType tp, ostd::ConstCharRange name, int flags = 0);
+
+    ostd::String p_name;
+    /* represents the IdentType above, but internally it has a wider variety
+     * of values, so it's an int here (maps to an internal enum)
+     */
+    int p_type, p_flags;
+
+private:
+    int p_index = -1;
 };
 
 using VarCb = ostd::Function<void(Ident &)>;
@@ -327,15 +340,7 @@ struct OSTD_EXPORT CsState {
     void clear_override(Ident &id);
     void clear_overrides();
 
-    Ident *add_ident(Ident *id) {
-        if (!id) {
-            return nullptr;
-        }
-        idents[id->name] = id;
-        id->index = identmap.size();
-        return identmap.push(id);
-    }
-
+    Ident *add_ident(Ident *id);
     Ident *new_ident(ostd::ConstCharRange name, int flags = IDF_UNKNOWN);
     Ident *force_ident(TaggedValue &v);
 
