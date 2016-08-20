@@ -269,9 +269,9 @@ void CsState::clear_override(Ident &id) {
     switch (id.get_type()) {
         case IdentType::alias: {
             Alias &a = static_cast<Alias &>(id);
-            a.val_v.cleanup();
+            a.cleanup_value();
             a.clean_code();
-            a.val_v.set_str("");
+            a.set_value_str("");
             break;
         }
         case IdentType::ivar: {
@@ -746,7 +746,7 @@ void Alias::pop_arg() {
         return;
     }
     IdentStack *st = stack;
-    val_v.cleanup();
+    cleanup_value();
     set_value(*stack);
     clean_code();
     stack = st->next;
@@ -770,18 +770,18 @@ void Alias::redo_arg(IdentStack const &st) {
 }
 
 void Alias::set_arg(CsState &cs, CsValue &v) {
-    if (cs.stack->usedargs & (1 << get_index())) {
-        val_v.cleanup();
+    if (cs.p_stack->usedargs & (1 << get_index())) {
+        cleanup_value();
         set_value(v);
         clean_code();
     } else {
-        push_arg(v, cs.stack->argstack[get_index()], false);
-        cs.stack->usedargs |= 1 << get_index();
+        push_arg(v, cs.p_stack->argstack[get_index()], false);
+        cs.p_stack->usedargs |= 1 << get_index();
     }
 }
 
 void Alias::set_alias(CsState &cs, CsValue &v) {
-    val_v.cleanup();
+    cleanup_value();
     set_value(v);
     clean_code();
     p_flags = (p_flags & cs.identflags) | cs.identflags;
@@ -972,7 +972,7 @@ CsState::get_alias_val(ostd::ConstCharRange name) {
     }
     if (
         (a->get_index() < MaxArguments) &&
-        !(stack->usedargs & (1 << a->get_index()))
+        !(p_stack->usedargs & (1 << a->get_index()))
     ) {
         return ostd::nothing;
     }
@@ -1166,7 +1166,7 @@ void cs_init_lib_io(CsState &cs) {
 
 static inline void cs_set_iter(Alias &a, CsInt i, IdentStack &stack) {
     if (a.stack == &stack) {
-        a.val_v.cleanup();
+        a.cleanup_value();
         a.val_v.set_int(i);
         return;
     }
@@ -1229,7 +1229,7 @@ void cs_init_lib_base(CsState &cs) {
     }, ID_DO);
 
     cs_add_command(cs, "doargs", "e", [&cs](CsValueRange args, CsValue &res) {
-        if (cs.stack != &cs.noalias) {
+        if (cs.p_stack != &cs.noalias) {
             cs_do_args(cs, [&]() { cs.run_ret(args[0].get_code(), res); });
         } else {
             cs.run_ret(args[0].get_code(), res);

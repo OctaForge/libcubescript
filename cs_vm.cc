@@ -65,10 +65,10 @@ void cs_debug_alias(CsState &cs) {
         return;
     }
     int total = 0, depth = 0;
-    for (IdentLink *l = cs.stack; l != &cs.noalias; l = l->next) {
+    for (IdentLink *l = cs.p_stack; l != &cs.noalias; l = l->next) {
         total++;
     }
-    for (IdentLink *l = cs.stack; l != &cs.noalias; l = l->next) {
+    for (IdentLink *l = cs.p_stack; l != &cs.noalias; l = l->next) {
         Ident *id = l->id;
         ++depth;
         if (depth < cs.dbgalias) {
@@ -460,9 +460,9 @@ static inline void cs_call_alias(
     int oldflags = cs.identflags;
     cs.identflags |= a->get_flags()&IDF_OVERRIDDEN;
     IdentLink aliaslink = {
-        a, cs.stack, (1<<callargs)-1, argstack
+        a, cs.p_stack, (1<<callargs)-1, argstack
     };
-    cs.stack = &aliaslink;
+    cs.p_stack = &aliaslink;
     if (!a->code) {
         a->code = reinterpret_cast<Bytecode *>(
             compilecode(cs, a->val_v.get_str())
@@ -472,7 +472,7 @@ static inline void cs_call_alias(
     bcode_incr(codep);
     runcode(cs, codep+1, (result));
     bcode_decr(codep);
-    cs.stack = aliaslink.next;
+    cs.p_stack = aliaslink.next;
     cs.identflags = oldflags;
     for (int i = 0; i < callargs; i++) {
         static_cast<Alias *>(cs.identmap[i])->pop_arg();
@@ -502,7 +502,7 @@ static inline Alias *cs_get_lookup_id(CsState &cs, ostd::Uint32 op) {
 
 static inline Alias *cs_get_lookuparg_id(CsState &cs, ostd::Uint32 op) {
     Ident *id = cs.identmap[op >> 8];
-    if (!(cs.stack->usedargs & (1 << id->get_index()))) {
+    if (!(cs.p_stack->usedargs & (1 << id->get_index()))) {
         return nullptr;
     }
     return static_cast<Alias *>(id);
@@ -528,7 +528,7 @@ static inline int cs_get_lookupu_type(
                 arg.cleanup();
                 if (
                     (id->get_index() < MaxArguments) &&
-                    !(cs.stack->usedargs & (1 << id->get_index()))
+                    !(cs.p_stack->usedargs & (1 << id->get_index()))
                 ) {
                     return ID_UNKNOWN;
                 }
@@ -691,7 +691,7 @@ static ostd::Uint32 const *runcode(
             case CODE_DOARGS | RET_STR:
             case CODE_DOARGS | RET_INT:
             case CODE_DOARGS | RET_FLOAT:
-                if (cs.stack != &cs.noalias) {
+                if (cs.p_stack != &cs.noalias) {
                     cs_do_args(cs, [&]() {
                         result.cleanup();
                         cs.run_ret(args[--numargs].code, result);
@@ -940,11 +940,11 @@ static ostd::Uint32 const *runcode(
                 continue;
             case CODE_IDENTARG: {
                 Alias *a = static_cast<Alias *>(cs.identmap[op >> 8]);
-                if (!(cs.stack->usedargs & (1 << a->get_index()))) {
+                if (!(cs.p_stack->usedargs & (1 << a->get_index()))) {
                     a->push_arg(
-                        null_value, cs.stack->argstack[a->get_index()], false
+                        null_value, cs.p_stack->argstack[a->get_index()], false
                     );
-                    cs.stack->usedargs |= 1 << a->get_index();
+                    cs.p_stack->usedargs |= 1 << a->get_index();
                 }
                 args[numargs++].set_ident(a);
                 continue;
@@ -961,12 +961,12 @@ static ostd::Uint32 const *runcode(
                 }
                 if (
                     id->get_index() < MaxArguments &&
-                    !(cs.stack->usedargs & (1 << id->get_index()))
+                    !(cs.p_stack->usedargs & (1 << id->get_index()))
                 ) {
                     static_cast<Alias *>(id)->push_arg(
-                        null_value, cs.stack->argstack[id->get_index()], false
+                        null_value, cs.p_stack->argstack[id->get_index()], false
                     );
-                    cs.stack->usedargs |= 1 << id->get_index();
+                    cs.p_stack->usedargs |= 1 << id->get_index();
                 }
                 arg.cleanup();
                 arg.set_ident(id);
@@ -1427,7 +1427,7 @@ static ostd::Uint32 const *runcode(
                 result.force_null();
                 Ident *id = cs.identmap[op >> 13];
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
-                if (!(cs.stack->usedargs & (1 << id->get_index()))) {
+                if (!(cs.p_stack->usedargs & (1 << id->get_index()))) {
                     free_args(args, numargs, offset);
                     force_arg(result, op & CODE_RET_MASK);
                     continue;
@@ -1543,7 +1543,7 @@ noid:
                         Alias *a = static_cast<Alias *>(id);
                         if (
                             a->get_index() < MaxArguments &&
-                            !(cs.stack->usedargs & (1 << a->get_index()))
+                            !(cs.p_stack->usedargs & (1 << a->get_index()))
                         ) {
                             free_args(args, numargs, offset - 1);
                             force_arg(result, op & CODE_RET_MASK);
@@ -1640,7 +1640,7 @@ void CsState::run_ret(Ident *id, CsValueRange args, CsValue &ret) {
             case IdentType::alias: {
                 Alias *a = static_cast<Alias *>(id);
                 if (a->get_index() < MaxArguments) {
-                    if (!(stack->usedargs & (1 << a->get_index()))) {
+                    if (!(p_stack->usedargs & (1 << a->get_index()))) {
                         break;
                     }
                 }

@@ -313,6 +313,22 @@ struct OSTD_EXPORT Alias: Ident {
         val_v = v.val_s;
     }
 
+    void set_value_cstr(ostd::ConstCharRange val) {
+        val_v.set_cstr(val);
+    }
+
+    void set_value_mstr(ostd::CharRange val) {
+        val_v.set_mstr(val);
+    }
+
+    void set_value_str(ostd::String val) {
+        val_v.set_str(ostd::move(val));
+    }
+
+    void cleanup_value() {
+        val_v.cleanup();
+    }
+
     void get_cstr(CsValue &v) const;
     void get_cval(CsValue &v) const;
 
@@ -327,7 +343,7 @@ struct OSTD_EXPORT Alias: Ident {
     void clean_code();
 
     void force_null() {
-        val_v.cleanup();
+        cleanup_value();
         val_v.set_null();
     }
 };
@@ -356,7 +372,7 @@ struct OSTD_EXPORT CsState {
     Ident *dummy = nullptr;
 
     IdentLink noalias;
-    IdentLink *stack = &noalias;
+    IdentLink *p_stack = &noalias;
 
     ostd::ConstCharRange src_file;
     ostd::ConstCharRange src_str;

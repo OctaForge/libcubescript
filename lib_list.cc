@@ -70,9 +70,9 @@ static inline void cs_list_assoc(CsValueRange args, CsValue &res, F cmp) {
 
 static inline void cs_set_iter(Alias &a, char *val, IdentStack &stack) {
     if (a.stack == &stack) {
-        a.val_v.cleanup();
+        a.cleanup_value();
         a.clean_code();
-        a.val_v.set_mstr(val);
+        a.set_value_mstr(val);
         return;
     }
     CsValue v;
@@ -549,9 +549,9 @@ struct ListSortFun {
 
     bool operator()(ListSortItem const &xval, ListSortItem const &yval) {
         x->clean_code();
-        x->val_v.set_cstr(xval.str);
+        x->set_value_cstr(xval.str);
         y->clean_code();
-        y->val_v.set_cstr(yval.str);
+        y->set_value_cstr(yval.str);
         return cs.run_bool(body);
     }
 };
