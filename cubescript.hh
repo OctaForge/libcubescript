@@ -296,7 +296,6 @@ private:
 
 struct OSTD_EXPORT Alias: Ident {
     Bytecode *code;
-    IdentStack *stack;
     CsValue val_v;
 
     Alias(ostd::ConstCharRange n, char *a, int flags);
@@ -346,6 +345,9 @@ struct OSTD_EXPORT Alias: Ident {
         cleanup_value();
         val_v.set_null();
     }
+
+private:
+    IdentStack *p_astack;
 };
 
 struct IdentLink {

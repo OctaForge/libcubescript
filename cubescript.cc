@@ -67,31 +67,31 @@ Svar::Svar(ostd::ConstCharRange name, char **s, VarCb f, int fl):
 
 Alias::Alias(ostd::ConstCharRange name, char *a, int fl):
     Ident(IdentType::alias, name, fl),
-    code(nullptr), stack(nullptr)
+    code(nullptr), p_astack(nullptr)
 {
     val_v.set_mstr(a);
 }
 Alias::Alias(ostd::ConstCharRange name, CsInt a, int fl):
     Ident(IdentType::alias, name, fl),
-    code(nullptr), stack(nullptr)
+    code(nullptr), p_astack(nullptr)
 {
     val_v.set_int(a);
 }
 Alias::Alias(ostd::ConstCharRange name, CsFloat a, int fl):
     Ident(IdentType::alias, name, fl),
-    code(nullptr), stack(nullptr)
+    code(nullptr), p_astack(nullptr)
 {
     val_v.set_float(a);
 }
 Alias::Alias(ostd::ConstCharRange name, int fl):
     Ident(IdentType::alias, name, fl),
-    code(nullptr), stack(nullptr)
+    code(nullptr), p_astack(nullptr)
 {
     val_v.set_null();
 }
 Alias::Alias(ostd::ConstCharRange name, CsValue const &v, int fl):
     Ident(IdentType::alias, name, fl),
-    code(nullptr), stack(nullptr), val_v(v)
+    code(nullptr), val_v(v), p_astack(nullptr)
 {}
 
 Command::Command(
@@ -731,9 +731,16 @@ void Alias::clean_code() {
 }
 
 void Alias::push_arg(CsValue const &v, IdentStack &st, bool um) {
+    if (p_astack == &st) {
+        /* prevent cycles and unnecessary code elsewhere */
+        cleanup_value();
+        set_value(v);
+        clean_code();
+        return;
+    }
     st.val_s = val_v;
-    st.next = stack;
-    stack = &st;
+    st.next = p_astack;
+    p_astack = &st;
     set_value(v);
     clean_code();
     if (um) {
@@ -742,21 +749,21 @@ void Alias::push_arg(CsValue const &v, IdentStack &st, bool um) {
 }
 
 void Alias::pop_arg() {
-    if (!stack) {
+    if (!p_astack) {
         return;
     }
-    IdentStack *st = stack;
+    IdentStack *st = p_astack;
     cleanup_value();
-    set_value(*stack);
+    set_value(*p_astack);
     clean_code();
-    stack = st->next;
+    p_astack = st->next;
 }
 
 void Alias::undo_arg(IdentStack &st) {
-    IdentStack *prev = stack;
+    IdentStack *prev = p_astack;
     st.val_s = val_v;
     st.next = prev;
-    stack = prev->next;
+    p_astack = prev->next;
     set_value(*prev);
     clean_code();
 }
@@ -764,7 +771,7 @@ void Alias::undo_arg(IdentStack &st) {
 void Alias::redo_arg(IdentStack const &st) {
     IdentStack *prev = st.next;
     prev->val_s = val_v;
-    stack = prev;
+    p_astack = prev;
     set_value(st);
     clean_code();
 }
@@ -1165,11 +1172,6 @@ void cs_init_lib_io(CsState &cs) {
 }
 
 static inline void cs_set_iter(Alias &a, CsInt i, IdentStack &stack) {
-    if (a.stack == &stack) {
-        a.cleanup_value();
-        a.val_v.set_int(i);
-        return;
-    }
     CsValue v;
     v.set_int(i);
     a.push_arg(v, stack);

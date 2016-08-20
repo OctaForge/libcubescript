@@ -69,12 +69,6 @@ static inline void cs_list_assoc(CsValueRange args, CsValue &res, F cmp) {
 }
 
 static inline void cs_set_iter(Alias &a, char *val, IdentStack &stack) {
-    if (a.stack == &stack) {
-        a.cleanup_value();
-        a.clean_code();
-        a.set_value_mstr(val);
-        return;
-    }
     CsValue v;
     v.set_mstr(val);
     a.push_arg(v, stack);
