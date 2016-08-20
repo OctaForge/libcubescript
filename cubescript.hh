@@ -394,6 +394,11 @@ struct OSTD_EXPORT CsState {
     Ident *new_ident(ostd::ConstCharRange name, int flags = IDF_UNKNOWN);
     Ident *force_ident(CsValue &v);
 
+    template<typename T, typename ...A>
+    T *add_ident(A &&...args) {
+        return static_cast<T *>(add_ident(new T(ostd::forward<A>(args)...)));
+    }
+
     Ident *get_ident(ostd::ConstCharRange name) {
         Ident **id = idents.at(name);
         if (!id) {

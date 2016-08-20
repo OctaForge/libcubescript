@@ -243,8 +243,8 @@ CsState::CsState() {
         new_ident(static_cast<char const *>(buf), IDF_ARG);
     }
     dummy = new_ident("//dummy");
-    add_ident(new Ivar("numargs", MaxArguments, 0, &numargs));
-    add_ident(new Ivar("dbgalias", 0, 1000, &dbgalias));
+    add_ident<Ivar>("numargs", MaxArguments, 0, &numargs);
+    add_ident<Ivar>("dbgalias", 0, 1000, &dbgalias);
     cs_init_lib_base(*this);
 }
 
@@ -323,7 +323,7 @@ Ident *CsState::new_ident(ostd::ConstCharRange name, int flags) {
             );
             return dummy;
         }
-        id = add_ident(new Alias(name, flags));
+        id = add_ident<Alias>(name, flags);
     }
     return id;
 }
@@ -404,7 +404,7 @@ void CsState::set_alias(ostd::ConstCharRange name, CsValue &v) {
         cs_debug_code(*this, "cannot alias number %s", name);
         v.cleanup();
     } else {
-        add_ident(new Alias(name, v, identflags));
+        add_ident<Alias>(name, v, identflags);
     }
 }
 
@@ -1135,7 +1135,7 @@ static bool cs_add_command(
                 return false;
         }
     }
-    cs.add_ident(new Command(type, name, args, argmask, nargs, ostd::move(func)));
+    cs.add_ident<Command>(type, name, args, argmask, nargs, ostd::move(func));
     return true;
 }
 
