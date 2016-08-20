@@ -67,31 +67,31 @@ Svar::Svar(ostd::ConstCharRange name, char **s, VarCb f, int fl):
 
 Alias::Alias(ostd::ConstCharRange name, char *a, int fl):
     Ident(IdentType::alias, name, fl),
-    code(nullptr), p_astack(nullptr)
+    p_acode(nullptr), p_astack(nullptr)
 {
     val_v.set_mstr(a);
 }
 Alias::Alias(ostd::ConstCharRange name, CsInt a, int fl):
     Ident(IdentType::alias, name, fl),
-    code(nullptr), p_astack(nullptr)
+    p_acode(nullptr), p_astack(nullptr)
 {
     val_v.set_int(a);
 }
 Alias::Alias(ostd::ConstCharRange name, CsFloat a, int fl):
     Ident(IdentType::alias, name, fl),
-    code(nullptr), p_astack(nullptr)
+    p_acode(nullptr), p_astack(nullptr)
 {
     val_v.set_float(a);
 }
 Alias::Alias(ostd::ConstCharRange name, int fl):
     Ident(IdentType::alias, name, fl),
-    code(nullptr), p_astack(nullptr)
+    p_acode(nullptr), p_astack(nullptr)
 {
     val_v.set_null();
 }
 Alias::Alias(ostd::ConstCharRange name, CsValue const &v, int fl):
     Ident(IdentType::alias, name, fl),
-    code(nullptr), val_v(v), p_astack(nullptr)
+    val_v(v), p_acode(nullptr), p_astack(nullptr)
 {}
 
 Command::Command(
@@ -254,7 +254,7 @@ CsState::~CsState() {
         Alias *a = i->get_alias();
         if (a) {
             a->force_null();
-            delete[] reinterpret_cast<ostd::Uint32 *>(a->code);
+            a->clean_code();
         } else if (i->is_command() || i->is_special()) {
             delete[] static_cast<Command *>(i)->cargs;
         }
@@ -723,11 +723,18 @@ void Alias::get_cval(CsValue &v) const {
 }
 
 void Alias::clean_code() {
-    ostd::Uint32 *bcode = reinterpret_cast<ostd::Uint32 *>(code);
+    ostd::Uint32 *bcode = reinterpret_cast<ostd::Uint32 *>(p_acode);
     if (bcode) {
         bcode_decr(bcode);
-        code = nullptr;
+        p_acode = nullptr;
     }
+}
+
+Bytecode *Alias::compile_code(CsState &cs) {
+    if (!p_acode) {
+        p_acode = reinterpret_cast<Bytecode *>(compilecode(cs, val_v.get_str()));
+    }
+    return p_acode;
 }
 
 void Alias::push_arg(CsValue const &v, IdentStack &st, bool um) {

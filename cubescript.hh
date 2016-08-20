@@ -295,7 +295,6 @@ private:
 };
 
 struct OSTD_EXPORT Alias: Ident {
-    Bytecode *code;
     CsValue val_v;
 
     Alias(ostd::ConstCharRange n, char *a, int flags);
@@ -340,6 +339,7 @@ struct OSTD_EXPORT Alias: Ident {
     void set_alias(CsState &cs, CsValue &v);
 
     void clean_code();
+    Bytecode *compile_code(CsState &cs);
 
     void force_null() {
         cleanup_value();
@@ -347,6 +347,7 @@ struct OSTD_EXPORT Alias: Ident {
     }
 
 private:
+    Bytecode *p_acode;
     IdentStack *p_astack;
 };
 

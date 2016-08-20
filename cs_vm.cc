@@ -463,12 +463,7 @@ static inline void cs_call_alias(
         a, cs.p_stack, (1<<callargs)-1, argstack
     };
     cs.p_stack = &aliaslink;
-    if (!a->code) {
-        a->code = reinterpret_cast<Bytecode *>(
-            compilecode(cs, a->val_v.get_str())
-        );
-    }
-    ostd::Uint32 *codep = reinterpret_cast<ostd::Uint32 *>(a->code);
+    ostd::Uint32 *codep = reinterpret_cast<ostd::Uint32 *>(a->compile_code(cs));
     bcode_incr(codep);
     runcode(cs, codep+1, (result));
     bcode_decr(codep);
