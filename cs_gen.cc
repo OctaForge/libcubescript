@@ -227,8 +227,8 @@ endblock:
         return true;
     }
 
-    ostd::String ListParser::element() {
-        ostd::String s;
+    CsString ListParser::element() {
+        CsString s;
         s.reserve(item.size());
         if (!quote.empty() && (*quote == '"')) {
             auto writer = s.iter_cap();
@@ -251,7 +251,7 @@ endblock:
         return ret;
     }
 
-    ostd::Maybe<ostd::String> list_index(
+    ostd::Maybe<CsString> list_index(
         ostd::ConstCharRange s, ostd::Size idx
     ) {
         ListParser p(s);
@@ -266,10 +266,10 @@ endblock:
         return ostd::move(p.element());
     }
 
-    ostd::Vector<ostd::String> list_explode(
+    CsVector<CsString> list_explode(
         ostd::ConstCharRange s, ostd::Size limit
     ) {
-        ostd::Vector<ostd::String> ret;
+        CsVector<CsString> ret;
         ListParser p(s);
         while ((ret.size() < limit) && p.parse()) {
             ret.push(ostd::move(p.element()));

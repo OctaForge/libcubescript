@@ -136,7 +136,7 @@ ostd::Uint32 *compilecode(CsState &cs, ostd::ConstCharRange str);
 
 struct GenState {
     CsState &cs;
-    ostd::Vector<ostd::Uint32> code;
+    CsVector<ostd::Uint32> code;
     char const *source;
 
     GenState() = delete;
@@ -235,8 +235,8 @@ struct GenState {
     }
 };
 
-ostd::String intstr(int v);
-ostd::String floatstr(CsFloat v);
+CsString intstr(int v);
+CsString floatstr(CsFloat v);
 
 bool cs_check_num(ostd::ConstCharRange s);
 

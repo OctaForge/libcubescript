@@ -77,7 +77,7 @@ void cs_init_lib_string(CsState &cs) {
     });
 
     cs.add_command("escape", "s", [](CsValueRange args, CsValue &res) {
-        auto x = ostd::appender<ostd::String>();
+        auto x = ostd::appender<CsString>();
         util::escape_string(x, args[0].get_strr());
         ostd::Size len = x.size();
         res.set_mstr(ostd::CharRange(x.get().disown(), len));
@@ -93,14 +93,14 @@ void cs_init_lib_string(CsState &cs) {
     });
 
     cs.add_command("concat", "V", [](CsValueRange args, CsValue &res) {
-        auto s = ostd::appender<ostd::String>();
+        auto s = ostd::appender<CsString>();
         cscript::util::tvals_concat(s, args, " ");
         res.set_mstr(s.get().iter());
         s.get().disown();
     });
 
     cs.add_command("concatword", "V", [](CsValueRange args, CsValue &res) {
-        auto s = ostd::appender<ostd::String>();
+        auto s = ostd::appender<CsString>();
         cscript::util::tvals_concat(s, args);
         res.set_mstr(s.get().iter());
         s.get().disown();
@@ -110,8 +110,8 @@ void cs_init_lib_string(CsState &cs) {
         if (args.empty()) {
             return;
         }
-        ostd::Vector<char> s;
-        ostd::String fs = ostd::move(args[0].get_str());
+        CsVector<char> s;
+        CsString fs = ostd::move(args[0].get_str());
         ostd::ConstCharRange f = fs.iter();
         while (!f.empty()) {
             char c = *f;
@@ -121,10 +121,10 @@ void cs_init_lib_string(CsState &cs) {
                 ++f;
                 if (ic >= '1' && ic <= '9') {
                     int i = ic - '0';
-                    ostd::String sub = ostd::move(
+                    CsString sub = ostd::move(
                         (ostd::Size(i) < args.size())
                             ? args[i].get_str()
-                            : ostd::String("")
+                            : CsString("")
                     );
                     s.push_n(sub.data(), sub.size());
                 } else {
@@ -140,7 +140,7 @@ void cs_init_lib_string(CsState &cs) {
     });
 
     cs.add_command("tohex", "ii", [](CsValueRange args, CsValue &res) {
-        auto r = ostd::appender<ostd::Vector<char>>();
+        auto r = ostd::appender<CsVector<char>>();
         ostd::format(
             r, "0x%.*X", ostd::max(args[1].get_int(), 1), args[0].get_int()
         );
@@ -190,7 +190,7 @@ void cs_init_lib_string(CsState &cs) {
         if (newval2.empty()) {
             newval2 = newval;
         }
-        ostd::Vector<char> buf;
+        CsVector<char> buf;
         if (!oldval.size()) {
             res.set_str(s);
             return;

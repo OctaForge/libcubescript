@@ -82,7 +82,7 @@ static void cs_loop_list_conc(
         return;
     }
     IdentStack stack;
-    ostd::Vector<char> r;
+    CsVector<char> r;
     int n = 0;
     for (util::ListParser p(list); p.parse(); ++n) {
         char *val = p.element().disown();
@@ -92,7 +92,7 @@ static void cs_loop_list_conc(
         }
         CsValue v;
         cs.run_ret(body, v);
-        ostd::String vstr = ostd::move(v.get_str());
+        CsString vstr = ostd::move(v.get_str());
         r.push_n(vstr.data(), vstr.size());
         v.cleanup();
     }
@@ -119,7 +119,7 @@ template<bool PushList, bool Swap, typename F>
 static inline void cs_list_merge(CsValueRange args, CsValue &res, F cmp) {
     ostd::ConstCharRange list = args[0].get_strr();
     ostd::ConstCharRange elems = args[1].get_strr();
-    ostd::Vector<char> buf;
+    CsVector<char> buf;
     if (PushList) {
         buf.push_n(list.data(), list.size());
     }
@@ -150,7 +150,7 @@ void cs_init_lib_list(CsState &cs) {
         if (args.empty()) {
             return;
         }
-        ostd::String str = ostd::move(args[0].get_str());
+        CsString str = ostd::move(args[0].get_str());
         util::ListParser p(str);
         p.item = str;
         for (ostd::Size i = 1; i < args.size(); ++i) {
@@ -390,7 +390,7 @@ found:
             return;
         }
         IdentStack stack;
-        ostd::Vector<char> r;
+        CsVector<char> r;
         int n = 0;
         for (util::ListParser p(args[1].get_strr()); p.parse(); ++n) {
             char *val = cs_dup_ostr(p.item);
@@ -432,7 +432,7 @@ found:
     });
 
     cs.add_command("prettylist", "ss", [](CsValueRange args, CsValue &res) {
-        ostd::Vector<char> buf;
+        CsVector<char> buf;
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange conj = args[1].get_strr();
         ostd::Size len = util::list_length(s);
@@ -494,7 +494,7 @@ found:
             }
         }
         char const *qend = !p.quote.empty() ? &p.quote[p.quote.size()] : list;
-        ostd::Vector<char> buf;
+        CsVector<char> buf;
         if (qend > list) {
             buf.push_n(list, qend - list);
         }
@@ -560,7 +560,7 @@ static void cs_list_sort(
 
     Alias *xa = static_cast<Alias *>(x), *ya = static_cast<Alias *>(y);
 
-    ostd::Vector<ListSortItem> items;
+    CsVector<ListSortItem> items;
     ostd::Size clen = list.size();
     ostd::Size total = 0;
 

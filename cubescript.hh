@@ -89,7 +89,7 @@ struct OSTD_EXPORT CsValue {
         p_type = VAL_FLOAT;
         f = val;
     }
-    void set_str(ostd::String val) {
+    void set_str(CsString val) {
         if (val.size() == 0) {
             /* ostd zero length strings cannot be disowned */
             char *buf = new char[1];
@@ -134,7 +134,7 @@ struct OSTD_EXPORT CsValue {
         tv.p_type = VAL_NULL;
     }
 
-    ostd::String get_str() const;
+    CsString get_str() const;
     ostd::ConstCharRange get_strr() const;
     CsInt get_int() const;
     CsFloat get_float() const;
@@ -215,7 +215,7 @@ struct OSTD_EXPORT Ident {
 protected:
     Ident(IdentType tp, ostd::ConstCharRange name, int flags = 0);
 
-    ostd::String p_name;
+    CsString p_name;
     /* represents the IdentType above, but internally it has a wider variety
      * of values, so it's an int here (maps to an internal enum)
      */
@@ -319,7 +319,7 @@ struct OSTD_EXPORT Alias: Ident {
         val_v.set_mstr(val);
     }
 
-    void set_value_str(ostd::String val) {
+    void set_value_str(CsString val) {
         val_v.set_str(ostd::move(val));
     }
 
@@ -369,8 +369,8 @@ enum {
 using CmdFunc = ostd::Function<void(CsValueRange, CsValue &)>;
 
 struct OSTD_EXPORT CsState {
-    ostd::Map<ostd::ConstCharRange, Ident *> idents;
-    ostd::Vector<Ident *> identmap;
+    CsMap<ostd::ConstCharRange, Ident *> idents;
+    CsVector<Ident *> identmap;
 
     Ident *dummy = nullptr;
 
@@ -393,7 +393,6 @@ struct OSTD_EXPORT CsState {
     void clear_override(Ident &id);
     void clear_overrides();
 
-    Ident *add_ident(Ident *id);
     Ident *new_ident(ostd::ConstCharRange name, int flags = IDF_UNKNOWN);
     Ident *force_ident(CsValue &v);
 
@@ -429,9 +428,9 @@ struct OSTD_EXPORT CsState {
         ostd::ConstCharRange name, ostd::ConstCharRange args, CmdFunc func
     );
 
-    ostd::String run_str(Bytecode const *code);
-    ostd::String run_str(ostd::ConstCharRange code);
-    ostd::String run_str(Ident *id, CsValueRange args);
+    CsString run_str(Bytecode const *code);
+    CsString run_str(ostd::ConstCharRange code);
+    CsString run_str(Ident *id, CsValueRange args);
 
     CsInt run_int(Bytecode const *code);
     CsInt run_int(ostd::ConstCharRange code);
@@ -453,7 +452,7 @@ struct OSTD_EXPORT CsState {
     void run(ostd::ConstCharRange code);
     void run(Ident *id, CsValueRange args);
 
-    ostd::Maybe<ostd::String> run_file_str(ostd::ConstCharRange fname);
+    ostd::Maybe<CsString> run_file_str(ostd::ConstCharRange fname);
     ostd::Maybe<CsInt> run_file_int(ostd::ConstCharRange fname);
     ostd::Maybe<CsFloat> run_file_float(ostd::ConstCharRange fname);
     ostd::Maybe<bool> run_file_bool(ostd::ConstCharRange fname);
@@ -481,7 +480,7 @@ struct OSTD_EXPORT CsState {
 
     ostd::Maybe<CsInt> get_var_int(ostd::ConstCharRange name);
     ostd::Maybe<CsFloat> get_var_float(ostd::ConstCharRange name);
-    ostd::Maybe<ostd::String> get_var_str(ostd::ConstCharRange name);
+    ostd::Maybe<CsString> get_var_str(ostd::ConstCharRange name);
 
     ostd::Maybe<CsInt> get_var_min_int(ostd::ConstCharRange name);
     ostd::Maybe<CsInt> get_var_max_int(ostd::ConstCharRange name);
@@ -489,12 +488,15 @@ struct OSTD_EXPORT CsState {
     ostd::Maybe<CsFloat> get_var_min_float(ostd::ConstCharRange name);
     ostd::Maybe<CsFloat> get_var_max_float(ostd::ConstCharRange name);
 
-    ostd::Maybe<ostd::String> get_alias_val(ostd::ConstCharRange name);
+    ostd::Maybe<CsString> get_alias_val(ostd::ConstCharRange name);
 
     void print_var(Var *v);
     void print_var_int(Ivar *iv, CsInt i);
     void print_var_float(Fvar *fv, CsFloat f);
     void print_var_str(Svar *sv, ostd::ConstCharRange s);
+
+private:
+    Ident *add_ident(Ident *id);
 };
 
 struct OSTD_EXPORT StackedValue: CsValue {
@@ -626,14 +628,14 @@ namespace util {
         void skip();
         bool parse();
 
-        ostd::String element();
+        CsString element();
     };
 
     ostd::Size list_length(ostd::ConstCharRange s);
-    ostd::Maybe<ostd::String> list_index(
+    ostd::Maybe<CsString> list_index(
         ostd::ConstCharRange s, ostd::Size idx
     );
-    ostd::Vector<ostd::String> list_explode(
+    CsVector<CsString> list_explode(
         ostd::ConstCharRange s, ostd::Size limit = -1
     );
 
@@ -657,7 +659,7 @@ namespace util {
     ) {
         ostd::Size ret = 0;
         for (ostd::Size i = 0; i < vals.size(); ++i) {
-            auto s = ostd::appender<ostd::String>();
+            auto s = ostd::appender<CsString>();
             switch (vals[i].get_type()) {
                 case VAL_INT: {
                     auto r = format_int(ostd::forward<R>(writer), vals[i].i);

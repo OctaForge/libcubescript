@@ -4,13 +4,13 @@
 
 namespace cscript {
 
-ostd::String intstr(CsInt v) {
+CsString intstr(CsInt v) {
     char buf[256];
     snprintf(buf, sizeof(buf), IntFormat, v);
     return buf;
 }
 
-ostd::String floatstr(CsFloat v) {
+CsString floatstr(CsFloat v) {
     char buf[256];
     snprintf(buf, sizeof(buf), v == CsInt(v) ? RoundFloatFormat : FloatFormat, v);
     return buf;
@@ -524,7 +524,7 @@ CsInt CsValue::force_int() {
 }
 
 ostd::ConstCharRange CsValue::force_str() {
-    ostd::String rs;
+    CsString rs;
     switch (get_type()) {
         case VAL_FLOAT:
             rs = ostd::move(floatstr(f));
@@ -586,7 +586,7 @@ Ident *CsValue::get_ident() const {
     return id;
 }
 
-ostd::String CsValue::get_str() const {
+CsString CsValue::get_str() const {
     switch (get_type()) {
     case VAL_STR:
     case VAL_MACRO:
@@ -597,7 +597,7 @@ ostd::String CsValue::get_str() const {
     case VAL_FLOAT:
         return floatstr(f);
     }
-    return ostd::String("");
+    return CsString("");
 }
 
 ostd::ConstCharRange CsValue::get_strr() const {
@@ -938,12 +938,12 @@ ostd::Maybe<CsFloat> CsState::get_var_float(ostd::ConstCharRange name) {
     return *static_cast<Fvar *>(id)->p_storage;
 }
 
-ostd::Maybe<ostd::String> CsState::get_var_str(ostd::ConstCharRange name) {
+ostd::Maybe<CsString> CsState::get_var_str(ostd::ConstCharRange name) {
     Ident *id = get_ident(name);
     if (!id || id->is_svar()) {
         return ostd::nothing;
     }
-    return ostd::String(*static_cast<Svar *>(id)->p_storage);
+    return CsString(*static_cast<Svar *>(id)->p_storage);
 }
 
 ostd::Maybe<CsInt> CsState::get_var_min_int(ostd::ConstCharRange name) {
@@ -978,7 +978,7 @@ ostd::Maybe<CsFloat> CsState::get_var_max_float(ostd::ConstCharRange name) {
     return static_cast<Fvar *>(id)->get_val_max();
 }
 
-ostd::Maybe<ostd::String>
+ostd::Maybe<CsString>
 CsState::get_alias_val(ostd::ConstCharRange name) {
     Alias *a = get_alias(name);
     if (!a) {
@@ -1212,12 +1212,12 @@ static inline void cs_loop_conc(
     }
     Alias &a = static_cast<Alias &>(id);
     IdentStack stack;
-    ostd::Vector<char> s;
+    CsVector<char> s;
     for (CsInt i = 0; i < n; ++i) {
         cs_set_iter(a, offset + i * step, stack);
         CsValue v;
         cs.run_ret(body, v);
-        ostd::String vstr = ostd::move(v.get_str());
+        CsString vstr = ostd::move(v.get_str());
         if (space && i) {
             s.push(' ');
         }
@@ -1338,7 +1338,7 @@ void cs_init_lib_base(CsState &cs) {
     });
 
     cs_add_command(cs, "cases", "ste2V", [&cs](CsValueRange args, CsValue &res) {
-        ostd::String val = args[0].get_str();
+        CsString val = args[0].get_str();
         for (ostd::Size i = 1; (i + 1) < args.size(); i += 2) {
             if ((args[i].get_type() == VAL_NULL) || (args[i].get_str() == val)) {
                 cs.run_ret(args[i + 1].code, res);

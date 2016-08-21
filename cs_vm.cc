@@ -408,7 +408,7 @@ static inline void callcommand(
                 break;
             case 'C': {
                 i = ostd::max(i + 1, numargs);
-                auto buf = ostd::appender<ostd::String>();
+                auto buf = ostd::appender<CsString>();
                 cscript::util::tvals_concat(buf, ostd::iter(args, i), " ");
                 CsValue tv;
                 tv.set_mstr(buf.get().iter());
@@ -1329,7 +1329,7 @@ static ostd::Uint32 const *runcode(
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
                 result.force_null();
                 {
-                    auto buf = ostd::appender<ostd::String>();
+                    auto buf = ostd::appender<CsString>();
                     cscript::util::tvals_concat(
                         buf, ostd::iter(&args[offset], callargs), " "
                     );
@@ -1351,7 +1351,7 @@ static ostd::Uint32 const *runcode(
             case CODE_CONCW | RET_FLOAT:
             case CODE_CONCW | RET_INT: {
                 int numconc = op >> 8;
-                auto buf = ostd::appender<ostd::String>();
+                auto buf = ostd::appender<CsString>();
                 cscript::util::tvals_concat(
                     buf, ostd::iter(&args[numargs - numconc], numconc),
                     ((op & CODE_OP_MASK) == CODE_CONC) ? " " : ""
@@ -1369,7 +1369,7 @@ static ostd::Uint32 const *runcode(
             case CODE_CONCM | RET_FLOAT:
             case CODE_CONCM | RET_INT: {
                 int numconc = op >> 8;
-                auto buf = ostd::appender<ostd::String>();
+                auto buf = ostd::appender<CsString>();
                 cscript::util::tvals_concat(
                     buf, ostd::iter(&args[numargs - numconc], numconc)
                 );
@@ -1653,26 +1653,26 @@ void CsState::run_ret(Ident *id, CsValueRange args, CsValue &ret) {
     --rundepth;
 }
 
-ostd::String CsState::run_str(Bytecode const *code) {
+CsString CsState::run_str(Bytecode const *code) {
     CsValue ret;
     run_ret(code, ret);
-    ostd::String s = ret.get_str();
+    CsString s = ret.get_str();
     ret.cleanup();
     return s;
 }
 
-ostd::String CsState::run_str(ostd::ConstCharRange code) {
+CsString CsState::run_str(ostd::ConstCharRange code) {
     CsValue ret;
     run_ret(code, ret);
-    ostd::String s = ret.get_str();
+    CsString s = ret.get_str();
     ret.cleanup();
     return s;
 }
 
-ostd::String CsState::run_str(Ident *id, CsValueRange args) {
+CsString CsState::run_str(Ident *id, CsValueRange args) {
     CsValue ret;
     run_ret(id, args, ret);
-    ostd::String s = ret.get_str();
+    CsString s = ret.get_str();
     ret.cleanup();
     return s;
 }
@@ -1794,12 +1794,12 @@ static bool cs_run_file(
     return true;
 }
 
-ostd::Maybe<ostd::String> CsState::run_file_str(ostd::ConstCharRange fname) {
+ostd::Maybe<CsString> CsState::run_file_str(ostd::ConstCharRange fname) {
     CsValue ret;
     if (!cs_run_file(*this, fname, ret)) {
         return ostd::nothing;
     }
-    ostd::String s = ret.get_str();
+    CsString s = ret.get_str();
     ret.cleanup();
     return ostd::move(s);
 }
