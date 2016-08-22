@@ -250,15 +250,15 @@ struct OSTD_EXPORT Ivar: Var {
     CsInt get_val_max() const;
 
     CsInt get_value() const;
+    void set_value(CsInt val);
 
     Ivar(
-        ostd::ConstCharRange n, CsInt m, CsInt x, CsInt *s,
+        ostd::ConstCharRange n, CsInt m, CsInt x, CsInt v,
         VarCb f = VarCb(), int flags = 0
     );
 
 private:
-    CsInt *p_storage;
-    CsInt p_minval, p_maxval, p_overrideval;
+    CsInt p_storage, p_minval, p_maxval, p_overrideval;
 };
 
 struct OSTD_EXPORT Fvar: Var {
@@ -268,30 +268,35 @@ struct OSTD_EXPORT Fvar: Var {
     CsFloat get_val_max() const;
 
     CsFloat get_value() const;
+    void set_value(CsFloat val);
 
     Fvar(
-        ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat *s,
+        ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat v,
         VarCb f = VarCb(), int flags = 0
     );
 
 private:
-    CsFloat *p_storage;
-    CsFloat p_minval, p_maxval, p_overrideval;
+    CsFloat p_storage, p_minval, p_maxval, p_overrideval;
 };
 
 struct OSTD_EXPORT Svar: Var {
     friend struct CsState;
 
     ostd::ConstCharRange get_value() const;
+    void set_value(ostd::ConstCharRange val);
+    void set_value(CsString &&val);
 
     Svar(
-        ostd::ConstCharRange n, char **s, VarCb f = VarCb(),
+        ostd::ConstCharRange n, ostd::ConstCharRange v, VarCb f = VarCb(),
+        int flags = 0
+    );
+    Svar(
+        ostd::ConstCharRange n, CsString &&v, VarCb f = VarCb(),
         int flags = 0
     );
 
 private:
-    char **p_storage;
-    char *p_overrideval;
+    CsString p_storage, p_overrideval;
 };
 
 struct OSTD_EXPORT Alias: Ident {
@@ -382,8 +387,8 @@ struct OSTD_EXPORT CsState {
 
     int identflags = 0;
     int nodebug = 0;
-    CsInt numargs = 0;
-    CsInt dbgalias = 4;
+    Ivar *numargs = nullptr;
+    Ivar *dbgalias = nullptr;
 
     CsState();
     ~CsState();

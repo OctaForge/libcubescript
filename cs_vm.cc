@@ -61,7 +61,7 @@ ostd::ConstCharRange cs_debug_line(
 }
 
 void cs_debug_alias(CsState &cs) {
-    if (!cs.dbgalias) {
+    if (!cs.dbgalias->get_value()) {
         return;
     }
     int total = 0, depth = 0;
@@ -71,11 +71,11 @@ void cs_debug_alias(CsState &cs) {
     for (IdentLink *l = cs.p_stack; l != &cs.noalias; l = l->next) {
         Ident *id = l->id;
         ++depth;
-        if (depth < cs.dbgalias) {
+        if (depth < cs.dbgalias->get_value()) {
             ostd::err.writefln("  %d) %s", total - depth + 1, id->get_name());
         } else if (l->next == &cs.noalias) {
             ostd::err.writefln(
-                depth == cs.dbgalias ? "  %d) %s" : "  ..%d) %s",
+                depth == cs.dbgalias->get_value() ? "  %d) %s" : "  ..%d) %s",
                 total - depth + 1, id->get_name()
             );
         }
@@ -455,8 +455,8 @@ static inline void cs_call_alias(
             args[offset + i], argstack[i], false
         );
     }
-    int oldargs = cs.numargs;
-    cs.numargs = callargs;
+    int oldargs = cs.numargs->get_value();
+    cs.numargs->set_value(callargs);
     int oldflags = cs.identflags;
     cs.identflags |= a->get_flags()&IDF_OVERRIDDEN;
     IdentLink aliaslink = {
@@ -480,7 +480,7 @@ static inline void cs_call_alias(
         }
     }
     force_arg(result, op & CODE_RET_MASK);
-    cs.numargs = oldargs;
+    cs.numargs->set_value(oldargs);
     nargs = offset - skip;
 }
 
