@@ -249,7 +249,7 @@ struct OSTD_EXPORT Ivar: Var {
     CsInt get_val_min() const;
     CsInt get_val_max() const;
 
-    CsInt get_var_value() const;
+    CsInt get_value() const;
 
     Ivar(
         ostd::ConstCharRange n, CsInt m, CsInt x, CsInt *s,
@@ -267,7 +267,7 @@ struct OSTD_EXPORT Fvar: Var {
     CsFloat get_val_min() const;
     CsFloat get_val_max() const;
 
-    CsFloat get_var_value() const;
+    CsFloat get_value() const;
 
     Fvar(
         ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat *s,
@@ -282,7 +282,7 @@ private:
 struct OSTD_EXPORT Svar: Var {
     friend struct CsState;
 
-    ostd::ConstCharRange get_var_value() const;
+    ostd::ConstCharRange get_value() const;
 
     Svar(
         ostd::ConstCharRange n, char **s, VarCb f = VarCb(),

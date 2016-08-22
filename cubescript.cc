@@ -211,7 +211,7 @@ CsInt Ivar::get_val_max() const {
     return p_maxval;
 }
 
-CsInt Ivar::get_var_value() const {
+CsInt Ivar::get_value() const {
     return *p_storage;
 }
 
@@ -222,11 +222,11 @@ CsFloat Fvar::get_val_max() const {
     return p_maxval;
 }
 
-CsFloat Fvar::get_var_value() const {
+CsFloat Fvar::get_value() const {
     return *p_storage;
 }
 
-ostd::ConstCharRange Svar::get_var_value() const {
+ostd::ConstCharRange Svar::get_value() const {
     return *p_storage;
 }
 
