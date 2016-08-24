@@ -258,9 +258,15 @@ CsState::CsState() {
         snprintf(buf, sizeof(buf), "arg%d", i + 1);
         new_ident(static_cast<char const *>(buf), IDF_ARG);
     }
-    dummy = new_ident("//dummy");
-    numargs = add_ident<Ivar>("numargs", MaxArguments, 0, 0);
-    dbgalias = add_ident<Ivar>("dbgalias", 0, 1000, 4);
+    Ident *id = new_ident("//dummy");
+    assert(id->get_index() == DummyIdx);
+
+    id = add_ident<Ivar>("numargs", MaxArguments, 0, 0);
+    assert(id->get_index() == NumargsIdx);
+
+    id = add_ident<Ivar>("dbgalias", 0, 1000, 4);
+    assert(id->get_index() == DbgaliasIdx);
+
     cs_init_lib_base(*this);
 }
 
@@ -336,7 +342,7 @@ Ident *CsState::new_ident(ostd::ConstCharRange name, int flags) {
             cs_debug_code(
                 *this, "number %s is not a valid identifier name", name
             );
-            return dummy;
+            return identmap[DummyIdx];
         }
         id = add_ident<Alias>(name, flags);
     }
@@ -361,8 +367,8 @@ Ident *CsState::force_ident(CsValue &v) {
         }
     }
     v.cleanup();
-    v.set_ident(dummy);
-    return dummy;
+    v.set_ident(identmap[DummyIdx]);
+    return identmap[DummyIdx];
 }
 
 bool CsState::reset_var(ostd::ConstCharRange name) {

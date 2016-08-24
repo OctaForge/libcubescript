@@ -13,6 +13,10 @@ namespace cscript {
 static constexpr int MaxArguments = 25;
 static constexpr int MaxResults = 7;
 
+static constexpr int DummyIdx = MaxArguments;
+static constexpr int NumargsIdx = MaxArguments + 1;
+static constexpr int DbgaliasIdx = MaxArguments + 2;
+
 enum {
     ID_UNKNOWN = -1, ID_IVAR, ID_FVAR, ID_SVAR, ID_COMMAND, ID_ALIAS,
     ID_LOCAL, ID_DO, ID_DOARGS, ID_IF, ID_RESULT, ID_NOT, ID_AND, ID_OR
@@ -213,7 +217,7 @@ struct GenState {
     }
 
     void gen_ident() {
-        gen_ident(cs.dummy);
+        gen_ident(cs.identmap[DummyIdx]);
     }
 
     void gen_ident(ostd::ConstCharRange word) {

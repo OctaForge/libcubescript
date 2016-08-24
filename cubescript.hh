@@ -377,8 +377,6 @@ struct OSTD_EXPORT CsState {
     CsMap<ostd::ConstCharRange, Ident *> idents;
     CsVector<Ident *> identmap;
 
-    Ident *dummy = nullptr;
-
     IdentLink noalias;
     IdentLink *p_stack = &noalias;
 
@@ -387,8 +385,6 @@ struct OSTD_EXPORT CsState {
 
     int identflags = 0;
     int nodebug = 0;
-    Ivar *numargs = nullptr;
-    Ivar *dbgalias = nullptr;
 
     CsState();
     ~CsState();

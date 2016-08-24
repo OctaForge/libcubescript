@@ -61,7 +61,8 @@ ostd::ConstCharRange cs_debug_line(
 }
 
 void cs_debug_alias(CsState &cs) {
-    if (!cs.dbgalias->get_value()) {
+    Ivar *dalias = static_cast<Ivar *>(cs.identmap[DbgaliasIdx]);
+    if (!dalias->get_value()) {
         return;
     }
     int total = 0, depth = 0;
@@ -71,11 +72,11 @@ void cs_debug_alias(CsState &cs) {
     for (IdentLink *l = cs.p_stack; l != &cs.noalias; l = l->next) {
         Ident *id = l->id;
         ++depth;
-        if (depth < cs.dbgalias->get_value()) {
+        if (depth < dalias->get_value()) {
             ostd::err.writefln("  %d) %s", total - depth + 1, id->get_name());
         } else if (l->next == &cs.noalias) {
             ostd::err.writefln(
-                depth == cs.dbgalias->get_value() ? "  %d) %s" : "  ..%d) %s",
+                depth == dalias->get_value() ? "  %d) %s" : "  ..%d) %s",
                 total - depth + 1, id->get_name()
             );
         }
@@ -388,7 +389,7 @@ static inline void callcommand(
                     if (rep) {
                         break;
                     }
-                    args[i].set_ident(cs.dummy);
+                    args[i].set_ident(cs.identmap[DummyIdx]);
                     fakeargs++;
                 } else {
                     cs.force_ident(args[i]);
@@ -449,14 +450,15 @@ static inline void cs_call_alias(
     CsState &cs, Alias *a, CsValue *args, CsValue &result,
     int callargs, int &nargs, int offset, int skip, ostd::Uint32 op
 ) {
+    Ivar *anargs = static_cast<Ivar *>(cs.identmap[NumargsIdx]);
     IdentStack argstack[MaxArguments];
     for(int i = 0; i < callargs; i++) {
         static_cast<Alias *>(cs.identmap[i])->push_arg(
             args[offset + i], argstack[i], false
         );
     }
-    int oldargs = cs.numargs->get_value();
-    cs.numargs->set_value(callargs);
+    int oldargs = anargs->get_value();
+    anargs->set_value(callargs);
     int oldflags = cs.identflags;
     cs.identflags |= a->get_flags()&IDF_OVERRIDDEN;
     IdentLink aliaslink = {
@@ -480,7 +482,7 @@ static inline void cs_call_alias(
         }
     }
     force_arg(result, op & CODE_RET_MASK);
-    cs.numargs->set_value(oldargs);
+    anargs->set_value(oldargs);
     nargs = offset - skip;
 }
 
@@ -946,7 +948,7 @@ static ostd::Uint32 const *runcode(
             }
             case CODE_IDENTU: {
                 CsValue &arg = args[numargs - 1];
-                Ident *id = cs.dummy;
+                Ident *id = cs.identmap[DummyIdx];
                 if (
                     arg.get_type() == VAL_STR ||
                     arg.get_type() == VAL_MACRO ||
