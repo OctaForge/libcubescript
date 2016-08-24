@@ -26,15 +26,17 @@ static inline void cs_pop_alias(Ident *id) {
     }
 }
 
+/* TODO: make thread_local later */
+static ostd::ConstCharRange cs_src_file, cs_src_str;
+
 ostd::ConstCharRange cs_debug_line(
-    CsState &cs, ostd::ConstCharRange p, ostd::ConstCharRange fmt,
-    ostd::CharRange buf
+    ostd::ConstCharRange p, ostd::ConstCharRange fmt, ostd::CharRange buf
 ) {
-    if (cs.src_str.empty()) {
+    if (cs_src_str.empty()) {
         return fmt;
     }
     ostd::Size num = 1;
-    ostd::ConstCharRange line(cs.src_str);
+    ostd::ConstCharRange line(cs_src_str);
     for (;;) {
         ostd::ConstCharRange end = ostd::find(line, '\n');
         if (!end.empty()) {
@@ -42,8 +44,8 @@ ostd::ConstCharRange cs_debug_line(
         }
         if (&p[0] >= &line[0] && &p[0] <= &line[line.size()]) {
             ostd::CharRange r(buf);
-            if (!cs.src_file.empty()) {
-                ostd::format(r, "%s:%d: %s", cs.src_file, num, fmt);
+            if (!cs_src_file.empty()) {
+                ostd::format(r, "%s:%d: %s", cs_src_file, num, fmt);
             } else {
                 ostd::format(r, "%d: %s", num, fmt);
             }
@@ -1772,7 +1774,7 @@ void CsState::run(Ident *id, CsValueRange args) {
 static bool cs_run_file(
     CsState &cs, ostd::ConstCharRange fname, CsValue &ret
 ) {
-    ostd::ConstCharRange oldsrcfile = cs.src_file, oldsrcstr = cs.src_str;
+    ostd::ConstCharRange old_src_file = cs_src_file, old_src_str = cs_src_str;
     ostd::Box<char[]> buf;
     ostd::Size len;
 
@@ -1788,11 +1790,12 @@ static bool cs_run_file(
     }
     buf[len] = '\0';
 
-    cs.src_file = fname;
-    cs.src_str = ostd::ConstCharRange(buf.get(), len);
-    cs.run_ret(cs.src_str, ret);
-    cs.src_file = oldsrcfile;
-    cs.src_str = oldsrcstr;
+    ostd::ConstCharRange src_str = ostd::ConstCharRange(buf.get(), len);
+    cs_src_file = fname;
+    cs_src_str = src_str;
+    cs.run_ret(src_str, ret);
+    cs_src_file = old_src_file;
+    cs_src_str = old_src_str;
     return true;
 }
 
