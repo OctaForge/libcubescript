@@ -27,15 +27,14 @@ static inline void cs_pop_alias(Ident *id) {
 }
 
 ostd::ConstCharRange cs_debug_line(
-    ostd::ConstCharRange src_file, ostd::ConstCharRange src_str,
-    ostd::ConstCharRange p, ostd::ConstCharRange fmt,
+    CsState &cs, ostd::ConstCharRange p, ostd::ConstCharRange fmt,
     ostd::CharRange buf
 ) {
-    if (src_str.empty()) {
+    if (cs.src_str.empty()) {
         return fmt;
     }
     ostd::Size num = 1;
-    ostd::ConstCharRange line(src_str);
+    ostd::ConstCharRange line(cs.src_str);
     for (;;) {
         ostd::ConstCharRange end = ostd::find(line, '\n');
         if (!end.empty()) {
@@ -43,8 +42,8 @@ ostd::ConstCharRange cs_debug_line(
         }
         if (&p[0] >= &line[0] && &p[0] <= &line[line.size()]) {
             ostd::CharRange r(buf);
-            if (!src_file.empty()) {
-                ostd::format(r, "%s:%d: %s", src_file, num, fmt);
+            if (!cs.src_file.empty()) {
+                ostd::format(r, "%s:%d: %s", cs.src_file, num, fmt);
             } else {
                 ostd::format(r, "%d: %s", num, fmt);
             }
@@ -1570,24 +1569,15 @@ void CsState::run_ret(Bytecode const *code, CsValue &ret) {
     runcode(*this, reinterpret_cast<ostd::Uint32 const *>(code), ret);
 }
 
-static void cs_run_ret(
-    CsState &cs, ostd::ConstCharRange code, ostd::ConstCharRange src_file,
-    ostd::ConstCharRange src_str, CsValue &ret
-) {
-    GenState gs(cs);
-    gs.src_file = src_file;
-    gs.src_str = src_str;
+void CsState::run_ret(ostd::ConstCharRange code, CsValue &ret) {
+    GenState gs(*this);
     gs.code.reserve(64);
     /* FIXME range */
     gs.gen_main(code.data(), VAL_ANY);
-    runcode(cs, gs.code.data() + 1, ret);
+    runcode(*this, gs.code.data() + 1, ret);
     if (int(gs.code[0]) >= 0x100) {
         gs.code.disown();
     }
-}
-
-void CsState::run_ret(ostd::ConstCharRange code, CsValue &ret) {
-    cs_run_ret(*this, code, ostd::ConstCharRange(), ostd::ConstCharRange(), ret);
 }
 
 void CsState::run_ret(Ident *id, CsValueRange args, CsValue &ret) {
@@ -1782,6 +1772,7 @@ void CsState::run(Ident *id, CsValueRange args) {
 static bool cs_run_file(
     CsState &cs, ostd::ConstCharRange fname, CsValue &ret
 ) {
+    ostd::ConstCharRange oldsrcfile = cs.src_file, oldsrcstr = cs.src_str;
     ostd::Box<char[]> buf;
     ostd::Size len;
 
@@ -1797,8 +1788,11 @@ static bool cs_run_file(
     }
     buf[len] = '\0';
 
-    ostd::ConstCharRange src_str = ostd::ConstCharRange(buf.get(), len);
-    cs_run_ret(cs, src_str, fname, src_str, ret);
+    cs.src_file = fname;
+    cs.src_str = ostd::ConstCharRange(buf.get(), len);
+    cs.run_ret(cs.src_str, ret);
+    cs.src_file = oldsrcfile;
+    cs.src_str = oldsrcstr;
     return true;
 }
 

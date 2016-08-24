@@ -105,18 +105,46 @@ static void cs_do_args(CsState &cs, F body) {
     }
 }
 
+ostd::ConstCharRange cs_debug_line(
+    CsState &cs, ostd::ConstCharRange p, ostd::ConstCharRange fmt,
+    ostd::CharRange buf
+);
+
+void cs_debug_alias(CsState &cs);
+
+template<typename ...A>
+void cs_debug_code(CsState &cs, ostd::ConstCharRange fmt, A &&...args) {
+    if (cs.nodebug) {
+        return;
+    }
+    ostd::err.writefln(fmt, ostd::forward<A>(args)...);
+    cs_debug_alias(cs);
+}
+
+template<typename ...A>
+void cs_debug_code_line(
+    CsState &cs, ostd::ConstCharRange p, ostd::ConstCharRange fmt, A &&...args
+) {
+    if (cs.nodebug) {
+        return;
+    }
+    ostd::Array<char, 256> buf;
+    ostd::err.writefln(
+        cs_debug_line(cs, p, fmt, ostd::CharRange(buf.data(), buf.size())),
+        ostd::forward<A>(args)...
+    );
+    cs_debug_alias(cs);
+}
+
 ostd::Uint32 *compilecode(CsState &cs, ostd::ConstCharRange str);
 
 struct GenState {
     CsState &cs;
-    ostd::ConstCharRange src_file, src_str;
     CsVector<ostd::Uint32> code;
     char const *source;
 
     GenState() = delete;
-    GenState(CsState &csr):
-        cs(csr), src_file(), src_str(), code(), source(nullptr)
-    {}
+    GenState(CsState &csr): cs(csr), code(), source(nullptr) {}
 
     void gen_str(ostd::ConstCharRange word, bool macro = false) {
         if (word.size() <= 3 && !macro) {
@@ -210,41 +238,6 @@ struct GenState {
         return *source;
     }
 };
-
-ostd::ConstCharRange cs_debug_line(
-    ostd::ConstCharRange src_file, ostd::ConstCharRange src_str,
-    ostd::ConstCharRange p, ostd::ConstCharRange fmt,
-    ostd::CharRange buf
-);
-
-void cs_debug_alias(CsState &cs);
-
-template<typename ...A>
-void cs_debug_code(CsState &cs, ostd::ConstCharRange fmt, A &&...args) {
-    if (cs.nodebug) {
-        return;
-    }
-    ostd::err.writefln(fmt, ostd::forward<A>(args)...);
-    cs_debug_alias(cs);
-}
-
-template<typename ...A>
-void cs_debug_code_line(
-    GenState &gs, ostd::ConstCharRange p, ostd::ConstCharRange fmt, A &&...args
-) {
-    if (gs.cs.nodebug) {
-        return;
-    }
-    ostd::Array<char, 256> buf;
-    ostd::err.writefln(
-        cs_debug_line(
-            gs.src_file, gs.src_str, p, fmt,
-            ostd::CharRange(buf.data(), buf.size())
-        ),
-        ostd::forward<A>(args)...
-    );
-    cs_debug_alias(gs.cs);
-}
 
 CsString intstr(int v);
 CsString floatstr(CsFloat v);

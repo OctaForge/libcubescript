@@ -781,7 +781,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
         char c = gs.next_char();
         switch (c) {
             case '\0':
-                cs_debug_code_line(gs, line, "missing \"]\"");
+                cs_debug_code_line(gs.cs, line, "missing \"]\"");
                 gs.source--;
                 goto done;
             case '\"':
@@ -810,7 +810,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
                 if (brak > level) {
                     continue;
                 } else if (brak < level) {
-                    cs_debug_code_line(gs, line, "too many @s");
+                    cs_debug_code_line(gs.cs, line, "too many @s");
                 }
                 if (!concs && prevargs >= MaxResults) {
                     gs.code.push(CODE_ENTER);
@@ -1667,7 +1667,7 @@ endstatement:
         switch (c) {
             case '\0':
                 if (c != brak) {
-                    cs_debug_code_line(gs, line, "missing \"%c\"", brak);
+                    cs_debug_code_line(gs.cs, line, "missing \"%c\"", brak);
                 }
                 gs.source--;
                 return;
@@ -1676,7 +1676,7 @@ endstatement:
                 if (c == brak) {
                     return;
                 }
-                cs_debug_code_line(gs, line, "unexpected \"%c\"", c);
+                cs_debug_code_line(gs.cs, line, "unexpected \"%c\"", c);
                 break;
             case '/':
                 if (gs.current() == '/') {
