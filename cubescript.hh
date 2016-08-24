@@ -380,9 +380,6 @@ struct OSTD_EXPORT CsState {
     IdentLink noalias;
     IdentLink *p_stack = &noalias;
 
-    ostd::ConstCharRange src_file;
-    ostd::ConstCharRange src_str;
-
     int identflags = 0;
     int nodebug = 0;
 
