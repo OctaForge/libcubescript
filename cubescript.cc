@@ -498,6 +498,72 @@ void CsValue::cleanup() {
     }
 }
 
+int CsValue::get_type() const {
+    return p_type;
+}
+
+void CsValue::set_int(CsInt val) {
+    p_type = VAL_INT;
+    i = val;
+}
+
+void CsValue::set_float(CsFloat val) {
+    p_type = VAL_FLOAT;
+    f = val;
+}
+
+void CsValue::set_str(CsString val) {
+    if (val.size() == 0) {
+        /* ostd zero length strings cannot be disowned */
+        char *buf = new char[1];
+        buf[0] = '\0';
+        set_mstr(buf);
+        return;
+    }
+    ostd::CharRange cr = val.iter();
+    val.disown();
+    set_mstr(cr);
+}
+
+void CsValue::set_null() {
+    p_type = VAL_NULL;
+    i = 0;
+}
+
+void CsValue::set_code(Bytecode const *val) {
+    p_type = VAL_CODE;
+    code = val;
+}
+
+void CsValue::set_cstr(ostd::ConstCharRange val) {
+    p_type = VAL_CSTR;
+    len = val.size();
+    cstr = val.data();
+}
+
+void CsValue::set_mstr(ostd::CharRange val) {
+    p_type = VAL_STR;
+    len = val.size();
+    s = val.data();
+}
+
+void CsValue::set_ident(Ident *val) {
+    p_type = VAL_IDENT;
+    id = val;
+}
+
+void CsValue::set_macro(Bytecode const *val, ostd::Size ln) {
+    p_type = VAL_MACRO;
+    len = ln;
+    code = val;
+}
+
+void CsValue::set(CsValue &tv) {
+    *this = tv;
+    tv.p_type = VAL_NULL;
+}
+
+
 void CsValue::force_null() {
     if (get_type() == VAL_NULL) {
         return;

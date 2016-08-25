@@ -77,62 +77,19 @@ struct OSTD_EXPORT CsValue {
     };
     ostd::Size len;
 
-    int get_type() const {
-        return p_type;
-    }
+    int get_type() const;
 
-    void set_int(CsInt val) {
-        p_type = VAL_INT;
-        i = val;
-    }
-    void set_float(CsFloat val) {
-        p_type = VAL_FLOAT;
-        f = val;
-    }
-    void set_str(CsString val) {
-        if (val.size() == 0) {
-            /* ostd zero length strings cannot be disowned */
-            char *buf = new char[1];
-            buf[0] = '\0';
-            set_mstr(buf);
-            return;
-        }
-        ostd::CharRange cr = val.iter();
-        val.disown();
-        set_mstr(cr);
-    }
-    void set_null() {
-        p_type = VAL_NULL;
-        i = 0;
-    }
-    void set_code(Bytecode const *val) {
-        p_type = VAL_CODE;
-        code = val;
-    }
-    void set_cstr(ostd::ConstCharRange val) {
-        p_type = VAL_CSTR;
-        len = val.size();
-        cstr = val.data();
-    }
-    void set_mstr(ostd::CharRange val) {
-        p_type = VAL_STR;
-        len = val.size();
-        s = val.data();
-    }
-    void set_ident(Ident *val) {
-        p_type = VAL_IDENT;
-        id = val;
-    }
-    void set_macro(Bytecode const *val, ostd::Size ln) {
-        p_type = VAL_MACRO;
-        len = ln;
-        code = val;
-    }
+    void set_int(CsInt val);
+    void set_float(CsFloat val);
+    void set_str(CsString val);
+    void set_null();
+    void set_code(Bytecode const *val);
+    void set_cstr(ostd::ConstCharRange val);
+    void set_mstr(ostd::CharRange val);
+    void set_ident(Ident *val);
+    void set_macro(Bytecode const *val, ostd::Size ln);
 
-    void set(CsValue &tv) {
-        *this = tv;
-        tv.p_type = VAL_NULL;
-    }
+    void set(CsValue &tv);
 
     CsString get_str() const;
     ostd::ConstCharRange get_strr() const;
