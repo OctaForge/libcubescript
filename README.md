@@ -1,18 +1,39 @@
 # libcubescript
 
-This is an embeddable version of the CubeScript implementation from the
-Cube 2 engine. The API is highly unstable right now and overall it's a work
-in progress.
+Libcubescript is an embeddable implementation of the Cubescript scripting
+language. Cubescript is the console/config language of the Cube engines/games
+(and derived engines/games). It's a simplistic language defined around the
+idea of everything being a string, with Lisp-like syntax (allowing various
+control structures to be defined as commands).
 
-It depends on the latest Git version of OctaSTD:
+Libcubescript is originally based on the implementation from the Cube 2 engine,
+but it's largely rewritten. Here are some of the benefits over the original
+implementation:
 
-https://git.octaforge.org/tools/octastd.git/
+* Independent implementation that can be embedded in any project
+* No global state - multiple Cubescripts can be present within a single program
+* Modern C++14 API (no macro mess like in the original)
+* C++14 lambdas can be used as commands (including captures and type inference)
+* Clean codebase that is easy to read and contribute to
+* Core types can be changed as needed at compile time (larger floats? no problem)
+* Allows building into a static or shared library, supports `-fvisibility=hidden`
+
+Upcoming features:
+
+* Thread safety (safely call into a single Cubescript state from multiple threads)
+* Custom allocator support (control over how heap memory is allocated)
+
+The API is currently unstable and a work in progress. The codebase itself is
+also changing very quickly.
+
+The only dependency is OctaSTD:
+
+https://git.octaforge.org/tools/octastd.git/  
 https://github.com/OctaForge/OctaSTD
 
-Currently the API is unstable and the whole thing is a work in progress. It
-requires C++14, just like OctaSTD does.
+If OctaSTD can work on your system, so can libcubescript.
 
-The supplied Makefile builds a static library on Unix-like OSes. Link this library
-together with your application and everything should just work.
+The supplied Makefile builds a static library on Unix-like OSes. Link this
+library together with your application and everything should just work.
 
 See COPYING.md for licensing information.
