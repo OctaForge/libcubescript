@@ -76,7 +76,7 @@ static inline void cs_set_iter(Alias &a, char *val, IdentStack &stack) {
 
 static void cs_loop_list_conc(
     CsState &cs, CsValue &res, Ident *id, ostd::ConstCharRange list,
-    Bytecode const *body, bool space
+    CsBytecode const *body, bool space
 ) {
     if (!id->is_alias()) {
         return;
@@ -539,7 +539,7 @@ struct ListSortItem {
 struct ListSortFun {
     CsState &cs;
     Alias *x, *y;
-    Bytecode *body;
+    CsBytecode *body;
 
     bool operator()(ListSortItem const &xval, ListSortItem const &yval) {
         x->clean_code();
@@ -552,7 +552,7 @@ struct ListSortFun {
 
 static void cs_list_sort(
     CsState &cs, CsValue &res, ostd::ConstCharRange list, Ident *x, Ident *y,
-    Bytecode *body, Bytecode *unique
+    CsBytecode *body, CsBytecode *unique
 ) {
     if (x == y || !x->is_alias() || !y->is_alias()) {
         return;

@@ -530,7 +530,7 @@ void CsValue::set_null() {
     i = 0;
 }
 
-void CsValue::set_code(Bytecode const *val) {
+void CsValue::set_code(CsBytecode const *val) {
     p_type = VAL_CODE;
     code = val;
 }
@@ -552,7 +552,7 @@ void CsValue::set_ident(Ident *val) {
     id = val;
 }
 
-void CsValue::set_macro(Bytecode const *val, ostd::Size ln) {
+void CsValue::set_macro(CsBytecode const *val, ostd::Size ln) {
     p_type = VAL_MACRO;
     len = ln;
     code = val;
@@ -659,11 +659,11 @@ CsFloat CsValue::get_float() const {
     return 0.0f;
 }
 
-Bytecode *CsValue::get_code() const {
+CsBytecode *CsValue::get_code() const {
     if (get_type() != VAL_CODE) {
         return nullptr;
     }
-    return const_cast<Bytecode *>(code);
+    return const_cast<CsBytecode *>(code);
 }
 
 Ident *CsValue::get_ident() const {
@@ -719,7 +719,7 @@ void CsValue::get_val(CsValue &r) const {
     }
 }
 
-OSTD_EXPORT bool code_is_empty(Bytecode const *code) {
+OSTD_EXPORT bool code_is_empty(CsBytecode const *code) {
     if (!code) {
         return true;
     }
@@ -817,9 +817,9 @@ void Alias::clean_code() {
     }
 }
 
-Bytecode *Alias::compile_code(CsState &cs) {
+CsBytecode *Alias::compile_code(CsState &cs) {
     if (!p_acode) {
-        p_acode = reinterpret_cast<Bytecode *>(compilecode(cs, val_v.get_str()));
+        p_acode = reinterpret_cast<CsBytecode *>(compilecode(cs, val_v.get_str()));
     }
     return p_acode;
 }
@@ -1259,7 +1259,7 @@ static inline void cs_set_iter(Alias &a, CsInt i, IdentStack &stack) {
 
 static inline void cs_do_loop(
     CsState &cs, Ident &id, CsInt offset, CsInt n, CsInt step,
-    Bytecode *cond, Bytecode *body
+    CsBytecode *cond, CsBytecode *body
 ) {
     if (n <= 0 || !id.is_alias()) {
         return;
@@ -1278,7 +1278,7 @@ static inline void cs_do_loop(
 
 static inline void cs_loop_conc(
     CsState &cs, CsValue &res, Ident &id, CsInt offset, CsInt n,
-    CsInt step, Bytecode *body, bool space
+    CsInt step, CsBytecode *body, bool space
 ) {
     if (n <= 0 || !id.is_alias()) {
         return;
@@ -1423,7 +1423,7 @@ void cs_init_lib_base(CsState &cs) {
     cs_add_command(cs, "pushif", "rTe", [&cs](CsValueRange args, CsValue &res) {
         Ident *id = args[0].get_ident();
         CsValue &v = args[1];
-        Bytecode *code = args[2].get_code();
+        CsBytecode *code = args[2].get_code();
         if (!id->is_alias() || (id->get_index() < MaxArguments)) {
             return;
         }
@@ -1494,7 +1494,7 @@ void cs_init_lib_base(CsState &cs) {
     });
 
     cs_add_command(cs, "while", "ee", [&cs](CsValueRange args, CsValue &) {
-        Bytecode *cond = args[0].get_code(), *body = args[1].get_code();
+        CsBytecode *cond = args[0].get_code(), *body = args[1].get_code();
         while (cs.run_bool(cond)) {
             cs.run_int(body);
         }

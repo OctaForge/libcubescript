@@ -36,33 +36,33 @@ enum {
     IDF_ARG        = 1 << 6
 };
 
-struct Bytecode;
+struct CsBytecode;
 
-struct OSTD_EXPORT BytecodeRef {
-    BytecodeRef():
+struct OSTD_EXPORT CsBytecodeRef {
+    CsBytecodeRef():
         p_code(nullptr)
     {}
-    BytecodeRef(Bytecode *v);
-    BytecodeRef(BytecodeRef const &v);
-    BytecodeRef(BytecodeRef &&v):
+    CsBytecodeRef(CsBytecode *v);
+    CsBytecodeRef(CsBytecodeRef const &v);
+    CsBytecodeRef(CsBytecodeRef &&v):
         p_code(v.p_code)
     {
         v.p_code = nullptr;
     }
 
-    ~BytecodeRef();
+    ~CsBytecodeRef();
 
-    BytecodeRef &operator=(BytecodeRef const &v);
-    BytecodeRef &operator=(BytecodeRef &&v);
+    CsBytecodeRef &operator=(CsBytecodeRef const &v);
+    CsBytecodeRef &operator=(CsBytecodeRef &&v);
 
     operator bool() const { return p_code != nullptr; }
-    operator Bytecode *() const { return p_code; }
+    operator CsBytecode *() const { return p_code; }
 
 private:
-    Bytecode *p_code;
+    CsBytecode *p_code;
 };
 
-OSTD_EXPORT bool code_is_empty(Bytecode const *code);
+OSTD_EXPORT bool code_is_empty(CsBytecode const *code);
 
 struct Ident;
 
@@ -70,7 +70,7 @@ struct OSTD_EXPORT CsValue {
     union {
         CsInt i;      /* ID_IVAR, VAL_INT */
         CsFloat f;    /* ID_FVAR, VAL_FLOAT */
-        Bytecode const *code; /* VAL_CODE */
+        CsBytecode const *code; /* VAL_CODE */
         Ident *id;  /* VAL_IDENT */
         char *s;    /* ID_SVAR, VAL_STR */
         char const *cstr; /* VAL_CSTR */
@@ -83,11 +83,11 @@ struct OSTD_EXPORT CsValue {
     void set_float(CsFloat val);
     void set_str(CsString val);
     void set_null();
-    void set_code(Bytecode const *val);
+    void set_code(CsBytecode const *val);
     void set_cstr(ostd::ConstCharRange val);
     void set_mstr(ostd::CharRange val);
     void set_ident(Ident *val);
-    void set_macro(Bytecode const *val, ostd::Size ln);
+    void set_macro(CsBytecode const *val, ostd::Size ln);
 
     void set(CsValue &tv);
 
@@ -95,7 +95,7 @@ struct OSTD_EXPORT CsValue {
     ostd::ConstCharRange get_strr() const;
     CsInt get_int() const;
     CsFloat get_float() const;
-    Bytecode *get_code() const;
+    CsBytecode *get_code() const;
     Ident *get_ident() const;
     void get_val(CsValue &r) const;
 
@@ -301,7 +301,7 @@ struct OSTD_EXPORT Alias: Ident {
     void set_alias(CsState &cs, CsValue &v);
 
     void clean_code();
-    Bytecode *compile_code(CsState &cs);
+    CsBytecode *compile_code(CsState &cs);
 
     void force_null() {
         cleanup_value();
@@ -309,7 +309,7 @@ struct OSTD_EXPORT Alias: Ident {
     }
 
 private:
-    Bytecode *p_acode;
+    CsBytecode *p_acode;
     IdentStack *p_astack;
 };
 
@@ -383,27 +383,27 @@ struct OSTD_EXPORT CsState {
         ostd::ConstCharRange name, ostd::ConstCharRange args, CmdFunc func
     );
 
-    CsString run_str(Bytecode const *code);
+    CsString run_str(CsBytecode const *code);
     CsString run_str(ostd::ConstCharRange code);
     CsString run_str(Ident *id, CsValueRange args);
 
-    CsInt run_int(Bytecode const *code);
+    CsInt run_int(CsBytecode const *code);
     CsInt run_int(ostd::ConstCharRange code);
     CsInt run_int(Ident *id, CsValueRange args);
 
-    CsFloat run_float(Bytecode const *code);
+    CsFloat run_float(CsBytecode const *code);
     CsFloat run_float(ostd::ConstCharRange code);
     CsFloat run_float(Ident *id, CsValueRange args);
 
-    bool run_bool(Bytecode const *code);
+    bool run_bool(CsBytecode const *code);
     bool run_bool(ostd::ConstCharRange code);
     bool run_bool(Ident *id, CsValueRange args);
 
-    void run_ret(Bytecode const *code, CsValue &ret);
+    void run_ret(CsBytecode const *code, CsValue &ret);
     void run_ret(ostd::ConstCharRange code, CsValue &ret);
     void run_ret(Ident *id, CsValueRange args, CsValue &ret);
 
-    void run(Bytecode const *code);
+    void run(CsBytecode const *code);
     void run(ostd::ConstCharRange code);
     void run(Ident *id, CsValueRange args);
 
