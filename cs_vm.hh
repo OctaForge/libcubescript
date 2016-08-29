@@ -22,7 +22,7 @@ enum {
     ID_LOCAL, ID_DO, ID_DOARGS, ID_IF, ID_RESULT, ID_NOT, ID_AND, ID_OR
 };
 
-struct Command: Ident {
+struct Command: CsIdent {
     char *cargs;
     ostd::Uint32 argmask;
     int numargs;
@@ -82,15 +82,15 @@ struct NullValue: CsValue {
 
 template<typename F>
 static void cs_do_args(CsState &cs, F body) {
-    IdentStack argstack[MaxArguments];
+    CsIdentStack argstack[MaxArguments];
     int argmask1 = cs.p_stack->usedargs;
     for (int i = 0; argmask1; argmask1 >>= 1, ++i) {
         if (argmask1 & 1) {
-            static_cast<Alias *>(cs.identmap[i])->undo_arg(argstack[i]);
+            static_cast<CsAlias *>(cs.identmap[i])->undo_arg(argstack[i]);
         }
     }
-    IdentLink *prevstack = cs.p_stack->next;
-    IdentLink aliaslink = {
+    CsIdentLink *prevstack = cs.p_stack->next;
+    CsIdentLink aliaslink = {
         cs.p_stack->id, cs.p_stack, prevstack->usedargs, prevstack->argstack
     };
     cs.p_stack = &aliaslink;
@@ -100,7 +100,7 @@ static void cs_do_args(CsState &cs, F body) {
     int argmask2 = cs.p_stack->usedargs;
     for (int i = 0; argmask2; argmask2 >>= 1, ++i) {
         if (argmask2 & 1) {
-            static_cast<Alias *>(cs.identmap[i])->redo_arg(argstack[i]);
+            static_cast<CsAlias *>(cs.identmap[i])->redo_arg(argstack[i]);
         }
     }
 }
@@ -206,7 +206,7 @@ struct GenState {
 
     void gen_float(ostd::ConstCharRange word);
 
-    void gen_ident(Ident *id) {
+    void gen_ident(CsIdent *id) {
         code.push(
             ((id->get_index() < MaxArguments)
                 ? CODE_IDENTARG
