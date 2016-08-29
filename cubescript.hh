@@ -209,12 +209,12 @@ struct OSTD_EXPORT CsIvar: CsVar {
     CsInt get_value() const;
     void set_value(CsInt val);
 
+private:
     CsIvar(
         ostd::ConstCharRange n, CsInt m, CsInt x, CsInt v,
         CsVarCb f = CsVarCb(), int flags = 0
     );
 
-private:
     CsInt p_storage, p_minval, p_maxval, p_overrideval;
 };
 
@@ -227,12 +227,12 @@ struct OSTD_EXPORT CsFvar: CsVar {
     CsFloat get_value() const;
     void set_value(CsFloat val);
 
+private:
     CsFvar(
         ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat v,
         CsVarCb f = CsVarCb(), int flags = 0
     );
 
-private:
     CsFloat p_storage, p_minval, p_maxval, p_overrideval;
 };
 
@@ -243,6 +243,7 @@ struct OSTD_EXPORT CsSvar: CsVar {
     void set_value(ostd::ConstCharRange val);
     void set_value(CsString &&val);
 
+private:
     CsSvar(
         ostd::ConstCharRange n, ostd::ConstCharRange v, CsVarCb f = CsVarCb(),
         int flags = 0
@@ -252,18 +253,13 @@ struct OSTD_EXPORT CsSvar: CsVar {
         int flags = 0
     );
 
-private:
     CsString p_storage, p_overrideval;
 };
 
 struct OSTD_EXPORT CsAlias: CsIdent {
-    CsValue val_v;
+    friend struct CsState;
 
-    CsAlias(ostd::ConstCharRange n, char *a, int flags);
-    CsAlias(ostd::ConstCharRange n, CsInt a, int flags);
-    CsAlias(ostd::ConstCharRange n, CsFloat a, int flags);
-    CsAlias(ostd::ConstCharRange n, int flags);
-    CsAlias(ostd::ConstCharRange n, CsValue const &v, int flags);
+    CsValue val_v;
 
     void set_value(CsValue const &v) {
         val_v = v;
@@ -309,6 +305,12 @@ struct OSTD_EXPORT CsAlias: CsIdent {
     }
 
 private:
+    CsAlias(ostd::ConstCharRange n, char *a, int flags);
+    CsAlias(ostd::ConstCharRange n, CsInt a, int flags);
+    CsAlias(ostd::ConstCharRange n, CsFloat a, int flags);
+    CsAlias(ostd::ConstCharRange n, int flags);
+    CsAlias(ostd::ConstCharRange n, CsValue const &v, int flags);
+
     CsBytecode *p_acode;
     CsIdentStack *p_astack;
 };
