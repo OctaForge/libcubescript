@@ -137,6 +137,13 @@ struct CsAlias;
 struct OSTD_EXPORT CsIdent {
     friend struct CsState;
 
+    CsIdent() = delete;
+    CsIdent(CsIdent const &) = delete;
+    CsIdent(CsIdent &&) = delete;
+
+    CsIdent &operator=(CsIdent const &) = delete;
+    CsIdent &operator=(CsIdent &&) = delete;
+
     CsIdentType get_type() const;
     ostd::ConstCharRange get_name() const;
     int get_flags() const;
