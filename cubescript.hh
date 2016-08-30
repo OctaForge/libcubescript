@@ -460,14 +460,14 @@ private:
     CsIdent *add_ident(CsIdent *id);
 };
 
-struct OSTD_EXPORT StackedValue: CsValue {
-    StackedValue(CsIdent *id = nullptr):
+struct OSTD_EXPORT CsStackedValue: CsValue {
+    CsStackedValue(CsIdent *id = nullptr):
         CsValue(), p_a(nullptr), p_stack(), p_pushed(false)
     {
         set_alias(id);
     }
 
-    ~StackedValue() {
+    ~CsStackedValue() {
         pop();
     }
 
@@ -488,7 +488,7 @@ struct OSTD_EXPORT StackedValue: CsValue {
     }
 
     bool push() {
-        if (p_pushed || !p_a) {
+        if (!p_a) {
             return false;
         }
         p_a->push_arg(*this, p_stack);
