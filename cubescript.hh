@@ -67,16 +67,6 @@ OSTD_EXPORT bool cs_code_is_empty(CsBytecode *code);
 struct CsIdent;
 
 struct OSTD_EXPORT CsValue {
-    union {
-        CsInt i;      /* ID_IVAR, VAL_INT */
-        CsFloat f;    /* ID_FVAR, VAL_FLOAT */
-        CsBytecode *p_code; /* VAL_CODE */
-        CsIdent *p_id;  /* VAL_IDENT */
-        char *s;    /* ID_SVAR, VAL_STR */
-        char const *cstr; /* VAL_CSTR */
-    };
-    ostd::Size len;
-
     int get_type() const;
 
     void set_int(CsInt val);
@@ -112,6 +102,15 @@ struct OSTD_EXPORT CsValue {
     void copy_arg(CsValue &r) const;
 
 private:
+    union {
+        CsInt p_i;      /* ID_IVAR, VAL_INT */
+        CsFloat p_f;    /* ID_FVAR, VAL_FLOAT */
+        CsBytecode *p_code; /* VAL_CODE */
+        CsIdent *p_id;  /* VAL_IDENT */
+        char *p_s;    /* ID_SVAR, VAL_STR */
+        char const *p_cstr; /* VAL_CSTR */
+    };
+    ostd::Size p_len;
     int p_type;
 };
 
@@ -626,14 +625,18 @@ namespace util {
             auto s = ostd::appender<CsString>();
             switch (vals[i].get_type()) {
                 case VAL_INT: {
-                    auto r = format_int(ostd::forward<R>(writer), vals[i].i);
+                    auto r = format_int(
+                        ostd::forward<R>(writer), vals[i].get_int()
+                    );
                     if (r > 0) {
                         ret += ostd::Size(r);
                     }
                     break;
                 }
                 case VAL_FLOAT: {
-                    auto r = format_float(ostd::forward<R>(writer), vals[i].f);
+                    auto r = format_float(
+                        ostd::forward<R>(writer), vals[i].get_float()
+                    );
                     if (r > 0) {
                         ret += ostd::Size(r);
                     }
@@ -641,9 +644,11 @@ namespace util {
                 }
                 case VAL_STR:
                 case VAL_CSTR:
-                case VAL_MACRO:
-                    ret += writer.put_n(vals[i].s, vals[i].len);
+                case VAL_MACRO: {
+                    auto sv = vals[i].get_strr();
+                    ret += writer.put_n(sv.data(), sv.size());
                     break;
+                }
                 default:
                     break;
             }

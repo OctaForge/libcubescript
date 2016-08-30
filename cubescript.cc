@@ -354,14 +354,10 @@ CsIdent *CsState::force_ident(CsValue &v) {
         case VAL_IDENT:
             return v.get_ident();
         case VAL_MACRO:
-        case VAL_CSTR: {
-            CsIdent *id = new_ident(v.s);
-            v.set_ident(id);
-            return id;
-        }
+        case VAL_CSTR:
         case VAL_STR: {
-            CsIdent *id = new_ident(v.s);
-            delete[] v.s;
+            CsIdent *id = new_ident(v.get_strr());
+            v.cleanup();
             v.set_ident(id);
             return id;
         }
@@ -485,7 +481,7 @@ void CsState::print_var(CsVar *v) {
 void CsValue::cleanup() {
     switch (get_type()) {
         case VAL_STR:
-            delete[] s;
+            delete[] p_s;
             break;
         case VAL_CODE:
             ostd::Uint32 *bcode = reinterpret_cast<ostd::Uint32 *>(p_code);
@@ -502,12 +498,12 @@ int CsValue::get_type() const {
 
 void CsValue::set_int(CsInt val) {
     p_type = VAL_INT;
-    i = val;
+    p_i = val;
 }
 
 void CsValue::set_float(CsFloat val) {
     p_type = VAL_FLOAT;
-    f = val;
+    p_f = val;
 }
 
 void CsValue::set_str(CsString val) {
@@ -525,7 +521,7 @@ void CsValue::set_str(CsString val) {
 
 void CsValue::set_null() {
     p_type = VAL_NULL;
-    i = 0;
+    p_code = nullptr;
 }
 
 void CsValue::set_code(CsBytecode *val) {
@@ -535,14 +531,14 @@ void CsValue::set_code(CsBytecode *val) {
 
 void CsValue::set_cstr(ostd::ConstCharRange val) {
     p_type = VAL_CSTR;
-    len = val.size();
-    cstr = val.data();
+    p_len = val.size();
+    p_cstr = val.data();
 }
 
 void CsValue::set_mstr(ostd::CharRange val) {
     p_type = VAL_STR;
-    len = val.size();
-    s = val.data();
+    p_len = val.size();
+    p_s = val.data();
 }
 
 void CsValue::set_ident(CsIdent *val) {
@@ -552,8 +548,8 @@ void CsValue::set_ident(CsIdent *val) {
 
 void CsValue::set_macro(ostd::ConstCharRange val) {
     p_type = VAL_MACRO;
-    len = val.size();
-    cstr = val.data();
+    p_len = val.size();
+    p_cstr = val.data();
 }
 
 void CsValue::set(CsValue &tv) {
@@ -574,15 +570,15 @@ CsFloat CsValue::force_float() {
     CsFloat rf = 0.0f;
     switch (get_type()) {
         case VAL_INT:
-            rf = i;
+            rf = p_i;
             break;
         case VAL_STR:
         case VAL_MACRO:
         case VAL_CSTR:
-            rf = cs_parse_float(s);
+            rf = cs_parse_float(ostd::ConstCharRange(p_s, p_len));
             break;
         case VAL_FLOAT:
-            return f;
+            return p_f;
     }
     cleanup();
     set_float(rf);
@@ -593,15 +589,15 @@ CsInt CsValue::force_int() {
     CsInt ri = 0;
     switch (get_type()) {
         case VAL_FLOAT:
-            ri = f;
+            ri = p_f;
             break;
         case VAL_STR:
         case VAL_MACRO:
         case VAL_CSTR:
-            ri = cs_parse_int(s);
+            ri = cs_parse_int(ostd::ConstCharRange(p_s, p_len));
             break;
         case VAL_INT:
-            return i;
+            return p_i;
     }
     cleanup();
     set_int(ri);
@@ -612,33 +608,33 @@ ostd::ConstCharRange CsValue::force_str() {
     CsString rs;
     switch (get_type()) {
         case VAL_FLOAT:
-            rs = ostd::move(floatstr(f));
+            rs = ostd::move(floatstr(p_f));
             break;
         case VAL_INT:
-            rs = ostd::move(intstr(i));
+            rs = ostd::move(intstr(p_i));
             break;
         case VAL_MACRO:
         case VAL_CSTR:
-            rs = ostd::ConstCharRange(s, len);
+            rs = ostd::ConstCharRange(p_s, p_len);
             break;
         case VAL_STR:
-            return s;
+            return ostd::ConstCharRange(p_s, p_len);
     }
     cleanup();
     set_str(ostd::move(rs));
-    return s;
+    return ostd::ConstCharRange(p_s, p_len);
 }
 
 CsInt CsValue::get_int() const {
     switch (get_type()) {
         case VAL_FLOAT:
-            return CsInt(f);
+            return CsInt(p_f);
         case VAL_INT:
-            return i;
+            return p_i;
         case VAL_STR:
         case VAL_MACRO:
         case VAL_CSTR:
-            return cs_parse_int(s);
+            return cs_parse_int(ostd::ConstCharRange(p_s, p_len));
     }
     return 0;
 }
@@ -646,13 +642,13 @@ CsInt CsValue::get_int() const {
 CsFloat CsValue::get_float() const {
     switch (get_type()) {
         case VAL_FLOAT:
-            return f;
+            return p_f;
         case VAL_INT:
-            return CsFloat(i);
+            return CsFloat(p_i);
         case VAL_STR:
         case VAL_MACRO:
         case VAL_CSTR:
-            return cs_parse_float(s);
+            return cs_parse_float(ostd::ConstCharRange(p_s, p_len));
     }
     return 0.0f;
 }
@@ -676,11 +672,11 @@ CsString CsValue::get_str() const {
     case VAL_STR:
     case VAL_MACRO:
     case VAL_CSTR:
-        return ostd::ConstCharRange(s, len);
+        return ostd::ConstCharRange(p_s, p_len);
     case VAL_INT:
-        return intstr(i);
+        return intstr(p_i);
     case VAL_FLOAT:
-        return floatstr(f);
+        return floatstr(p_f);
     }
     return CsString("");
 }
@@ -690,7 +686,7 @@ ostd::ConstCharRange CsValue::get_strr() const {
         case VAL_STR:
         case VAL_MACRO:
         case VAL_CSTR:
-            return ostd::ConstCharRange(s, len);
+            return ostd::ConstCharRange(p_s, p_len);
         default:
             break;
     }
@@ -702,14 +698,14 @@ void CsValue::get_val(CsValue &r) const {
         case VAL_STR:
         case VAL_MACRO:
         case VAL_CSTR: {
-            r.set_str(ostd::ConstCharRange(s, len));
+            r.set_str(ostd::ConstCharRange(p_s, p_len));
             break;
         }
         case VAL_INT:
-            r.set_int(i);
+            r.set_int(p_i);
             break;
         case VAL_FLOAT:
-            r.set_float(f);
+            r.set_float(p_f);
             break;
         default:
             r.set_null();
@@ -753,13 +749,13 @@ static inline bool cs_get_bool(ostd::ConstCharRange s) {
 bool CsValue::get_bool() const {
     switch (get_type()) {
         case VAL_FLOAT:
-            return f != 0;
+            return p_f != 0;
         case VAL_INT:
-            return i != 0;
+            return p_i != 0;
         case VAL_STR:
         case VAL_MACRO:
         case VAL_CSTR:
-            return cs_get_bool(ostd::ConstCharRange(s, len));
+            return cs_get_bool(ostd::ConstCharRange(p_s, p_len));
         default:
             return false;
     }
@@ -768,17 +764,17 @@ bool CsValue::get_bool() const {
 void CsAlias::get_cstr(CsValue &v) const {
     switch (val_v.get_type()) {
         case VAL_MACRO:
-            v.set_macro(ostd::ConstCharRange(val_v.cstr, val_v.len));
+            v.set_macro(val_v.get_strr());
             break;
         case VAL_STR:
         case VAL_CSTR:
-            v.set_cstr(ostd::ConstCharRange(val_v.s, val_v.len));
+            v.set_cstr(val_v.get_strr());
             break;
         case VAL_INT:
-            v.set_str(ostd::move(intstr(val_v.i)));
+            v.set_str(ostd::move(intstr(val_v.get_int())));
             break;
         case VAL_FLOAT:
-            v.set_str(ostd::move(floatstr(val_v.f)));
+            v.set_str(ostd::move(floatstr(val_v.get_float())));
             break;
         default:
             v.set_cstr("");
@@ -789,17 +785,17 @@ void CsAlias::get_cstr(CsValue &v) const {
 void CsAlias::get_cval(CsValue &v) const {
     switch (val_v.get_type()) {
         case VAL_MACRO:
-            v.set_macro(ostd::ConstCharRange(val_v.cstr, val_v.len));
+            v.set_macro(val_v.get_strr());
             break;
         case VAL_STR:
         case VAL_CSTR:
-            v.set_cstr(ostd::ConstCharRange(val_v.s, val_v.len));
+            v.set_cstr(val_v.get_strr());
             break;
         case VAL_INT:
-            v.set_int(val_v.i);
+            v.set_int(val_v.get_int());
             break;
         case VAL_FLOAT:
-            v.set_float(val_v.f);
+            v.set_float(val_v.get_float());
             break;
         default:
             v.set_null();
