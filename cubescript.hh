@@ -21,12 +21,6 @@
 namespace cscript {
 
 enum {
-    VAL_NULL = 0, VAL_INT, VAL_FLOAT, VAL_STR,
-    VAL_ANY, VAL_CODE, VAL_MACRO, VAL_IDENT, VAL_CSTR,
-    VAL_CANY, VAL_WORD, VAL_POP, VAL_COND
-};
-
-enum {
     IDF_PERSIST    = 1 << 0,
     IDF_OVERRIDE   = 1 << 1,
     IDF_HEX        = 1 << 2,
@@ -66,8 +60,12 @@ OSTD_EXPORT bool cs_code_is_empty(CsBytecode *code);
 
 struct CsIdent;
 
+enum class CsValueType {
+    null = 0, integer, number, string, cstring, code, macro, ident
+};
+
 struct OSTD_EXPORT CsValue {
-    int get_type() const;
+    CsValueType get_type() const;
 
     void set_int(CsInt val);
     void set_float(CsFloat val);
@@ -103,15 +101,15 @@ struct OSTD_EXPORT CsValue {
 
 private:
     union {
-        CsInt p_i;      /* ID_IVAR, VAL_INT */
-        CsFloat p_f;    /* ID_FVAR, VAL_FLOAT */
-        CsBytecode *p_code; /* VAL_CODE */
-        CsIdent *p_id;  /* VAL_IDENT */
-        char *p_s;    /* ID_SVAR, VAL_STR */
-        char const *p_cstr; /* VAL_CSTR */
+        CsInt p_i;
+        CsFloat p_f;
+        CsBytecode *p_code;
+        CsIdent *p_id;
+        char *p_s;
+        char const *p_cstr;
     };
     ostd::Size p_len;
-    int p_type;
+    CsValueType p_type;
 };
 
 using CsValueRange = ostd::PointerRange<CsValue>;
@@ -624,7 +622,7 @@ namespace util {
         for (ostd::Size i = 0; i < vals.size(); ++i) {
             auto s = ostd::appender<CsString>();
             switch (vals[i].get_type()) {
-                case VAL_INT: {
+                case CsValueType::integer: {
                     auto r = format_int(
                         ostd::forward<R>(writer), vals[i].get_int()
                     );
@@ -633,7 +631,7 @@ namespace util {
                     }
                     break;
                 }
-                case VAL_FLOAT: {
+                case CsValueType::number: {
                     auto r = format_float(
                         ostd::forward<R>(writer), vals[i].get_float()
                     );
@@ -642,9 +640,9 @@ namespace util {
                     }
                     break;
                 }
-                case VAL_STR:
-                case VAL_CSTR:
-                case VAL_MACRO: {
+                case CsValueType::string:
+                case CsValueType::cstring:
+                case CsValueType::macro: {
                     auto sv = vals[i].get_strr();
                     ret += writer.put_n(sv.data(), sv.size());
                     break;

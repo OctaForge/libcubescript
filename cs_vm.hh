@@ -22,6 +22,21 @@ enum {
     ID_LOCAL, ID_DO, ID_DOARGS, ID_IF, ID_RESULT, ID_NOT, ID_AND, ID_OR
 };
 
+enum {
+    VAL_NULL = 0, VAL_INT, VAL_FLOAT, VAL_STR,
+    VAL_ANY, VAL_CODE, VAL_MACRO, VAL_IDENT, VAL_CSTR,
+    VAL_CANY, VAL_WORD, VAL_POP, VAL_COND
+};
+
+static const int cs_valtypet[] = {
+    VAL_NULL, VAL_INT, VAL_FLOAT, VAL_STR,
+    VAL_CSTR, VAL_CODE, VAL_MACRO, VAL_IDENT
+};
+
+static inline int cs_vtype_to_int(CsValueType v) {
+    return cs_valtypet[int(v)];
+}
+
 struct Command: CsIdent {
     char *cargs;
     ostd::Uint32 argmask;

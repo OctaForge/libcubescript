@@ -163,14 +163,16 @@ static inline ostd::Uint32 *forcecode(CsState &cs, CsValue &v) {
 
 static inline void forcecond(CsState &cs, CsValue &v) {
     switch (v.get_type()) {
-        case VAL_STR:
-        case VAL_MACRO:
-        case VAL_CSTR:
+        case CsValueType::string:
+        case CsValueType::macro:
+        case CsValueType::cstring:
             if (!v.get_strr().empty()) {
                 forcecode(cs, v);
             } else {
                 v.set_int(0);
             }
+            break;
+        default:
             break;
     }
 }
@@ -185,17 +187,17 @@ static ostd::Uint32 emptyblock[VAL_ANY][2] = {
 static inline void force_arg(CsValue &v, int type) {
     switch (type) {
         case RET_STR:
-            if (v.get_type() != VAL_STR) {
+            if (v.get_type() != CsValueType::string) {
                 v.force_str();
             }
             break;
         case RET_INT:
-            if (v.get_type() != VAL_INT) {
+            if (v.get_type() != CsValueType::integer) {
                 v.force_int();
             }
             break;
         case RET_FLOAT:
-            if (v.get_type() != VAL_FLOAT) {
+            if (v.get_type() != CsValueType::number) {
                 v.force_float();
             }
             break;
@@ -255,17 +257,17 @@ static ostd::Uint32 *skipcode(
 void CsValue::copy_arg(CsValue &r) const {
     r.cleanup();
     switch (get_type()) {
-        case VAL_INT:
-        case VAL_FLOAT:
-        case VAL_IDENT:
+        case CsValueType::integer:
+        case CsValueType::number:
+        case CsValueType::ident:
             r = *this;
             break;
-        case VAL_STR:
-        case VAL_CSTR:
-        case VAL_MACRO:
+        case CsValueType::string:
+        case CsValueType::cstring:
+        case CsValueType::macro:
             r.set_str(ostd::ConstCharRange(p_s, p_len));
             break;
-        case VAL_CODE: {
+        case CsValueType::code: {
             ostd::Uint32 *bcode = reinterpret_cast<ostd::Uint32 *>(r.get_code());
             ostd::Uint32 *end = skipcode(bcode);
             ostd::Uint32 *dst = new ostd::Uint32[end - bcode + 1];
@@ -511,9 +513,9 @@ static inline int cs_get_lookupu_type(
     CsState &cs, CsValue &arg, CsIdent *&id, ostd::Uint32 op
 ) {
     if (
-        arg.get_type() != VAL_STR &&
-        arg.get_type() != VAL_MACRO &&
-        arg.get_type() != VAL_CSTR
+        arg.get_type() != CsValueType::string &&
+        arg.get_type() != CsValueType::macro &&
+        arg.get_type() != CsValueType::cstring
     ) {
         return -2; /* default case */
     }
@@ -733,7 +735,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 ostd::Uint32 len = op >> 8;
                 result.cleanup();
                 --numargs;
-                if (args[numargs].get_type() == VAL_CODE) {
+                if (args[numargs].get_type() == CsValueType::code) {
                     cs.run_ret(args[numargs].get_code(), result);
                     args[numargs].cleanup();
                 } else {
@@ -748,7 +750,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 ostd::Uint32 len = op >> 8;
                 result.cleanup();
                 --numargs;
-                if (args[numargs].get_type() == VAL_CODE) {
+                if (args[numargs].get_type() == CsValueType::code) {
                     cs.run_ret(args[numargs].get_code(), result);
                     args[numargs].cleanup();
                 } else {
@@ -876,23 +878,23 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 CsValue &arg = args[numargs - 1];
                 GenState gs(cs);
                 switch (arg.get_type()) {
-                    case VAL_INT:
+                    case CsValueType::integer:
                         gs.code.reserve(8);
                         gs.code.push(CODE_START);
                         gs.gen_int(arg.get_int());
                         gs.code.push(CODE_RESULT);
                         gs.code.push(CODE_EXIT);
                         break;
-                    case VAL_FLOAT:
+                    case CsValueType::number:
                         gs.code.reserve(8);
                         gs.code.push(CODE_START);
                         gs.gen_float(arg.get_float());
                         gs.code.push(CODE_RESULT);
                         gs.code.push(CODE_EXIT);
                         break;
-                    case VAL_STR:
-                    case VAL_MACRO:
-                    case VAL_CSTR:
+                    case CsValueType::string:
+                    case CsValueType::macro:
+                    case CsValueType::cstring:
                         gs.code.reserve(64);
                         gs.gen_main(arg.get_strr());
                         arg.cleanup();
@@ -913,9 +915,9 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
             case CODE_COND: {
                 CsValue &arg = args[numargs - 1];
                 switch (arg.get_type()) {
-                    case VAL_STR:
-                    case VAL_MACRO:
-                    case VAL_CSTR: {
+                    case CsValueType::string:
+                    case CsValueType::macro:
+                    case CsValueType::cstring: {
                         ostd::ConstCharRange s = arg.get_strr();
                         if (!s.empty()) {
                             GenState gs(cs);
@@ -930,6 +932,8 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                         }
                         break;
                     }
+                    default:
+                        break;
                 }
                 continue;
             }
@@ -952,9 +956,9 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 CsValue &arg = args[numargs - 1];
                 CsIdent *id = cs.identmap[DummyIdx];
                 if (
-                    arg.get_type() == VAL_STR ||
-                    arg.get_type() == VAL_MACRO ||
-                    arg.get_type() == VAL_CSTR
+                    arg.get_type() == CsValueType::string ||
+                    arg.get_type() == CsValueType::macro ||
+                    arg.get_type() == CsValueType::cstring
                 ) {
                     id = cs.new_ident(arg.get_strr());
                 }
@@ -1450,9 +1454,9 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 int callargs = op >> 8, offset = numargs - callargs;
                 CsValue &idarg = args[offset - 1];
                 if (
-                    idarg.get_type() != VAL_STR &&
-                    idarg.get_type() != VAL_MACRO &&
-                    idarg.get_type() != VAL_CSTR
+                    idarg.get_type() != CsValueType::string &&
+                    idarg.get_type() != CsValueType::macro &&
+                    idarg.get_type() != CsValueType::cstring
                 ) {
 litval:
                     result.cleanup();
@@ -1553,7 +1557,7 @@ noid:
                             force_arg(result, op & CODE_RET_MASK);
                             continue;
                         }
-                        if (a->val_v.get_type() == VAL_NULL) {
+                        if (a->val_v.get_type() == CsValueType::null) {
                             goto noid;
                         }
                         idarg.cleanup();
@@ -1648,7 +1652,7 @@ void CsState::run_ret(CsIdent *id, CsValueRange args, CsValue &ret) {
                         break;
                     }
                 }
-                if (a->val_v.get_type() == VAL_NULL) {
+                if (a->val_v.get_type() == CsValueType::null) {
                     break;
                 }
                 cs_call_alias(
