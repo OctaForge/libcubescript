@@ -352,7 +352,7 @@ CsIdent *CsState::new_ident(ostd::ConstCharRange name, int flags) {
 CsIdent *CsState::force_ident(CsValue &v) {
     switch (v.get_type()) {
         case VAL_IDENT:
-            return v.id;
+            return v.get_ident();
         case VAL_MACRO:
         case VAL_CSTR: {
             CsIdent *id = new_ident(v.s);
@@ -488,9 +488,7 @@ void CsValue::cleanup() {
             delete[] s;
             break;
         case VAL_CODE:
-            ostd::Uint32 *bcode = const_cast<ostd::Uint32 *>(
-                reinterpret_cast<ostd::Uint32 const *>(code)
-            );
+            ostd::Uint32 *bcode = reinterpret_cast<ostd::Uint32 *>(p_code);
             if (bcode[-1] == CODE_START) {
                 delete[] bcode;
             }
@@ -530,9 +528,9 @@ void CsValue::set_null() {
     i = 0;
 }
 
-void CsValue::set_code(CsBytecode const *val) {
+void CsValue::set_code(CsBytecode *val) {
     p_type = VAL_CODE;
-    code = val;
+    p_code = val;
 }
 
 void CsValue::set_cstr(ostd::ConstCharRange val) {
@@ -549,13 +547,13 @@ void CsValue::set_mstr(ostd::CharRange val) {
 
 void CsValue::set_ident(CsIdent *val) {
     p_type = VAL_IDENT;
-    id = val;
+    p_id = val;
 }
 
-void CsValue::set_macro(CsBytecode const *val, ostd::Size ln) {
+void CsValue::set_macro(ostd::ConstCharRange val) {
     p_type = VAL_MACRO;
-    len = ln;
-    code = val;
+    len = val.size();
+    cstr = val.data();
 }
 
 void CsValue::set(CsValue &tv) {
@@ -663,14 +661,14 @@ CsBytecode *CsValue::get_code() const {
     if (get_type() != VAL_CODE) {
         return nullptr;
     }
-    return const_cast<CsBytecode *>(code);
+    return p_code;
 }
 
 CsIdent *CsValue::get_ident() const {
     if (get_type() != VAL_IDENT) {
         return nullptr;
     }
-    return id;
+    return p_id;
 }
 
 CsString CsValue::get_str() const {
@@ -719,12 +717,12 @@ void CsValue::get_val(CsValue &r) const {
     }
 }
 
-OSTD_EXPORT bool cs_code_is_empty(CsBytecode const *code) {
+OSTD_EXPORT bool cs_code_is_empty(CsBytecode *code) {
     if (!code) {
         return true;
     }
     return (
-        *reinterpret_cast<ostd::Uint32 const *>(code) & CODE_OP_MASK
+        *reinterpret_cast<ostd::Uint32 *>(code) & CODE_OP_MASK
     ) == CODE_EXIT;
 }
 
@@ -732,7 +730,7 @@ bool CsValue::code_is_empty() const {
     if (get_type() != VAL_CODE) {
         return true;
     }
-    return cscript::cs_code_is_empty(code);
+    return cscript::cs_code_is_empty(p_code);
 }
 
 static inline bool cs_get_bool(ostd::ConstCharRange s) {
@@ -770,7 +768,7 @@ bool CsValue::get_bool() const {
 void CsAlias::get_cstr(CsValue &v) const {
     switch (val_v.get_type()) {
         case VAL_MACRO:
-            v.set_macro(val_v.code, val_v.len);
+            v.set_macro(ostd::ConstCharRange(val_v.cstr, val_v.len));
             break;
         case VAL_STR:
         case VAL_CSTR:
@@ -791,7 +789,7 @@ void CsAlias::get_cstr(CsValue &v) const {
 void CsAlias::get_cval(CsValue &v) const {
     switch (val_v.get_type()) {
         case VAL_MACRO:
-            v.set_macro(val_v.code, val_v.len);
+            v.set_macro(ostd::ConstCharRange(val_v.cstr, val_v.len));
             break;
         case VAL_STR:
         case VAL_CSTR:
@@ -1340,8 +1338,9 @@ void cs_init_lib_base(CsState &cs) {
                 if (i) {
                     res.cleanup();
                 }
-                if (args[i].get_type() == VAL_CODE) {
-                    cs.run_ret(args[i].code, res);
+                CsBytecode *code = args[i].get_code();
+                if (code) {
+                    cs.run_ret(code, res);
                 } else {
                     res = args[i];
                 }
@@ -1360,8 +1359,9 @@ void cs_init_lib_base(CsState &cs) {
                 if (i) {
                     res.cleanup();
                 }
-                if (args[i].get_type() == VAL_CODE) {
-                    cs.run_ret(args[i].code, res);
+                CsBytecode *code = args[i].get_code();
+                if (code) {
+                    cs.run_ret(code, res);
                 } else {
                     res = args[i];
                 }
@@ -1379,12 +1379,12 @@ void cs_init_lib_base(CsState &cs) {
     cs_add_command(cs, "cond", "ee2V", [&cs](CsValueRange args, CsValue &res) {
         for (ostd::Size i = 0; i < args.size(); i += 2) {
             if ((i + 1) < args.size()) {
-                if (cs.run_bool(args[i].code)) {
-                    cs.run_ret(args[i + 1].code, res);
+                if (cs.run_bool(args[i].get_code())) {
+                    cs.run_ret(args[i + 1].get_code(), res);
                     break;
                 }
             } else {
-                cs.run_ret(args[i].code, res);
+                cs.run_ret(args[i].get_code(), res);
                 break;
             }
         }
@@ -1394,7 +1394,7 @@ void cs_init_lib_base(CsState &cs) {
         CsInt val = args[0].get_int();
         for (ostd::Size i = 1; (i + 1) < args.size(); i += 2) {
             if ((args[i].get_type() == VAL_NULL) || (args[i].get_int() == val)) {
-                cs.run_ret(args[i + 1].code, res);
+                cs.run_ret(args[i + 1].get_code(), res);
                 return;
             }
         }
@@ -1404,7 +1404,7 @@ void cs_init_lib_base(CsState &cs) {
         CsFloat val = args[0].get_float();
         for (ostd::Size i = 1; (i + 1) < args.size(); i += 2) {
             if ((args[i].get_type() == VAL_NULL) || (args[i].get_float() == val)) {
-                cs.run_ret(args[i + 1].code, res);
+                cs.run_ret(args[i + 1].get_code(), res);
                 return;
             }
         }
@@ -1414,7 +1414,7 @@ void cs_init_lib_base(CsState &cs) {
         CsString val = args[0].get_str();
         for (ostd::Size i = 1; (i + 1) < args.size(); i += 2) {
             if ((args[i].get_type() == VAL_NULL) || (args[i].get_str() == val)) {
-                cs.run_ret(args[i + 1].code, res);
+                cs.run_ret(args[i + 1].get_code(), res);
                 return;
             }
         }

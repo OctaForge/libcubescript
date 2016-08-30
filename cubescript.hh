@@ -62,7 +62,7 @@ private:
     CsBytecode *p_code;
 };
 
-OSTD_EXPORT bool cs_code_is_empty(CsBytecode const *code);
+OSTD_EXPORT bool cs_code_is_empty(CsBytecode *code);
 
 struct CsIdent;
 
@@ -70,8 +70,8 @@ struct OSTD_EXPORT CsValue {
     union {
         CsInt i;      /* ID_IVAR, VAL_INT */
         CsFloat f;    /* ID_FVAR, VAL_FLOAT */
-        CsBytecode const *code; /* VAL_CODE */
-        CsIdent *id;  /* VAL_IDENT */
+        CsBytecode *p_code; /* VAL_CODE */
+        CsIdent *p_id;  /* VAL_IDENT */
         char *s;    /* ID_SVAR, VAL_STR */
         char const *cstr; /* VAL_CSTR */
     };
@@ -83,11 +83,11 @@ struct OSTD_EXPORT CsValue {
     void set_float(CsFloat val);
     void set_str(CsString val);
     void set_null();
-    void set_code(CsBytecode const *val);
+    void set_code(CsBytecode *val);
     void set_cstr(ostd::ConstCharRange val);
     void set_mstr(ostd::CharRange val);
     void set_ident(CsIdent *val);
-    void set_macro(CsBytecode const *val, ostd::Size ln);
+    void set_macro(ostd::ConstCharRange val);
 
     void set(CsValue &tv);
 
@@ -392,27 +392,27 @@ struct OSTD_EXPORT CsState {
         ostd::ConstCharRange name, ostd::ConstCharRange args, CmdFunc func
     );
 
-    CsString run_str(CsBytecode const *code);
+    CsString run_str(CsBytecode *code);
     CsString run_str(ostd::ConstCharRange code);
     CsString run_str(CsIdent *id, CsValueRange args);
 
-    CsInt run_int(CsBytecode const *code);
+    CsInt run_int(CsBytecode *code);
     CsInt run_int(ostd::ConstCharRange code);
     CsInt run_int(CsIdent *id, CsValueRange args);
 
-    CsFloat run_float(CsBytecode const *code);
+    CsFloat run_float(CsBytecode *code);
     CsFloat run_float(ostd::ConstCharRange code);
     CsFloat run_float(CsIdent *id, CsValueRange args);
 
-    bool run_bool(CsBytecode const *code);
+    bool run_bool(CsBytecode *code);
     bool run_bool(ostd::ConstCharRange code);
     bool run_bool(CsIdent *id, CsValueRange args);
 
-    void run_ret(CsBytecode const *code, CsValue &ret);
+    void run_ret(CsBytecode *code, CsValue &ret);
     void run_ret(ostd::ConstCharRange code, CsValue &ret);
     void run_ret(CsIdent *id, CsValueRange args, CsValue &ret);
 
-    void run(CsBytecode const *code);
+    void run(CsBytecode *code);
     void run(ostd::ConstCharRange code);
     void run(CsIdent *id, CsValueRange args);
 

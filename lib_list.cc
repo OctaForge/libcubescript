@@ -76,7 +76,7 @@ static inline void cs_set_iter(CsAlias &a, char *val, CsIdentStack &stack) {
 
 static void cs_loop_list_conc(
     CsState &cs, CsValue &res, CsIdent *id, ostd::ConstCharRange list,
-    CsBytecode const *body, bool space
+    CsBytecode *body, bool space
 ) {
     if (!id->is_alias()) {
         return;
