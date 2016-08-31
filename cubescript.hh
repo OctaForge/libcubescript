@@ -262,7 +262,14 @@ private:
 
 struct OSTD_EXPORT CsAlias: CsIdent {
     friend struct CsState;
-    CsValue val_v;
+
+    CsValue const &get_value() const {
+        return p_val;
+    }
+
+    CsValue &get_value() {
+        return p_val;
+    }
 
     void get_cstr(CsValue &v) const;
     void get_cval(CsValue &v) const;
@@ -286,6 +293,7 @@ private:
 
     CsBytecode *p_acode;
     CsIdentStack *p_astack;
+    CsValue p_val;
 };
 
 struct CsIdentLink {

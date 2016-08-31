@@ -982,7 +982,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
                         arg.set_str(ostd::move(
-                            static_cast<CsAlias *>(id)->val_v.get_str()
+                            static_cast<CsAlias *>(id)->get_value().get_str()
                         ));
                         continue;
                     case ID_SVAR:
@@ -1007,7 +1007,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
             }
             case CODE_LOOKUP | RET_STR:
                 args[numargs++].set_str(
-                    ostd::move(cs_get_lookup_id(cs, op)->val_v.get_str())
+                    ostd::move(cs_get_lookup_id(cs, op)->get_value().get_str())
                 );
                 continue;
             case CODE_LOOKUPARG | RET_STR: {
@@ -1015,7 +1015,9 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 if (!a) {
                     args[numargs++].set_str("");
                 } else {
-                    args[numargs++].set_str(ostd::move(a->val_v.get_str()));
+                    args[numargs++].set_str(
+                        ostd::move(a->get_value().get_str())
+                    );
                 }
                 continue;
             }
@@ -1024,7 +1026,9 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 CsValue &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
-                        arg.set_int(static_cast<CsAlias *>(id)->val_v.get_int());
+                        arg.set_int(
+                            static_cast<CsAlias *>(id)->get_value().get_int()
+                        );
                         continue;
                     case ID_SVAR:
                         arg.set_int(cs_parse_int(
@@ -1048,7 +1052,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
             }
             case CODE_LOOKUP | RET_INT:
                 args[numargs++].set_int(
-                    cs_get_lookup_id(cs, op)->val_v.get_int()
+                    cs_get_lookup_id(cs, op)->get_value().get_int()
                 );
                 continue;
             case CODE_LOOKUPARG | RET_INT: {
@@ -1056,7 +1060,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 if (!a) {
                     args[numargs++].set_int(0);
                 } else {
-                    args[numargs++].set_int(a->val_v.get_int());
+                    args[numargs++].set_int(a->get_value().get_int());
                 }
                 continue;
             }
@@ -1066,7 +1070,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
                         arg.set_float(
-                            static_cast<CsAlias *>(id)->val_v.get_float()
+                            static_cast<CsAlias *>(id)->get_value().get_float()
                         );
                         continue;
                     case ID_SVAR:
@@ -1093,7 +1097,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
             }
             case CODE_LOOKUP | RET_FLOAT:
                 args[numargs++].set_float(
-                    cs_get_lookup_id(cs, op)->val_v.get_float()
+                    cs_get_lookup_id(cs, op)->get_value().get_float()
                 );
                 continue;
             case CODE_LOOKUPARG | RET_FLOAT: {
@@ -1101,7 +1105,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 if (!a) {
                     args[numargs++].set_float(CsFloat(0));
                 } else {
-                    args[numargs++].set_float(a->val_v.get_float());
+                    args[numargs++].set_float(a->get_value().get_float());
                 }
                 continue;
             }
@@ -1110,7 +1114,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 CsValue &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
-                        static_cast<CsAlias *>(id)->val_v.get_val(arg);
+                        static_cast<CsAlias *>(id)->get_value().get_val(arg);
                         continue;
                     case ID_SVAR:
                         arg.set_str(static_cast<CsSvar *>(id)->get_value());
@@ -1131,14 +1135,14 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 }
             }
             case CODE_LOOKUP | RET_NULL:
-                cs_get_lookup_id(cs, op)->val_v.get_val(args[numargs++]);
+                cs_get_lookup_id(cs, op)->get_value().get_val(args[numargs++]);
                 continue;
             case CODE_LOOKUPARG | RET_NULL: {
                 CsAlias *a = cs_get_lookuparg_id(cs, op);
                 if (!a) {
                     args[numargs++].set_null();
                 } else {
-                    a->val_v.get_val(args[numargs++]);
+                    a->get_value().get_val(args[numargs++]);
                 }
                 continue;
             }
@@ -1557,7 +1561,7 @@ noid:
                             force_arg(result, op & CODE_RET_MASK);
                             continue;
                         }
-                        if (a->val_v.get_type() == CsValueType::null) {
+                        if (a->get_value().get_type() == CsValueType::null) {
                             goto noid;
                         }
                         idarg.cleanup();
@@ -1652,7 +1656,7 @@ void CsState::run_ret(CsIdent *id, CsValueRange args, CsValue &ret) {
                         break;
                     }
                 }
-                if (a->val_v.get_type() == CsValueType::null) {
+                if (a->get_value().get_type() == CsValueType::null) {
                     break;
                 }
                 cs_call_alias(

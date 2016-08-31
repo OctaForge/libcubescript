@@ -73,29 +73,29 @@ CsAlias::CsAlias(ostd::ConstCharRange name, char *a, int fl):
     CsIdent(CsIdentType::alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
-    val_v.set_mstr(a);
+    p_val.set_mstr(a);
 }
 CsAlias::CsAlias(ostd::ConstCharRange name, CsInt a, int fl):
     CsIdent(CsIdentType::alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
-    val_v.set_int(a);
+    p_val.set_int(a);
 }
 CsAlias::CsAlias(ostd::ConstCharRange name, CsFloat a, int fl):
     CsIdent(CsIdentType::alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
-    val_v.set_float(a);
+    p_val.set_float(a);
 }
 CsAlias::CsAlias(ostd::ConstCharRange name, int fl):
     CsIdent(CsIdentType::alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
-    val_v.set_null();
+    p_val.set_null();
 }
 CsAlias::CsAlias(ostd::ConstCharRange name, CsValue const &v, int fl):
     CsIdent(CsIdentType::alias, name, fl),
-    val_v(v), p_acode(nullptr), p_astack(nullptr)
+    p_acode(nullptr), p_astack(nullptr), p_val(v)
 {}
 
 Command::Command(
@@ -275,7 +275,7 @@ CsState::~CsState() {
         CsIdent *i = p.second;
         CsAlias *a = i->get_alias();
         if (a) {
-            a->val_v.force_null();
+            a->get_value().force_null();
             a->clean_code();
         } else if (i->is_command() || i->is_special()) {
             delete[] static_cast<Command *>(i)->cargs;
@@ -291,9 +291,9 @@ void CsState::clear_override(CsIdent &id) {
     switch (id.get_type()) {
         case CsIdentType::alias: {
             CsAlias &a = static_cast<CsAlias &>(id);
-            a.val_v.cleanup();
+            a.get_value().cleanup();
             a.clean_code();
-            a.val_v.set_str("");
+            a.get_value().set_str("");
             break;
         }
         case CsIdentType::ivar: {
@@ -778,19 +778,19 @@ bool CsValue::get_bool() const {
 }
 
 void CsAlias::get_cstr(CsValue &v) const {
-    switch (val_v.get_type()) {
+    switch (p_val.get_type()) {
         case CsValueType::macro:
-            v.set_macro(val_v.get_strr());
+            v.set_macro(p_val.get_strr());
             break;
         case CsValueType::string:
         case CsValueType::cstring:
-            v.set_cstr(val_v.get_strr());
+            v.set_cstr(p_val.get_strr());
             break;
         case CsValueType::integer:
-            v.set_str(ostd::move(intstr(val_v.get_int())));
+            v.set_str(ostd::move(intstr(p_val.get_int())));
             break;
         case CsValueType::number:
-            v.set_str(ostd::move(floatstr(val_v.get_float())));
+            v.set_str(ostd::move(floatstr(p_val.get_float())));
             break;
         default:
             v.set_cstr("");
@@ -799,19 +799,19 @@ void CsAlias::get_cstr(CsValue &v) const {
 }
 
 void CsAlias::get_cval(CsValue &v) const {
-    switch (val_v.get_type()) {
+    switch (p_val.get_type()) {
         case CsValueType::macro:
-            v.set_macro(val_v.get_strr());
+            v.set_macro(p_val.get_strr());
             break;
         case CsValueType::string:
         case CsValueType::cstring:
-            v.set_cstr(val_v.get_strr());
+            v.set_cstr(p_val.get_strr());
             break;
         case CsValueType::integer:
-            v.set_int(val_v.get_int());
+            v.set_int(p_val.get_int());
             break;
         case CsValueType::number:
-            v.set_float(val_v.get_float());
+            v.set_float(p_val.get_float());
             break;
         default:
             v.set_null();
@@ -829,7 +829,7 @@ void CsAlias::clean_code() {
 
 CsBytecode *CsAlias::compile_code(CsState &cs) {
     if (!p_acode) {
-        p_acode = reinterpret_cast<CsBytecode *>(compilecode(cs, val_v.get_str()));
+        p_acode = reinterpret_cast<CsBytecode *>(compilecode(cs, p_val.get_str()));
     }
     return p_acode;
 }
@@ -837,15 +837,15 @@ CsBytecode *CsAlias::compile_code(CsState &cs) {
 void CsAlias::push_arg(CsValue const &v, CsIdentStack &st, bool um) {
     if (p_astack == &st) {
         /* prevent cycles and unnecessary code elsewhere */
-        val_v.cleanup();
-        val_v = v;
+        p_val.cleanup();
+        p_val = v;
         clean_code();
         return;
     }
-    st.val_s = val_v;
+    st.val_s = p_val;
     st.next = p_astack;
     p_astack = &st;
-    val_v = v;
+    p_val = v;
     clean_code();
     if (um) {
         p_flags &= ~IDF_UNKNOWN;
@@ -857,33 +857,33 @@ void CsAlias::pop_arg() {
         return;
     }
     CsIdentStack *st = p_astack;
-    val_v.cleanup();
-    val_v = p_astack->val_s;
+    p_val.cleanup();
+    p_val = p_astack->val_s;
     clean_code();
     p_astack = st->next;
 }
 
 void CsAlias::undo_arg(CsIdentStack &st) {
     CsIdentStack *prev = p_astack;
-    st.val_s = val_v;
+    st.val_s = p_val;
     st.next = prev;
     p_astack = prev->next;
-    val_v = prev->val_s;
+    p_val = prev->val_s;
     clean_code();
 }
 
 void CsAlias::redo_arg(CsIdentStack const &st) {
     CsIdentStack *prev = st.next;
-    prev->val_s = val_v;
+    prev->val_s = p_val;
     p_astack = prev;
-    val_v = st.val_s;
+    p_val = st.val_s;
     clean_code();
 }
 
 void CsAlias::set_arg(CsState &cs, CsValue &v) {
     if (cs.p_stack->usedargs & (1 << get_index())) {
-        val_v.cleanup();
-        val_v = v;
+        p_val.cleanup();
+        p_val = v;
         clean_code();
     } else {
         push_arg(v, cs.p_stack->argstack[get_index()], false);
@@ -892,8 +892,8 @@ void CsAlias::set_arg(CsState &cs, CsValue &v) {
 }
 
 void CsAlias::set_alias(CsState &cs, CsValue &v) {
-    val_v.cleanup();
-    val_v = v;
+    p_val.cleanup();
+    p_val = v;
     clean_code();
     p_flags = (p_flags & cs.identflags) | cs.identflags;
 }
@@ -1077,7 +1077,7 @@ CsState::get_alias_val(ostd::ConstCharRange name) {
     ) {
         return ostd::nothing;
     }
-    return ostd::move(a->val_v.get_str());
+    return ostd::move(a->get_value().get_str());
 }
 
 CsInt cs_clamp_var(CsState &cs, CsIvar *iv, CsInt v) {
