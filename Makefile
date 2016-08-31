@@ -20,12 +20,15 @@ LIBCS_LIB = libcubescript.a
 .cc.o:
 	$(CXX) $(CXXFLAGS) $(LIBCS_CXXFLAGS) -c -o $@ $<
 
-all: library
+all: library repl
 
 library: $(LIBCS_LIB)
 
 $(LIBCS_LIB): $(LIBCS_OBJ)
 	ar rcs $(LIBCS_LIB) $(LIBCS_OBJ)
+
+repl: $(LIBCS_LIB)
+	$(CXX) $(CXXFLAGS) $(LIBCS_CXXFLAGS) $(LDFLAGS) repl.cc -o repl $(LIBCS_LIB)
 
 clean:
 	rm -f $(LIBCS_LIB) $(LIBCS_OBJ)
