@@ -267,15 +267,13 @@ struct OSTD_EXPORT CsAlias: CsIdent {
     void get_cstr(CsValue &v) const;
     void get_cval(CsValue &v) const;
 
-    /* TODO: make internal */
+    /* TODO: make all these internal */
     void push_arg(CsValue const &v, CsIdentStack &st, bool um = true);
     void pop_arg();
     void undo_arg(CsIdentStack &st);
     void redo_arg(CsIdentStack const &st);
-
     void set_arg(CsState &cs, CsValue &v);
     void set_alias(CsState &cs, CsValue &v);
-
     void clean_code();
     CsBytecode *compile_code(CsState &cs);
 
