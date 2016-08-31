@@ -1694,14 +1694,25 @@ void GenState::gen_main(ostd::ConstCharRange s, int ret_type) {
     code.push(CODE_EXIT | ((ret_type < VAL_ANY) ? (ret_type << CODE_RET) : 0));
 }
 
-ostd::Uint32 *compilecode(CsState &cs, ostd::ConstCharRange str) {
-    GenState gs(cs);
-    gs.code.reserve(64);
-    gs.gen_main(str);
-    ostd::Uint32 *code = new ostd::Uint32[gs.code.size()];
-    memcpy(code, gs.code.data(), gs.code.size() * sizeof(ostd::Uint32));
-    bcode_incr(code);
-    return code;
+void CsAlias::clean_code() {
+    ostd::Uint32 *bcode = reinterpret_cast<ostd::Uint32 *>(p_acode);
+    if (bcode) {
+        bcode_decr(bcode);
+        p_acode = nullptr;
+    }
+}
+
+CsBytecode *CsAlias::compile_code(CsState &cs) {
+    if (!p_acode) {
+        GenState gs(cs);
+        gs.code.reserve(64);
+        gs.gen_main(p_val.get_str());
+        ostd::Uint32 *code = new ostd::Uint32[gs.code.size()];
+        memcpy(code, gs.code.data(), gs.code.size() * sizeof(ostd::Uint32));
+        bcode_incr(code);
+        p_acode = reinterpret_cast<CsBytecode *>(code);
+    }
+    return p_acode;
 }
 
 } /* namespace cscript */

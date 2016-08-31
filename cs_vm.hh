@@ -150,8 +150,6 @@ void cs_debug_code_line(
     cs_debug_alias(cs);
 }
 
-ostd::Uint32 *compilecode(CsState &cs, ostd::ConstCharRange str);
-
 struct GenState {
     CsState &cs;
     CsVector<ostd::Uint32> code;

@@ -6,6 +6,70 @@
 
 namespace cscript {
 
+void CsAlias::push_arg(CsValue const &v, CsIdentStack &st, bool um) {
+    if (p_astack == &st) {
+        /* prevent cycles and unnecessary code elsewhere */
+        p_val.cleanup();
+        p_val = v;
+        clean_code();
+        return;
+    }
+    st.val_s = p_val;
+    st.next = p_astack;
+    p_astack = &st;
+    p_val = v;
+    clean_code();
+    if (um) {
+        p_flags &= ~IDF_UNKNOWN;
+    }
+}
+
+void CsAlias::pop_arg() {
+    if (!p_astack) {
+        return;
+    }
+    CsIdentStack *st = p_astack;
+    p_val.cleanup();
+    p_val = p_astack->val_s;
+    clean_code();
+    p_astack = st->next;
+}
+
+void CsAlias::undo_arg(CsIdentStack &st) {
+    CsIdentStack *prev = p_astack;
+    st.val_s = p_val;
+    st.next = prev;
+    p_astack = prev->next;
+    p_val = prev->val_s;
+    clean_code();
+}
+
+void CsAlias::redo_arg(CsIdentStack const &st) {
+    CsIdentStack *prev = st.next;
+    prev->val_s = p_val;
+    p_astack = prev;
+    p_val = st.val_s;
+    clean_code();
+}
+
+void CsAlias::set_arg(CsState &cs, CsValue &v) {
+    if (cs.p_stack->usedargs & (1 << get_index())) {
+        p_val.cleanup();
+        p_val = v;
+        clean_code();
+    } else {
+        push_arg(v, cs.p_stack->argstack[get_index()], false);
+        cs.p_stack->usedargs |= 1 << get_index();
+    }
+}
+
+void CsAlias::set_alias(CsState &cs, CsValue &v) {
+    p_val.cleanup();
+    p_val = v;
+    clean_code();
+    p_flags = (p_flags & cs.identflags) | cs.identflags;
+}
+
 static inline bool cs_has_cmd_cb(CsIdent *id) {
     if (!id->is_command() && !id->is_special()) {
         return false;
