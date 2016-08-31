@@ -273,18 +273,6 @@ struct OSTD_EXPORT CsAlias: CsIdent {
         val_v = v.val_s;
     }
 
-    void set_value_cstr(ostd::ConstCharRange val) {
-        val_v.set_cstr(val);
-    }
-
-    void set_value_mstr(ostd::CharRange val) {
-        val_v.set_mstr(val);
-    }
-
-    void set_value_str(CsString val) {
-        val_v.set_str(ostd::move(val));
-    }
-
     void cleanup_value() {
         val_v.cleanup();
     }

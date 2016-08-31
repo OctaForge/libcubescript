@@ -50,7 +50,7 @@ ostd::ConstCharRange cs_debug_line(
                 ostd::format(r, "%d: %s", num, fmt);
             }
             r.put('\0');
-            return buf;
+            return buf.data(); /* trigger strlen */
         }
         if (end.empty()) {
             break;
