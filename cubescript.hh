@@ -244,16 +244,11 @@ struct OSTD_EXPORT CsSvar: CsVar {
     friend struct CsState;
 
     ostd::ConstCharRange get_value() const;
-    void set_value(ostd::ConstCharRange val);
-    void set_value(CsString &&val);
+    void set_value(CsString val);
 
 private:
     CsSvar(
-        ostd::ConstCharRange n, ostd::ConstCharRange v, CsVarCb f = CsVarCb(),
-        int flags = 0
-    );
-    CsSvar(
-        ostd::ConstCharRange n, CsString &&v, CsVarCb f = CsVarCb(),
+        ostd::ConstCharRange n, CsString v, CsVarCb f = CsVarCb(),
         int flags = 0
     );
 

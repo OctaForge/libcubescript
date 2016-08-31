@@ -60,13 +60,9 @@ CsFvar::CsFvar(
     p_storage(v), p_minval(m), p_maxval(x), p_overrideval(0)
 {}
 
-CsSvar::CsSvar(ostd::ConstCharRange name, ostd::ConstCharRange v, CsVarCb f, int fl):
+CsSvar::CsSvar(ostd::ConstCharRange name, CsString v, CsVarCb f, int fl):
     CsVar(CsIdentType::svar, name, ostd::move(f), fl),
-    p_storage(v), p_overrideval()
-{}
-CsSvar::CsSvar(ostd::ConstCharRange name, CsString &&v, CsVarCb f, int fl):
-    CsVar(CsIdentType::svar, name, ostd::move(f), fl),
-    p_storage(ostd::forward<CsString &&>(v)), p_overrideval()
+    p_storage(ostd::move(v)), p_overrideval()
 {}
 
 CsAlias::CsAlias(ostd::ConstCharRange name, char *a, int fl):
@@ -239,11 +235,8 @@ void CsFvar::set_value(CsFloat val) {
 ostd::ConstCharRange CsSvar::get_value() const {
     return p_storage.iter();
 }
-void CsSvar::set_value(ostd::ConstCharRange val) {
-    p_storage = val;
-}
-void CsSvar::set_value(CsString &&val) {
-    p_storage = ostd::forward<CsString &&>(val);
+void CsSvar::set_value(CsString val) {
+    p_storage = ostd::move(val);
 }
 
 void cs_init_lib_base(CsState &cs);
