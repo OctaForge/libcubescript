@@ -262,24 +262,12 @@ private:
 
 struct OSTD_EXPORT CsAlias: CsIdent {
     friend struct CsState;
-
     CsValue val_v;
-
-    void set_value(CsValue const &v) {
-        val_v = v;
-    }
-
-    void set_value(CsIdentStack const &v) {
-        val_v = v.val_s;
-    }
-
-    void cleanup_value() {
-        val_v.cleanup();
-    }
 
     void get_cstr(CsValue &v) const;
     void get_cval(CsValue &v) const;
 
+    /* TODO: make internal */
     void push_arg(CsValue const &v, CsIdentStack &st, bool um = true);
     void pop_arg();
     void undo_arg(CsIdentStack &st);
@@ -290,11 +278,6 @@ struct OSTD_EXPORT CsAlias: CsIdent {
 
     void clean_code();
     CsBytecode *compile_code(CsState &cs);
-
-    void force_null() {
-        cleanup_value();
-        val_v.set_null();
-    }
 
 private:
     CsAlias(ostd::ConstCharRange n, char *a, int flags);

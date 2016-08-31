@@ -275,7 +275,7 @@ CsState::~CsState() {
         CsIdent *i = p.second;
         CsAlias *a = i->get_alias();
         if (a) {
-            a->force_null();
+            a->val_v.force_null();
             a->clean_code();
         } else if (i->is_command() || i->is_special()) {
             delete[] static_cast<Command *>(i)->cargs;
@@ -291,7 +291,7 @@ void CsState::clear_override(CsIdent &id) {
     switch (id.get_type()) {
         case CsIdentType::alias: {
             CsAlias &a = static_cast<CsAlias &>(id);
-            a.cleanup_value();
+            a.val_v.cleanup();
             a.clean_code();
             a.val_v.set_str("");
             break;
@@ -837,15 +837,15 @@ CsBytecode *CsAlias::compile_code(CsState &cs) {
 void CsAlias::push_arg(CsValue const &v, CsIdentStack &st, bool um) {
     if (p_astack == &st) {
         /* prevent cycles and unnecessary code elsewhere */
-        cleanup_value();
-        set_value(v);
+        val_v.cleanup();
+        val_v = v;
         clean_code();
         return;
     }
     st.val_s = val_v;
     st.next = p_astack;
     p_astack = &st;
-    set_value(v);
+    val_v = v;
     clean_code();
     if (um) {
         p_flags &= ~IDF_UNKNOWN;
@@ -857,8 +857,8 @@ void CsAlias::pop_arg() {
         return;
     }
     CsIdentStack *st = p_astack;
-    cleanup_value();
-    set_value(*p_astack);
+    val_v.cleanup();
+    val_v = p_astack->val_s;
     clean_code();
     p_astack = st->next;
 }
@@ -868,7 +868,7 @@ void CsAlias::undo_arg(CsIdentStack &st) {
     st.val_s = val_v;
     st.next = prev;
     p_astack = prev->next;
-    set_value(*prev);
+    val_v = prev->val_s;
     clean_code();
 }
 
@@ -876,14 +876,14 @@ void CsAlias::redo_arg(CsIdentStack const &st) {
     CsIdentStack *prev = st.next;
     prev->val_s = val_v;
     p_astack = prev;
-    set_value(st);
+    val_v = st.val_s;
     clean_code();
 }
 
 void CsAlias::set_arg(CsState &cs, CsValue &v) {
     if (cs.p_stack->usedargs & (1 << get_index())) {
-        cleanup_value();
-        set_value(v);
+        val_v.cleanup();
+        val_v = v;
         clean_code();
     } else {
         push_arg(v, cs.p_stack->argstack[get_index()], false);
@@ -892,8 +892,8 @@ void CsAlias::set_arg(CsState &cs, CsValue &v) {
 }
 
 void CsAlias::set_alias(CsState &cs, CsValue &v) {
-    cleanup_value();
-    set_value(v);
+    val_v.cleanup();
+    val_v = v;
     clean_code();
     p_flags = (p_flags & cs.identflags) | cs.identflags;
 }
