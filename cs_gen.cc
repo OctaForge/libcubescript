@@ -1667,7 +1667,7 @@ endstatement:
         switch (c) {
             case '\0':
                 if (c != brak) {
-                    cs_debug_code_line(gs.cs, line, "missing \"%c\"", brak);
+                    cs_debug_code_line(gs.cs, line, "missing \"%c\"", char(brak));
                 }
                 gs.source--;
                 return;
