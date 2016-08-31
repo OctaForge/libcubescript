@@ -27,7 +27,7 @@ library: $(LIBCS_LIB)
 $(LIBCS_LIB): $(LIBCS_OBJ)
 	ar rcs $(LIBCS_LIB) $(LIBCS_OBJ)
 
-repl: $(LIBCS_LIB)
+repl: $(LIBCS_LIB) repl.cc
 	$(CXX) $(CXXFLAGS) $(LIBCS_CXXFLAGS) $(LDFLAGS) repl.cc -o repl $(LIBCS_LIB)
 
 clean:

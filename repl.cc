@@ -10,25 +10,26 @@ ostd::ConstCharRange version =
     "CubeScript 0.0.1 (REPL mode)  Copyright (C) 2016 Daniel \"q66\" Kolesa";
 CsSvar *prompt = nullptr;
 
-static ostd::Maybe<ostd::String> read_line() {
+static ostd::String read_line() {
     ostd::write(prompt->get_value());
-    char buf[512];
-    if (fgets(buf, sizeof(buf), stdin)) {
-        return ostd::String(buf);
+    auto app = ostd::appender<ostd::String>();
+    /* i really need to implement some sort of get_line for ostd streams */
+    for (char c = ostd::in.getchar(); c && (c != '\n'); c = ostd::in.getchar()) {
+        app.put(c);
     }
-    return ostd::nothing;
+    return ostd::move(app.get());
 }
 
 static void do_tty(CsState &cs) {
     ostd::writeln(version);
     for (;;) {
         auto line = read_line();
-        if (!line) {
+        if (line.empty()) {
             continue;
         }
         CsValue ret;
         ret.set_null();
-        cs.run_ret(line.value(), ret);
+        cs.run_ret(line, ret);
         if (ret.get_type() != CsValueType::null) {
             ostd::writeln(ret.get_str());
         }
