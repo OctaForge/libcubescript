@@ -7,13 +7,13 @@ namespace cscript {
 CsString intstr(CsInt v) {
     char buf[256];
     snprintf(buf, sizeof(buf), IntFormat, v);
-    return buf;
+    return static_cast<char const *>(buf);
 }
 
 CsString floatstr(CsFloat v) {
     char buf[256];
     snprintf(buf, sizeof(buf), v == CsInt(v) ? RoundFloatFormat : FloatFormat, v);
-    return buf;
+    return static_cast<char const *>(buf);
 }
 
 char *cs_dup_ostr(ostd::ConstCharRange s) {
