@@ -1,5 +1,5 @@
 libcubescript is provided under the zlib license. Originally by Lee "eihrul"
-Salzman and Wouter van Oortmerssen, it was modified by Daniel "q66" Kolesa.
+Salzman and Wouter van Oortmerssen, it was mostly rewritten by Daniel "q66" Kolesa.
 
 The Cube 2 license:
 
@@ -21,3 +21,7 @@ freely, subject to the following restrictions:
 2. Altered source versions must be plainly marked as such, and must not be
    misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
+
+Libcubescript bundles the linenoise line editing library for REPL usage.
+This library is available under the BSD 3-clause license, which is available
+within its source code.

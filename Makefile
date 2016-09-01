@@ -1,7 +1,7 @@
 OSTD_PATH = ../octastd
 
 LIBCS_CXXFLAGS = \
-	-std=c++14 -Wall -Wextra -Wshadow -Wold-style-cast -I. \
+	-std=c++14 -Wall -Wextra -Wshadow -Wold-style-cast -I. -g \
 	-fvisibility=hidden -I$(OSTD_PATH)
 
 LIBCS_LDFLAGS = -shared
@@ -27,8 +27,10 @@ library: $(LIBCS_LIB)
 $(LIBCS_LIB): $(LIBCS_OBJ)
 	ar rcs $(LIBCS_LIB) $(LIBCS_OBJ)
 
-repl: $(LIBCS_LIB) repl.cc
-	$(CXX) $(CXXFLAGS) $(LIBCS_CXXFLAGS) $(LDFLAGS) repl.cc -o repl $(LIBCS_LIB)
+repl: $(LIBCS_LIB) tools/repl.cc tools/linenoise.cc tools/linenoise.hh
+	$(CXX) $(CXXFLAGS) $(LIBCS_CXXFLAGS) $(LDFLAGS) \
+	-Itools -DCS_REPL_USE_LINENOISE tools/linenoise.cc \
+	tools/repl.cc -o repl $(LIBCS_LIB)
 
 clean:
 	rm -f $(LIBCS_LIB) $(LIBCS_OBJ)

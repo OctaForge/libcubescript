@@ -18,7 +18,9 @@ CsString floatstr(CsFloat v) {
 
 char *cs_dup_ostr(ostd::ConstCharRange s) {
     char *r = new char[s.size() + 1];
-    memcpy(r, s.data(), s.size());
+    if (s.data()) {
+        memcpy(r, s.data(), s.size());
+    }
     r[s.size()] = 0;
     return r;
 }
@@ -99,7 +101,7 @@ Command::Command(
     ostd::Uint32 amask, int nargs, CmdFunc f
 ):
     CsIdent(CsIdentType::command, name, 0),
-    cargs(!args.empty() ? cs_dup_ostr(args) : nullptr),
+    cargs(cs_dup_ostr(args)),
     argmask(amask), numargs(nargs), cb_cftv(ostd::move(f))
 {
     p_type = tp;

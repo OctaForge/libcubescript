@@ -34,6 +34,11 @@ https://github.com/OctaForge/OctaSTD
 If OctaSTD can work on your system, so can libcubescript.
 
 The supplied Makefile builds a static library on Unix-like OSes. Link this
-library together with your application and everything should just work.
+library together with your application and everything should just work. It also
+builds the REPL.
+
+The project also bundles the linenoise line editing library which has been modified
+to compile cleanly as C++ (with the same flags as libcubescript). It's used strictly
+for the REPL only (you don't need it to build libcubescript itself).
 
 See COPYING.md for licensing information.
