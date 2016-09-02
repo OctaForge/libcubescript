@@ -45,9 +45,31 @@ static char **ln_complete(char const *buf, int, int) {
 }
 #endif
 
+#ifdef CS_REPL_HAS_HINTS
+void ln_hint() {
+    CsCommand *cmd = get_hint_cmd(rl_line_buffer);
+    if (!cmd) {
+        rl_redisplay();
+        return;
+    }
+    ostd::String old = rl_line_buffer;
+    ostd::String args = old;
+    args += " [";
+    fill_cmd_args(args, cmd->get_args());
+    args += "] ";
+    rl_extend_line_buffer(args.size());
+    rl_replace_line(args.data(), 0);
+    rl_redisplay();
+    rl_replace_line(old.data(), 0);
+}
+#endif
+
 static void init_lineedit(ostd::ConstCharRange) {
 #ifdef CS_REPL_HAS_COMPLETE
     rl_attempted_completion_function = ln_complete;
+#endif
+#ifdef CS_REPL_HAS_HINTS
+    rl_redisplay_function = ln_hint;
 #endif
 }
 
