@@ -517,9 +517,9 @@ lookupid:
                         if (prevargs >= MaxResults) {
                             gs.code.push(CODE_ENTER);
                         }
-                        char const *fmt = static_cast<Command *>(id)->cargs;
-                        for (; *fmt; fmt++) {
-                            switch (*fmt) {
+                        auto fmt = static_cast<CsCommand *>(id)->get_args();
+                        for (char c: fmt) {
+                            switch (c) {
                                 case 'S':
                                     gs.gen_str();
                                     numargs++;
@@ -1204,8 +1204,8 @@ noid:
                     case ID_COMMAND: {
                         int comtype = CODE_COM, fakeargs = 0;
                         bool rep = false;
-                        char const *fmt = static_cast<Command *>(id)->cargs;
-                        for (; *fmt; fmt++) {
+                        auto fmt = static_cast<CsCommand *>(id)->get_args();
+                        for (; !fmt.empty(); ++fmt) {
                             switch (*fmt) {
                                 case 'S':
                                 case 's':
@@ -1223,7 +1223,7 @@ noid:
                                             ostd::ConstCharRange(), *fmt == 's'
                                         );
                                         fakeargs++;
-                                    } else if (!fmt[1]) {
+                                    } else if (fmt.size() == 1) {
                                         int numconc = 1;
                                         while ((numargs + numconc) < MaxArguments) {
                                             more = compilearg(

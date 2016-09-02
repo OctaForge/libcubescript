@@ -37,18 +37,6 @@ static inline int cs_vtype_to_int(CsValueType v) {
     return cs_valtypet[int(v)];
 }
 
-struct Command: CsIdent {
-    char *cargs;
-    ostd::Uint32 argmask;
-    int numargs;
-    CmdFunc cb_cftv;
-
-    Command(
-        int type, ostd::ConstCharRange name, ostd::ConstCharRange args,
-        ostd::Uint32 argmask, int numargs, CmdFunc func
-    );
-};
-
 enum {
     CODE_START = 0,
     CODE_OFFSET,

@@ -96,13 +96,12 @@ CsAlias::CsAlias(ostd::ConstCharRange name, CsValue const &v, int fl):
     p_acode(nullptr), p_astack(nullptr), p_val(v)
 {}
 
-Command::Command(
+CsCommand::CsCommand(
     int tp, ostd::ConstCharRange name, ostd::ConstCharRange args,
-    ostd::Uint32 amask, int nargs, CmdFunc f
+    int nargs, CmdFunc f
 ):
     CsIdent(CsIdentType::command, name, 0),
-    cargs(cs_dup_ostr(args)),
-    argmask(amask), numargs(nargs), cb_cftv(ostd::move(f))
+    p_cargs(cs_dup_ostr(args)), p_numargs(nargs), cb_cftv(ostd::move(f))
 {
     p_type = tp;
 }
@@ -127,6 +126,20 @@ CsAlias const *CsIdent::get_alias() const {
 
 bool CsIdent::is_command() const {
     return get_type() == CsIdentType::command;
+}
+
+CsCommand *CsIdent::get_command() {
+    if (!is_command()) {
+        return nullptr;
+    }
+    return static_cast<CsCommand *>(this);
+}
+
+CsCommand const *CsIdent::get_command() const {
+    if (!is_command()) {
+        return nullptr;
+    }
+    return static_cast<CsCommand const *>(this);
 }
 
 bool CsIdent::is_special() const {
@@ -273,7 +286,7 @@ CsState::~CsState() {
             a->get_value().force_null();
             a->clean_code();
         } else if (i->is_command() || i->is_special()) {
-            delete[] static_cast<Command *>(i)->cargs;
+            delete[] static_cast<CsCommand *>(i)->p_cargs;
         }
         delete i;
     }
@@ -1102,7 +1115,6 @@ static bool cs_add_command(
     CsState &cs, ostd::ConstCharRange name, ostd::ConstCharRange args,
     CmdFunc func, int type = ID_COMMAND
 ) {
-    ostd::Uint32 argmask = 0;
     int nargs = 0;
     for (ostd::ConstCharRange fmt(args); !fmt.empty(); ++fmt) {
         switch (*fmt) {
@@ -1114,18 +1126,12 @@ static bool cs_add_command(
             case 'T':
             case 'E':
             case 'N':
-            case 'D':
-                if (nargs < MaxArguments) {
-                    nargs++;
-                }
-                break;
             case 'S':
             case 's':
             case 'e':
             case 'r':
             case '$':
                 if (nargs < MaxArguments) {
-                    argmask |= 1 << nargs;
                     nargs++;
                 }
                 break;
@@ -1134,7 +1140,7 @@ static bool cs_add_command(
             case '3':
             case '4':
                 if (nargs < MaxArguments) {
-                    fmt.push_front_n(fmt.front() - '0' + 1);
+                    fmt.push_front_n(*fmt - '0' + 1);
                 }
                 break;
             case 'C':
@@ -1148,7 +1154,7 @@ static bool cs_add_command(
                 return false;
         }
     }
-    cs.add_ident<Command>(type, name, args, argmask, nargs, ostd::move(func));
+    cs.add_ident<CsCommand>(type, name, args, nargs, ostd::move(func));
     return true;
 }
 

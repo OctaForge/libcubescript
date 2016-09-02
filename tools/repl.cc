@@ -25,6 +25,138 @@ static bool stdin_is_tty() {
 
 /* line editing support */
 
+CsState *gcs = nullptr;
+
+#ifdef CS_REPL_HAS_COMPLETE
+static ostd::ConstCharRange get_complete_cmd(ostd::ConstCharRange buf) {
+    ostd::ConstCharRange not_allowed = "\"/;()[] \t\r\n\0";
+    ostd::ConstCharRange found = ostd::find_one_of(buf, not_allowed);
+    while (!found.empty()) {
+        ++found;
+        buf = found;
+        found = ostd::find_one_of(found, not_allowed);
+    }
+    return buf;
+}
+#endif /* CS_REPL_HAS_COMPLETE */
+
+#ifdef CS_REPL_HAS_HINTS
+
+static inline ostd::ConstCharRange get_arg_type(char arg) {
+    switch (arg) {
+        case 'i':
+            return "int";
+        case 'b':
+            return "int_min";
+        case 'f':
+            return "float";
+        case 'F':
+            return "float_prev";
+        case 't':
+            return "any";
+        case 'T':
+            return "any_m";
+        case 'E':
+            return "cond";
+        case 'N':
+            return "numargs";
+        case 'S':
+            return "str_m";
+        case 's':
+            return "str";
+        case 'e':
+            return "block";
+        case 'r':
+            return "ident";
+        case '$':
+            return "self";
+    }
+    return "illegal";
+}
+
+static void fill_cmd_args(ostd::String &writer, ostd::ConstCharRange args) {
+    char variadic = '\0';
+    int nrep = 0;
+    if (!args.empty() && ((args.back() == 'V') || (args.back() == 'C'))) {
+        variadic = args.back();
+        args.pop_back();
+        if (!args.empty() && isdigit(args.back())) {
+            nrep = args.back() - '0';
+            args.pop_back();
+        }
+    }
+    if (args.empty()) {
+        if (variadic == 'C') {
+            writer += "concat(...)";
+        } else if (variadic == 'V') {
+            writer += "...";
+        }
+        return;
+    }
+    int norep = int(args.size()) - nrep;
+    if (norep > 0) {
+        for (int i = 0; i < norep; ++i) {
+            if (i != 0) {
+                writer += ", ";
+            }
+            writer += get_arg_type(*args);
+            ++args;
+        }
+    }
+    if (variadic) {
+        if (norep > 0) {
+            writer += ", ";
+        }
+        if (variadic == 'C') {
+            writer += "concat(";
+        }
+        if (!args.empty()) {
+            if (args.size() > 1) {
+                writer += '{';
+            }
+            for (ostd::Size i = 0; i < args.size(); ++i) {
+                if (i) {
+                    writer += ", ";
+                }
+                writer += get_arg_type(args[i]);
+            }
+            if (args.size() > 1) {
+                writer += '}';
+            }
+        }
+        writer += "...";
+        if (variadic == 'C') {
+            writer += ")";
+        }
+    }
+}
+
+static CsCommand *get_hint_cmd(ostd::ConstCharRange buf) {
+    ostd::ConstCharRange nextchars = "([;";
+    auto lp = ostd::find_one_of(buf, nextchars);
+    if (!lp.empty()) {
+        CsCommand *cmd = get_hint_cmd(buf + 1);
+        if (cmd) {
+            return cmd;
+        }
+    }
+    while (!buf.empty() && isspace(buf.front())) {
+        ++buf;
+    }
+    ostd::ConstCharRange spaces = " \t\r\n";
+    ostd::ConstCharRange s = ostd::find_one_of(buf, spaces);
+    if (!s.empty()) {
+        buf = ostd::slice_until(buf, s);
+    }
+    if (!buf.empty()) {
+        auto cmd = gcs->get_ident(buf);
+        return cmd ? cmd->get_command() : nullptr;
+    }
+    return nullptr;
+}
+
+#endif /* CS_REPL_HAS_HINTS */
+
 #include "tools/edit_linenoise.hh"
 #include "tools/edit_libedit.hh"
 #include "tools/edit_readline.hh"
@@ -72,6 +204,7 @@ static void do_tty(CsState &cs) {
 
 int main(int, char **argv) {
     CsState cs;
+    gcs = &cs;
     cs.init_libs();
     if (stdin_is_tty()) {
         init_lineedit(argv[0]);

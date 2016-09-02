@@ -130,6 +130,7 @@ struct CsIvar;
 struct CsFvar;
 struct CsSvar;
 struct CsAlias;
+struct CsCommand;
 
 struct OSTD_EXPORT CsIdent {
     friend struct CsState;
@@ -151,6 +152,9 @@ struct OSTD_EXPORT CsIdent {
     CsAlias const *get_alias() const;
 
     bool is_command() const;
+    CsCommand *get_command();
+    CsCommand const *get_command() const;
+
     bool is_special() const;
 
     bool is_var() const;
@@ -291,6 +295,30 @@ private:
     CsValue p_val;
 };
 
+using CmdFunc = ostd::Function<void(CsValueRange, CsValue &)>;
+
+struct CsCommand: CsIdent {
+    friend struct CsState;
+
+    ostd::ConstCharRange get_args() const {
+        return p_cargs;
+    }
+
+    int get_num_args() const {
+        return p_numargs;
+    }
+
+    char *p_cargs;
+    int p_numargs;
+    CmdFunc cb_cftv;
+
+private:
+    CsCommand(
+        int type, ostd::ConstCharRange name, ostd::ConstCharRange args,
+        int numargs, CmdFunc func
+    );
+};
+
 struct CsIdentLink {
     CsIdent *id;
     CsIdentLink *next;
@@ -305,8 +333,6 @@ enum {
     CS_LIB_LIST   = 1 << 3,
     CS_LIB_ALL    = 0b1111
 };
-
-using CmdFunc = ostd::Function<void(CsValueRange, CsValue &)>;
 
 struct OSTD_EXPORT CsState {
     CsMap<ostd::ConstCharRange, CsIdent *> idents;

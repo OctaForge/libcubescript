@@ -74,7 +74,7 @@ static inline bool cs_has_cmd_cb(CsIdent *id) {
     if (!id->is_command() && !id->is_special()) {
         return false;
     }
-    Command *cb = static_cast<Command *>(id);
+    CsCommand *cb = static_cast<CsCommand *>(id);
     return !!cb->cb_cftv;
 }
 
@@ -347,12 +347,12 @@ void CsValue::copy_arg(CsValue &r) const {
 }
 
 static inline void callcommand(
-    CsState &cs, Command *id, CsValue *args, CsValue &res, int numargs,
+    CsState &cs, CsCommand *id, CsValue *args, CsValue &res, int numargs,
     bool lookup = false
 ) {
     int i = -1, fakeargs = 0;
     bool rep = false;
-    for (char const *fmt = id->cargs; *fmt; fmt++) {
+    for (auto fmt = id->get_args(); !fmt.empty(); ++fmt) {
         switch (*fmt) {
             case 'i':
                 if (++i >= numargs) {
@@ -611,7 +611,7 @@ static inline int cs_get_lookupu_type(
                 arg.cleanup();
                 arg.set_null();
                 CsValue buf[MaxArguments];
-                callcommand(cs, static_cast<Command *>(id), buf, arg, 0, true);
+                callcommand(cs, static_cast<CsCommand *>(id), buf, arg, 0, true);
                 force_arg(arg, op & CODE_RET_MASK);
                 return -2; /* ignore */
             }
@@ -1381,10 +1381,12 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
             case CODE_COM | RET_STR:
             case CODE_COM | RET_FLOAT:
             case CODE_COM | RET_INT: {
-                Command *id = static_cast<Command *>(cs.identmap[op >> 8]);
-                int offset = numargs - id->numargs;
+                CsCommand *id = static_cast<CsCommand *>(cs.identmap[op >> 8]);
+                int offset = numargs - id->get_num_args();
                 result.force_null();
-                id->cb_cftv(CsValueRange(args + offset, id->numargs), result);
+                id->cb_cftv(
+                    CsValueRange(args + offset, id->get_num_args()), result
+                );
                 force_arg(result, op & CODE_RET_MASK);
                 free_args(args, numargs, offset);
                 continue;
@@ -1394,7 +1396,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
             case CODE_COMV | RET_STR:
             case CODE_COMV | RET_FLOAT:
             case CODE_COMV | RET_INT: {
-                Command *id = static_cast<Command *>(cs.identmap[op >> 13]);
+                CsCommand *id = static_cast<CsCommand *>(cs.identmap[op >> 13]);
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
                 result.force_null();
                 id->cb_cftv(ostd::iter(&args[offset], callargs), result);
@@ -1406,7 +1408,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
             case CODE_COMC | RET_STR:
             case CODE_COMC | RET_FLOAT:
             case CODE_COMC | RET_INT: {
-                Command *id = static_cast<Command *>(cs.identmap[op >> 13]);
+                CsCommand *id = static_cast<CsCommand *>(cs.identmap[op >> 13]);
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
                 result.force_null();
                 {
@@ -1559,7 +1561,7 @@ noid:
                     case ID_COMMAND:
                         idarg.cleanup();
                         callcommand(
-                            cs, static_cast<Command *>(id), &args[offset],
+                            cs, static_cast<CsCommand *>(id), &args[offset],
                             result, callargs
                         );
                         force_arg(result, op & CODE_RET_MASK);
@@ -1673,16 +1675,16 @@ void CsState::run_ret(CsIdent *id, CsValueRange args, CsValue &ret) {
                 }
             /* fallthrough */
             case CsIdentType::command:
-                if (nargs < static_cast<Command *>(id)->numargs) {
+                if (nargs < static_cast<CsCommand *>(id)->get_num_args()) {
                     CsValue buf[MaxArguments];
                     memcpy(buf, args.data(), args.size() * sizeof(CsValue));
                     callcommand(
-                        *this, static_cast<Command *>(id), buf, ret,
+                        *this, static_cast<CsCommand *>(id), buf, ret,
                         nargs, false
                     );
                 } else {
                     callcommand(
-                        *this, static_cast<Command *>(id), args.data(),
+                        *this, static_cast<CsCommand *>(id), args.data(),
                         ret, nargs, false
                     );
                 }
