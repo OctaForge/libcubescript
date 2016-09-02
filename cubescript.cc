@@ -1246,25 +1246,6 @@ CsCommand *CsState::new_command(
     );
 }
 
-void cs_init_lib_io(CsState &cs) {
-    cs.new_command("exec", "sb", [&cs](CsValueRange args, CsValue &res) {
-        auto file = args[0].get_strr();
-        bool ret = cs.run_file(file);
-        if (!ret) {
-            if (args[1].get_int()) {
-                ostd::err.writefln("could not run file \"%s\"", file);
-            }
-            res.set_int(0);
-        } else {
-            res.set_int(1);
-        }
-    });
-
-    cs.new_command("echo", "C", [](CsValueRange args, CsValue &) {
-        ostd::writeln(args[0].get_strr());
-    });
-}
-
 static inline void cs_do_loop(
     CsState &cs, CsIdent &id, CsInt offset, CsInt n, CsInt step,
     CsBytecode *cond, CsBytecode *body
@@ -1551,9 +1532,6 @@ void cs_init_lib_string(CsState &cs);
 void cs_init_lib_list(CsState &cs);
 
 OSTD_EXPORT void CsState::init_libs(int libs) {
-    if (libs & CS_LIB_IO) {
-        cs_init_lib_io(*this);
-    }
     if (libs & CS_LIB_MATH) {
         cs_init_lib_math(*this);
     }

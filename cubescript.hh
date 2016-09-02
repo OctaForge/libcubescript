@@ -323,11 +323,10 @@ struct CsIdentLink {
 };
 
 enum {
-    CS_LIB_IO     = 1 << 0,
-    CS_LIB_MATH   = 1 << 1,
-    CS_LIB_STRING = 1 << 2,
-    CS_LIB_LIST   = 1 << 3,
-    CS_LIB_ALL    = 0b1111
+    CS_LIB_MATH   = 1 << 0,
+    CS_LIB_STRING = 1 << 1,
+    CS_LIB_LIST   = 1 << 2,
+    CS_LIB_ALL    = 0b111
 };
 
 struct OSTD_EXPORT CsState {

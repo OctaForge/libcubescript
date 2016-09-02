@@ -171,6 +171,23 @@ static void do_tty(CsState &cs) {
         do_exit = true;
     });
 
+    cs.new_command("exec", "sb", [&cs](CsValueRange args, CsValue &res) {
+        auto file = args[0].get_strr();
+        bool ret = cs.run_file(file);
+        if (!ret) {
+            if (args[1].get_int()) {
+                ostd::err.writefln("could not run file \"%s\"", file);
+            }
+            res.set_int(0);
+        } else {
+            res.set_int(1);
+        }
+    });
+
+    cs.new_command("echo", "C", [](CsValueRange args, CsValue &) {
+        ostd::writeln(args[0].get_strr());
+    });
+
     ostd::writeln(version);
     for (;;) {
         auto line = read_line(prompt);
