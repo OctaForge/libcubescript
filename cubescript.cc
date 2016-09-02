@@ -1245,25 +1245,30 @@ CsCommand *CsState::new_command(
             case 'r':
             case '$':
                 if (nargs < MaxArguments) {
-                    nargs++;
+                    ++nargs;
                 }
                 break;
             case '1':
             case '2':
             case '3':
             case '4':
+                if (nargs < (*fmt - '0')) {
+                    return nullptr;
+                }
+                if ((fmt.size() != 2) || ((fmt[1] != 'C') && (fmt[1] != 'V'))) {
+                    return nullptr;
+                }
                 if (nargs < MaxArguments) {
                     fmt.push_front_n(*fmt - '0' + 1);
                 }
                 break;
             case 'C':
             case 'V':
+                if (fmt.size() != 1) {
+                    return nullptr;
+                }
                 break;
             default:
-                get_err().writefln(
-                    "builtin %s declared with illegal type: %c",
-                    name, fmt.front()
-                );
                 return nullptr;
         }
     }
