@@ -134,11 +134,11 @@ static inline void cs_list_merge(CsValueRange args, CsValue &res, F cmp) {
 static void cs_init_lib_list_sort(CsState &cs);
 
 void cs_init_lib_list(CsState &cs) {
-    cs.add_command("listlen", "s", [](CsValueRange args, CsValue &res) {
+    cs.new_command("listlen", "s", [](CsValueRange args, CsValue &res) {
         res.set_int(CsInt(util::list_length(args[0].get_strr())));
     });
 
-    cs.add_command("at", "si1V", [](CsValueRange args, CsValue &res) {
+    cs.new_command("at", "si1V", [](CsValueRange args, CsValue &res) {
         if (args.empty()) {
             return;
         }
@@ -163,7 +163,7 @@ void cs_init_lib_list(CsState &cs) {
         res.set_mstr(er);
     });
 
-    cs.add_command("sublist", "siiN", [](CsValueRange args, CsValue &res) {
+    cs.new_command("sublist", "siiN", [](CsValueRange args, CsValue &res) {
         CsInt skip    = args[1].get_int(),
               count   = args[2].get_int(),
               numargs = args[2].get_int();
@@ -192,7 +192,7 @@ void cs_init_lib_list(CsState &cs) {
         res.set_str(ostd::ConstCharRange(list, qend - list));
     });
 
-    cs.add_command("listfind", "rse", [&cs](CsValueRange args, CsValue &res) {
+    cs.new_command("listfind", "rse", [&cs](CsValueRange args, CsValue &res) {
         CsStackedValue idv{args[0].get_ident()};
         if (!idv.has_alias()) {
             res.set_int(-1);
@@ -212,7 +212,7 @@ void cs_init_lib_list(CsState &cs) {
         res.set_int(-1);
     });
 
-    cs.add_command("listassoc", "rse", [&cs](CsValueRange args, CsValue &res) {
+    cs.new_command("listassoc", "rse", [&cs](CsValueRange args, CsValue &res) {
         CsStackedValue idv{args[0].get_ident()};
         if (!idv.has_alias()) {
             return;
@@ -238,21 +238,21 @@ void cs_init_lib_list(CsState &cs) {
         }
     });
 
-    cs.add_command("listfind=", "i", [](CsValueRange args, CsValue &res) {
+    cs.new_command("listfind=", "i", [](CsValueRange args, CsValue &res) {
         cs_list_find<CsInt>(
             args, res, [](const util::ListParser &p, CsInt val) {
                 return cs_parse_int(p.item) == val;
             }
         );
     });
-    cs.add_command("listfind=f", "f", [](CsValueRange args, CsValue &res) {
+    cs.new_command("listfind=f", "f", [](CsValueRange args, CsValue &res) {
         cs_list_find<CsFloat>(
             args, res, [](const util::ListParser &p, CsFloat val) {
                 return cs_parse_float(p.item) == val;
             }
         );
     });
-    cs.add_command("listfind=s", "s", [](CsValueRange args, CsValue &res) {
+    cs.new_command("listfind=s", "s", [](CsValueRange args, CsValue &res) {
         cs_list_find<ostd::ConstCharRange>(
             args, res, [](const util::ListParser &p, ostd::ConstCharRange val) {
                 return p.item == val;
@@ -260,21 +260,21 @@ void cs_init_lib_list(CsState &cs) {
         );
     });
 
-    cs.add_command("listassoc=", "i", [](CsValueRange args, CsValue &res) {
+    cs.new_command("listassoc=", "i", [](CsValueRange args, CsValue &res) {
         cs_list_assoc<CsInt>(
             args, res, [](const util::ListParser &p, CsInt val) {
                 return cs_parse_int(p.item) == val;
             }
         );
     });
-    cs.add_command("listassoc=f", "f", [](CsValueRange args, CsValue &res) {
+    cs.new_command("listassoc=f", "f", [](CsValueRange args, CsValue &res) {
         cs_list_assoc<CsFloat>(
             args, res, [](const util::ListParser &p, CsFloat val) {
                 return cs_parse_float(p.item) == val;
             }
         );
     });
-    cs.add_command("listassoc=s", "s", [](CsValueRange args, CsValue &res) {
+    cs.new_command("listassoc=s", "s", [](CsValueRange args, CsValue &res) {
         cs_list_assoc<ostd::ConstCharRange>(
             args, res, [](const util::ListParser &p, ostd::ConstCharRange val) {
                 return p.item == val;
@@ -282,7 +282,7 @@ void cs_init_lib_list(CsState &cs) {
         );
     });
 
-    cs.add_command("looplist", "rse", [&cs](CsValueRange args, CsValue &) {
+    cs.new_command("looplist", "rse", [&cs](CsValueRange args, CsValue &) {
         CsStackedValue idv{args[0].get_ident()};
         if (!idv.has_alias()) {
             return;
@@ -296,7 +296,7 @@ void cs_init_lib_list(CsState &cs) {
         }
     });
 
-    cs.add_command("looplist2", "rrse", [&cs](CsValueRange args, CsValue &) {
+    cs.new_command("looplist2", "rrse", [&cs](CsValueRange args, CsValue &) {
         CsStackedValue idv1{args[0].get_ident()}, idv2{args[1].get_ident()};
         if (!idv1.has_alias() || !idv2.has_alias()) {
             return;
@@ -312,7 +312,7 @@ void cs_init_lib_list(CsState &cs) {
         }
     });
 
-    cs.add_command("looplist3", "rrrse", [&cs](CsValueRange args, CsValue &) {
+    cs.new_command("looplist3", "rrrse", [&cs](CsValueRange args, CsValue &) {
         CsStackedValue idv1{args[0].get_ident()};
         CsStackedValue idv2{args[1].get_ident()};
         CsStackedValue idv3{args[2].get_ident()};
@@ -332,7 +332,7 @@ void cs_init_lib_list(CsState &cs) {
         }
     });
 
-    cs.add_command("looplistconcat", "rse", [&cs](
+    cs.new_command("looplistconcat", "rse", [&cs](
         CsValueRange args, CsValue &res
     ) {
         cs_loop_list_conc(
@@ -341,7 +341,7 @@ void cs_init_lib_list(CsState &cs) {
         );
     });
 
-    cs.add_command("looplistconcatword", "rse", [&cs](
+    cs.new_command("looplistconcatword", "rse", [&cs](
         CsValueRange args, CsValue &res
     ) {
         cs_loop_list_conc(
@@ -350,7 +350,7 @@ void cs_init_lib_list(CsState &cs) {
         );
     });
 
-    cs.add_command("listfilter", "rse", [&cs](CsValueRange args, CsValue &res) {
+    cs.new_command("listfilter", "rse", [&cs](CsValueRange args, CsValue &res) {
         CsStackedValue idv{args[0].get_ident()};
         if (!idv.has_alias()) {
             return;
@@ -374,7 +374,7 @@ void cs_init_lib_list(CsState &cs) {
         res.set_mstr(ostd::CharRange(r.disown(), len));
     });
 
-    cs.add_command("listcount", "rse", [&cs](CsValueRange args, CsValue &res) {
+    cs.new_command("listcount", "rse", [&cs](CsValueRange args, CsValue &res) {
         CsStackedValue idv{args[0].get_ident()};
         if (!idv.has_alias()) {
             return;
@@ -392,7 +392,7 @@ void cs_init_lib_list(CsState &cs) {
         res.set_int(r);
     });
 
-    cs.add_command("prettylist", "ss", [](CsValueRange args, CsValue &res) {
+    cs.new_command("prettylist", "ss", [](CsValueRange args, CsValue &res) {
         CsVector<char> buf;
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange conj = args[1].get_strr();
@@ -426,23 +426,23 @@ void cs_init_lib_list(CsState &cs) {
         res.set_mstr(ostd::CharRange(buf.disown(), slen));
     });
 
-    cs.add_command("indexof", "ss", [](CsValueRange args, CsValue &res) {
+    cs.new_command("indexof", "ss", [](CsValueRange args, CsValue &res) {
         res.set_int(
             cs_list_includes(args[0].get_strr(), args[1].get_strr())
         );
     });
 
-    cs.add_command("listdel", "ss", [](CsValueRange args, CsValue &res) {
+    cs.new_command("listdel", "ss", [](CsValueRange args, CsValue &res) {
         cs_list_merge<false, false>(args, res, ostd::Less<int>());
     });
-    cs.add_command("listintersect", "ss", [](CsValueRange args, CsValue &res) {
+    cs.new_command("listintersect", "ss", [](CsValueRange args, CsValue &res) {
         cs_list_merge<false, false>(args, res, ostd::GreaterEqual<int>());
     });
-    cs.add_command("listunion", "ss", [](CsValueRange args, CsValue &res) {
+    cs.new_command("listunion", "ss", [](CsValueRange args, CsValue &res) {
         cs_list_merge<true, true>(args, res, ostd::Less<int>());
     });
 
-    cs.add_command("listsplice", "ssii", [](CsValueRange args, CsValue &res) {
+    cs.new_command("listsplice", "ssii", [](CsValueRange args, CsValue &res) {
         CsInt offset = ostd::max(args[2].get_int(), 0);
         CsInt len    = ostd::max(args[3].get_int(), 0);
         ostd::ConstCharRange s = args[0].get_strr();
@@ -611,7 +611,7 @@ static void cs_list_sort(
 }
 
 static void cs_init_lib_list_sort(CsState &cs) {
-    cs.add_command("sortlist", "srree", [&cs](
+    cs.new_command("sortlist", "srree", [&cs](
         CsValueRange args, CsValue &res
     ) {
         cs_list_sort(
@@ -619,7 +619,7 @@ static void cs_init_lib_list_sort(CsState &cs) {
             args[2].get_ident(), args[3].get_code(), args[4].get_code()
         );
     });
-    cs.add_command("uniquelist", "srre", [&cs](
+    cs.new_command("uniquelist", "srre", [&cs](
         CsValueRange args, CsValue &res
     ) {
         cs_list_sort(

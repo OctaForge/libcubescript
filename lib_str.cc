@@ -22,7 +22,7 @@ static inline void cs_strgcmp(CsValueRange args, CsValue &res, F cfunc) {
 };
 
 void cs_init_lib_string(CsState &cs) {
-    cs.add_command("strstr", "ss", [](CsValueRange args, CsValue &res) {
+    cs.new_command("strstr", "ss", [](CsValueRange args, CsValue &res) {
         ostd::ConstCharRange a = args[0].get_strr(), b = args[1].get_strr();
         ostd::ConstCharRange s = a;
         for (CsInt i = 0; b.size() <= s.size(); ++i) {
@@ -35,11 +35,11 @@ void cs_init_lib_string(CsState &cs) {
         res.set_int(-1);
     });
 
-    cs.add_command("strlen", "s", [](CsValueRange args, CsValue &res) {
+    cs.new_command("strlen", "s", [](CsValueRange args, CsValue &res) {
         res.set_int(CsInt(args[0].get_strr().size()));
     });
 
-    cs.add_command("strcode", "si", [](CsValueRange args, CsValue &res) {
+    cs.new_command("strcode", "si", [](CsValueRange args, CsValue &res) {
         ostd::ConstCharRange str = args[0].get_strr();
         CsInt i = args[1].get_int();
         if (i >= CsInt(str.size())) {
@@ -49,14 +49,14 @@ void cs_init_lib_string(CsState &cs) {
         }
     });
 
-    cs.add_command("codestr", "i", [](CsValueRange args, CsValue &res) {
+    cs.new_command("codestr", "i", [](CsValueRange args, CsValue &res) {
         char *s = new char[2];
         s[0] = char(args[0].get_int());
         s[1] = '\0';
         res.set_mstr(s);
     });
 
-    cs.add_command("strlower", "s", [](CsValueRange args, CsValue &res) {
+    cs.new_command("strlower", "s", [](CsValueRange args, CsValue &res) {
         ostd::ConstCharRange s = args[0].get_strr();
         char *buf = new char[s.size() + 1];
         for (auto i: ostd::range(s.size())) {
@@ -66,7 +66,7 @@ void cs_init_lib_string(CsState &cs) {
         res.set_mstr(ostd::CharRange(buf, s.size()));
     });
 
-    cs.add_command("strupper", "s", [](CsValueRange args, CsValue &res) {
+    cs.new_command("strupper", "s", [](CsValueRange args, CsValue &res) {
         ostd::ConstCharRange s = args[0].get_strr();
         char *buf = new char[s.size() + 1];
         for (auto i: ostd::range(s.size())) {
@@ -76,14 +76,14 @@ void cs_init_lib_string(CsState &cs) {
         res.set_mstr(ostd::CharRange(buf, s.size()));
     });
 
-    cs.add_command("escape", "s", [](CsValueRange args, CsValue &res) {
+    cs.new_command("escape", "s", [](CsValueRange args, CsValue &res) {
         auto x = ostd::appender<CsString>();
         util::escape_string(x, args[0].get_strr());
         ostd::Size len = x.size();
         res.set_mstr(ostd::CharRange(x.get().disown(), len));
     });
 
-    cs.add_command("unescape", "s", [](CsValueRange args, CsValue &res) {
+    cs.new_command("unescape", "s", [](CsValueRange args, CsValue &res) {
         ostd::ConstCharRange s = args[0].get_strr();
         char *buf = new char[s.size() + 1];
         auto writer = ostd::CharRange(buf, s.size() + 1);
@@ -92,21 +92,21 @@ void cs_init_lib_string(CsState &cs) {
         res.set_mstr(ostd::CharRange(buf, s.size()));
     });
 
-    cs.add_command("concat", "V", [](CsValueRange args, CsValue &res) {
+    cs.new_command("concat", "V", [](CsValueRange args, CsValue &res) {
         auto s = ostd::appender<CsString>();
         cscript::util::tvals_concat(s, args, " ");
         res.set_mstr(s.get().iter());
         s.get().disown();
     });
 
-    cs.add_command("concatword", "V", [](CsValueRange args, CsValue &res) {
+    cs.new_command("concatword", "V", [](CsValueRange args, CsValue &res) {
         auto s = ostd::appender<CsString>();
         cscript::util::tvals_concat(s, args);
         res.set_mstr(s.get().iter());
         s.get().disown();
     });
 
-    cs.add_command("format", "V", [](CsValueRange args, CsValue &res) {
+    cs.new_command("format", "V", [](CsValueRange args, CsValue &res) {
         if (args.empty()) {
             return;
         }
@@ -139,7 +139,7 @@ void cs_init_lib_string(CsState &cs) {
         res.set_mstr(ostd::CharRange(s.disown(), len));
     });
 
-    cs.add_command("tohex", "ii", [](CsValueRange args, CsValue &res) {
+    cs.new_command("tohex", "ii", [](CsValueRange args, CsValue &res) {
         auto r = ostd::appender<CsVector<char>>();
         ostd::format(
             r, "0x%.*X", ostd::max(args[1].get_int(), 1), args[0].get_int()
@@ -149,7 +149,7 @@ void cs_init_lib_string(CsState &cs) {
         res.set_mstr(ostd::CharRange(r.get().disown(), len));
     });
 
-    cs.add_command("substr", "siiN", [](CsValueRange args, CsValue &res) {
+    cs.new_command("substr", "siiN", [](CsValueRange args, CsValue &res) {
         ostd::ConstCharRange s = args[0].get_strr();
         CsInt start = args[1].get_int(), count = args[2].get_int();
         CsInt numargs = args[3].get_int();
@@ -160,29 +160,29 @@ void cs_init_lib_string(CsState &cs) {
         ));
     });
 
-    cs.add_command("strcmp", "s1V", [](CsValueRange args, CsValue &res) {
+    cs.new_command("strcmp", "s1V", [](CsValueRange args, CsValue &res) {
         cs_strgcmp(args, res, ostd::Equal<ostd::ConstCharRange>());
     });
-    cs.add_command("=s", "s1V", [](CsValueRange args, CsValue &res) {
+    cs.new_command("=s", "s1V", [](CsValueRange args, CsValue &res) {
         cs_strgcmp(args, res, ostd::Equal<ostd::ConstCharRange>());
     });
-    cs.add_command("!=s", "s1V", [](CsValueRange args, CsValue &res) {
+    cs.new_command("!=s", "s1V", [](CsValueRange args, CsValue &res) {
         cs_strgcmp(args, res, ostd::NotEqual<ostd::ConstCharRange>());
     });
-    cs.add_command("<s", "s1V", [](CsValueRange args, CsValue &res) {
+    cs.new_command("<s", "s1V", [](CsValueRange args, CsValue &res) {
         cs_strgcmp(args, res, ostd::Less<ostd::ConstCharRange>());
     });
-    cs.add_command(">s", "s1V", [](CsValueRange args, CsValue &res) {
+    cs.new_command(">s", "s1V", [](CsValueRange args, CsValue &res) {
         cs_strgcmp(args, res, ostd::Greater<ostd::ConstCharRange>());
     });
-    cs.add_command("<=s", "s1V", [](CsValueRange args, CsValue &res) {
+    cs.new_command("<=s", "s1V", [](CsValueRange args, CsValue &res) {
         cs_strgcmp(args, res, ostd::LessEqual<ostd::ConstCharRange>());
     });
-    cs.add_command(">=s", "s1V", [](CsValueRange args, CsValue &res) {
+    cs.new_command(">=s", "s1V", [](CsValueRange args, CsValue &res) {
         cs_strgcmp(args, res, ostd::GreaterEqual<ostd::ConstCharRange>());
     });
 
-    cs.add_command("strreplace", "ssss", [](CsValueRange args, CsValue &res) {
+    cs.new_command("strreplace", "ssss", [](CsValueRange args, CsValue &res) {
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange oldval = args[1].get_strr(),
                              newval = args[2].get_strr(),
@@ -226,7 +226,7 @@ void cs_init_lib_string(CsState &cs) {
         }
     });
 
-    cs.add_command("strsplice", "ssii", [](CsValueRange args, CsValue &res) {
+    cs.new_command("strsplice", "ssii", [](CsValueRange args, CsValue &res) {
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange vals = args[1].get_strr();
         CsInt skip   = args[2].get_int(),

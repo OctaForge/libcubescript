@@ -364,6 +364,10 @@ struct OSTD_EXPORT CsState {
         CsVarCb f = CsVarCb(), int flags = 0
     );
 
+    CsCommand *new_command(
+        ostd::ConstCharRange name, ostd::ConstCharRange args, CsCommandCb func
+    );
+
     CsIdent *get_ident(ostd::ConstCharRange name) {
         CsIdent **id = idents.at(name);
         if (!id) {
@@ -386,10 +390,6 @@ struct OSTD_EXPORT CsState {
 
     bool reset_var(ostd::ConstCharRange name);
     void touch_var(ostd::ConstCharRange name);
-
-    CsCommand *add_command(
-        ostd::ConstCharRange name, ostd::ConstCharRange args, CsCommandCb func
-    );
 
     CsString run_str(CsBytecode *code);
     CsString run_str(ostd::ConstCharRange code);

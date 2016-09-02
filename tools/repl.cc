@@ -167,7 +167,7 @@ static void do_tty(CsState &cs) {
     auto prompt2 = cs.new_svar("PROMPT2", ">> ");
 
     bool do_exit = false;
-    cs.add_command("quit", "", [&do_exit](auto, auto &) {
+    cs.new_command("quit", "", [&do_exit](auto, auto &) {
         do_exit = true;
     });
 
