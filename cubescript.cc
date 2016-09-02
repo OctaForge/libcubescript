@@ -343,7 +343,7 @@ CsState::~CsState() {
         CsAlias *a = i->get_alias();
         if (a) {
             a->get_value().force_null();
-            a->clean_code();
+            CsAliasInternal::clean_code(a);
         }
         delete i;
     }
@@ -381,7 +381,7 @@ void CsState::clear_override(CsIdent &id) {
         case CsIdentType::alias: {
             CsAlias &a = static_cast<CsAlias &>(id);
             a.get_value().cleanup();
-            a.clean_code();
+            CsAliasInternal::clean_code(&a);
             a.get_value().set_str("");
             break;
         }
@@ -505,9 +505,9 @@ void CsState::set_alias(ostd::ConstCharRange name, CsValue &v) {
             case CsIdentType::alias: {
                 CsAlias *a = static_cast<CsAlias *>(id);
                 if (a->get_index() < MaxArguments) {
-                    a->set_arg(*this, v);
+                    CsAliasInternal::set_arg(a, *this, v);
                 } else {
-                    a->set_alias(*this, v);
+                    CsAliasInternal::set_alias(a, *this, v);
                 }
                 return;
             }
@@ -947,6 +947,50 @@ int CsIdent::get_flags() const {
 
 int CsIdent::get_index() const {
     return p_index;
+}
+
+CsStackedValue::CsStackedValue(CsIdent *id):
+    CsValue(), p_a(nullptr), p_stack(), p_pushed(false)
+{
+    set_alias(id);
+}
+
+CsStackedValue::~CsStackedValue() {
+    pop();
+}
+
+bool CsStackedValue::set_alias(CsIdent *id) {
+    if (!id || !id->is_alias()) {
+        return false;
+    }
+    p_a = static_cast<CsAlias *>(id);
+    return true;
+}
+
+CsAlias *CsStackedValue::get_alias() const {
+    return p_a;
+}
+
+bool CsStackedValue::has_alias() const {
+    return p_a != nullptr;
+}
+
+bool CsStackedValue::push() {
+    if (!p_a) {
+        return false;
+    }
+    CsAliasInternal::push_arg(p_a, *this, p_stack);
+    p_pushed = true;
+    return true;
+}
+
+bool CsStackedValue::pop() {
+    if (!p_pushed || !p_a) {
+        return false;
+    }
+    CsAliasInternal::pop_arg(p_a);
+    p_pushed = false;
+    return true;
 }
 
 template<typename SF>

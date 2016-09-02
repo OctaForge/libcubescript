@@ -83,31 +83,6 @@ struct NullValue: CsValue {
     NullValue() { set_null(); }
 } const null_value;
 
-template<typename F>
-static void cs_do_args(CsState &cs, F body) {
-    CsIdentStack argstack[MaxArguments];
-    int argmask1 = cs.p_stack->usedargs;
-    for (int i = 0; argmask1; argmask1 >>= 1, ++i) {
-        if (argmask1 & 1) {
-            static_cast<CsAlias *>(cs.identmap[i])->undo_arg(argstack[i]);
-        }
-    }
-    CsIdentLink *prevstack = cs.p_stack->next;
-    CsIdentLink aliaslink = {
-        cs.p_stack->id, cs.p_stack, prevstack->usedargs, prevstack->argstack
-    };
-    cs.p_stack = &aliaslink;
-    body();
-    prevstack->usedargs = aliaslink.usedargs;
-    cs.p_stack = aliaslink.next;
-    int argmask2 = cs.p_stack->usedargs;
-    for (int i = 0; argmask2; argmask2 >>= 1, ++i) {
-        if (argmask2 & 1) {
-            static_cast<CsAlias *>(cs.identmap[i])->redo_arg(argstack[i]);
-        }
-    }
-}
-
 ostd::ConstCharRange cs_debug_line(
     ostd::ConstCharRange p, ostd::ConstCharRange fmt, ostd::CharRange buf
 );
@@ -252,6 +227,124 @@ static inline void bcode_decr(ostd::Uint32 *bc) {
     *bc -= 0x100;
     if (ostd::Int32(*bc) < 0x100) {
         delete[] bc;
+    }
+}
+
+struct CsAliasInternal {
+    static void push_arg(
+        CsAlias *a, CsValue const &v, CsIdentStack &st, bool um = true
+    ) {
+        if (a->p_astack == &st) {
+            /* prevent cycles and unnecessary code elsewhere */
+            a->p_val.cleanup();
+            a->p_val = v;
+            clean_code(a);
+            return;
+        }
+        st.val_s = a->p_val;
+        st.next = a->p_astack;
+        a->p_astack = &st;
+        a->p_val = v;
+        clean_code(a);
+        if (um) {
+            a->p_flags &= ~IDF_UNKNOWN;
+        }
+    }
+
+    static void pop_arg(CsAlias *a) {
+        if (!a->p_astack) {
+            return;
+        }
+        CsIdentStack *st = a->p_astack;
+        a->p_val.cleanup();
+        a->p_val = a->p_astack->val_s;
+        clean_code(a);
+        a->p_astack = st->next;
+    }
+
+    static void undo_arg(CsAlias *a, CsIdentStack &st) {
+        CsIdentStack *prev = a->p_astack;
+        st.val_s = a->p_val;
+        st.next = prev;
+        a->p_astack = prev->next;
+        a->p_val = prev->val_s;
+        clean_code(a);
+    }
+
+    static void redo_arg(CsAlias *a, CsIdentStack const &st) {
+        CsIdentStack *prev = st.next;
+        prev->val_s = a->p_val;
+        a->p_astack = prev;
+        a->p_val = st.val_s;
+        clean_code(a);
+    }
+
+    static void set_arg(CsAlias *a, CsState &cs, CsValue &v) {
+        if (cs.p_stack->usedargs & (1 << a->get_index())) {
+            a->p_val.cleanup();
+            a->p_val = v;
+            clean_code(a);
+        } else {
+            push_arg(a, v, cs.p_stack->argstack[a->get_index()], false);
+            cs.p_stack->usedargs |= 1 << a->get_index();
+        }
+    }
+
+    static void set_alias(CsAlias *a, CsState &cs, CsValue &v) {
+        a->p_val.cleanup();
+        a->p_val = v;
+        clean_code(a);
+        a->p_flags = (a->p_flags & cs.identflags) | cs.identflags;
+    }
+
+    static void clean_code(CsAlias *a) {
+        ostd::Uint32 *bcode = reinterpret_cast<ostd::Uint32 *>(a->p_acode);
+        if (bcode) {
+            bcode_decr(bcode);
+            a->p_acode = nullptr;
+        }
+    }
+
+    static CsBytecode *compile_code(CsAlias *a, CsState &cs) {
+        if (!a->p_acode) {
+            GenState gs(cs);
+            gs.code.reserve(64);
+            gs.gen_main(a->get_value().get_str());
+            ostd::Uint32 *code = new ostd::Uint32[gs.code.size()];
+            memcpy(code, gs.code.data(), gs.code.size() * sizeof(ostd::Uint32));
+            bcode_incr(code);
+            a->p_acode = reinterpret_cast<CsBytecode *>(code);
+        }
+        return a->p_acode;
+    }
+};
+
+template<typename F>
+static void cs_do_args(CsState &cs, F body) {
+    CsIdentStack argstack[MaxArguments];
+    int argmask1 = cs.p_stack->usedargs;
+    for (int i = 0; argmask1; argmask1 >>= 1, ++i) {
+        if (argmask1 & 1) {
+            CsAliasInternal::undo_arg(
+                static_cast<CsAlias *>(cs.identmap[i]), argstack[i]
+            );
+        }
+    }
+    CsIdentLink *prevstack = cs.p_stack->next;
+    CsIdentLink aliaslink = {
+        cs.p_stack->id, cs.p_stack, prevstack->usedargs, prevstack->argstack
+    };
+    cs.p_stack = &aliaslink;
+    body();
+    prevstack->usedargs = aliaslink.usedargs;
+    cs.p_stack = aliaslink.next;
+    int argmask2 = cs.p_stack->usedargs;
+    for (int i = 0; argmask2; argmask2 >>= 1, ++i) {
+        if (argmask2 & 1) {
+            CsAliasInternal::redo_arg(
+                static_cast<CsAlias *>(cs.identmap[i]), argstack[i]
+            );
+        }
     }
 }
 

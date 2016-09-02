@@ -6,70 +6,6 @@
 
 namespace cscript {
 
-void CsAlias::push_arg(CsValue const &v, CsIdentStack &st, bool um) {
-    if (p_astack == &st) {
-        /* prevent cycles and unnecessary code elsewhere */
-        p_val.cleanup();
-        p_val = v;
-        clean_code();
-        return;
-    }
-    st.val_s = p_val;
-    st.next = p_astack;
-    p_astack = &st;
-    p_val = v;
-    clean_code();
-    if (um) {
-        p_flags &= ~IDF_UNKNOWN;
-    }
-}
-
-void CsAlias::pop_arg() {
-    if (!p_astack) {
-        return;
-    }
-    CsIdentStack *st = p_astack;
-    p_val.cleanup();
-    p_val = p_astack->val_s;
-    clean_code();
-    p_astack = st->next;
-}
-
-void CsAlias::undo_arg(CsIdentStack &st) {
-    CsIdentStack *prev = p_astack;
-    st.val_s = p_val;
-    st.next = prev;
-    p_astack = prev->next;
-    p_val = prev->val_s;
-    clean_code();
-}
-
-void CsAlias::redo_arg(CsIdentStack const &st) {
-    CsIdentStack *prev = st.next;
-    prev->val_s = p_val;
-    p_astack = prev;
-    p_val = st.val_s;
-    clean_code();
-}
-
-void CsAlias::set_arg(CsState &cs, CsValue &v) {
-    if (cs.p_stack->usedargs & (1 << get_index())) {
-        p_val.cleanup();
-        p_val = v;
-        clean_code();
-    } else {
-        push_arg(v, cs.p_stack->argstack[get_index()], false);
-        cs.p_stack->usedargs |= 1 << get_index();
-    }
-}
-
-void CsAlias::set_alias(CsState &cs, CsValue &v) {
-    p_val.cleanup();
-    p_val = v;
-    clean_code();
-    p_flags = (p_flags & cs.identflags) | cs.identflags;
-}
-
 static inline bool cs_has_cmd_cb(CsIdent *id) {
     if (!id->is_command() && !id->is_special()) {
         return false;
@@ -80,13 +16,13 @@ static inline bool cs_has_cmd_cb(CsIdent *id) {
 
 static inline void cs_push_alias(CsIdent *id, CsIdentStack &st) {
     if (id->is_alias() && (id->get_index() >= MaxArguments)) {
-        static_cast<CsAlias *>(id)->push_arg(null_value, st);
+        CsAliasInternal::push_arg(static_cast<CsAlias *>(id), null_value, st);
     }
 }
 
 static inline void cs_pop_alias(CsIdent *id) {
     if (id->is_alias() && (id->get_index() >= MaxArguments)) {
-        static_cast<CsAlias *>(id)->pop_arg();
+        CsAliasInternal::pop_arg(static_cast<CsAlias *>(id));
     }
 }
 
@@ -521,7 +457,8 @@ static inline void cs_call_alias(
     CsIvar *anargs = static_cast<CsIvar *>(cs.identmap[NumargsIdx]);
     CsIdentStack argstack[MaxArguments];
     for(int i = 0; i < callargs; i++) {
-        static_cast<CsAlias *>(cs.identmap[i])->push_arg(
+        CsAliasInternal::push_arg(
+            static_cast<CsAlias *>(cs.identmap[i]),
             args[offset + i], argstack[i], false
         );
     }
@@ -533,19 +470,23 @@ static inline void cs_call_alias(
         a, cs.p_stack, (1<<callargs)-1, argstack
     };
     cs.p_stack = &aliaslink;
-    ostd::Uint32 *codep = reinterpret_cast<ostd::Uint32 *>(a->compile_code(cs));
+    ostd::Uint32 *codep = reinterpret_cast<ostd::Uint32 *>(
+        CsAliasInternal::compile_code(a, cs)
+    );
     bcode_incr(codep);
     runcode(cs, codep+1, (result));
     bcode_decr(codep);
     cs.p_stack = aliaslink.next;
     cs.identflags = oldflags;
     for (int i = 0; i < callargs; i++) {
-        static_cast<CsAlias *>(cs.identmap[i])->pop_arg();
+        CsAliasInternal::pop_arg(static_cast<CsAlias *>(cs.identmap[i]));
     }
     int argmask = aliaslink.usedargs & (~0 << callargs);
     for (; argmask; ++callargs) {
         if (argmask & (1 << callargs)) {
-            static_cast<CsAlias *>(cs.identmap[callargs])->pop_arg();
+            CsAliasInternal::pop_arg(static_cast<CsAlias *>(
+                cs.identmap[callargs])
+            );
             argmask &= ~(1 << callargs);
         }
     }
@@ -1008,8 +949,9 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
             case CODE_IDENTARG: {
                 CsAlias *a = static_cast<CsAlias *>(cs.identmap[op >> 8]);
                 if (!(cs.p_stack->usedargs & (1 << a->get_index()))) {
-                    a->push_arg(
-                        null_value, cs.p_stack->argstack[a->get_index()], false
+                    CsAliasInternal::push_arg(
+                        a, null_value, cs.p_stack->argstack[a->get_index()],
+                        false
                     );
                     cs.p_stack->usedargs |= 1 << a->get_index();
                 }
@@ -1030,8 +972,9 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                     id->get_index() < MaxArguments &&
                     !(cs.p_stack->usedargs & (1 << id->get_index()))
                 ) {
-                    static_cast<CsAlias *>(id)->push_arg(
-                        null_value, cs.p_stack->argstack[id->get_index()], false
+                    CsAliasInternal::push_arg(
+                        static_cast<CsAlias *>(id), null_value,
+                        cs.p_stack->argstack[id->get_index()], false
                     );
                     cs.p_stack->usedargs |= 1 << id->get_index();
                 }
@@ -1468,12 +1411,14 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
             }
 
             case CODE_ALIAS:
-                static_cast<CsAlias *>(cs.identmap[op >> 8])->set_alias(
+                CsAliasInternal::set_alias(
+                    static_cast<CsAlias *>(cs.identmap[op >> 8]),
                     cs, args[--numargs]
                 );
                 continue;
             case CODE_ALIASARG:
-                static_cast<CsAlias *>(cs.identmap[op >> 8])->set_arg(
+                CsAliasInternal::set_arg(
+                    static_cast<CsAlias *>(cs.identmap[op >> 8]),
                     cs, args[--numargs]
                 );
                 continue;

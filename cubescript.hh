@@ -257,6 +257,7 @@ private:
 
 struct OSTD_EXPORT CsAlias: CsIdent {
     friend struct CsState;
+    friend struct CsAliasInternal;
 
     CsValue const &get_value() const {
         return p_val;
@@ -268,17 +269,6 @@ struct OSTD_EXPORT CsAlias: CsIdent {
 
     void get_cstr(CsValue &v) const;
     void get_cval(CsValue &v) const;
-
-    /* TODO: make all these internal */
-    void push_arg(CsValue const &v, CsIdentStack &st, bool um = true);
-    void pop_arg();
-    void undo_arg(CsIdentStack &st);
-    void redo_arg(CsIdentStack const &st);
-    void set_arg(CsState &cs, CsValue &v);
-    void set_alias(CsState &cs, CsValue &v);
-    void clean_code();
-    CsBytecode *compile_code(CsState &cs);
-
 private:
     CsAlias(ostd::ConstCharRange n, char *a, int flags);
     CsAlias(ostd::ConstCharRange n, CsInt a, int flags);
@@ -476,49 +466,15 @@ private:
 };
 
 struct OSTD_EXPORT CsStackedValue: CsValue {
-    CsStackedValue(CsIdent *id = nullptr):
-        CsValue(), p_a(nullptr), p_stack(), p_pushed(false)
-    {
-        set_alias(id);
-    }
+    CsStackedValue(CsIdent *id = nullptr);
+    ~CsStackedValue();
 
-    ~CsStackedValue() {
-        pop();
-    }
+    bool set_alias(CsIdent *id);
+    CsAlias *get_alias() const;
+    bool has_alias() const;
 
-    bool set_alias(CsIdent *id) {
-        if (!id || !id->is_alias()) {
-            return false;
-        }
-        p_a = static_cast<CsAlias *>(id);
-        return true;
-    }
-
-    CsAlias *get_alias() const {
-        return p_a;
-    }
-
-    bool has_alias() const {
-        return p_a != nullptr;
-    }
-
-    bool push() {
-        if (!p_a) {
-            return false;
-        }
-        p_a->push_arg(*this, p_stack);
-        p_pushed = true;
-        return true;
-    }
-
-    bool pop() {
-        if (!p_pushed || !p_a) {
-            return false;
-        }
-        p_a->pop_arg();
-        p_pushed = false;
-        return true;
-    }
+    bool push();
+    bool pop();
 
 private:
     CsAlias *p_a;
