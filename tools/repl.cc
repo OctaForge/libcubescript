@@ -163,8 +163,8 @@ static CsCommand *get_hint_cmd(ostd::ConstCharRange buf) {
 #include "tools/edit_fallback.hh"
 
 static void do_tty(CsState &cs) {
-    auto prompt = cs.add_ident<CsSvar>("PROMPT", "> ");
-    auto prompt2 = cs.add_ident<CsSvar>("PROMPT2", ">> ");
+    auto prompt = cs.new_svar("PROMPT", "> ");
+    auto prompt2 = cs.new_svar("PROMPT2", ">> ");
 
     bool do_exit = false;
     cs.add_command("quit", "", [&do_exit](auto, auto &) {

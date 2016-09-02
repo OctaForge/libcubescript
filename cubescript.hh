@@ -219,8 +219,7 @@ struct OSTD_EXPORT CsIvar: CsVar {
 
 private:
     CsIvar(
-        ostd::ConstCharRange n, CsInt m, CsInt x, CsInt v,
-        CsVarCb f = CsVarCb(), int flags = 0
+        ostd::ConstCharRange n, CsInt m, CsInt x, CsInt v, CsVarCb f, int flags
     );
 
     CsInt p_storage, p_minval, p_maxval, p_overrideval;
@@ -238,7 +237,7 @@ struct OSTD_EXPORT CsFvar: CsVar {
 private:
     CsFvar(
         ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat v,
-        CsVarCb f = CsVarCb(), int flags = 0
+        CsVarCb f, int flags
     );
 
     CsFloat p_storage, p_minval, p_maxval, p_overrideval;
@@ -251,10 +250,7 @@ struct OSTD_EXPORT CsSvar: CsVar {
     void set_value(CsString val);
 
 private:
-    CsSvar(
-        ostd::ConstCharRange n, CsString v, CsVarCb f = CsVarCb(),
-        int flags = 0
-    );
+    CsSvar(ostd::ConstCharRange n, CsString v, CsVarCb f, int flags);
 
     CsString p_storage, p_overrideval;
 };
@@ -295,7 +291,7 @@ private:
     CsValue p_val;
 };
 
-using CmdFunc = ostd::Function<void(CsValueRange, CsValue &)>;
+using CsCommandCb = ostd::Function<void(CsValueRange, CsValue &)>;
 
 struct CsCommand: CsIdent {
     friend struct CsState;
@@ -310,12 +306,12 @@ struct CsCommand: CsIdent {
 
     char *p_cargs;
     int p_numargs;
-    CmdFunc cb_cftv;
+    CsCommandCb cb_cftv;
 
 private:
     CsCommand(
-        int type, ostd::ConstCharRange name, ostd::ConstCharRange args,
-        int numargs, CmdFunc func
+        ostd::ConstCharRange name, ostd::ConstCharRange args,
+        int numargs, CsCommandCb func
     );
 };
 
@@ -355,10 +351,18 @@ struct OSTD_EXPORT CsState {
     CsIdent *new_ident(ostd::ConstCharRange name, int flags = IDF_UNKNOWN);
     CsIdent *force_ident(CsValue &v);
 
-    template<typename T, typename ...A>
-    T *add_ident(A &&...args) {
-        return static_cast<T *>(add_ident(new T(ostd::forward<A>(args)...)));
-    }
+    CsIvar *new_ivar(
+        ostd::ConstCharRange n, CsInt m, CsInt x, CsInt v,
+        CsVarCb f = CsVarCb(), int flags = 0
+    );
+    CsFvar *new_fvar(
+        ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat v,
+        CsVarCb f = CsVarCb(), int flags = 0
+    );
+    CsSvar *new_svar(
+        ostd::ConstCharRange n, CsString v,
+        CsVarCb f = CsVarCb(), int flags = 0
+    );
 
     CsIdent *get_ident(ostd::ConstCharRange name) {
         CsIdent **id = idents.at(name);
@@ -383,8 +387,8 @@ struct OSTD_EXPORT CsState {
     bool reset_var(ostd::ConstCharRange name);
     void touch_var(ostd::ConstCharRange name);
 
-    bool add_command(
-        ostd::ConstCharRange name, ostd::ConstCharRange args, CmdFunc func
+    CsCommand *add_command(
+        ostd::ConstCharRange name, ostd::ConstCharRange args, CsCommandCb func
     );
 
     CsString run_str(CsBytecode *code);
