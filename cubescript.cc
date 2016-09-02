@@ -101,7 +101,7 @@ CsCommand::CsCommand(
     int nargs, CsCommandCb f
 ):
     CsIdent(CsIdentType::command, name, 0),
-    p_cargs(cs_dup_ostr(args)), p_numargs(nargs), cb_cftv(ostd::move(f))
+    p_cargs(cs_dup_ostr(args)), p_numargs(nargs), p_cb_cftv(ostd::move(f))
 {}
 
 bool CsIdent::is_alias() const {

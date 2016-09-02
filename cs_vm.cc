@@ -75,7 +75,7 @@ static inline bool cs_has_cmd_cb(CsIdent *id) {
         return false;
     }
     CsCommand *cb = static_cast<CsCommand *>(id);
-    return !!cb->cb_cftv;
+    return !!cb->get_raw_cb();
 }
 
 static inline void cs_push_alias(CsIdent *id, CsIdentStack &st) {
@@ -483,12 +483,12 @@ static inline void callcommand(
                 cscript::util::tvals_concat(buf, ostd::iter(args, i), " ");
                 CsValue tv;
                 tv.set_mstr(buf.get().iter());
-                id->cb_cftv(CsValueRange(&tv, 1), res);
+                id->get_raw_cb()(CsValueRange(&tv, 1), res);
                 goto cleanup;
             }
             case 'V':
                 i = ostd::max(i + 1, numargs);
-                id->cb_cftv(ostd::iter(args, i), res);
+                id->get_raw_cb()(ostd::iter(args, i), res);
                 goto cleanup;
             case '1':
             case '2':
@@ -502,7 +502,7 @@ static inline void callcommand(
         }
     }
     ++i;
-    id->cb_cftv(CsValueRange(args, i), res);
+    id->get_raw_cb()(CsValueRange(args, i), res);
 cleanup:
     for (ostd::Size k = 0; k < ostd::Size(i); ++k) {
         args[k].cleanup();
@@ -1384,7 +1384,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 CsCommand *id = static_cast<CsCommand *>(cs.identmap[op >> 8]);
                 int offset = numargs - id->get_num_args();
                 result.force_null();
-                id->cb_cftv(
+                id->get_raw_cb()(
                     CsValueRange(args + offset, id->get_num_args()), result
                 );
                 force_arg(result, op & CODE_RET_MASK);
@@ -1399,7 +1399,9 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 CsCommand *id = static_cast<CsCommand *>(cs.identmap[op >> 13]);
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
                 result.force_null();
-                id->cb_cftv(ostd::iter(&args[offset], callargs), result);
+                id->get_raw_cb()(
+                    ostd::iter(&args[offset], callargs), result
+                );
                 force_arg(result, op & CODE_RET_MASK);
                 free_args(args, numargs, offset);
                 continue;
@@ -1418,7 +1420,9 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                     );
                     CsValue tv;
                     tv.set_mstr(buf.get().iter());
-                    id->cb_cftv(CsValueRange(&tv, 1), result);
+                    id->get_raw_cb()(
+                        CsValueRange(&tv, 1), result
+                    );
                 }
                 force_arg(result, op & CODE_RET_MASK);
                 free_args(args, numargs, offset);

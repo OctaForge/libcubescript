@@ -304,15 +304,19 @@ struct CsCommand: CsIdent {
         return p_numargs;
     }
 
-    char *p_cargs;
-    int p_numargs;
-    CsCommandCb cb_cftv;
+    CsCommandCb &get_raw_cb() {
+        return p_cb_cftv;
+    }
 
 private:
     CsCommand(
         ostd::ConstCharRange name, ostd::ConstCharRange args,
         int numargs, CsCommandCb func
     );
+
+    char *p_cargs;
+    int p_numargs;
+    CsCommandCb p_cb_cftv;
 };
 
 struct CsIdentLink {
