@@ -16,15 +16,6 @@ CsString floatstr(CsFloat v) {
     return static_cast<char const *>(buf);
 }
 
-char *cs_dup_ostr(ostd::ConstCharRange s) {
-    char *r = new char[s.size() + 1];
-    if (s.data()) {
-        memcpy(r, s.data(), s.size());
-    }
-    r[s.size()] = 0;
-    return r;
-}
-
 bool cs_check_num(ostd::ConstCharRange s) {
     if (isdigit(s[0])) {
         return true;
@@ -101,7 +92,7 @@ CsCommand::CsCommand(
     int nargs, CsCommandCb f
 ):
     CsIdent(CsIdentType::command, name, 0),
-    p_cargs(cs_dup_ostr(args)), p_numargs(nargs), p_cb_cftv(ostd::move(f))
+    p_cargs(args), p_cb_cftv(ostd::move(f)), p_numargs(nargs)
 {}
 
 bool CsIdent::is_alias() const {
@@ -353,8 +344,6 @@ CsState::~CsState() {
         if (a) {
             a->get_value().force_null();
             a->clean_code();
-        } else if (i->is_command() || i->is_special()) {
-            delete[] static_cast<CsCommand *>(i)->p_cargs;
         }
         delete i;
     }

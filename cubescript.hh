@@ -314,9 +314,9 @@ private:
         int numargs, CsCommandCb func
     );
 
-    char *p_cargs;
-    int p_numargs;
+    CsString p_cargs;
     CsCommandCb p_cb_cftv;
+    int p_numargs;
 };
 
 struct CsIdentLink {

@@ -8,7 +8,14 @@
 
 namespace cscript {
 
-char *cs_dup_ostr(ostd::ConstCharRange s);
+char *cs_dup_ostr(ostd::ConstCharRange s) {
+    char *r = new char[s.size() + 1];
+    if (s.data()) {
+        memcpy(r, s.data(), s.size());
+    }
+    r[s.size()] = 0;
+    return r;
+}
 
 static char const *parsestring(char const *p) {
     while (*p) {
