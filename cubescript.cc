@@ -243,6 +243,14 @@ void CsSvar::set_value(CsString val) {
     p_storage = ostd::move(val);
 }
 
+ostd::ConstCharRange CsCommand::get_args() const {
+    return p_cargs;
+}
+
+int CsCommand::get_num_args() const {
+    return p_numargs;
+}
+
 void cs_init_lib_base(CsState &cs);
 
 CsState::CsState(): p_out(&ostd::out), p_err(&ostd::err) {

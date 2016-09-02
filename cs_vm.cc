@@ -6,13 +6,19 @@
 
 namespace cscript {
 
-static inline bool cs_has_cmd_cb(CsIdent *id) {
-    if (!id->is_command() && !id->is_special()) {
-        return false;
+struct CsCommandInternal {
+    static void call(CsCommand *c, CsValueRange args, CsValue &ret) {
+        c->p_cb_cftv(args, ret);
     }
-    CsCommand *cb = static_cast<CsCommand *>(id);
-    return !!cb->get_raw_cb();
-}
+
+    static bool has_cb(CsIdent *id) {
+        if (!id->is_command() && !id->is_special()) {
+            return false;
+        }
+        CsCommand *cb = static_cast<CsCommand *>(id);
+        return !!cb->p_cb_cftv;
+    }
+};
 
 static inline void cs_push_alias(CsIdent *id, CsIdentStack &st) {
     if (id->is_alias() && (id->get_index() >= MaxArguments)) {
@@ -419,12 +425,12 @@ static inline void callcommand(
                 cscript::util::tvals_concat(buf, ostd::iter(args, i), " ");
                 CsValue tv;
                 tv.set_mstr(buf.get().iter());
-                id->get_raw_cb()(CsValueRange(&tv, 1), res);
+                CsCommandInternal::call(id, CsValueRange(&tv, 1), res);
                 goto cleanup;
             }
             case 'V':
                 i = ostd::max(i + 1, numargs);
-                id->get_raw_cb()(ostd::iter(args, i), res);
+                CsCommandInternal::call(id, ostd::iter(args, i), res);
                 goto cleanup;
             case '1':
             case '2':
@@ -438,7 +444,7 @@ static inline void callcommand(
         }
     }
     ++i;
-    id->get_raw_cb()(CsValueRange(args, i), res);
+    CsCommandInternal::call(id, CsValueRange(args, i), res);
 cleanup:
     for (ostd::Size k = 0; k < ostd::Size(i); ++k) {
         args[k].cleanup();
@@ -1327,8 +1333,8 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 CsCommand *id = static_cast<CsCommand *>(cs.identmap[op >> 8]);
                 int offset = numargs - id->get_num_args();
                 result.force_null();
-                id->get_raw_cb()(
-                    CsValueRange(args + offset, id->get_num_args()), result
+                CsCommandInternal::call(
+                    id, CsValueRange(args + offset, id->get_num_args()), result
                 );
                 force_arg(result, op & CODE_RET_MASK);
                 free_args(args, numargs, offset);
@@ -1342,8 +1348,8 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 CsCommand *id = static_cast<CsCommand *>(cs.identmap[op >> 13]);
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
                 result.force_null();
-                id->get_raw_cb()(
-                    ostd::iter(&args[offset], callargs), result
+                CsCommandInternal::call(
+                    id, ostd::iter(&args[offset], callargs), result
                 );
                 force_arg(result, op & CODE_RET_MASK);
                 free_args(args, numargs, offset);
@@ -1363,9 +1369,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                     );
                     CsValue tv;
                     tv.set_mstr(buf.get().iter());
-                    id->get_raw_cb()(
-                        CsValueRange(&tv, 1), result
-                    );
+                    CsCommandInternal::call(id, CsValueRange(&tv, 1), result);
                 }
                 force_arg(result, op & CODE_RET_MASK);
                 free_args(args, numargs, offset);
@@ -1501,7 +1505,7 @@ noid:
                 result.force_null();
                 switch (id->get_type_raw()) {
                     default:
-                        if (!cs_has_cmd_cb(id)) {
+                        if (!CsCommandInternal::has_cb(id)) {
                             free_args(args, numargs, offset - 1);
                             force_arg(result, op & CODE_RET_MASK);
                             continue;
@@ -1619,7 +1623,7 @@ void CsState::run_ret(CsIdent *id, CsValueRange args, CsValue &ret) {
     } else if (id) {
         switch (id->get_type()) {
             default:
-                if (!cs_has_cmd_cb(id)) {
+                if (!CsCommandInternal::has_cb(id)) {
                     break;
                 }
             /* fallthrough */

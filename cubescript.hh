@@ -285,18 +285,10 @@ using CsCommandCb = ostd::Function<void(CsValueRange, CsValue &)>;
 
 struct CsCommand: CsIdent {
     friend struct CsState;
+    friend struct CsCommandInternal;
 
-    ostd::ConstCharRange get_args() const {
-        return p_cargs;
-    }
-
-    int get_num_args() const {
-        return p_numargs;
-    }
-
-    CsCommandCb &get_raw_cb() {
-        return p_cb_cftv;
-    }
+    ostd::ConstCharRange get_args() const;
+    int get_num_args() const;
 
 private:
     CsCommand(
