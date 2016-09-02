@@ -7,6 +7,7 @@
 #include <ostd/string.hh>
 #include <ostd/vector.hh>
 #include <ostd/map.hh>
+#include <ostd/stream.hh>
 
 namespace cscript {
     template<typename T>
@@ -24,6 +25,8 @@ namespace cscript {
 
     template<typename T>
     using CsVector = ostd::Vector<T, CsAllocator<T>>;
+
+    using CsStream = ostd::Stream;
 
     constexpr CsInt const CsIntMin = INT_MIN;
     constexpr CsInt const CsIntMax = INT_MAX;

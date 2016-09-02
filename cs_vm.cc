@@ -139,9 +139,9 @@ void cs_debug_alias(CsState &cs) {
         CsIdent *id = l->id;
         ++depth;
         if (depth < dalias->get_value()) {
-            ostd::err.writefln("  %d) %s", total - depth + 1, id->get_name());
+            cs.get_err().writefln("  %d) %s", total - depth + 1, id->get_name());
         } else if (l->next == &cs.noalias) {
-            ostd::err.writefln(
+            cs.get_err().writefln(
                 depth == dalias->get_value() ? "  %d) %s" : "  ..%d) %s",
                 total - depth + 1, id->get_name()
             );

@@ -119,7 +119,7 @@ void cs_debug_code(CsState &cs, ostd::ConstCharRange fmt, A &&...args) {
     if (cs.nodebug) {
         return;
     }
-    ostd::err.writefln(fmt, ostd::forward<A>(args)...);
+    cs.get_err().writefln(fmt, ostd::forward<A>(args)...);
     cs_debug_alias(cs);
 }
 
@@ -131,7 +131,7 @@ void cs_debug_code_line(
         return;
     }
     ostd::Array<char, 256> buf;
-    ostd::err.writefln(
+    cs.get_err().writefln(
         cs_debug_line(p, fmt, ostd::CharRange(buf.data(), buf.size())),
         ostd::forward<A>(args)...
     );

@@ -176,7 +176,7 @@ static void do_tty(CsState &cs) {
         bool ret = cs.run_file(file);
         if (!ret) {
             if (args[1].get_int()) {
-                ostd::err.writefln("could not run file \"%s\"", file);
+                cs.get_err().writefln("could not run file \"%s\"", file);
             }
             res.set_int(0);
         } else {
@@ -184,8 +184,8 @@ static void do_tty(CsState &cs) {
         }
     });
 
-    cs.new_command("echo", "C", [](CsValueRange args, CsValue &) {
-        ostd::writeln(args[0].get_strr());
+    cs.new_command("echo", "C", [&cs](CsValueRange args, CsValue &) {
+        cs.get_out().writeln(args[0].get_strr());
     });
 
     ostd::writeln(version);

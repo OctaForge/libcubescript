@@ -254,7 +254,7 @@ void CsSvar::set_value(CsString val) {
 
 void cs_init_lib_base(CsState &cs);
 
-CsState::CsState() {
+CsState::CsState(): p_out(&ostd::out), p_err(&ostd::err) {
     noalias.id = nullptr;
     noalias.next = nullptr;
     noalias.usedargs = (1 << MaxArguments) - 1;
@@ -358,6 +358,30 @@ CsState::~CsState() {
         }
         delete i;
     }
+}
+
+CsStream const &CsState::get_out() const {
+    return *p_out;
+}
+
+CsStream &CsState::get_out() {
+    return *p_out;
+}
+
+void CsState::set_out(CsStream &s) {
+    p_out = &s;
+}
+
+CsStream const &CsState::get_err() const {
+    return *p_err;
+}
+
+CsStream &CsState::get_err() {
+    return *p_err;
+}
+
+void CsState::set_err(CsStream &s) {
+    p_err = &s;
 }
 
 void CsState::clear_override(CsIdent &id) {
@@ -523,34 +547,36 @@ void CsState::set_alias(ostd::ConstCharRange name, CsValue &v) {
     }
 }
 
-void CsState::print_var_int(CsIvar *iv, CsInt i) {
+void CsState::print_var(CsIvar *iv) {
+    CsInt i = iv->get_value();
     if (i < 0) {
-        writefln("%s = %d", iv->get_name(), i);
+        get_out().writefln("%s = %d", iv->get_name(), i);
         return;
     }
     if (iv->get_flags() & IDF_HEX) {
         if (iv->get_val_max() == 0xFFFFFF) {
-            writefln(
+            get_out().writefln(
                 "%s = 0x%.6X (%d, %d, %d)", iv->get_name(),
                 i, (i >> 16) & 0xFF, (i >> 8) & 0xFF, i & 0xFF
             );
         } else {
-            writefln("%s = 0x%X", iv->get_name(), i);
+            get_out().writefln("%s = 0x%X", iv->get_name(), i);
         }
     } else {
-        writefln("%s = %d", iv->get_name(), i);
+        get_out().writefln("%s = %d", iv->get_name(), i);
     }
 }
 
-void CsState::print_var_float(CsFvar *fv, CsFloat f) {
-    writefln("%s = %s", fv->get_name(), floatstr(f));
+void CsState::print_var(CsFvar *fv) {
+    get_out().writefln("%s = %s", fv->get_name(), floatstr(fv->get_value()));
 }
 
-void CsState::print_var_str(CsSvar *sv, ostd::ConstCharRange s) {
-    if (ostd::find(s, '"').empty()) {
-        writefln("%s = \"%s\"", sv->get_name(), s);
+void CsState::print_var(CsSvar *sv) {
+    ostd::ConstCharRange sval = sv->get_value();
+    if (ostd::find(sval, '"').empty()) {
+        get_out().writefln("%s = \"%s\"", sv->get_name(), sval);
     } else {
-        writefln("%s = [%s]", sv->get_name(), s);
+        get_out().writefln("%s = [%s]", sv->get_name(), sval);
     }
 }
 
@@ -558,17 +584,17 @@ void CsState::print_var(CsVar *v) {
     switch (v->get_type()) {
         case CsIdentType::ivar: {
             CsIvar *iv = static_cast<CsIvar *>(v);
-            print_var_int(iv, iv->get_value());
+            print_var(iv);
             break;
         }
         case CsIdentType::fvar: {
             CsFvar *fv = static_cast<CsFvar *>(v);
-            print_var_float(fv, fv->get_value());
+            print_var(fv);
             break;
         }
         case CsIdentType::svar: {
             CsSvar *sv = static_cast<CsSvar *>(v);
-            print_var_str(sv, sv->get_value());
+            print_var(sv);
             break;
         }
         default:
@@ -1234,7 +1260,7 @@ CsCommand *CsState::new_command(
             case 'V':
                 break;
             default:
-                ostd::err.writefln(
+                get_err().writefln(
                     "builtin %s declared with illegal type: %c",
                     name, fmt.front()
                 );

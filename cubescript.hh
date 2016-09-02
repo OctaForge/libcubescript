@@ -342,6 +342,14 @@ struct OSTD_EXPORT CsState {
     CsState();
     ~CsState();
 
+    CsStream const &get_out() const;
+    CsStream &get_out();
+    void set_out(CsStream &s);
+
+    CsStream const &get_err() const;
+    CsStream &get_err();
+    void set_err(CsStream &s);
+
     void init_libs(int libs = CS_LIB_ALL);
 
     void clear_override(CsIdent &id);
@@ -453,12 +461,14 @@ struct OSTD_EXPORT CsState {
     ostd::Maybe<CsString> get_alias_val(ostd::ConstCharRange name);
 
     void print_var(CsVar *v);
-    void print_var_int(CsIvar *iv, CsInt i);
-    void print_var_float(CsFvar *fv, CsFloat f);
-    void print_var_str(CsSvar *sv, ostd::ConstCharRange s);
+    virtual void print_var(CsIvar *iv);
+    virtual void print_var(CsFvar *fv);
+    virtual void print_var(CsSvar *sv);
 
 private:
     CsIdent *add_ident(CsIdent *id);
+
+    CsStream *p_out, *p_err;
 };
 
 struct OSTD_EXPORT CsStackedValue: CsValue {
