@@ -40,6 +40,6 @@ builds the REPL.
 The project also bundles the linenoise line editing library which has been modified
 to compile cleanly as C++ (with the same flags as libcubescript). It's used strictly
 for the REPL only (you don't need it to build libcubescript itself). The version
-in the repository tracks Git revision c894b9e59f02203dbe4e2be657572cf88c4230c3.
+in the repository tracks Git revision https://github.com/antirez/linenoise/commit/c894b9e59f02203dbe4e2be657572cf88c4230c3.
 
 See COPYING.md for licensing information.
