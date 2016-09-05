@@ -6,6 +6,7 @@
 
 #include <errno.h>
 #include <ctype.h>
+#include <signal.h>
 
 #include <ostd/string.hh>
 #include <ostd/maybe.hh>
@@ -68,6 +69,7 @@ static ostd::Maybe<ostd::String> read_line(CsSvar *pr) {
     if (!line) {
         /* linenoise traps ctrl-c, detect it and let the user exit */
         if (errno == EAGAIN) {
+            raise(SIGINT);
             return ostd::nothing;
         }
         return ostd::String();

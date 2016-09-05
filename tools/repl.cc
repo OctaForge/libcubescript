@@ -1,3 +1,5 @@
+#include <signal.h>
+
 #include <ostd/platform.hh>
 #include <ostd/io.hh>
 #include <ostd/string.hh>
@@ -162,6 +164,38 @@ static CsCommand *get_hint_cmd(ostd::ConstCharRange buf) {
 #include "tools/edit_readline.hh"
 #include "tools/edit_fallback.hh"
 
+struct InterruptedException {
+};
+
+static void do_sigint(int n) {
+    /* in case another SIGINT happens, terminate normally */
+    signal(n, SIG_DFL);
+    if (gcs) {
+        gcs->set_call_hook([]() {
+            gcs->set_call_hook(nullptr);
+            throw InterruptedException{};
+        });
+    }
+}
+
+static void do_call(CsState &cs, ostd::ConstCharRange line) {
+    CsValue ret;
+    ret.set_null();
+    signal(SIGINT, do_sigint);
+    try {
+        cs.run_ret(line, ret);
+    } catch (InterruptedException) {
+        signal(SIGINT, SIG_DFL);
+        ret.cleanup();
+        ostd::writeln("<execution interrupted>");
+        return;
+    }
+    signal(SIGINT, SIG_DFL);
+    if (ret.get_type() != CsValueType::null) {
+        ostd::writeln(ret.get_str());
+    }
+}
+
 static void do_tty(CsState &cs) {
     auto prompt = cs.new_svar("PROMPT", "> ");
     auto prompt2 = cs.new_svar("PROMPT2", ">> ");
@@ -207,12 +241,7 @@ static void do_tty(CsState &cs) {
             lv += line2.value();
         }
         add_history(lv);
-        CsValue ret;
-        ret.set_null();
-        cs.run_ret(lv, ret);
-        if (ret.get_type() != CsValueType::null) {
-            ostd::writeln(ret.get_str());
-        }
+        do_call(cs, lv);
         if (do_exit) {
             return;
         }
