@@ -315,6 +315,8 @@ enum {
     CS_LIB_ALL    = 0b111
 };
 
+using CsHookCb = ostd::Function<void()>;
+
 struct OSTD_EXPORT CsState {
     CsMap<ostd::ConstCharRange, CsIdent *> idents;
     CsVector<CsIdent *> identmap;
@@ -335,6 +337,10 @@ struct OSTD_EXPORT CsState {
     CsStream const &get_err() const;
     CsStream &get_err();
     void set_err(CsStream &s);
+
+    CsHookCb set_call_hook(CsHookCb func);
+    CsHookCb const &get_call_hook() const;
+    CsHookCb &get_call_hook();
 
     void init_libs(int libs = CS_LIB_ALL);
 
@@ -454,6 +460,7 @@ struct OSTD_EXPORT CsState {
 private:
     CsIdent *add_ident(CsIdent *id);
 
+    CsHookCb p_callhook;
     CsStream *p_out, *p_err;
 };
 

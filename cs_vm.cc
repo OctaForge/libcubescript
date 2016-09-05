@@ -581,6 +581,10 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
     ++rundepth;
     int numargs = 0;
     CsValue args[MaxArguments + MaxResults];
+    auto &chook = cs.get_call_hook();
+    if (chook) {
+        chook();
+    }
     for (;;) {
         ostd::Uint32 op = *code++;
         switch (op & 0xFF) {

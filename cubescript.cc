@@ -381,6 +381,20 @@ void CsState::set_err(CsStream &s) {
     p_err = &s;
 }
 
+CsHookCb CsState::set_call_hook(CsHookCb func) {
+    auto hk = ostd::move(p_callhook);
+    p_callhook = ostd::move(func);
+    return hk;
+}
+
+CsHookCb const &CsState::get_call_hook() const {
+    return p_callhook;
+}
+
+CsHookCb &CsState::get_call_hook() {
+    return p_callhook;
+}
+
 void CsState::clear_override(CsIdent &id) {
     if (!(id.get_flags() & IDF_OVERRIDDEN)) {
         return;
