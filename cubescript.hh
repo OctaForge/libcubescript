@@ -100,14 +100,7 @@ struct OSTD_EXPORT CsValue {
     void copy_arg(CsValue &r) const;
 
 private:
-    union {
-        CsInt p_i;
-        CsFloat p_f;
-        CsBytecode *p_code;
-        CsIdent *p_id;
-        char *p_s;
-        char const *p_cstr;
-    };
+    ostd::AlignedUnion<1, CsInt, CsFloat, void *> p_stor;
     ostd::Size p_len;
     CsValueType p_type;
 };
@@ -138,6 +131,9 @@ struct OSTD_EXPORT CsIdent {
     CsIdent() = delete;
     CsIdent(CsIdent const &) = delete;
     CsIdent(CsIdent &&) = delete;
+
+    /* trigger destructors for all inherited members properly */
+    virtual ~CsIdent() {};
 
     CsIdent &operator=(CsIdent const &) = delete;
     CsIdent &operator=(CsIdent &&) = delete;

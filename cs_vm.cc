@@ -260,32 +260,13 @@ static ostd::Uint32 *skipcode(
     }
 }
 
-void CsValue::copy_arg(CsValue &r) const {
-    r.cleanup();
-    switch (get_type()) {
-        case CsValueType::integer:
-        case CsValueType::number:
-        case CsValueType::ident:
-            r = *this;
-            break;
-        case CsValueType::string:
-        case CsValueType::cstring:
-        case CsValueType::macro:
-            r.set_str(ostd::ConstCharRange(p_s, p_len));
-            break;
-        case CsValueType::code: {
-            ostd::Uint32 *bcode = reinterpret_cast<ostd::Uint32 *>(r.get_code());
-            ostd::Uint32 *end = skipcode(bcode);
-            ostd::Uint32 *dst = new ostd::Uint32[end - bcode + 1];
-            *dst++ = CODE_START;
-            memcpy(dst, bcode, (end - bcode) * sizeof(ostd::Uint32));
-            r.set_code(reinterpret_cast<CsBytecode *>(dst));
-            break;
-        }
-        default:
-            r.set_null();
-            break;
-    }
+CsBytecode *cs_copy_code(CsBytecode *c) {
+    ostd::Uint32 *bcode = reinterpret_cast<ostd::Uint32 *>(c);
+    ostd::Uint32 *end = skipcode(bcode);
+    ostd::Uint32 *dst = new ostd::Uint32[end - bcode + 1];
+    *dst++ = CODE_START;
+    memcpy(dst, bcode, (end - bcode) * sizeof(ostd::Uint32));
+    return reinterpret_cast<CsBytecode *>(dst);
 }
 
 static inline void callcommand(

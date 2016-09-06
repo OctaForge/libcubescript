@@ -348,6 +348,8 @@ static void cs_do_args(CsState &cs, F body) {
     }
 }
 
+CsBytecode *cs_copy_code(CsBytecode *c);
+
 } /* namespace cscript */
 
 #endif /* LIBCUBESCRIPT_CS_VM_HH */

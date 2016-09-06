@@ -194,6 +194,7 @@ static void do_call(CsState &cs, ostd::ConstCharRange line) {
     if (ret.get_type() != CsValueType::null) {
         ostd::writeln(ret.get_str());
     }
+    ret.cleanup();
 }
 
 static void do_tty(CsState &cs) {
