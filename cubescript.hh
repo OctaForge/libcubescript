@@ -65,6 +65,20 @@ enum class CsValueType {
 };
 
 struct OSTD_EXPORT CsValue {
+    CsValue();
+
+    CsValue(CsValue const &);
+    CsValue(CsValue &&);
+
+    CsValue &operator=(CsValue const &v);
+    CsValue &operator=(CsValue &&v);
+
+    void v_copy_no_alloc(CsValue const &v) {
+        memcpy(&p_stor, &v.p_stor, sizeof(p_stor));
+        p_len = v.p_len;
+        p_type = v.p_type;
+    }
+
     CsValueType get_type() const;
 
     void set_int(CsInt val);
@@ -76,8 +90,6 @@ struct OSTD_EXPORT CsValue {
     void set_mstr(ostd::CharRange val);
     void set_ident(CsIdent *val);
     void set_macro(ostd::ConstCharRange val);
-
-    void set(CsValue &tv);
 
     CsString get_str() const;
     ostd::ConstCharRange get_strr() const;
@@ -97,7 +109,6 @@ struct OSTD_EXPORT CsValue {
     bool code_is_empty() const;
 
     void cleanup();
-    void copy_arg(CsValue &r) const;
 
 private:
     ostd::AlignedUnion<1, CsInt, CsFloat, void *> p_stor;
@@ -463,6 +474,15 @@ private:
 struct OSTD_EXPORT CsStackedValue: CsValue {
     CsStackedValue(CsIdent *id = nullptr);
     ~CsStackedValue();
+
+    CsStackedValue(CsStackedValue const &) = delete;
+    CsStackedValue(CsStackedValue &&) = delete;
+
+    CsStackedValue &operator=(CsStackedValue const &) = delete;
+    CsStackedValue &operator=(CsStackedValue &&v) = delete;
+
+    CsStackedValue &operator=(CsValue const &v);
+    CsStackedValue &operator=(CsValue &&v);
 
     bool set_alias(CsIdent *id);
     CsAlias *get_alias() const;

@@ -642,7 +642,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 force_arg(result, op & CODE_RET_MASK);
             /* fallthrough */
             case CODE_RESULT_ARG | RET_NULL:
-                args[numargs++] = result;
+                args[numargs++].v_copy_no_alloc(result);
                 result.set_null();
                 continue;
             case CODE_PRINT:
@@ -713,7 +713,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                     cs.run_ret(args[numargs].get_code(), result);
                     args[numargs].cleanup();
                 } else {
-                    result = args[numargs];
+                    result.v_copy_no_alloc(args[numargs]);
                 }
                 if (result.get_bool()) {
                     code += len;
@@ -728,7 +728,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                     cs.run_ret(args[numargs].get_code(), result);
                     args[numargs].cleanup();
                 } else {
-                    result = args[numargs];
+                    result.v_copy_no_alloc(args[numargs]);
                 }
                 if (!result.get_bool()) {
                     code += len;
@@ -810,13 +810,13 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
 
             case CODE_RESULT | RET_NULL:
                 result.cleanup();
-                result = args[--numargs];
+                result.v_copy_no_alloc(args[--numargs]);
                 continue;
             case CODE_RESULT | RET_STR:
             case CODE_RESULT | RET_INT:
             case CODE_RESULT | RET_FLOAT:
                 result.cleanup();
-                result = args[--numargs];
+                result.v_copy_no_alloc(args[--numargs]);
                 force_arg(result, op & CODE_RET_MASK);
                 continue;
 
@@ -1443,7 +1443,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 ) {
 litval:
                     result.cleanup();
-                    result = idarg;
+                    result.v_copy_no_alloc(idarg);
                     force_arg(result, op & CODE_RET_MASK);
                     while (--numargs >= offset) {
                         args[numargs].cleanup();

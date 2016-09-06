@@ -237,14 +237,14 @@ struct CsAliasInternal {
         if (a->p_astack == &st) {
             /* prevent cycles and unnecessary code elsewhere */
             a->p_val.cleanup();
-            a->p_val = v;
+            a->p_val.v_copy_no_alloc(v);
             clean_code(a);
             return;
         }
-        st.val_s = a->p_val;
+        st.val_s.v_copy_no_alloc(a->p_val);
         st.next = a->p_astack;
         a->p_astack = &st;
-        a->p_val = v;
+        a->p_val.v_copy_no_alloc(v);
         clean_code(a);
         if (um) {
             a->p_flags &= ~IDF_UNKNOWN;
@@ -257,32 +257,32 @@ struct CsAliasInternal {
         }
         CsIdentStack *st = a->p_astack;
         a->p_val.cleanup();
-        a->p_val = a->p_astack->val_s;
+        a->p_val.v_copy_no_alloc(a->p_astack->val_s);
         clean_code(a);
         a->p_astack = st->next;
     }
 
     static void undo_arg(CsAlias *a, CsIdentStack &st) {
         CsIdentStack *prev = a->p_astack;
-        st.val_s = a->p_val;
+        st.val_s.v_copy_no_alloc(a->p_val);
         st.next = prev;
         a->p_astack = prev->next;
-        a->p_val = prev->val_s;
+        a->p_val.v_copy_no_alloc(prev->val_s);
         clean_code(a);
     }
 
     static void redo_arg(CsAlias *a, CsIdentStack const &st) {
         CsIdentStack *prev = st.next;
-        prev->val_s = a->p_val;
+        prev->val_s.v_copy_no_alloc(a->p_val);
         a->p_astack = prev;
-        a->p_val = st.val_s;
+        a->p_val.v_copy_no_alloc(st.val_s);
         clean_code(a);
     }
 
     static void set_arg(CsAlias *a, CsState &cs, CsValue &v) {
         if (cs.p_stack->usedargs & (1 << a->get_index())) {
             a->p_val.cleanup();
-            a->p_val = v;
+            a->p_val.v_copy_no_alloc(v);
             clean_code(a);
         } else {
             push_arg(a, v, cs.p_stack->argstack[a->get_index()], false);
@@ -292,7 +292,7 @@ struct CsAliasInternal {
 
     static void set_alias(CsAlias *a, CsState &cs, CsValue &v) {
         a->p_val.cleanup();
-        a->p_val = v;
+        a->p_val.v_copy_no_alloc(v);
         clean_code(a);
         a->p_flags = (a->p_flags & cs.identflags) | cs.identflags;
     }

@@ -83,8 +83,10 @@ CsAlias::CsAlias(ostd::ConstCharRange name, int fl):
 }
 CsAlias::CsAlias(ostd::ConstCharRange name, CsValue const &v, int fl):
     CsIdent(CsIdentType::alias, name, fl),
-    p_acode(nullptr), p_astack(nullptr), p_val(v)
-{}
+    p_acode(nullptr), p_astack(nullptr), p_val()
+{
+    p_val.v_copy_no_alloc(v);
+}
 
 CsCommand::CsCommand(
     ostd::ConstCharRange name, ostd::ConstCharRange args,
@@ -288,9 +290,7 @@ CsState::CsState(): p_out(&ostd::out), p_err(&ostd::err) {
     })->p_type = ID_IF;
 
     new_command("result", "T", [](CsValueRange args, CsValue &res) {
-        CsValue &v = args[0];
-        res = v;
-        v.set_null();
+        res = ostd::move(args[0]);
     })->p_type = ID_RESULT;
 
     new_command("!", "t", [](CsValueRange args, CsValue &res) {
@@ -302,14 +302,11 @@ CsState::CsState(): p_out(&ostd::out), p_err(&ostd::err) {
             res.set_int(1);
         } else {
             for (ostd::Size i = 0; i < args.size(); ++i) {
-                if (i) {
-                    res.cleanup();
-                }
                 CsBytecode *code = args[i].get_code();
                 if (code) {
                     run_ret(code, res);
                 } else {
-                    res = args[i];
+                    res = ostd::move(args[i]);
                 }
                 if (!res.get_bool()) {
                     break;
@@ -323,14 +320,11 @@ CsState::CsState(): p_out(&ostd::out), p_err(&ostd::err) {
             res.set_int(0);
         } else {
             for (ostd::Size i = 0; i < args.size(); ++i) {
-                if (i) {
-                    res.cleanup();
-                }
                 CsBytecode *code = args[i].get_code();
                 if (code) {
                     run_ret(code, res);
                 } else {
-                    res = args[i];
+                    res = ostd::move(args[i]);
                 }
                 if (res.get_bool()) {
                     break;
@@ -668,50 +662,6 @@ int CsIdent::get_flags() const {
 
 int CsIdent::get_index() const {
     return p_index;
-}
-
-CsStackedValue::CsStackedValue(CsIdent *id):
-    CsValue(), p_a(nullptr), p_stack(), p_pushed(false)
-{
-    set_alias(id);
-}
-
-CsStackedValue::~CsStackedValue() {
-    pop();
-}
-
-bool CsStackedValue::set_alias(CsIdent *id) {
-    if (!id || !id->is_alias()) {
-        return false;
-    }
-    p_a = static_cast<CsAlias *>(id);
-    return true;
-}
-
-CsAlias *CsStackedValue::get_alias() const {
-    return p_a;
-}
-
-bool CsStackedValue::has_alias() const {
-    return p_a != nullptr;
-}
-
-bool CsStackedValue::push() {
-    if (!p_a) {
-        return false;
-    }
-    CsAliasInternal::push_arg(p_a, *this, p_stack);
-    p_pushed = true;
-    return true;
-}
-
-bool CsStackedValue::pop() {
-    if (!p_pushed || !p_a) {
-        return false;
-    }
-    CsAliasInternal::pop_arg(p_a);
-    p_pushed = false;
-    return true;
 }
 
 template<typename SF>
@@ -1077,7 +1027,11 @@ static inline void cs_loop_conc(
 
 void cs_init_lib_base(CsState &cs) {
     cs.new_command("?", "tTT", [](CsValueRange args, CsValue &res) {
-        res.set(args[0].get_bool() ? args[1] : args[2]);
+        if (args[0].get_bool()) {
+            res = ostd::move(args[1]);
+        } else {
+            res = ostd::move(args[2]);
+        }
     });
 
     cs.new_command("cond", "ee2V", [&cs](CsValueRange args, CsValue &res) {
@@ -1139,7 +1093,7 @@ void cs_init_lib_base(CsState &cs) {
             return;
         }
         if (args[1].get_bool()) {
-            idv.set(args[1]);
+            idv = ostd::move(args[1]);
             idv.push();
             cs.run_ret(args[2].get_code(), res);
         }
@@ -1275,7 +1229,7 @@ void cs_init_lib_base(CsState &cs) {
         if (!idv.has_alias() || (idv.get_alias()->get_index() < MaxArguments)) {
             return;
         }
-        idv.set(args[1]);
+        idv = ostd::move(args[1]);
         idv.push();
         cs.run_ret(args[2].get_code(), res);
     });
