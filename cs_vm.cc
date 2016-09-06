@@ -160,7 +160,6 @@ static inline ostd::Uint32 *forcecode(CsState &cs, CsValue &v) {
         GenState gs(cs);
         gs.code.reserve(64);
         gs.gen_main(v.get_str());
-        v.cleanup();
         v.set_code(reinterpret_cast<CsBytecode *>(gs.code.disown() + 1));
         code = reinterpret_cast<ostd::Uint32 *>(v.get_code());
     }
@@ -389,15 +388,11 @@ static inline void callcommand(
                 }
                 break;
             case '$':
-                if (++i < numargs) {
-                    args[i].cleanup();
-                }
+                i += 1;
                 args[i].set_ident(id);
                 break;
             case 'N':
-                if (++i < numargs) {
-                    args[i].cleanup();
-                }
+                i += 1;
                 args[i].set_int(CsInt(lookup ? -1 : i - fakeargs));
                 break;
             case 'C': {
@@ -574,65 +569,52 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 continue;
 
             case CODE_NULL | RET_NULL:
-                result.cleanup();
                 result.set_null();
                 continue;
             case CODE_NULL | RET_STR:
-                result.cleanup();
                 result.set_str("");
                 continue;
             case CODE_NULL | RET_INT:
-                result.cleanup();
                 result.set_int(0);
                 continue;
             case CODE_NULL | RET_FLOAT:
-                result.cleanup();
                 result.set_float(0.0f);
                 continue;
 
             case CODE_FALSE | RET_STR:
-                result.cleanup();
                 result.set_str("0");
                 continue;
             case CODE_FALSE | RET_NULL:
             case CODE_FALSE | RET_INT:
-                result.cleanup();
                 result.set_int(0);
                 continue;
             case CODE_FALSE | RET_FLOAT:
-                result.cleanup();
                 result.set_float(0.0f);
                 continue;
 
             case CODE_TRUE | RET_STR:
-                result.cleanup();
                 result.set_str("1");
                 continue;
             case CODE_TRUE | RET_NULL:
             case CODE_TRUE | RET_INT:
-                result.cleanup();
                 result.set_int(1);
                 continue;
             case CODE_TRUE | RET_FLOAT:
-                result.cleanup();
                 result.set_float(1.0f);
                 continue;
 
             case CODE_NOT | RET_STR:
-                result.cleanup();
                 --numargs;
                 result.set_str(args[numargs].get_bool() ? "0" : "1");
                 args[numargs].cleanup();
                 continue;
             case CODE_NOT | RET_NULL:
             case CODE_NOT | RET_INT:
-                result.cleanup();
                 --numargs;
                 result.set_int(!args[numargs].get_bool());
                 args[numargs].cleanup();
                 continue;
             case CODE_NOT | RET_FLOAT:
-                result.cleanup();
                 --numargs;
                 result.set_float(CsFloat(!args[numargs].get_bool()));
                 args[numargs].cleanup();
@@ -645,7 +627,6 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 code = runcode(cs, code, args[numargs++]);
                 continue;
             case CODE_ENTER_RESULT:
-                result.cleanup();
                 code = runcode(cs, code, result);
                 continue;
             case CODE_EXIT | RET_STR:
@@ -669,7 +650,6 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 continue;
 
             case CODE_LOCAL: {
-                result.cleanup();
                 int numlocals = op >> 8, offset = numargs - numlocals;
                 CsIdentStack locals[MaxArguments];
                 for (int i = 0; i < numlocals; ++i) {
@@ -688,7 +668,6 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
             case CODE_DOARGS | RET_FLOAT:
                 if (cs.p_stack != &cs.noalias) {
                     cs_do_args(cs, [&]() {
-                        result.cleanup();
                         cs.run_ret(args[--numargs].get_code(), result);
                         args[numargs].cleanup();
                         force_arg(result, op & CODE_RET_MASK);
@@ -700,7 +679,6 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
             case CODE_DO | RET_STR:
             case CODE_DO | RET_INT:
             case CODE_DO | RET_FLOAT:
-                result.cleanup();
                 cs.run_ret(args[--numargs].get_code(), result);
                 args[numargs].cleanup();
                 force_arg(result, op & CODE_RET_MASK);
@@ -893,7 +871,6 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                     case CsValueType::cstring:
                         gs.code.reserve(64);
                         gs.gen_main(arg.get_strr());
-                        arg.cleanup();
                         break;
                     default:
                         gs.code.reserve(8);
@@ -919,7 +896,6 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                             GenState gs(cs);
                             gs.code.reserve(64);
                             gs.gen_main(s);
-                            arg.cleanup();
                             arg.set_code(reinterpret_cast<CsBytecode *>(
                                 gs.code.disown() + 1
                             ));
@@ -969,7 +945,6 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                     );
                     cs.p_stack->usedargs |= 1 << id->get_index();
                 }
-                arg.cleanup();
                 arg.set_ident(id);
                 continue;
             }

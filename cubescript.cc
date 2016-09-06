@@ -401,7 +401,6 @@ void CsState::clear_override(CsIdent &id) {
     switch (id.get_type()) {
         case CsIdentType::alias: {
             CsAlias &a = static_cast<CsAlias &>(id);
-            a.get_value().cleanup();
             CsAliasInternal::clean_code(&a);
             a.get_value().set_str("");
             break;
@@ -467,14 +466,12 @@ CsIdent *CsState::force_ident(CsValue &v) {
         case CsValueType::cstring:
         case CsValueType::string: {
             CsIdent *id = new_ident(v.get_strr());
-            v.cleanup();
             v.set_ident(id);
             return id;
         }
         default:
             break;
     }
-    v.cleanup();
     v.set_ident(identmap[DummyIdx]);
     return identmap[DummyIdx];
 }

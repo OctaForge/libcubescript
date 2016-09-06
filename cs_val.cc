@@ -25,6 +25,7 @@ void CsValue::cleanup() {
         default:
             break;
     }
+    p_type = CsValueType::null;
 }
 
 CsValueType CsValue::get_type() const {
@@ -32,11 +33,13 @@ CsValueType CsValue::get_type() const {
 }
 
 void CsValue::set_int(CsInt val) {
+    cleanup();
     p_type = CsValueType::integer;
     csv_get<CsInt>(p_stor) = val;
 }
 
 void CsValue::set_float(CsFloat val) {
+    cleanup();
     p_type = CsValueType::number;
     csv_get<CsFloat>(p_stor) = val;
 }
@@ -55,39 +58,45 @@ void CsValue::set_str(CsString val) {
 }
 
 void CsValue::set_null() {
-    p_type = CsValueType::null;
+    cleanup();
     csv_get<CsBytecode *>(p_stor) = nullptr;
 }
 
 void CsValue::set_code(CsBytecode *val) {
+    cleanup();
     p_type = CsValueType::code;
     csv_get<CsBytecode *>(p_stor) = val;
 }
 
 void CsValue::set_cstr(ostd::ConstCharRange val) {
+    cleanup();
     p_type = CsValueType::cstring;
     p_len = val.size();
     csv_get<char const *>(p_stor) = val.data();
 }
 
 void CsValue::set_mstr(ostd::CharRange val) {
+    cleanup();
     p_type = CsValueType::string;
     p_len = val.size();
     csv_get<char *>(p_stor) = val.data();
 }
 
 void CsValue::set_ident(CsIdent *val) {
+    cleanup();
     p_type = CsValueType::ident;
     csv_get<CsIdent *>(p_stor) = val;
 }
 
 void CsValue::set_macro(ostd::ConstCharRange val) {
+    cleanup();
     p_type = CsValueType::macro;
     p_len = val.size();
     csv_get<char const *>(p_stor) = val.data();
 }
 
 void CsValue::set(CsValue &tv) {
+    cleanup();
     *this = tv;
     tv.set_null();
 }
