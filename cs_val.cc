@@ -14,6 +14,10 @@ CsValue::CsValue():
     p_stor(), p_len(0), p_type(CsValueType::null)
 {}
 
+CsValue::~CsValue() {
+    cleanup();
+}
+
 CsValue::CsValue(CsValue const &v): CsValue() {
     *this = v;
 }
@@ -30,7 +34,7 @@ CsValue &CsValue::operator=(CsValue const &v) {
         case CsValueType::ident:
             p_len = v.p_len;
             p_type = v.p_type;
-            memcpy(&p_stor, &v.p_stor, sizeof(p_stor));
+            p_stor = v.p_stor;
             break;
         case CsValueType::string:
         case CsValueType::cstring:
@@ -51,10 +55,9 @@ CsValue &CsValue::operator=(CsValue const &v) {
 
 CsValue &CsValue::operator=(CsValue &&v) {
     cleanup();
-    p_len = v.p_len;
-    p_type = v.p_type;
-    memcpy(&p_stor, &v.p_stor, sizeof(p_stor));
-    v.set_null();
+    ostd::swap(p_len, v.p_len);
+    ostd::swap(p_type, v.p_type);
+    ostd::swap(p_stor, v.p_stor);
     return *this;
 }
 
@@ -107,7 +110,6 @@ void CsValue::set_str(CsString val) {
 
 void CsValue::set_null() {
     cleanup();
-    csv_get<CsBytecode *>(p_stor) = nullptr;
 }
 
 void CsValue::set_code(CsBytecode *val) {
@@ -378,6 +380,7 @@ CsStackedValue::CsStackedValue(CsIdent *id):
 }
 
 CsStackedValue::~CsStackedValue() {
+    cleanup();
     pop();
 }
 

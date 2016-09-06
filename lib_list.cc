@@ -89,7 +89,6 @@ static void cs_loop_list_conc(
         cs.run_ret(body, v);
         CsString vstr = ostd::move(v.get_str());
         r.push_n(vstr.data(), vstr.size());
-        v.cleanup();
     }
     r.push('\0');
     ostd::Size len = r.size();

@@ -66,18 +66,13 @@ enum class CsValueType {
 
 struct OSTD_EXPORT CsValue {
     CsValue();
+    ~CsValue();
 
     CsValue(CsValue const &);
     CsValue(CsValue &&);
 
     CsValue &operator=(CsValue const &v);
     CsValue &operator=(CsValue &&v);
-
-    void v_copy_no_alloc(CsValue const &v) {
-        memcpy(&p_stor, &v.p_stor, sizeof(p_stor));
-        p_len = v.p_len;
-        p_type = v.p_type;
-    }
 
     CsValueType get_type() const;
 
@@ -281,7 +276,7 @@ private:
     CsAlias(ostd::ConstCharRange n, CsInt a, int flags);
     CsAlias(ostd::ConstCharRange n, CsFloat a, int flags);
     CsAlias(ostd::ConstCharRange n, int flags);
-    CsAlias(ostd::ConstCharRange n, CsValue const &v, int flags);
+    CsAlias(ostd::ConstCharRange n, CsValue v, int flags);
 
     CsBytecode *p_acode;
     CsIdentStack *p_astack;
@@ -428,7 +423,7 @@ struct OSTD_EXPORT CsState {
     bool run_file_ret(ostd::ConstCharRange fname, CsValue &ret);
     bool run_file(ostd::ConstCharRange fname);
 
-    void set_alias(ostd::ConstCharRange name, CsValue &v);
+    void set_alias(ostd::ConstCharRange name, CsValue v);
 
     void set_var_int(
         ostd::ConstCharRange name, CsInt v,

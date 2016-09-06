@@ -81,12 +81,10 @@ CsAlias::CsAlias(ostd::ConstCharRange name, int fl):
 {
     p_val.set_null();
 }
-CsAlias::CsAlias(ostd::ConstCharRange name, CsValue const &v, int fl):
+CsAlias::CsAlias(ostd::ConstCharRange name, CsValue v, int fl):
     CsIdent(CsIdentType::alias, name, fl),
-    p_acode(nullptr), p_astack(nullptr), p_val()
-{
-    p_val.v_copy_no_alloc(v);
-}
+    p_acode(nullptr), p_astack(nullptr), p_val(ostd::move(v))
+{}
 
 CsCommand::CsCommand(
     ostd::ConstCharRange name, ostd::ConstCharRange args,
@@ -510,7 +508,7 @@ void CsState::touch_var(ostd::ConstCharRange name) {
     }
 }
 
-void CsState::set_alias(ostd::ConstCharRange name, CsValue &v) {
+void CsState::set_alias(ostd::ConstCharRange name, CsValue v) {
     CsIdent *id = get_ident(name);
     if (id) {
         switch (id->get_type()) {
@@ -539,12 +537,10 @@ void CsState::set_alias(ostd::ConstCharRange name, CsValue &v) {
                 );
                 break;
         }
-        v.cleanup();
     } else if (cs_check_num(name)) {
         cs_debug_code(*this, "cannot alias number %s", name);
-        v.cleanup();
     } else {
-        add_ident(new CsAlias(name, v, identflags));
+        add_ident(new CsAlias(name, ostd::move(v), identflags));
     }
 }
 
@@ -1018,7 +1014,6 @@ static inline void cs_loop_conc(
             s.push(' ');
         }
         s.push_n(vstr.data(), vstr.size());
-        v.cleanup();
     }
     s.push('\0');
     ostd::Size len = s.size() - 1;
@@ -1239,9 +1234,7 @@ void cs_init_lib_base(CsState &cs) {
     });
 
     cs.new_command("alias", "sT", [&cs](CsValueRange args, CsValue &) {
-        CsValue &v = args[1];
-        cs.set_alias(args[0].get_strr(), v);
-        v.set_null();
+        cs.set_alias(args[0].get_strr(), ostd::move(args[1]));
     });
 
     cs.new_command("getvarmin", "s", [&cs](CsValueRange args, CsValue &res) {

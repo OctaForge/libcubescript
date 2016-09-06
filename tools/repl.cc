@@ -186,7 +186,6 @@ static void do_call(CsState &cs, ostd::ConstCharRange line) {
         cs.run_ret(line, ret);
     } catch (InterruptedException) {
         signal(SIGINT, SIG_DFL);
-        ret.cleanup();
         ostd::writeln("<execution interrupted>");
         return;
     }
@@ -194,7 +193,6 @@ static void do_call(CsState &cs, ostd::ConstCharRange line) {
     if (ret.get_type() != CsValueType::null) {
         ostd::writeln(ret.get_str());
     }
-    ret.cleanup();
 }
 
 static void do_tty(CsState &cs) {
