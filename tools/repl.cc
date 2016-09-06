@@ -180,7 +180,6 @@ static void do_sigint(int n) {
 
 static void do_call(CsState &cs, ostd::ConstCharRange line) {
     CsValue ret;
-    ret.set_null();
     signal(SIGINT, do_sigint);
     try {
         cs.run_ret(line, ret);
