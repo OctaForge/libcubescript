@@ -1610,85 +1610,73 @@ void CsState::run_ret(CsIdent *id, CsValueRange args, CsValue &ret) {
 CsString CsState::run_str(CsBytecode *code) {
     CsValue ret;
     run_ret(code, ret);
-    CsString s = ret.get_str();
-    return s;
+    return ret.get_str();
 }
 
 CsString CsState::run_str(ostd::ConstCharRange code) {
     CsValue ret;
     run_ret(code, ret);
-    CsString s = ret.get_str();
-    return s;
+    return ret.get_str();
 }
 
 CsString CsState::run_str(CsIdent *id, CsValueRange args) {
     CsValue ret;
     run_ret(id, args, ret);
-    CsString s = ret.get_str();
-    return s;
+    return ret.get_str();
 }
 
 CsInt CsState::run_int(CsBytecode *code) {
     CsValue ret;
     run_ret(code, ret);
-    CsInt i = ret.get_int();
-    return i;
+    return ret.get_int();
 }
 
 CsInt CsState::run_int(ostd::ConstCharRange code) {
     CsValue ret;
     run_ret(code, ret);
-    CsInt i = ret.get_int();
-    return i;
+    return ret.get_int();
 }
 
 CsInt CsState::run_int(CsIdent *id, CsValueRange args) {
     CsValue ret;
     run_ret(id, args, ret);
-    CsInt i = ret.get_int();
-    return i;
+    return ret.get_int();
 }
 
 CsFloat CsState::run_float(CsBytecode *code) {
     CsValue ret;
     run_ret(code, ret);
-    CsFloat f = ret.get_float();
-    return f;
+    return ret.get_float();
 }
 
 CsFloat CsState::run_float(ostd::ConstCharRange code) {
     CsValue ret;
     run_ret(code, ret);
-    CsFloat f = ret.get_float();
-    return f;
+    return ret.get_float();
 }
 
 CsFloat CsState::run_float(CsIdent *id, CsValueRange args) {
     CsValue ret;
     run_ret(id, args, ret);
-    CsFloat f = ret.get_float();
-    return f;
+    return ret.get_float();
 }
 
 bool CsState::run_bool(CsBytecode *code) {
     CsValue ret;
     run_ret(code, ret);
-    bool b = ret.get_bool();
-    return b;
+    return ret.get_bool();
 }
 
 bool CsState::run_bool(ostd::ConstCharRange code) {
     CsValue ret;
     run_ret(code, ret);
-    bool b = ret.get_bool();
-    return b;
+    return ret.get_bool();
 }
 
 bool CsState::run_bool(CsIdent *id, CsValueRange args) {
     CsValue ret;
     run_ret(id, args, ret);
-    bool b = ret.get_bool();
-    return b;
+    return ret.get_bool();
 }
 
 void CsState::run(CsBytecode *code) {
