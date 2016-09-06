@@ -10,6 +10,7 @@ LIBCS_OBJ = \
 	cubescript.o \
 	cs_gen.o \
 	cs_vm.o \
+	cs_val.o \
 	cs_util.o \
 	lib_str.o \
 	lib_math.o \
@@ -35,9 +36,10 @@ repl: $(LIBCS_LIB) tools/repl.cc tools/linenoise.cc tools/linenoise.hh
 clean:
 	rm -f $(LIBCS_LIB) $(LIBCS_OBJ)
 
-cubescript.o: cubescript.hh cubescript_conf.hh cs_vm.hh cs_util.hh
+cubescript.o: cubescript.hh cubescript_conf.hh cs_vm.hh
 cs_gen.o: cubescript.hh cubescript_conf.hh cs_vm.hh cs_util.hh
 cs_vm.o: cubescript.hh cubescript_conf.hh cs_vm.hh cs_util.hh
+cs_val.o: cubescript.hh cubescript_conf.hh cs_vm.hh cs_util.hh
 lib_str.o: cubescript.hh cubescript_conf.hh
 lib_math.o: cubescript.hh cubescript_conf.hh
 lib_list.o: cubescript.hh cubescript_conf.hh cs_util.hh
