@@ -10,12 +10,30 @@ inline T &csv_get(U &stor) {
     return const_cast<T &>(reinterpret_cast<T const &>(stor));
 }
 
+template<typename T>
+void csv_cleanup(CsValueType tv, T &stor) {
+    switch (tv) {
+        case CsValueType::string:
+            delete[] csv_get<char *>(stor);
+            break;
+        case CsValueType::code: {
+            ostd::Uint32 *bcode = csv_get<ostd::Uint32 *>(stor);
+            if (bcode[-1] == CODE_START) {
+                delete[] bcode;
+            }
+            break;
+        }
+        default:
+            break;
+    }
+}
+
 CsValue::CsValue():
     p_stor(), p_len(0), p_type(CsValueType::null)
 {}
 
 CsValue::~CsValue() {
-    cleanup();
+    csv_cleanup(p_type, p_stor);
 }
 
 CsValue::CsValue(CsValue const &v): CsValue() {
@@ -27,7 +45,8 @@ CsValue::CsValue(CsValue &&v): CsValue() {
 }
 
 CsValue &CsValue::operator=(CsValue const &v) {
-    cleanup();
+    csv_cleanup(p_type, p_stor);
+    p_type = CsValueType::null;
     switch (v.get_type()) {
         case CsValueType::integer:
         case CsValueType::number:
@@ -47,36 +66,18 @@ CsValue &CsValue::operator=(CsValue const &v) {
             set_code(cs_copy_code(v.get_code()));
             break;
         default:
-            set_null();
             break;
     }
     return *this;
 }
 
 CsValue &CsValue::operator=(CsValue &&v) {
-    cleanup();
-    ostd::swap(p_len, v.p_len);
-    ostd::swap(p_type, v.p_type);
-    ostd::swap(p_stor, v.p_stor);
+    csv_cleanup(p_type, p_stor);
+    p_stor = v.p_stor;
+    p_type = v.p_type;
+    p_len = v.p_len;
+    v.p_type = CsValueType::null;
     return *this;
-}
-
-void CsValue::cleanup() {
-    switch (get_type()) {
-        case CsValueType::string:
-            delete[] csv_get<char *>(p_stor);
-            break;
-        case CsValueType::code: {
-            ostd::Uint32 *bcode = csv_get<ostd::Uint32 *>(p_stor);
-            if (bcode[-1] == CODE_START) {
-                delete[] bcode;
-            }
-            break;
-        }
-        default:
-            break;
-    }
-    p_type = CsValueType::null;
 }
 
 CsValueType CsValue::get_type() const {
@@ -84,13 +85,13 @@ CsValueType CsValue::get_type() const {
 }
 
 void CsValue::set_int(CsInt val) {
-    cleanup();
+    csv_cleanup(p_type, p_stor);
     p_type = CsValueType::integer;
     csv_get<CsInt>(p_stor) = val;
 }
 
 void CsValue::set_float(CsFloat val) {
-    cleanup();
+    csv_cleanup(p_type, p_stor);
     p_type = CsValueType::number;
     csv_get<CsFloat>(p_stor) = val;
 }
@@ -109,37 +110,38 @@ void CsValue::set_str(CsString val) {
 }
 
 void CsValue::set_null() {
-    cleanup();
+    csv_cleanup(p_type, p_stor);
+    p_type = CsValueType::null;
 }
 
 void CsValue::set_code(CsBytecode *val) {
-    cleanup();
+    csv_cleanup(p_type, p_stor);
     p_type = CsValueType::code;
     csv_get<CsBytecode *>(p_stor) = val;
 }
 
 void CsValue::set_cstr(ostd::ConstCharRange val) {
-    cleanup();
+    csv_cleanup(p_type, p_stor);
     p_type = CsValueType::cstring;
     p_len = val.size();
     csv_get<char const *>(p_stor) = val.data();
 }
 
 void CsValue::set_mstr(ostd::CharRange val) {
-    cleanup();
+    csv_cleanup(p_type, p_stor);
     p_type = CsValueType::string;
     p_len = val.size();
     csv_get<char *>(p_stor) = val.data();
 }
 
 void CsValue::set_ident(CsIdent *val) {
-    cleanup();
+    csv_cleanup(p_type, p_stor);
     p_type = CsValueType::ident;
     csv_get<CsIdent *>(p_stor) = val;
 }
 
 void CsValue::set_macro(ostd::ConstCharRange val) {
-    cleanup();
+    csv_cleanup(p_type, p_stor);
     p_type = CsValueType::macro;
     p_len = val.size();
     csv_get<char const *>(p_stor) = val.data();
@@ -149,7 +151,6 @@ void CsValue::force_null() {
     if (get_type() == CsValueType::null) {
         return;
     }
-    cleanup();
     set_null();
 }
 
@@ -171,7 +172,6 @@ CsFloat CsValue::force_float() {
         default:
             break;
     }
-    cleanup();
     set_float(rf);
     return rf;
 }
@@ -194,7 +194,6 @@ CsInt CsValue::force_int() {
         default:
             break;
     }
-    cleanup();
     set_int(ri);
     return ri;
 }
@@ -217,7 +216,6 @@ ostd::ConstCharRange CsValue::force_str() {
         default:
             break;
     }
-    cleanup();
     set_str(ostd::move(rs));
     return ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len);
 }
@@ -380,8 +378,8 @@ CsStackedValue::CsStackedValue(CsIdent *id):
 }
 
 CsStackedValue::~CsStackedValue() {
-    cleanup();
     pop();
+    static_cast<CsValue *>(this)->~CsValue();
 }
 
 CsStackedValue &CsStackedValue::operator=(CsValue const &v) {

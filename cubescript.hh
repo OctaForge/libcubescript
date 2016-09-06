@@ -103,8 +103,6 @@ struct OSTD_EXPORT CsValue {
 
     bool code_is_empty() const;
 
-    void cleanup();
-
 private:
     ostd::AlignedUnion<1, CsInt, CsFloat, void *> p_stor;
     ostd::Size p_len;
