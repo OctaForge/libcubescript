@@ -9,7 +9,7 @@
 
 using namespace cscript;
 
-ostd::ConstCharRange version = "CubeScript 0.0.1 (REPL mode)";
+ostd::ConstCharRange version = "CubeScript 0.0.1";
 
 /* util */
 
@@ -43,7 +43,6 @@ static ostd::ConstCharRange get_complete_cmd(ostd::ConstCharRange buf) {
 #endif /* CS_REPL_HAS_COMPLETE */
 
 #ifdef CS_REPL_HAS_HINTS
-
 static inline ostd::ConstCharRange get_arg_type(char arg) {
     switch (arg) {
         case 'i':
@@ -156,13 +155,32 @@ static CsCommand *get_hint_cmd(ostd::ConstCharRange buf) {
     }
     return nullptr;
 }
-
 #endif /* CS_REPL_HAS_HINTS */
 
 #include "tools/edit_linenoise.hh"
-#include "tools/edit_libedit.hh"
 #include "tools/edit_readline.hh"
 #include "tools/edit_fallback.hh"
+
+/* usage */
+
+void print_usage(ostd::ConstCharRange progname, bool err) {
+    auto &s = err ? ostd::err : ostd::out;
+    s.writeln(
+        "Usage: ", progname, " [options] [file]\n"
+        "Options:\n"
+        "  -e str  run string \"str\"\n"
+        "  -i      enter interactive mode after the above\n"
+        "  -v      show version information\n"
+        "  -h      show this message\n"
+        "  --      stop handling options\n"
+        "  -       execute stdin and stop handling options"
+    );
+    s.flush();
+}
+
+void print_version() {
+    ostd::writeln(version);
+}
 
 struct InterruptedException {
 };
@@ -178,11 +196,17 @@ static void do_sigint(int n) {
     }
 }
 
-static void do_call(CsState &cs, ostd::ConstCharRange line) {
+static void do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
     CsValue ret;
     signal(SIGINT, do_sigint);
     try {
-        cs.run(line, ret);
+        if (file) {
+            if (!cs.run_file(line, ret)) {
+                ostd::err.writeln("cannot read file: ", line);
+            }
+        } else {
+            cs.run(line, ret);
+        }
     } catch (InterruptedException) {
         signal(SIGINT, SIG_DFL);
         ostd::writeln("<execution interrupted>");
@@ -203,24 +227,7 @@ static void do_tty(CsState &cs) {
         do_exit = true;
     });
 
-    cs.new_command("exec", "sb", [&cs](CsValueRange args, CsValue &res) {
-        auto file = args[0].get_strr();
-        bool ret = cs.run_file(file);
-        if (!ret) {
-            if (args[1].get_int()) {
-                cs.get_err().writefln("could not run file \"%s\"", file);
-            }
-            res.set_int(0);
-        } else {
-            res.set_int(1);
-        }
-    });
-
-    cs.new_command("echo", "C", [&cs](CsValueRange args, CsValue &) {
-        cs.get_out().writeln(args[0].get_strr());
-    });
-
-    ostd::writeln(version);
+    ostd::writeln(version, " (REPL mode)");
     for (;;) {
         auto line = read_line(prompt);
         if (!line) {
@@ -246,14 +253,127 @@ static void do_tty(CsState &cs) {
     }
 }
 
-int main(int, char **argv) {
+int main(int argc, char **argv) {
     CsState cs;
     gcs = &cs;
     cs.init_libs();
-    if (stdin_is_tty()) {
-        init_lineedit(argv[0]);
-        do_tty(cs);
-    } else {
-        ostd::err.writeln("Only interactive mode is supported for now.");
+
+    cs.new_command("exec", "sb", [&cs](auto args, auto &res) {
+        auto file = args[0].get_strr();
+        bool ret = cs.run_file(file);
+        if (!ret) {
+            if (args[1].get_int()) {
+                cs.get_err().writefln("could not run file \"%s\"", file);
+            }
+            res.set_int(0);
+        } else {
+            res.set_int(1);
+        }
+    });
+
+    cs.new_command("echo", "C", [&cs](auto args, auto &) {
+        cs.get_out().writeln(args[0].get_strr());
+    });
+
+    int firstarg = 0;
+    bool has_inter = false, has_ver = false, has_help = false, has_str = false;
+    for (int i = 1; i < argc; ++i) {
+        if (argv[i][0] != '-') {
+            firstarg = i;
+            goto endargs;
+        }
+        switch (argv[i][1]) {
+            case '-':
+                if (argv[i][2] != '\0') {
+                    firstarg = -1;
+                    goto endargs;
+                }
+                firstarg = (argv[i + 1] != nullptr) ? (i + 1) : 0;
+                goto endargs;
+            case '\0':
+                firstarg = i;
+                goto endargs;
+            case 'i':
+                if (argv[i][2] != '\0') {
+                    firstarg = -1;
+                    goto endargs;
+                }
+                has_inter = true;
+                break;
+            case 'v':
+                if (argv[i][2] != '\0') {
+                    firstarg = -1;
+                    goto endargs;
+                }
+                has_ver = true;
+                break;
+            case 'h':
+                if (argv[i][2] != '\0') {
+                    firstarg = -1;
+                    goto endargs;
+                }
+                has_help = true;
+                break;
+            case 'e':
+                has_str = true;
+                if (argv[i][2] == '\0') {
+                    ++i;
+                    if (!argv[i]) {
+                        firstarg = -1;
+                        goto endargs;
+                    }
+                }
+                break;
+            default:
+                firstarg = -1;
+                goto endargs;
+        }
+    }
+endargs:
+    if (firstarg < 0) {
+        print_usage(argv[0], true);
+        return 1;
+    }
+    if (has_ver && !has_inter) {
+        print_version();
+    }
+    if (has_help) {
+        print_usage(argv[0], false);
+        return 0;
+    }
+    for (int i = 1; i < ((firstarg > 0) ? firstarg : argc); ++i) {
+        switch (argv[i][1]) {
+            case 'e': {
+                auto str = argv[i] + 2;
+                if (*str == '\0') {
+                    str = argv[++i];
+                }
+                do_call(cs, str);
+                break;
+            }
+        }
+    }
+    if (firstarg) {
+        do_call(cs, argv[firstarg], true);
+    }
+    if (!firstarg && !has_str && !has_ver) {
+        if (stdin_is_tty()) {
+            init_lineedit(argv[0]);
+            do_tty(cs);
+            return 0;
+        } else {
+            ostd::String str;
+            for (char c = '\0'; (c = ostd::in.getchar()) != EOF;) {
+                str += c;
+            }
+            do_call(cs, str);
+        }
+    }
+    if (has_inter) {
+        if (stdin_is_tty()) {
+            init_lineedit(argv[0]);
+            do_tty(cs);
+        }
+        return 0;
     }
 }
