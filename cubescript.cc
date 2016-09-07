@@ -272,19 +272,19 @@ CsState::CsState(): p_out(&ostd::out), p_err(&ostd::err) {
     assert(id->get_index() == DbgaliasIdx);
 
     new_command("do", "e", [this](CsValueRange args, CsValue &res) {
-        run_ret(args[0].get_code(), res);
+        run(args[0].get_code(), res);
     })->p_type = ID_DO;
 
     new_command("doargs", "e", [this](CsValueRange args, CsValue &res) {
         if (p_stack != &noalias) {
-            cs_do_args(*this, [&]() { run_ret(args[0].get_code(), res); });
+            cs_do_args(*this, [&]() { run(args[0].get_code(), res); });
         } else {
-            run_ret(args[0].get_code(), res);
+            run(args[0].get_code(), res);
         }
     })->p_type = ID_DOARGS;
 
     new_command("if", "tee", [this](CsValueRange args, CsValue &res) {
-        run_ret((args[0].get_bool() ? args[1] : args[2]).get_code(), res);
+        run((args[0].get_bool() ? args[1] : args[2]).get_code(), res);
     })->p_type = ID_IF;
 
     new_command("result", "T", [](CsValueRange args, CsValue &res) {
@@ -302,7 +302,7 @@ CsState::CsState(): p_out(&ostd::out), p_err(&ostd::err) {
             for (ostd::Size i = 0; i < args.size(); ++i) {
                 CsBytecode *code = args[i].get_code();
                 if (code) {
-                    run_ret(code, res);
+                    run(code, res);
                 } else {
                     res = ostd::move(args[i]);
                 }
@@ -320,7 +320,7 @@ CsState::CsState(): p_out(&ostd::out), p_err(&ostd::err) {
             for (ostd::Size i = 0; i < args.size(); ++i) {
                 CsBytecode *code = args[i].get_code();
                 if (code) {
-                    run_ret(code, res);
+                    run(code, res);
                 } else {
                     res = ostd::move(args[i]);
                 }
@@ -384,6 +384,14 @@ CsHookCb const &CsState::get_call_hook() const {
 
 CsHookCb &CsState::get_call_hook() {
     return p_callhook;
+}
+
+void *CsState::alloc(void *ptr, ostd::Size, ostd::Size ns) {
+    delete[] static_cast<ostd::byte *>(ptr);
+    if (!ns) {
+        return nullptr;
+    }
+    return new ostd::byte[ns];
 }
 
 void CsState::clear_override(CsIdent &id) {
@@ -1008,7 +1016,7 @@ static inline void cs_loop_conc(
         idv.set_int(offset + i * step);
         idv.push();
         CsValue v;
-        cs.run_ret(body, v);
+        cs.run(body, v);
         CsString vstr = ostd::move(v.get_str());
         if (space && i) {
             s.push(' ');
@@ -1033,11 +1041,11 @@ void cs_init_lib_base(CsState &cs) {
         for (ostd::Size i = 0; i < args.size(); i += 2) {
             if ((i + 1) < args.size()) {
                 if (cs.run_bool(args[i].get_code())) {
-                    cs.run_ret(args[i + 1].get_code(), res);
+                    cs.run(args[i + 1].get_code(), res);
                     break;
                 }
             } else {
-                cs.run_ret(args[i].get_code(), res);
+                cs.run(args[i].get_code(), res);
                 break;
             }
         }
@@ -1050,7 +1058,7 @@ void cs_init_lib_base(CsState &cs) {
                 (args[i].get_type() == CsValueType::null) ||
                 (args[i].get_int() == val)
             ) {
-                cs.run_ret(args[i + 1].get_code(), res);
+                cs.run(args[i + 1].get_code(), res);
                 return;
             }
         }
@@ -1063,7 +1071,7 @@ void cs_init_lib_base(CsState &cs) {
                 (args[i].get_type() == CsValueType::null) ||
                 (args[i].get_float() == val)
             ) {
-                cs.run_ret(args[i + 1].get_code(), res);
+                cs.run(args[i + 1].get_code(), res);
                 return;
             }
         }
@@ -1076,7 +1084,7 @@ void cs_init_lib_base(CsState &cs) {
                 (args[i].get_type() == CsValueType::null) ||
                 (args[i].get_str() == val)
             ) {
-                cs.run_ret(args[i + 1].get_code(), res);
+                cs.run(args[i + 1].get_code(), res);
                 return;
             }
         }
@@ -1090,7 +1098,7 @@ void cs_init_lib_base(CsState &cs) {
         if (args[1].get_bool()) {
             idv = ostd::move(args[1]);
             idv.push();
-            cs.run_ret(args[2].get_code(), res);
+            cs.run(args[2].get_code(), res);
         }
     });
 
@@ -1215,7 +1223,7 @@ void cs_init_lib_base(CsState &cs) {
 
     cs.new_command("nodebug", "e", [&cs](CsValueRange args, CsValue &res) {
         ++cs.nodebug;
-        cs.run_ret(args[0].get_code(), res);
+        cs.run(args[0].get_code(), res);
         --cs.nodebug;
     });
 
@@ -1226,7 +1234,7 @@ void cs_init_lib_base(CsState &cs) {
         }
         idv = ostd::move(args[1]);
         idv.push();
-        cs.run_ret(args[2].get_code(), res);
+        cs.run(args[2].get_code(), res);
     });
 
     cs.new_command("resetvar", "s", [&cs](CsValueRange args, CsValue &res) {

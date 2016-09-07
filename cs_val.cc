@@ -5,13 +5,13 @@
 namespace cscript {
 
 template<typename T, typename U>
-inline T &csv_get(U &stor) {
+static inline T &csv_get(U &stor) {
     /* ugly, but internal and unlikely to cause bugs */
     return const_cast<T &>(reinterpret_cast<T const &>(stor));
 }
 
 template<typename T>
-void csv_cleanup(CsValueType tv, T &stor) {
+static inline void csv_cleanup(CsValueType tv, T &stor) {
     switch (tv) {
         case CsValueType::string:
             delete[] csv_get<char *>(stor);

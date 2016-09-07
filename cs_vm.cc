@@ -644,7 +644,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
             case CODE_DOARGS | RET_FLOAT:
                 if (cs.p_stack != &cs.noalias) {
                     cs_do_args(cs, [&]() {
-                        cs.run_ret(args[--numargs].get_code(), result);
+                        cs.run(args[--numargs].get_code(), result);
                         force_arg(result, op & CODE_RET_MASK);
                     });
                     continue;
@@ -654,7 +654,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
             case CODE_DO | RET_STR:
             case CODE_DO | RET_INT:
             case CODE_DO | RET_FLOAT:
-                cs.run_ret(args[--numargs].get_code(), result);
+                cs.run(args[--numargs].get_code(), result);
                 force_arg(result, op & CODE_RET_MASK);
                 continue;
 
@@ -681,7 +681,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 ostd::Uint32 len = op >> 8;
                 --numargs;
                 if (args[numargs].get_type() == CsValueType::code) {
-                    cs.run_ret(args[numargs].get_code(), result);
+                    cs.run(args[numargs].get_code(), result);
                 } else {
                     result = ostd::move(args[numargs]);
                 }
@@ -694,7 +694,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 ostd::Uint32 len = op >> 8;
                 --numargs;
                 if (args[numargs].get_type() == CsValueType::code) {
-                    cs.run_ret(args[numargs].get_code(), result);
+                    cs.run(args[numargs].get_code(), result);
                 } else {
                     result = ostd::move(args[numargs]);
                 }
@@ -1518,11 +1518,11 @@ exit:
     return code;
 }
 
-void CsState::run_ret(CsBytecode *code, CsValue &ret) {
+void CsState::run(CsBytecode *code, CsValue &ret) {
     runcode(*this, reinterpret_cast<ostd::Uint32 *>(code), ret);
 }
 
-void CsState::run_ret(ostd::ConstCharRange code, CsValue &ret) {
+void CsState::run(ostd::ConstCharRange code, CsValue &ret) {
     GenState gs(*this);
     gs.code.reserve(64);
     /* FIXME range */
@@ -1533,7 +1533,7 @@ void CsState::run_ret(ostd::ConstCharRange code, CsValue &ret) {
     }
 }
 
-void CsState::run_ret(CsIdent *id, CsValueRange args, CsValue &ret) {
+void CsState::run(CsIdent *id, CsValueRange args, CsValue &ret) {
     int nargs = int(args.size());
     ret.set_null();
     ++rundepth;
@@ -1609,89 +1609,89 @@ void CsState::run_ret(CsIdent *id, CsValueRange args, CsValue &ret) {
 
 CsString CsState::run_str(CsBytecode *code) {
     CsValue ret;
-    run_ret(code, ret);
+    run(code, ret);
     return ret.get_str();
 }
 
 CsString CsState::run_str(ostd::ConstCharRange code) {
     CsValue ret;
-    run_ret(code, ret);
+    run(code, ret);
     return ret.get_str();
 }
 
 CsString CsState::run_str(CsIdent *id, CsValueRange args) {
     CsValue ret;
-    run_ret(id, args, ret);
+    run(id, args, ret);
     return ret.get_str();
 }
 
 CsInt CsState::run_int(CsBytecode *code) {
     CsValue ret;
-    run_ret(code, ret);
+    run(code, ret);
     return ret.get_int();
 }
 
 CsInt CsState::run_int(ostd::ConstCharRange code) {
     CsValue ret;
-    run_ret(code, ret);
+    run(code, ret);
     return ret.get_int();
 }
 
 CsInt CsState::run_int(CsIdent *id, CsValueRange args) {
     CsValue ret;
-    run_ret(id, args, ret);
+    run(id, args, ret);
     return ret.get_int();
 }
 
 CsFloat CsState::run_float(CsBytecode *code) {
     CsValue ret;
-    run_ret(code, ret);
+    run(code, ret);
     return ret.get_float();
 }
 
 CsFloat CsState::run_float(ostd::ConstCharRange code) {
     CsValue ret;
-    run_ret(code, ret);
+    run(code, ret);
     return ret.get_float();
 }
 
 CsFloat CsState::run_float(CsIdent *id, CsValueRange args) {
     CsValue ret;
-    run_ret(id, args, ret);
+    run(id, args, ret);
     return ret.get_float();
 }
 
 bool CsState::run_bool(CsBytecode *code) {
     CsValue ret;
-    run_ret(code, ret);
+    run(code, ret);
     return ret.get_bool();
 }
 
 bool CsState::run_bool(ostd::ConstCharRange code) {
     CsValue ret;
-    run_ret(code, ret);
+    run(code, ret);
     return ret.get_bool();
 }
 
 bool CsState::run_bool(CsIdent *id, CsValueRange args) {
     CsValue ret;
-    run_ret(id, args, ret);
+    run(id, args, ret);
     return ret.get_bool();
 }
 
 void CsState::run(CsBytecode *code) {
     CsValue ret;
-    run_ret(code, ret);
+    run(code, ret);
 }
 
 void CsState::run(ostd::ConstCharRange code) {
     CsValue ret;
-    run_ret(code, ret);
+    run(code, ret);
 }
 
 void CsState::run(CsIdent *id, CsValueRange args) {
     CsValue ret;
-    run_ret(id, args, ret);
+    run(id, args, ret);
 }
 
 static bool cs_run_file(
@@ -1716,7 +1716,7 @@ static bool cs_run_file(
     ostd::ConstCharRange src_str = ostd::ConstCharRange(buf.get(), len);
     cs_src_file = fname;
     cs_src_str = src_str;
-    cs.run_ret(src_str, ret);
+    cs.run(src_str, ret);
     cs_src_file = old_src_file;
     cs_src_str = old_src_str;
     return true;
@@ -1754,7 +1754,7 @@ ostd::Maybe<bool> CsState::run_file_bool(ostd::ConstCharRange fname) {
     return ret.get_bool();
 }
 
-bool CsState::run_file_ret(ostd::ConstCharRange fname, CsValue &ret) {
+bool CsState::run_file(ostd::ConstCharRange fname, CsValue &ret) {
     return cs_run_file(*this, fname, ret);
 }
 

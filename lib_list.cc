@@ -86,7 +86,7 @@ static void cs_loop_list_conc(
             r.push(' ');
         }
         CsValue v;
-        cs.run_ret(body, v);
+        cs.run(body, v);
         CsString vstr = ostd::move(v.get_str());
         r.push_n(vstr.data(), vstr.size());
     }

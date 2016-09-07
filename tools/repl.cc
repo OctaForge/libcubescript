@@ -182,7 +182,7 @@ static void do_call(CsState &cs, ostd::ConstCharRange line) {
     CsValue ret;
     signal(SIGINT, do_sigint);
     try {
-        cs.run_ret(line, ret);
+        cs.run(line, ret);
     } catch (InterruptedException) {
         signal(SIGINT, SIG_DFL);
         ostd::writeln("<execution interrupted>");

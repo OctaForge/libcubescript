@@ -328,7 +328,7 @@ struct OSTD_EXPORT CsState {
     int nodebug = 0;
 
     CsState();
-    ~CsState();
+    virtual ~CsState();
 
     CsStream const &get_out() const;
     CsStream &get_out();
@@ -341,6 +341,8 @@ struct OSTD_EXPORT CsState {
     CsHookCb set_call_hook(CsHookCb func);
     CsHookCb const &get_call_hook() const;
     CsHookCb &get_call_hook();
+
+    virtual void *alloc(void *ptr, ostd::Size olds, ostd::Size news);
 
     void init_libs(int libs = CS_LIB_ALL);
 
@@ -406,9 +408,9 @@ struct OSTD_EXPORT CsState {
     bool run_bool(ostd::ConstCharRange code);
     bool run_bool(CsIdent *id, CsValueRange args);
 
-    void run_ret(CsBytecode *code, CsValue &ret);
-    void run_ret(ostd::ConstCharRange code, CsValue &ret);
-    void run_ret(CsIdent *id, CsValueRange args, CsValue &ret);
+    void run(CsBytecode *code, CsValue &ret);
+    void run(ostd::ConstCharRange code, CsValue &ret);
+    void run(CsIdent *id, CsValueRange args, CsValue &ret);
 
     void run(CsBytecode *code);
     void run(ostd::ConstCharRange code);
@@ -418,7 +420,7 @@ struct OSTD_EXPORT CsState {
     ostd::Maybe<CsInt> run_file_int(ostd::ConstCharRange fname);
     ostd::Maybe<CsFloat> run_file_float(ostd::ConstCharRange fname);
     ostd::Maybe<bool> run_file_bool(ostd::ConstCharRange fname);
-    bool run_file_ret(ostd::ConstCharRange fname, CsValue &ret);
+    bool run_file(ostd::ConstCharRange fname, CsValue &ret);
     bool run_file(ostd::ConstCharRange fname);
 
     void set_alias(ostd::ConstCharRange name, CsValue v);

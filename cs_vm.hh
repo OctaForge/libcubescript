@@ -37,6 +37,7 @@ static inline int cs_vtype_to_int(CsValueType v) {
     return cs_valtypet[int(v)];
 }
 
+/* instruction: uint32 [length 24][retflag 2][opcode 6] */
 enum {
     CODE_START = 0,
     CODE_OFFSET,
