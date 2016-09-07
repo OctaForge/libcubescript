@@ -1,4 +1,4 @@
-#include "cubescript.hh"
+#include "cubescript/cubescript.hh"
 #include "cs_vm.hh"
 #include "cs_util.hh"
 

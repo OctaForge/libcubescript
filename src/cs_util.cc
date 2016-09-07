@@ -1,4 +1,4 @@
-#include "cubescript_conf.hh"
+#include "cubescript/cubescript_conf.hh"
 #include "cs_util.hh"
 
 #include <ctype.h>

@@ -3,7 +3,7 @@
 
 #include <ostd/functional.hh>
 
-#include "cubescript.hh"
+#include "cubescript/cubescript.hh"
 
 namespace cscript {
 

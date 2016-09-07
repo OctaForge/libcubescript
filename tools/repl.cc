@@ -5,7 +5,7 @@
 #include <ostd/string.hh>
 #include <ostd/maybe.hh>
 
-#include <cubescript.hh>
+#include <cubescript/cubescript.hh>
 
 using namespace cscript;
 
@@ -157,9 +157,9 @@ static CsCommand *get_hint_cmd(ostd::ConstCharRange buf) {
 }
 #endif /* CS_REPL_HAS_HINTS */
 
-#include "tools/edit_linenoise.hh"
-#include "tools/edit_readline.hh"
-#include "tools/edit_fallback.hh"
+#include "edit_linenoise.hh"
+#include "edit_readline.hh"
+#include "edit_fallback.hh"
 
 /* usage */
 

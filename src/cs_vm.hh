@@ -1,7 +1,7 @@
 #ifndef LIBCUBESCRIPT_CS_VM_HH
 #define LIBCUBESCRIPT_CS_VM_HH
 
-#include "cubescript.hh"
+#include "cubescript/cubescript.hh"
 
 #include <stdlib.h>
 
