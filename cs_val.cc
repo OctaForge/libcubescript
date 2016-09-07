@@ -18,7 +18,7 @@ static inline void csv_cleanup(CsValueType tv, T &stor) {
             break;
         case CsValueType::Code: {
             ostd::Uint32 *bcode = csv_get<ostd::Uint32 *>(stor);
-            if (bcode[-1] == CODE_START) {
+            if (bcode[-1] == CsCodeStart) {
                 delete[] bcode;
             }
             break;
@@ -324,8 +324,8 @@ OSTD_EXPORT bool cs_code_is_empty(CsBytecode *code) {
         return true;
     }
     return (
-        *reinterpret_cast<ostd::Uint32 *>(code) & CODE_OP_MASK
-    ) == CODE_EXIT;
+        *reinterpret_cast<ostd::Uint32 *>(code) & CsCodeOpMask
+    ) == CsCodeExit;
 }
 
 bool CsValue::code_is_empty() const {

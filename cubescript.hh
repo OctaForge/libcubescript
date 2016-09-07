@@ -21,13 +21,13 @@
 namespace cscript {
 
 enum {
-    IDF_PERSIST    = 1 << 0,
-    IDF_OVERRIDE   = 1 << 1,
-    IDF_HEX        = 1 << 2,
-    IDF_READONLY   = 1 << 3,
-    IDF_OVERRIDDEN = 1 << 4,
-    IDF_UNKNOWN    = 1 << 5,
-    IDF_ARG        = 1 << 6
+    CsIdfPersist    = 1 << 0,
+    CsIdfOverride   = 1 << 1,
+    CsIdfHex        = 1 << 2,
+    CsIdfReadOnly   = 1 << 3,
+    CsIdfOverridden = 1 << 4,
+    CsIdfUnknown    = 1 << 5,
+    CsIdfArg        = 1 << 6
 };
 
 struct CsBytecode;
@@ -309,10 +309,10 @@ struct CsIdentLink {
 };
 
 enum {
-    CS_LIB_MATH   = 1 << 0,
-    CS_LIB_STRING = 1 << 1,
-    CS_LIB_LIST   = 1 << 2,
-    CS_LIB_ALL    = 0b111
+    CsLibMath   = 1 << 0,
+    CsLibString = 1 << 1,
+    CsLibList   = 1 << 2,
+    CsLibAll    = 0b111
 };
 
 using CsHookCb = ostd::Function<void()>;
@@ -344,12 +344,12 @@ struct OSTD_EXPORT CsState {
 
     virtual void *alloc(void *ptr, ostd::Size olds, ostd::Size news);
 
-    void init_libs(int libs = CS_LIB_ALL);
+    void init_libs(int libs = CsLibAll);
 
     void clear_override(CsIdent &id);
     void clear_overrides();
 
-    CsIdent *new_ident(ostd::ConstCharRange name, int flags = IDF_UNKNOWN);
+    CsIdent *new_ident(ostd::ConstCharRange name, int flags = CsIdfUnknown);
     CsIdent *force_ident(CsValue &v);
 
     CsIvar *new_ivar(
