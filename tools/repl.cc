@@ -189,7 +189,7 @@ static void do_call(CsState &cs, ostd::ConstCharRange line) {
         return;
     }
     signal(SIGINT, SIG_DFL);
-    if (ret.get_type() != CsValueType::null) {
+    if (ret.get_type() != CsValueType::Null) {
         ostd::writeln(ret.get_str());
     }
 }

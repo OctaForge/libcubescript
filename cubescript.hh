@@ -61,7 +61,7 @@ OSTD_EXPORT bool cs_code_is_empty(CsBytecode *code);
 struct CsIdent;
 
 enum class CsValueType {
-    null = 0, integer, number, string, cstring, code, macro, ident
+    Null = 0, Int, Float, String, Cstring, Code, Macro, Ident
 };
 
 struct OSTD_EXPORT CsValue {
@@ -119,7 +119,7 @@ struct CsIdentStack {
 struct CsState;
 
 enum class CsIdentType {
-    ivar = 0, fvar, svar, command, alias, special
+    Ivar = 0, Fvar, Svar, Command, Alias, Special
 };
 
 struct CsVar;
@@ -603,7 +603,7 @@ namespace util {
         for (ostd::Size i = 0; i < vals.size(); ++i) {
             auto s = ostd::appender<CsString>();
             switch (vals[i].get_type()) {
-                case CsValueType::integer: {
+                case CsValueType::Int: {
                     auto r = format_int(
                         ostd::forward<R>(writer), vals[i].get_int()
                     );
@@ -612,7 +612,7 @@ namespace util {
                     }
                     break;
                 }
-                case CsValueType::number: {
+                case CsValueType::Float: {
                     auto r = format_float(
                         ostd::forward<R>(writer), vals[i].get_float()
                     );
@@ -621,9 +621,9 @@ namespace util {
                     }
                     break;
                 }
-                case CsValueType::string:
-                case CsValueType::cstring:
-                case CsValueType::macro: {
+                case CsValueType::String:
+                case CsValueType::Cstring:
+                case CsValueType::Macro: {
                     auto sv = vals[i].get_strr();
                     ret += writer.put_n(sv.data(), sv.size());
                     break;

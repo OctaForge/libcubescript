@@ -13,10 +13,10 @@ static inline T &csv_get(U &stor) {
 template<typename T>
 static inline void csv_cleanup(CsValueType tv, T &stor) {
     switch (tv) {
-        case CsValueType::string:
+        case CsValueType::String:
             delete[] csv_get<char *>(stor);
             break;
-        case CsValueType::code: {
+        case CsValueType::Code: {
             ostd::Uint32 *bcode = csv_get<ostd::Uint32 *>(stor);
             if (bcode[-1] == CODE_START) {
                 delete[] bcode;
@@ -29,7 +29,7 @@ static inline void csv_cleanup(CsValueType tv, T &stor) {
 }
 
 CsValue::CsValue():
-    p_stor(), p_len(0), p_type(CsValueType::null)
+    p_stor(), p_len(0), p_type(CsValueType::Null)
 {}
 
 CsValue::~CsValue() {
@@ -46,23 +46,23 @@ CsValue::CsValue(CsValue &&v): CsValue() {
 
 CsValue &CsValue::operator=(CsValue const &v) {
     csv_cleanup(p_type, p_stor);
-    p_type = CsValueType::null;
+    p_type = CsValueType::Null;
     switch (v.get_type()) {
-        case CsValueType::integer:
-        case CsValueType::number:
-        case CsValueType::ident:
+        case CsValueType::Int:
+        case CsValueType::Float:
+        case CsValueType::Ident:
             p_len = v.p_len;
             p_type = v.p_type;
             p_stor = v.p_stor;
             break;
-        case CsValueType::string:
-        case CsValueType::cstring:
-        case CsValueType::macro:
+        case CsValueType::String:
+        case CsValueType::Cstring:
+        case CsValueType::Macro:
             set_str(
                 ostd::ConstCharRange(csv_get<char const *>(v.p_stor), v.p_len)
             );
             break;
-        case CsValueType::code:
+        case CsValueType::Code:
             set_code(cs_copy_code(v.get_code()));
             break;
         default:
@@ -76,7 +76,7 @@ CsValue &CsValue::operator=(CsValue &&v) {
     p_stor = v.p_stor;
     p_type = v.p_type;
     p_len = v.p_len;
-    v.p_type = CsValueType::null;
+    v.p_type = CsValueType::Null;
     return *this;
 }
 
@@ -86,13 +86,13 @@ CsValueType CsValue::get_type() const {
 
 void CsValue::set_int(CsInt val) {
     csv_cleanup(p_type, p_stor);
-    p_type = CsValueType::integer;
+    p_type = CsValueType::Int;
     csv_get<CsInt>(p_stor) = val;
 }
 
 void CsValue::set_float(CsFloat val) {
     csv_cleanup(p_type, p_stor);
-    p_type = CsValueType::number;
+    p_type = CsValueType::Float;
     csv_get<CsFloat>(p_stor) = val;
 }
 
@@ -111,44 +111,44 @@ void CsValue::set_str(CsString val) {
 
 void CsValue::set_null() {
     csv_cleanup(p_type, p_stor);
-    p_type = CsValueType::null;
+    p_type = CsValueType::Null;
 }
 
 void CsValue::set_code(CsBytecode *val) {
     csv_cleanup(p_type, p_stor);
-    p_type = CsValueType::code;
+    p_type = CsValueType::Code;
     csv_get<CsBytecode *>(p_stor) = val;
 }
 
 void CsValue::set_cstr(ostd::ConstCharRange val) {
     csv_cleanup(p_type, p_stor);
-    p_type = CsValueType::cstring;
+    p_type = CsValueType::Cstring;
     p_len = val.size();
     csv_get<char const *>(p_stor) = val.data();
 }
 
 void CsValue::set_mstr(ostd::CharRange val) {
     csv_cleanup(p_type, p_stor);
-    p_type = CsValueType::string;
+    p_type = CsValueType::String;
     p_len = val.size();
     csv_get<char *>(p_stor) = val.data();
 }
 
 void CsValue::set_ident(CsIdent *val) {
     csv_cleanup(p_type, p_stor);
-    p_type = CsValueType::ident;
+    p_type = CsValueType::Ident;
     csv_get<CsIdent *>(p_stor) = val;
 }
 
 void CsValue::set_macro(ostd::ConstCharRange val) {
     csv_cleanup(p_type, p_stor);
-    p_type = CsValueType::macro;
+    p_type = CsValueType::Macro;
     p_len = val.size();
     csv_get<char const *>(p_stor) = val.data();
 }
 
 void CsValue::force_null() {
-    if (get_type() == CsValueType::null) {
+    if (get_type() == CsValueType::Null) {
         return;
     }
     set_null();
@@ -157,17 +157,17 @@ void CsValue::force_null() {
 CsFloat CsValue::force_float() {
     CsFloat rf = 0.0f;
     switch (get_type()) {
-        case CsValueType::integer:
+        case CsValueType::Int:
             rf = csv_get<CsInt>(p_stor);
             break;
-        case CsValueType::string:
-        case CsValueType::macro:
-        case CsValueType::cstring:
+        case CsValueType::String:
+        case CsValueType::Macro:
+        case CsValueType::Cstring:
             rf = cs_parse_float(
                 ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len)
             );
             break;
-        case CsValueType::number:
+        case CsValueType::Float:
             return csv_get<CsFloat>(p_stor);
         default:
             break;
@@ -179,17 +179,17 @@ CsFloat CsValue::force_float() {
 CsInt CsValue::force_int() {
     CsInt ri = 0;
     switch (get_type()) {
-        case CsValueType::number:
+        case CsValueType::Float:
             ri = csv_get<CsFloat>(p_stor);
             break;
-        case CsValueType::string:
-        case CsValueType::macro:
-        case CsValueType::cstring:
+        case CsValueType::String:
+        case CsValueType::Macro:
+        case CsValueType::Cstring:
             ri = cs_parse_int(
                 ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len)
             );
             break;
-        case CsValueType::integer:
+        case CsValueType::Int:
             return csv_get<CsInt>(p_stor);
         default:
             break;
@@ -201,17 +201,17 @@ CsInt CsValue::force_int() {
 ostd::ConstCharRange CsValue::force_str() {
     CsString rs;
     switch (get_type()) {
-        case CsValueType::number:
+        case CsValueType::Float:
             rs = ostd::move(floatstr(csv_get<CsFloat>(p_stor)));
             break;
-        case CsValueType::integer:
+        case CsValueType::Int:
             rs = ostd::move(intstr(csv_get<CsInt>(p_stor)));
             break;
-        case CsValueType::macro:
-        case CsValueType::cstring:
+        case CsValueType::Macro:
+        case CsValueType::Cstring:
             rs = ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len);
             break;
-        case CsValueType::string:
+        case CsValueType::String:
             return ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len);
         default:
             break;
@@ -222,13 +222,13 @@ ostd::ConstCharRange CsValue::force_str() {
 
 CsInt CsValue::get_int() const {
     switch (get_type()) {
-        case CsValueType::number:
+        case CsValueType::Float:
             return CsInt(csv_get<CsFloat>(p_stor));
-        case CsValueType::integer:
+        case CsValueType::Int:
             return csv_get<CsInt>(p_stor);
-        case CsValueType::string:
-        case CsValueType::macro:
-        case CsValueType::cstring:
+        case CsValueType::String:
+        case CsValueType::Macro:
+        case CsValueType::Cstring:
             return cs_parse_int(
                 ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len)
             );
@@ -240,13 +240,13 @@ CsInt CsValue::get_int() const {
 
 CsFloat CsValue::get_float() const {
     switch (get_type()) {
-        case CsValueType::number:
+        case CsValueType::Float:
             return csv_get<CsFloat>(p_stor);
-        case CsValueType::integer:
+        case CsValueType::Int:
             return CsFloat(csv_get<CsInt>(p_stor));
-        case CsValueType::string:
-        case CsValueType::macro:
-        case CsValueType::cstring:
+        case CsValueType::String:
+        case CsValueType::Macro:
+        case CsValueType::Cstring:
             return cs_parse_float(
                 ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len)
             );
@@ -257,14 +257,14 @@ CsFloat CsValue::get_float() const {
 }
 
 CsBytecode *CsValue::get_code() const {
-    if (get_type() != CsValueType::code) {
+    if (get_type() != CsValueType::Code) {
         return nullptr;
     }
     return csv_get<CsBytecode *>(p_stor);
 }
 
 CsIdent *CsValue::get_ident() const {
-    if (get_type() != CsValueType::ident) {
+    if (get_type() != CsValueType::Ident) {
         return nullptr;
     }
     return csv_get<CsIdent *>(p_stor);
@@ -272,13 +272,13 @@ CsIdent *CsValue::get_ident() const {
 
 CsString CsValue::get_str() const {
     switch (get_type()) {
-        case CsValueType::string:
-        case CsValueType::macro:
-        case CsValueType::cstring:
+        case CsValueType::String:
+        case CsValueType::Macro:
+        case CsValueType::Cstring:
             return ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len);
-        case CsValueType::integer:
+        case CsValueType::Int:
             return intstr(csv_get<CsInt>(p_stor));
-        case CsValueType::number:
+        case CsValueType::Float:
             return floatstr(csv_get<CsFloat>(p_stor));
         default:
             break;
@@ -288,9 +288,9 @@ CsString CsValue::get_str() const {
 
 ostd::ConstCharRange CsValue::get_strr() const {
     switch (get_type()) {
-        case CsValueType::string:
-        case CsValueType::macro:
-        case CsValueType::cstring:
+        case CsValueType::String:
+        case CsValueType::Macro:
+        case CsValueType::Cstring:
             return ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len);
         default:
             break;
@@ -300,17 +300,17 @@ ostd::ConstCharRange CsValue::get_strr() const {
 
 void CsValue::get_val(CsValue &r) const {
     switch (get_type()) {
-        case CsValueType::string:
-        case CsValueType::macro:
-        case CsValueType::cstring:
+        case CsValueType::String:
+        case CsValueType::Macro:
+        case CsValueType::Cstring:
             r.set_str(
                 ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len)
             );
             break;
-        case CsValueType::integer:
+        case CsValueType::Int:
             r.set_int(csv_get<CsInt>(p_stor));
             break;
-        case CsValueType::number:
+        case CsValueType::Float:
             r.set_float(csv_get<CsFloat>(p_stor));
             break;
         default:
@@ -329,7 +329,7 @@ OSTD_EXPORT bool cs_code_is_empty(CsBytecode *code) {
 }
 
 bool CsValue::code_is_empty() const {
-    if (get_type() != CsValueType::code) {
+    if (get_type() != CsValueType::Code) {
         return true;
     }
     return cscript::cs_code_is_empty(csv_get<CsBytecode *>(p_stor));
@@ -354,13 +354,13 @@ static inline bool cs_get_bool(ostd::ConstCharRange s) {
 
 bool CsValue::get_bool() const {
     switch (get_type()) {
-        case CsValueType::number:
+        case CsValueType::Float:
             return csv_get<CsFloat>(p_stor) != 0;
-        case CsValueType::integer:
+        case CsValueType::Int:
             return csv_get<CsInt>(p_stor) != 0;
-        case CsValueType::string:
-        case CsValueType::macro:
-        case CsValueType::cstring:
+        case CsValueType::String:
+        case CsValueType::Macro:
+        case CsValueType::Cstring:
             return cs_get_bool(
                 ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len)
             );

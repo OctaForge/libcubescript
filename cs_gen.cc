@@ -430,7 +430,7 @@ lookupid:
             CsIdent *id = gs.cs.new_ident(lookup.get());
             if (id) {
                 switch (id->get_type()) {
-                    case CsIdentType::ivar:
+                    case CsIdentType::Ivar:
                         gs.code.push(
                             CODE_IVAR | cs_ret_code(ltype, RET_INT) |
                                 (id->get_index() << 8)
@@ -447,7 +447,7 @@ lookupid:
                                 break;
                         }
                         return;
-                    case CsIdentType::fvar:
+                    case CsIdentType::Fvar:
                         gs.code.push(
                             CODE_FVAR | cs_ret_code(ltype, RET_FLOAT) |
                                 (id->get_index() << 8)
@@ -464,7 +464,7 @@ lookupid:
                                 break;
                         }
                         return;
-                    case CsIdentType::svar:
+                    case CsIdentType::Svar:
                         switch (ltype) {
                             case VAL_POP:
                                 return;
@@ -485,7 +485,7 @@ lookupid:
                                 break;
                         }
                         goto done;
-                    case CsIdentType::alias:
+                    case CsIdentType::Alias:
                         switch (ltype) {
                             case VAL_POP:
                                 return;
@@ -519,7 +519,7 @@ lookupid:
                                 break;
                         }
                         goto done;
-                    case CsIdentType::command: {
+                    case CsIdentType::Command: {
                         int comtype = CODE_COM, numargs = 0;
                         if (prevargs >= MaxResults) {
                             gs.code.push(CODE_ENTER);
@@ -750,16 +750,16 @@ lookupid:
             CsIdent *id = gs.cs.new_ident(lookup.get());
             if (id) {
                 switch (id->get_type()) {
-                    case CsIdentType::ivar:
+                    case CsIdentType::Ivar:
                         gs.code.push(CODE_IVAR | (id->get_index() << 8));
                         goto done;
-                    case CsIdentType::fvar:
+                    case CsIdentType::Fvar:
                         gs.code.push(CODE_FVAR | (id->get_index() << 8));
                         goto done;
-                    case CsIdentType::svar:
+                    case CsIdentType::Svar:
                         gs.code.push(CODE_SVARM | (id->get_index() << 8));
                         goto done;
-                    case CsIdentType::alias:
+                    case CsIdentType::Alias:
                         gs.code.push(
                             (id->get_index() < MaxArguments
                                 ? CODE_LOOKUPMARG
@@ -1103,7 +1103,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
                         CsIdent *id = gs.cs.new_ident(idname.get());
                         if (id) {
                             switch (id->get_type()) {
-                                case CsIdentType::alias:
+                                case CsIdentType::Alias:
                                     more = compilearg(gs, VAL_ANY, prevargs);
                                     if (!more) {
                                         gs.gen_str();
@@ -1115,7 +1115,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
                                         ) | (id->get_index() << 8)
                                     );
                                     goto endstatement;
-                                case CsIdentType::ivar:
+                                case CsIdentType::Ivar:
                                     more = compilearg(gs, VAL_INT, prevargs);
                                     if (!more) {
                                         gs.gen_int();
@@ -1124,7 +1124,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
                                         CODE_IVAR1 | (id->get_index() << 8)
                                     );
                                     goto endstatement;
-                                case CsIdentType::fvar:
+                                case CsIdentType::Fvar:
                                     more = compilearg(gs, VAL_FLOAT, prevargs);
                                     if (!more) {
                                         gs.gen_float();
@@ -1133,7 +1133,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
                                         CODE_FVAR1 | (id->get_index() << 8)
                                     );
                                     goto endstatement;
-                                case CsIdentType::svar:
+                                case CsIdentType::Svar:
                                     more = compilearg(gs, VAL_CSTR, prevargs);
                                     if (!more) {
                                         gs.gen_str();

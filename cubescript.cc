@@ -41,48 +41,48 @@ CsVar::CsVar(CsIdentType tp, ostd::ConstCharRange name, CsVarCb f, int fl):
 CsIvar::CsIvar(
     ostd::ConstCharRange name, CsInt m, CsInt x, CsInt v, CsVarCb f, int fl
 ):
-    CsVar(CsIdentType::ivar, name, ostd::move(f), fl | ((m > x) ? IDF_READONLY : 0)),
+    CsVar(CsIdentType::Ivar, name, ostd::move(f), fl | ((m > x) ? IDF_READONLY : 0)),
     p_storage(v), p_minval(m), p_maxval(x), p_overrideval(0)
 {}
 
 CsFvar::CsFvar(
     ostd::ConstCharRange name, CsFloat m, CsFloat x, CsFloat v, CsVarCb f, int fl
 ):
-    CsVar(CsIdentType::fvar, name, ostd::move(f), fl | ((m > x) ? IDF_READONLY : 0)),
+    CsVar(CsIdentType::Fvar, name, ostd::move(f), fl | ((m > x) ? IDF_READONLY : 0)),
     p_storage(v), p_minval(m), p_maxval(x), p_overrideval(0)
 {}
 
 CsSvar::CsSvar(ostd::ConstCharRange name, CsString v, CsVarCb f, int fl):
-    CsVar(CsIdentType::svar, name, ostd::move(f), fl),
+    CsVar(CsIdentType::Svar, name, ostd::move(f), fl),
     p_storage(ostd::move(v)), p_overrideval()
 {}
 
 CsAlias::CsAlias(ostd::ConstCharRange name, char *a, int fl):
-    CsIdent(CsIdentType::alias, name, fl),
+    CsIdent(CsIdentType::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
     p_val.set_mstr(a);
 }
 CsAlias::CsAlias(ostd::ConstCharRange name, CsInt a, int fl):
-    CsIdent(CsIdentType::alias, name, fl),
+    CsIdent(CsIdentType::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
     p_val.set_int(a);
 }
 CsAlias::CsAlias(ostd::ConstCharRange name, CsFloat a, int fl):
-    CsIdent(CsIdentType::alias, name, fl),
+    CsIdent(CsIdentType::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
     p_val.set_float(a);
 }
 CsAlias::CsAlias(ostd::ConstCharRange name, int fl):
-    CsIdent(CsIdentType::alias, name, fl),
+    CsIdent(CsIdentType::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
     p_val.set_null();
 }
 CsAlias::CsAlias(ostd::ConstCharRange name, CsValue v, int fl):
-    CsIdent(CsIdentType::alias, name, fl),
+    CsIdent(CsIdentType::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val(ostd::move(v))
 {}
 
@@ -90,12 +90,12 @@ CsCommand::CsCommand(
     ostd::ConstCharRange name, ostd::ConstCharRange args,
     int nargs, CsCommandCb f
 ):
-    CsIdent(CsIdentType::command, name, 0),
+    CsIdent(CsIdentType::Command, name, 0),
     p_cargs(args), p_cb_cftv(ostd::move(f)), p_numargs(nargs)
 {}
 
 bool CsIdent::is_alias() const {
-    return get_type() == CsIdentType::alias;
+    return get_type() == CsIdentType::Alias;
 }
 
 CsAlias *CsIdent::get_alias() {
@@ -113,7 +113,7 @@ CsAlias const *CsIdent::get_alias() const {
 }
 
 bool CsIdent::is_command() const {
-    return get_type() == CsIdentType::command;
+    return get_type() == CsIdentType::Command;
 }
 
 CsCommand *CsIdent::get_command() {
@@ -131,12 +131,12 @@ CsCommand const *CsIdent::get_command() const {
 }
 
 bool CsIdent::is_special() const {
-    return get_type() == CsIdentType::special;
+    return get_type() == CsIdentType::Special;
 }
 
 bool CsIdent::is_var() const {
     CsIdentType tp = get_type();
-    return (tp >= CsIdentType::ivar) && (tp <= CsIdentType::svar);
+    return (tp >= CsIdentType::Ivar) && (tp <= CsIdentType::Svar);
 }
 
 CsVar *CsIdent::get_var() {
@@ -154,7 +154,7 @@ CsVar const *CsIdent::get_var() const {
 }
 
 bool CsIdent::is_ivar() const {
-    return get_type() == CsIdentType::ivar;
+    return get_type() == CsIdentType::Ivar;
 }
 
 CsIvar *CsIdent::get_ivar() {
@@ -172,7 +172,7 @@ CsIvar const *CsIdent::get_ivar() const {
 }
 
 bool CsIdent::is_fvar() const {
-    return get_type() == CsIdentType::fvar;
+    return get_type() == CsIdentType::Fvar;
 }
 
 CsFvar *CsIdent::get_fvar() {
@@ -190,7 +190,7 @@ CsFvar const *CsIdent::get_fvar() const {
 }
 
 bool CsIdent::is_svar() const {
-    return get_type() == CsIdentType::svar;
+    return get_type() == CsIdentType::Svar;
 }
 
 CsSvar *CsIdent::get_svar() {
@@ -399,25 +399,25 @@ void CsState::clear_override(CsIdent &id) {
         return;
     }
     switch (id.get_type()) {
-        case CsIdentType::alias: {
+        case CsIdentType::Alias: {
             CsAlias &a = static_cast<CsAlias &>(id);
             CsAliasInternal::clean_code(&a);
             a.get_value().set_str("");
             break;
         }
-        case CsIdentType::ivar: {
+        case CsIdentType::Ivar: {
             CsIvar &iv = static_cast<CsIvar &>(id);
             iv.set_value(iv.p_overrideval);
             iv.changed();
             break;
         }
-        case CsIdentType::fvar: {
+        case CsIdentType::Fvar: {
             CsFvar &fv = static_cast<CsFvar &>(id);
             fv.set_value(fv.p_overrideval);
             fv.changed();
             break;
         }
-        case CsIdentType::svar: {
+        case CsIdentType::Svar: {
             CsSvar &sv = static_cast<CsSvar &>(id);
             sv.set_value(sv.p_overrideval);
             sv.changed();
@@ -460,11 +460,11 @@ CsIdent *CsState::new_ident(ostd::ConstCharRange name, int flags) {
 
 CsIdent *CsState::force_ident(CsValue &v) {
     switch (v.get_type()) {
-        case CsValueType::ident:
+        case CsValueType::Ident:
             return v.get_ident();
-        case CsValueType::macro:
-        case CsValueType::cstring:
-        case CsValueType::string: {
+        case CsValueType::Macro:
+        case CsValueType::Cstring:
+        case CsValueType::String: {
             CsIdent *id = new_ident(v.get_strr());
             v.set_ident(id);
             return id;
@@ -520,7 +520,7 @@ void CsState::set_alias(ostd::ConstCharRange name, CsValue v) {
     CsIdent *id = get_ident(name);
     if (id) {
         switch (id->get_type()) {
-            case CsIdentType::alias: {
+            case CsIdentType::Alias: {
                 CsAlias *a = static_cast<CsAlias *>(id);
                 if (a->get_index() < MaxArguments) {
                     CsAliasInternal::set_arg(a, *this, v);
@@ -529,13 +529,13 @@ void CsState::set_alias(ostd::ConstCharRange name, CsValue v) {
                 }
                 return;
             }
-            case CsIdentType::ivar:
+            case CsIdentType::Ivar:
                 set_var_int_checked(static_cast<CsIvar *>(id), v.get_int());
                 break;
-            case CsIdentType::fvar:
+            case CsIdentType::Fvar:
                 set_var_float_checked(static_cast<CsFvar *>(id), v.get_float());
                 break;
-            case CsIdentType::svar:
+            case CsIdentType::Svar:
                 set_var_str_checked(static_cast<CsSvar *>(id), v.get_str());
                 break;
             default:
@@ -587,17 +587,17 @@ void CsState::print_var(CsSvar *sv) {
 
 void CsState::print_var(CsVar *v) {
     switch (v->get_type()) {
-        case CsIdentType::ivar: {
+        case CsIdentType::Ivar: {
             CsIvar *iv = static_cast<CsIvar *>(v);
             print_var(iv);
             break;
         }
-        case CsIdentType::fvar: {
+        case CsIdentType::Fvar: {
             CsFvar *fv = static_cast<CsFvar *>(v);
             print_var(fv);
             break;
         }
-        case CsIdentType::svar: {
+        case CsIdentType::Svar: {
             CsSvar *sv = static_cast<CsSvar *>(v);
             print_var(sv);
             break;
@@ -609,17 +609,17 @@ void CsState::print_var(CsVar *v) {
 
 void CsAlias::get_cstr(CsValue &v) const {
     switch (p_val.get_type()) {
-        case CsValueType::macro:
+        case CsValueType::Macro:
             v.set_macro(p_val.get_strr());
             break;
-        case CsValueType::string:
-        case CsValueType::cstring:
+        case CsValueType::String:
+        case CsValueType::Cstring:
             v.set_cstr(p_val.get_strr());
             break;
-        case CsValueType::integer:
+        case CsValueType::Int:
             v.set_str(ostd::move(intstr(p_val.get_int())));
             break;
-        case CsValueType::number:
+        case CsValueType::Float:
             v.set_str(ostd::move(floatstr(p_val.get_float())));
             break;
         default:
@@ -630,17 +630,17 @@ void CsAlias::get_cstr(CsValue &v) const {
 
 void CsAlias::get_cval(CsValue &v) const {
     switch (p_val.get_type()) {
-        case CsValueType::macro:
+        case CsValueType::Macro:
             v.set_macro(p_val.get_strr());
             break;
-        case CsValueType::string:
-        case CsValueType::cstring:
+        case CsValueType::String:
+        case CsValueType::Cstring:
             v.set_cstr(p_val.get_strr());
             break;
-        case CsValueType::integer:
+        case CsValueType::Int:
             v.set_int(p_val.get_int());
             break;
-        case CsValueType::number:
+        case CsValueType::Float:
             v.set_float(p_val.get_float());
             break;
         default:
@@ -651,7 +651,7 @@ void CsAlias::get_cval(CsValue &v) const {
 
 CsIdentType CsIdent::get_type() const {
     if (p_type > ID_ALIAS) {
-        return CsIdentType::special;
+        return CsIdentType::Special;
     }
     return CsIdentType(p_type);
 }
@@ -1055,7 +1055,7 @@ void cs_init_lib_base(CsState &cs) {
         CsInt val = args[0].get_int();
         for (ostd::Size i = 1; (i + 1) < args.size(); i += 2) {
             if (
-                (args[i].get_type() == CsValueType::null) ||
+                (args[i].get_type() == CsValueType::Null) ||
                 (args[i].get_int() == val)
             ) {
                 cs.run(args[i + 1].get_code(), res);
@@ -1068,7 +1068,7 @@ void cs_init_lib_base(CsState &cs) {
         CsFloat val = args[0].get_float();
         for (ostd::Size i = 1; (i + 1) < args.size(); i += 2) {
             if (
-                (args[i].get_type() == CsValueType::null) ||
+                (args[i].get_type() == CsValueType::Null) ||
                 (args[i].get_float() == val)
             ) {
                 cs.run(args[i + 1].get_code(), res);
@@ -1081,7 +1081,7 @@ void cs_init_lib_base(CsState &cs) {
         CsString val = args[0].get_str();
         for (ostd::Size i = 1; (i + 1) < args.size(); i += 2) {
             if (
-                (args[i].get_type() == CsValueType::null) ||
+                (args[i].get_type() == CsValueType::Null) ||
                 (args[i].get_str() == val)
             ) {
                 cs.run(args[i + 1].get_code(), res);
