@@ -82,6 +82,14 @@ enum {
     CsRetFloat  = CsValFloat << CsCodeRet,
 };
 
+struct CsErrorException {
+    CsString errmsg;
+    CsErrorException() = delete;
+    CsErrorException(CsErrorException const &) = delete;
+    CsErrorException(CsErrorException &&v): errmsg(ostd::move(v.errmsg)) {}
+    CsErrorException(CsString &&v): errmsg(ostd::move(v)) {}
+};
+
 ostd::ConstCharRange cs_debug_line(
     ostd::ConstCharRange p, ostd::ConstCharRange fmt, ostd::CharRange buf
 );

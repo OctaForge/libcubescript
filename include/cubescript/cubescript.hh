@@ -316,6 +316,7 @@ enum {
 };
 
 using CsHookCb = ostd::Function<void()>;
+using CsPanicCb = ostd::Function<void(CsString)>;
 
 struct OSTD_EXPORT CsState {
     CsMap<ostd::ConstCharRange, CsIdent *> idents;
@@ -326,6 +327,7 @@ struct OSTD_EXPORT CsState {
 
     int identflags = 0;
     int nodebug = 0;
+    int protect = 0;
 
     CsState();
     virtual ~CsState();
@@ -345,6 +347,19 @@ struct OSTD_EXPORT CsState {
     virtual void *alloc(void *ptr, ostd::Size olds, ostd::Size news);
 
     void init_libs(int libs = CsLibAll);
+
+    CsPanicCb set_panic_func(CsPanicCb func);
+    CsPanicCb const &get_panic_func() const;
+    CsPanicCb &get_panic_func();
+
+    template<typename F>
+    bool pcall(F func, ostd::String *error) {
+        return ipcall([](void *data) {
+            (*static_cast<F *>(data))();
+        }, error, &func);
+    }
+
+    void error(CsString msg);
 
     void clear_override(CsIdent &id);
     void clear_overrides();
@@ -461,8 +476,10 @@ struct OSTD_EXPORT CsState {
 
 private:
     CsIdent *add_ident(CsIdent *id);
+    bool ipcall(void (*f)(void *data), ostd::String *error, void *data);
 
     CsHookCb p_callhook;
+    CsPanicCb p_panicfunc;
     CsStream *p_out, *p_err;
 };
 

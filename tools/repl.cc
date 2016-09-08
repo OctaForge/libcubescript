@@ -182,16 +182,13 @@ void print_version() {
     ostd::writeln(version);
 }
 
-struct InterruptedException {
-};
-
 static void do_sigint(int n) {
     /* in case another SIGINT happens, terminate normally */
     signal(n, SIG_DFL);
     if (gcs) {
         gcs->set_call_hook([]() {
             gcs->set_call_hook(nullptr);
-            throw InterruptedException{};
+            gcs->error("<execution interrupted>");
         });
     }
 }
@@ -199,7 +196,8 @@ static void do_sigint(int n) {
 static void do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
     CsValue ret;
     signal(SIGINT, do_sigint);
-    try {
+    ostd::String err;
+    if (!cs.pcall([&]() {
         if (file) {
             if (!cs.run_file(line, ret)) {
                 ostd::err.writeln("cannot read file: ", line);
@@ -207,9 +205,9 @@ static void do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
         } else {
             cs.run(line, ret);
         }
-    } catch (InterruptedException) {
+    }, &err)) {
         signal(SIGINT, SIG_DFL);
-        ostd::writeln("<execution interrupted>");
+        ostd::writeln(err);
         return;
     }
     signal(SIGINT, SIG_DFL);

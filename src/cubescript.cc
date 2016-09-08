@@ -252,11 +252,21 @@ int CsCommand::get_num_args() const {
 
 void cs_init_lib_base(CsState &cs);
 
-CsState::CsState(): p_out(&ostd::out), p_err(&ostd::err) {
+CsState::CsState():
+    p_callhook(), p_panicfunc(), p_out(&ostd::out), p_err(&ostd::err)
+{
     noalias.id = nullptr;
     noalias.next = nullptr;
     noalias.usedargs = (1 << MaxArguments) - 1;
     noalias.argstack = nullptr;
+
+    /* default panic func */
+    p_panicfunc = [this](CsString v) {
+        get_err().writefln(
+            "PANIC: unprotected error in call to CubeScript (%s)", v
+        );
+    };
+
     for (int i = 0; i < MaxArguments; ++i) {
         char buf[32];
         snprintf(buf, sizeof(buf), "arg%d", i + 1);
@@ -392,6 +402,49 @@ void *CsState::alloc(void *ptr, ostd::Size, ostd::Size ns) {
         return nullptr;
     }
     return new ostd::byte[ns];
+}
+
+CsPanicCb CsState::set_panic_func(CsPanicCb func) {
+    auto hk = ostd::move(p_panicfunc);
+    p_panicfunc = ostd::move(func);
+    return hk;
+}
+
+CsPanicCb const &CsState::get_panic_func() const {
+    return p_panicfunc;
+}
+
+CsPanicCb &CsState::get_panic_func() {
+    return p_panicfunc;
+}
+
+bool CsState::ipcall(void (*f)(void *data), ostd::String *error, void *data) {
+    ++protect;
+    try {
+        f(data);
+    } catch (CsErrorException const &v) {
+        --protect;
+        if (error) {
+            *error = ostd::move(v.errmsg);
+        }
+        return false;
+    } catch (...) {
+        --protect;
+        throw;
+    }
+    --protect;
+    return true;
+}
+
+void CsState::error(CsString msg) {
+    if (protect) {
+        throw CsErrorException(ostd::move(msg));
+    } else {
+        if (p_panicfunc) {
+            p_panicfunc(ostd::move(msg));
+        }
+        exit(EXIT_FAILURE);
+    }
 }
 
 void CsState::clear_override(CsIdent &id) {
@@ -1223,8 +1276,11 @@ void cs_init_lib_base(CsState &cs) {
 
     cs.new_command("nodebug", "e", [&cs](CsValueRange args, CsValue &res) {
         ++cs.nodebug;
-        cs.run(args[0].get_code(), res);
-        --cs.nodebug;
+        cs_do_and_cleanup([&]() {
+            cs.run(args[0].get_code(), res);
+        }, [&cs]() {
+            --cs.nodebug;
+        });
     });
 
     cs.new_command("push", "rTe", [&cs](CsValueRange args, CsValue &res) {
