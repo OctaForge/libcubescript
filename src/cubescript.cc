@@ -1082,6 +1082,36 @@ static inline void cs_loop_conc(
 }
 
 void cs_init_lib_base(CsState &cs) {
+    cs.new_command("error", "s", [&cs](CsValueRange args, CsValue &) {
+        cs.error(args[0].get_strr());
+    });
+
+    cs.new_command("pcall", "erre", [&cs](CsValueRange args, CsValue &ret) {
+        CsStackedValue cst, cret;
+        if (
+            !cst.set_alias(args[1].get_ident()) ||
+            !cret.set_alias(args[2].get_ident())
+        ) {
+            ret.set_int(0);
+            return;
+        }
+        CsString errmsg;
+        CsValue result;
+        bool rc = cs.pcall([&cs, &args, &result]() {
+            cs.run(args[0].get_code(), result);
+        }, &errmsg);
+        ret.set_int(rc);
+        cst.set_int(rc);
+        cst.push();
+        if (!rc) {
+            cret.set_str(ostd::move(errmsg));
+        } else {
+            cret = ostd::move(result);
+        }
+        cret.push();
+        cs.run(args[3].get_code());
+    });
+
     cs.new_command("?", "tTT", [](CsValueRange args, CsValue &res) {
         if (args[0].get_bool()) {
             res = ostd::move(args[1]);

@@ -207,7 +207,7 @@ static void do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
         }
     }, &err)) {
         signal(SIGINT, SIG_DFL);
-        ostd::writeln(err);
+        ostd::writeln("error: ", err);
         return;
     }
     signal(SIGINT, SIG_DFL);
