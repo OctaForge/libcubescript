@@ -443,25 +443,28 @@ static inline void cs_call_alias(
         CsAliasInternal::compile_code(a, cs)
     );
     bcode_incr(codep);
-    runcode(cs, codep+1, result);
-    bcode_decr(codep);
-    cs.p_callstack = aliaslink.next;
-    cs.identflags = oldflags;
-    for (int i = 0; i < callargs; i++) {
-        CsAliasInternal::pop_arg(static_cast<CsAlias *>(cs.identmap[i]));
-    }
-    int argmask = aliaslink.usedargs & (~0 << callargs);
-    for (; argmask; ++callargs) {
-        if (argmask & (1 << callargs)) {
-            CsAliasInternal::pop_arg(static_cast<CsAlias *>(
-                cs.identmap[callargs])
-            );
-            argmask &= ~(1 << callargs);
+    cs_do_and_cleanup([&]() {
+        runcode(cs, codep+1, result);
+    }, [&]() {
+        bcode_decr(codep);
+        cs.p_callstack = aliaslink.next;
+        cs.identflags = oldflags;
+        for (int i = 0; i < callargs; i++) {
+            CsAliasInternal::pop_arg(static_cast<CsAlias *>(cs.identmap[i]));
         }
-    }
-    force_arg(result, op & CsCodeRetMask);
-    anargs->set_value(oldargs);
-    nargs = offset - skip;
+        int argmask = aliaslink.usedargs & (~0 << callargs);
+        for (; argmask; ++callargs) {
+            if (argmask & (1 << callargs)) {
+                CsAliasInternal::pop_arg(static_cast<CsAlias *>(
+                    cs.identmap[callargs])
+                );
+                argmask &= ~(1 << callargs);
+            }
+        }
+        force_arg(result, op & CsCodeRetMask);
+        anargs->set_value(oldargs);
+        nargs = offset - skip;
+    });
 }
 
 static constexpr int MaxRunDepth = 255;
@@ -631,10 +634,13 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 for (int i = 0; i < numlocals; ++i) {
                     cs_push_alias(args[offset + i].get_ident(), locals[i]);
                 }
-                code = runcode(cs, code, result);
-                for (int i = offset; i < numargs; i++) {
-                    cs_pop_alias(args[i].get_ident());
-                }
+                cs_do_and_cleanup([&]() {
+                    code = runcode(cs, code, result);
+                }, [&]() {
+                    for (int i = offset; i < numargs; i++) {
+                        cs_pop_alias(args[i].get_ident());
+                    }
+                });
                 goto exit;
             }
 
@@ -1448,10 +1454,13 @@ noid:
                                 args[offset + j]
                             ), locals[j]);
                         }
-                        code = runcode(cs, code, result);
-                        for (ostd::Size j = 0; j < ostd::Size(callargs); ++j) {
-                            cs_pop_alias(args[offset + j].get_ident());
-                        }
+                        cs_do_and_cleanup([&]() {
+                            code = runcode(cs, code, result);
+                        }, [&]() {
+                            for (ostd::Size j = 0; j < ostd::Size(callargs); ++j) {
+                                cs_pop_alias(args[offset + j].get_ident());
+                            }
+                        });
                         goto exit;
                     }
                     case CsIdIvar:
