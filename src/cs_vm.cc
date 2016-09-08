@@ -443,7 +443,7 @@ static inline void cs_call_alias(
         CsAliasInternal::compile_code(a, cs)
     );
     bcode_incr(codep);
-    runcode(cs, codep+1, (result));
+    runcode(cs, codep+1, result);
     bcode_decr(codep);
     cs.p_callstack = aliaslink.next;
     cs.identflags = oldflags;

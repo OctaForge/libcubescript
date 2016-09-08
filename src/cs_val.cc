@@ -19,7 +19,7 @@ static inline void csv_cleanup(CsValueType tv, T &stor) {
         case CsValueType::Code: {
             ostd::Uint32 *bcode = csv_get<ostd::Uint32 *>(stor);
             if (bcode[-1] == CsCodeStart) {
-                delete[] bcode;
+                delete[] &bcode[-1];
             }
             break;
         }
