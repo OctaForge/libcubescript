@@ -276,7 +276,7 @@ CsState::CsState(): p_out(&ostd::out), p_err(&ostd::err) {
     })->p_type = CsIdDo;
 
     new_command("doargs", "e", [this](CsValueRange args, CsValue &res) {
-        if (p_stack != &noalias) {
+        if (p_callstack != &noalias) {
             cs_do_args(*this, [&]() { run(args[0].get_code(), res); });
         } else {
             run(args[0].get_code(), res);
@@ -824,7 +824,7 @@ CsState::get_alias_val(ostd::ConstCharRange name) {
     }
     if (
         (a->get_index() < MaxArguments) &&
-        !(p_stack->usedargs & (1 << a->get_index()))
+        !(p_callstack->usedargs & (1 << a->get_index()))
     ) {
         return ostd::nothing;
     }

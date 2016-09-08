@@ -275,12 +275,12 @@ struct CsAliasInternal {
     }
 
     static void set_arg(CsAlias *a, CsState &cs, CsValue &v) {
-        if (cs.p_stack->usedargs & (1 << a->get_index())) {
+        if (cs.p_callstack->usedargs & (1 << a->get_index())) {
             a->p_val = ostd::move(v);
             clean_code(a);
         } else {
-            push_arg(a, v, cs.p_stack->argstack[a->get_index()], false);
-            cs.p_stack->usedargs |= 1 << a->get_index();
+            push_arg(a, v, cs.p_callstack->argstack[a->get_index()], false);
+            cs.p_callstack->usedargs |= 1 << a->get_index();
         }
     }
 
@@ -315,7 +315,7 @@ struct CsAliasInternal {
 template<typename F>
 static void cs_do_args(CsState &cs, F body) {
     CsIdentStack argstack[MaxArguments];
-    int argmask1 = cs.p_stack->usedargs;
+    int argmask1 = cs.p_callstack->usedargs;
     for (int i = 0; argmask1; argmask1 >>= 1, ++i) {
         if (argmask1 & 1) {
             CsAliasInternal::undo_arg(
@@ -323,15 +323,15 @@ static void cs_do_args(CsState &cs, F body) {
             );
         }
     }
-    CsIdentLink *prevstack = cs.p_stack->next;
+    CsIdentLink *prevstack = cs.p_callstack->next;
     CsIdentLink aliaslink = {
-        cs.p_stack->id, cs.p_stack, prevstack->usedargs, prevstack->argstack
+        cs.p_callstack->id, cs.p_callstack, prevstack->usedargs, prevstack->argstack
     };
-    cs.p_stack = &aliaslink;
+    cs.p_callstack = &aliaslink;
     body();
     prevstack->usedargs = aliaslink.usedargs;
-    cs.p_stack = aliaslink.next;
-    int argmask2 = cs.p_stack->usedargs;
+    cs.p_callstack = aliaslink.next;
+    int argmask2 = cs.p_callstack->usedargs;
     for (int i = 0; argmask2; argmask2 >>= 1, ++i) {
         if (argmask2 & 1) {
             CsAliasInternal::redo_arg(

@@ -36,10 +36,10 @@ repl: $(LIBCS_LIB) tools/repl.cc tools/linenoise.cc tools/linenoise.hh
 clean:
 	rm -f $(LIBCS_LIB) $(LIBCS_OBJ) repl
 
-cubescript.o: cubescript.hh cubescript_conf.hh cs_vm.hh
-cs_gen.o: cubescript.hh cubescript_conf.hh cs_vm.hh cs_util.hh
-cs_vm.o: cubescript.hh cubescript_conf.hh cs_vm.hh cs_util.hh
-cs_val.o: cubescript.hh cubescript_conf.hh cs_vm.hh cs_util.hh
-lib_str.o: cubescript.hh cubescript_conf.hh
-lib_math.o: cubescript.hh cubescript_conf.hh
-lib_list.o: cubescript.hh cubescript_conf.hh cs_util.hh
+src/cubescript.o: include/cubescript/cubescript.hh include/cubescript/cubescript_conf.hh src/cs_vm.hh
+src/cs_gen.o: include/cubescript/cubescript.hh include/cubescript/cubescript_conf.hh src/cs_vm.hh src/cs_util.hh
+src/cs_vm.o: include/cubescript/cubescript.hh include/cubescript/cubescript_conf.hh src/cs_vm.hh src/cs_util.hh
+src/cs_val.o: include/cubescript/cubescript.hh include/cubescript/cubescript_conf.hh src/cs_vm.hh src/cs_util.hh
+src/lib_str.o: include/cubescript/cubescript.hh include/cubescript/cubescript_conf.hh
+src/lib_math.o: include/cubescript/cubescript.hh include/cubescript/cubescript_conf.hh
+src/lib_list.o: include/cubescript/cubescript.hh include/cubescript/cubescript_conf.hh src/cs_util.hh

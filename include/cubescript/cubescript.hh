@@ -322,7 +322,7 @@ struct OSTD_EXPORT CsState {
     CsVector<CsIdent *> identmap;
 
     CsIdentLink noalias;
-    CsIdentLink *p_stack = &noalias;
+    CsIdentLink *p_callstack = &noalias;
 
     int identflags = 0;
     int nodebug = 0;
