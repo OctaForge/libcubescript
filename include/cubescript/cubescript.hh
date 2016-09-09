@@ -315,8 +315,31 @@ enum {
     CsLibAll    = 0b111
 };
 
+struct CsStackStateNode {
+    CsStackStateNode const *next;
+    CsIdent const *id;
+    int index;
+};
+
+struct CsStackState {
+    CsStackState(CsStackStateNode *nd = nullptr, bool gap = false);
+    CsStackState(CsStackState const &) = delete;
+    CsStackState(CsStackState &&st);
+    ~CsStackState();
+
+    CsStackState &operator=(CsStackState const &) = delete;
+    CsStackState &operator=(CsStackState &&);
+
+    CsStackStateNode const *get() const;
+    bool gap() const;
+
+private:
+    CsStackStateNode *p_node;
+    bool p_gap;
+};
+
 using CsHookCb = ostd::Function<void()>;
-using CsPanicCb = ostd::Function<void(CsString)>;
+using CsPanicCb = ostd::Function<void(CsString, CsStackState)>;
 
 struct OSTD_EXPORT CsState {
     CsMap<ostd::ConstCharRange, CsIdent *> idents;
@@ -353,10 +376,13 @@ struct OSTD_EXPORT CsState {
     CsPanicCb &get_panic_func();
 
     template<typename F>
-    bool pcall(F func, ostd::String *error) {
+    bool pcall(
+        F func, ostd::String *error = nullptr,
+        CsStackState *stack = nullptr
+    ) {
         return ipcall([](void *data) {
             (*static_cast<F *>(data))();
-        }, error, &func);
+        }, error, stack, &func);
     }
 
     void error(CsString msg);
@@ -476,7 +502,10 @@ struct OSTD_EXPORT CsState {
 
 private:
     CsIdent *add_ident(CsIdent *id);
-    bool ipcall(void (*f)(void *data), ostd::String *error, void *data);
+    bool ipcall(
+        void (*f)(void *data), ostd::String *error,
+        CsStackState *stack, void *data
+    );
 
     CsHookCb p_callhook;
     CsPanicCb p_panicfunc;
@@ -652,6 +681,27 @@ namespace util {
                 break;
             }
             ret += writer.put_n(sep.data(), sep.size());
+        }
+        return ret;
+    }
+
+    template<typename R>
+    inline ostd::Size print_stack(R &&writer, CsStackState const &st) {
+        ostd::Size ret = 0;
+        auto nd = st.get();
+        while (nd) {
+            auto rt = ostd::format(
+                writer,
+                ((nd->index == 1) && st.gap())
+                    ? "  ..%d) %s\n" : "  %d) %s\n",
+                nd->index, nd->id->get_name()
+            );
+            if (rt > 0) {
+                ret += ostd::Size(rt);
+            } else {
+                return ret;
+            }
+            nd = nd->next;
         }
         return ret;
     }

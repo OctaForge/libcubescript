@@ -197,6 +197,7 @@ static void do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
     CsValue ret;
     signal(SIGINT, do_sigint);
     ostd::String err;
+    cscript::CsStackState st;
     if (!cs.pcall([&]() {
         if (file) {
             if (!cs.run_file(line, ret)) {
@@ -205,9 +206,10 @@ static void do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
         } else {
             cs.run(line, ret);
         }
-    }, &err)) {
+    }, &err, &st)) {
         signal(SIGINT, SIG_DFL);
-        ostd::writeln("error: ", err);
+        cs.get_out().writeln("error: ", err);
+        cscript::util::print_stack(cs.get_out().iter(), st);
         return;
     }
     signal(SIGINT, SIG_DFL);

@@ -69,6 +69,69 @@ ostd::ConstCharRange cs_debug_line(
     return fmt;
 }
 
+CsStackState::CsStackState(CsStackStateNode *nd, bool gap):
+    p_node(nd), p_gap(gap)
+{}
+CsStackState::CsStackState(CsStackState &&st):
+    p_node(st.p_node), p_gap(st.p_gap)
+{
+    st.p_node = nullptr;
+    st.p_gap = false;
+}
+
+CsStackState::~CsStackState() {
+    delete[] p_node;
+}
+
+CsStackState &CsStackState::operator=(CsStackState &&st) {
+    p_node = st.p_node;
+    p_gap = st.p_gap;
+    st.p_node = nullptr;
+    st.p_gap = false;
+    return *this;
+}
+
+CsStackStateNode const *CsStackState::get() const {
+    return p_node;
+}
+
+bool CsStackState::gap() const {
+    return p_gap;
+}
+
+CsStackState cs_save_stack(CsState &cs) {
+    CsIvar *dalias = static_cast<CsIvar *>(cs.identmap[DbgaliasIdx]);
+    if (!dalias->get_value()) {
+        return CsStackState(nullptr, true);
+    }
+    int total = 0, depth = 0;
+    for (CsIdentLink *l = cs.p_callstack; l != &cs.noalias; l = l->next) {
+        total++;
+    }
+    CsStackStateNode *st =
+        new CsStackStateNode[ostd::min(total, dalias->get_value())];
+    CsStackStateNode *ret = st, *nd = st;
+    ++st;
+    for (CsIdentLink *l = cs.p_callstack; l != &cs.noalias; l = l->next) {
+        ++depth;
+        if (depth < dalias->get_value()) {
+            nd->id = l->id;
+            nd->index = total - depth + 1;
+            if (l->next == &cs.noalias) {
+                nd->next = nullptr;
+            } else {
+                nd->next = st;
+            }
+            nd = st++;
+        } else if (l->next == &cs.noalias) {
+            nd->id = l->id;
+            nd->index = 1;
+            nd->next = NULL;
+        }
+    }
+    return CsStackState(ret, total != dalias->get_value());
+}
+
 void cs_debug_alias(CsState &cs) {
     CsIvar *dalias = static_cast<CsIvar *>(cs.identmap[DbgaliasIdx]);
     if (!dalias->get_value()) {

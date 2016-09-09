@@ -88,10 +88,15 @@ constexpr ostd::Size CsTypeStorageSize =
 
 struct CsErrorException {
     CsString errmsg;
+    CsStackState stack;
     CsErrorException() = delete;
     CsErrorException(CsErrorException const &) = delete;
-    CsErrorException(CsErrorException &&v): errmsg(ostd::move(v.errmsg)) {}
-    CsErrorException(CsString &&v): errmsg(ostd::move(v)) {}
+    CsErrorException(CsErrorException &&v):
+        errmsg(ostd::move(v.errmsg)), stack(ostd::move(v.stack))
+    {}
+    CsErrorException(CsString &&v, CsStackState &&st):
+        errmsg(ostd::move(v)), stack(ostd::move(st))
+    {}
 };
 
 ostd::ConstCharRange cs_debug_line(
@@ -99,6 +104,8 @@ ostd::ConstCharRange cs_debug_line(
 );
 
 void cs_debug_alias(CsState &cs);
+
+CsStackState cs_save_stack(CsState &cs);
 
 template<typename ...A>
 void cs_debug_code(CsState &cs, ostd::ConstCharRange fmt, A &&...args) {

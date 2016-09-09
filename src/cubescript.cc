@@ -261,7 +261,7 @@ CsState::CsState():
     noalias.argstack = nullptr;
 
     /* default panic func */
-    p_panicfunc = [this](CsString v) {
+    p_panicfunc = [this](CsString v, CsStackState) {
         get_err().writefln(
             "PANIC: unprotected error in call to CubeScript (%s)", v
         );
@@ -418,14 +418,20 @@ CsPanicCb &CsState::get_panic_func() {
     return p_panicfunc;
 }
 
-bool CsState::ipcall(void (*f)(void *data), ostd::String *error, void *data) {
+bool CsState::ipcall(
+    void (*f)(void *data), ostd::String *error,
+    CsStackState *stack, void *data
+) {
     ++protect;
     try {
         f(data);
-    } catch (CsErrorException const &v) {
+    } catch (CsErrorException &v) {
         --protect;
         if (error) {
             *error = ostd::move(v.errmsg);
+        }
+        if (stack) {
+            *stack = ostd::move(v.stack);
         }
         return false;
     } catch (...) {
@@ -438,10 +444,10 @@ bool CsState::ipcall(void (*f)(void *data), ostd::String *error, void *data) {
 
 void CsState::error(CsString msg) {
     if (protect) {
-        throw CsErrorException(ostd::move(msg));
+        throw CsErrorException(ostd::move(msg), cs_save_stack(*this));
     } else {
         if (p_panicfunc) {
-            p_panicfunc(ostd::move(msg));
+            p_panicfunc(ostd::move(msg), cs_save_stack(*this));
         }
         exit(EXIT_FAILURE);
     }
