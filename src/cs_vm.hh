@@ -82,6 +82,10 @@ enum {
     CsRetFloat  = CsValFloat << CsCodeRet,
 };
 
+template<typename T>
+constexpr ostd::Size CsTypeStorageSize =
+    (sizeof(T) - 1) / sizeof(ostd::Uint32) + 1;
+
 struct CsErrorException {
     CsString errmsg;
     CsErrorException() = delete;
@@ -166,8 +170,13 @@ struct GenState {
         if (i >= -0x800000 && i <= 0x7FFFFF) {
             code.push(CsCodeValInt | CsRetInt | (i << 8));
         } else {
+            union {
+                CsInt i;
+                ostd::Uint32 u[CsTypeStorageSize<CsInt>];
+            } c;
+            c.i = i;
             code.push(CsCodeVal | CsRetInt);
-            code.push(i);
+            code.push_n(c.u, CsTypeStorageSize<CsInt>);
         }
     }
 
@@ -179,11 +188,11 @@ struct GenState {
         } else {
             union {
                 CsFloat f;
-                ostd::Uint32 u;
+                ostd::Uint32 u[CsTypeStorageSize<CsFloat>];
             } c;
             c.f = f;
             code.push(CsCodeVal | CsRetFloat);
-            code.push(c.u);
+            code.push_n(c.u, CsTypeStorageSize<CsFloat>);
         }
     }
 
@@ -221,7 +230,7 @@ struct GenState {
     }
 };
 
-CsString intstr(int v);
+CsString intstr(CsInt v);
 CsString floatstr(CsFloat v);
 
 bool cs_check_num(ostd::ConstCharRange s);

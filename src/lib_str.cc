@@ -142,7 +142,8 @@ void cs_init_lib_string(CsState &cs) {
     cs.new_command("tohex", "ii", [](CsValueRange args, CsValue &res) {
         auto r = ostd::appender<CsVector<char>>();
         ostd::format(
-            r, "0x%.*X", ostd::max(args[1].get_int(), 1), args[0].get_int()
+            r, "0x%.*X", ostd::max(args[1].get_int(), CsInt(1)),
+            args[0].get_int()
         );
         r.put('\0');
         ostd::Size len = r.size() - 1;
@@ -153,10 +154,12 @@ void cs_init_lib_string(CsState &cs) {
         ostd::ConstCharRange s = args[0].get_strr();
         CsInt start = args[1].get_int(), count = args[2].get_int();
         CsInt numargs = args[3].get_int();
-        CsInt len = CsInt(s.size()), offset = ostd::clamp(start, 0, len);
+        CsInt len = CsInt(s.size()), offset = ostd::clamp(start, CsInt(0), len);
         res.set_str(ostd::ConstCharRange(
             &s[offset],
-            (numargs >= 3) ? ostd::clamp(count, 0, len - offset) : (len - offset)
+            (numargs >= 3)
+                ? ostd::clamp(count, CsInt(0), len - offset)
+                : (len - offset)
         ));
     });
 
@@ -233,8 +236,8 @@ void cs_init_lib_string(CsState &cs) {
               count  = args[3].get_int();
         CsInt slen   = CsInt(s.size()),
               vlen   = CsInt(vals.size());
-        CsInt offset = ostd::clamp(skip, 0, slen),
-              len    = ostd::clamp(count, 0, slen - offset);
+        CsInt offset = ostd::clamp(skip, CsInt(0), slen),
+              len    = ostd::clamp(count, CsInt(0), slen - offset);
         char *p = new char[slen - len + vlen + 1];
         if (offset) {
             memcpy(p, s.data(), offset);

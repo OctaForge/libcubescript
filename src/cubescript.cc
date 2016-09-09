@@ -4,15 +4,15 @@
 namespace cscript {
 
 CsString intstr(CsInt v) {
-    char buf[256];
-    snprintf(buf, sizeof(buf), IntFormat, v);
-    return static_cast<char const *>(buf);
+    auto app = ostd::appender<CsString>();
+    cscript::util::format_int(app, v);
+    return ostd::move(app.get());
 }
 
 CsString floatstr(CsFloat v) {
-    char buf[256];
-    snprintf(buf, sizeof(buf), v == CsInt(v) ? RoundFloatFormat : FloatFormat, v);
-    return static_cast<char const *>(buf);
+    auto app = ostd::appender<CsString>();
+    cscript::util::format_float(app, v);
+    return ostd::move(app.get());
 }
 
 bool cs_check_num(ostd::ConstCharRange s) {

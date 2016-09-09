@@ -741,15 +741,19 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 args[numargs++].set_null();
                 continue;
             case CsCodeVal | CsRetInt:
-                args[numargs++].set_int(CsInt(*code++));
+                args[numargs++].set_int(
+                    *reinterpret_cast<CsInt const *>(code)
+                );
+                code += CsTypeStorageSize<CsInt>;
                 continue;
             case CsCodeValInt | CsRetInt:
                 args[numargs++].set_int(CsInt(op) >> 8);
                 continue;
             case CsCodeVal | CsRetFloat:
                 args[numargs++].set_float(
-                    *reinterpret_cast<CsFloat const *>(code++)
+                    *reinterpret_cast<CsFloat const *>(code)
                 );
+                code += CsTypeStorageSize<CsFloat>;
                 continue;
             case CsCodeValInt | CsRetFloat:
                 args[numargs++].set_float(CsFloat(CsInt(op) >> 8));

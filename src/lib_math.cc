@@ -1,7 +1,8 @@
 #include <limits.h>
-#include <math.h>
 
-#include <ostd/functional.hh>
+/* c++ versions for overloaded math */
+#include <stdlib.h>
+#include <math.h>
 
 #include "cubescript/cubescript.hh"
 
@@ -71,45 +72,110 @@ static inline void cs_cmpop(CsValueRange args, CsValue &res, F cmp) {
     res.set_int(CsInt(val));
 }
 
+/* overloads for various float types */
+
+inline auto cs_sin(float f) { return sinf(f); }
+inline auto cs_sin(double f) { return sin(f); }
+inline auto cs_sin(long double f) { return sinl(f); }
+
+inline auto cs_cos(float f) { return cosf(f); }
+inline auto cs_cos(double f) { return cos(f); }
+inline auto cs_cos(long double f) { return cosl(f); }
+
+inline auto cs_tan(float f) { return tanf(f); }
+inline auto cs_tan(double f) { return tan(f); }
+inline auto cs_tan(long double f) { return tanl(f); }
+
+inline auto cs_asin(float f) { return asinf(f); }
+inline auto cs_asin(double f) { return asin(f); }
+inline auto cs_asin(long double f) { return asinl(f); }
+
+inline auto cs_acos(float f) { return acosf(f); }
+inline auto cs_acos(double f) { return acos(f); }
+inline auto cs_acos(long double f) { return acosl(f); }
+
+inline auto cs_atan(float f) { return atanf(f); }
+inline auto cs_atan(double f) { return atan(f); }
+inline auto cs_atan(long double f) { return atanl(f); }
+
+inline auto cs_atan2(float f, float f2) { return atan2f(f, f2); }
+inline auto cs_atan2(double f, double f2) { return atan2(f, f2); }
+inline auto cs_atan2(long double f, long double f2) { return atan2l(f, f2); }
+
+inline auto cs_sqrt(float f) { return sqrtf(f); }
+inline auto cs_sqrt(double f) { return sqrt(f); }
+inline auto cs_sqrt(long double f) { return sqrtl(f); }
+
+inline auto cs_log(float f) { return logf(f); }
+inline auto cs_log(double f) { return log(f); }
+inline auto cs_log(long double f) { return logl(f); }
+
+inline auto cs_log10(float f) { return log10f(f); }
+inline auto cs_log10(double f) { return log10(f); }
+inline auto cs_log10(long double f) { return log10l(f); }
+
+inline auto cs_exp(float f) { return expf(f); }
+inline auto cs_exp(double f) { return exp(f); }
+inline auto cs_exp(long double f) { return expl(f); }
+
+inline int cs_abs(int i) { return abs(i); }
+inline long cs_abs(long i) { return labs(i); }
+inline long long cs_abs(long long i) { return llabs(i); }
+inline auto cs_abs(float f) { return fabsf(f); }
+inline auto cs_abs(double f) { return fabs(f); }
+inline auto cs_abs(long double f) { return fabsl(f); }
+
+inline auto cs_floor(float f) { return floorf(f); }
+inline auto cs_floor(double f) { return floor(f); }
+inline auto cs_floor(long double f) { return floorl(f); }
+
+inline auto cs_ceil(float f) { return ceilf(f); }
+inline auto cs_ceil(double f) { return ceil(f); }
+inline auto cs_ceil(long double f) { return ceill(f); }
+
+inline auto cs_fmod(float f, float f2) { return fmodf(f, f2); }
+inline auto cs_fmod(double f, double f2) { return fmod(f, f2); }
+inline auto cs_fmod(long double f, long double f2) { return fmodl(f, f2); }
+
 void cs_init_lib_math(CsState &cs) {
     cs.new_command("sin", "f", [](CsValueRange args, CsValue &res) {
-        res.set_float(sin(args[0].get_float() * RAD));
+        res.set_float(cs_sin(args[0].get_float() * RAD));
     });
     cs.new_command("cos", "f", [](CsValueRange args, CsValue &res) {
-        res.set_float(cos(args[0].get_float() * RAD));
+        res.set_float(cs_cos(args[0].get_float() * RAD));
     });
     cs.new_command("tan", "f", [](CsValueRange args, CsValue &res) {
-        res.set_float(tan(args[0].get_float() * RAD));
+        res.set_float(cs_tan(args[0].get_float() * RAD));
     });
 
     cs.new_command("asin", "f", [](CsValueRange args, CsValue &res) {
-        res.set_float(asin(args[0].get_float()) / RAD);
+        res.set_float(cs_asin(args[0].get_float()) / RAD);
     });
     cs.new_command("acos", "f", [](CsValueRange args, CsValue &res) {
-        res.set_float(acos(args[0].get_float()) / RAD);
+        res.set_float(cs_acos(args[0].get_float()) / RAD);
     });
     cs.new_command("atan", "f", [](CsValueRange args, CsValue &res) {
-        res.set_float(atan(args[0].get_float()) / RAD);
+        res.set_float(cs_atan(args[0].get_float()) / RAD);
     });
     cs.new_command("atan2", "ff", [](CsValueRange args, CsValue &res) {
-        res.set_float(atan2(args[0].get_float(), args[1].get_float()) / RAD);
+        res.set_float(cs_atan2(args[0].get_float(), args[1].get_float()) / RAD);
     });
 
     cs.new_command("sqrt", "f", [](CsValueRange args, CsValue &res) {
-        res.set_float(sqrt(args[0].get_float()));
+        res.set_float(cs_sqrt(args[0].get_float()));
     });
     cs.new_command("loge", "f", [](CsValueRange args, CsValue &res) {
-        res.set_float(log(args[0].get_float()));
+        res.set_float(cs_log(args[0].get_float()));
     });
     cs.new_command("log2", "f", [](CsValueRange args, CsValue &res) {
-        res.set_float(log(args[0].get_float()) / M_LN2);
+        res.set_float(cs_log(args[0].get_float()) / M_LN2);
     });
     cs.new_command("log10", "f", [](CsValueRange args, CsValue &res) {
-        res.set_float(log10(args[0].get_float()));
+        res.set_float(cs_log10(args[0].get_float()));
     });
 
     cs.new_command("exp", "f", [](CsValueRange args, CsValue &res) {
-        res.set_float(exp(args[0].get_float()));
+        res.set_float(cs_exp(args[0].get_float()));
     });
 
     cs.new_command("min", "i1V", [](CsValueRange args, CsValue &res) {
@@ -142,29 +208,29 @@ void cs_init_lib_math(CsState &cs) {
     });
 
     cs.new_command("abs", "i", [](CsValueRange args, CsValue &res) {
-        res.set_int(abs(args[0].get_int()));
+        res.set_int(cs_abs(args[0].get_int()));
     });
     cs.new_command("absf", "f", [](CsValueRange args, CsValue &res) {
-        res.set_float(fabs(args[0].get_float()));
+        res.set_float(cs_abs(args[0].get_float()));
     });
 
     cs.new_command("floor", "f", [](CsValueRange args, CsValue &res) {
-        res.set_float(floor(args[0].get_float()));
+        res.set_float(cs_floor(args[0].get_float()));
     });
     cs.new_command("ceil", "f", [](CsValueRange args, CsValue &res) {
-        res.set_float(ceil(args[0].get_float()));
+        res.set_float(cs_ceil(args[0].get_float()));
     });
 
     cs.new_command("round", "ff", [](CsValueRange args, CsValue &res) {
-        double step = args[1].get_float();
-        double r = args[0].get_float();
+        CsFloat step = args[1].get_float();
+        CsFloat r = args[0].get_float();
         if (step > 0) {
             r += step * ((r < 0) ? -0.5 : 0.5);
-            r -= fmod(r, step);
+            r -= cs_fmod(r, step);
         } else {
-            r = (r < 0) ? ceil(r - 0.5) : floor(r + 0.5);
+            r = (r < 0) ? cs_ceil(r - 0.5) : cs_floor(r + 0.5);
         }
-        res.set_float(CsFloat(r));
+        res.set_float(r);
     });
 
     cs.new_command("+", "i1V", [](CsValueRange args, CsValue &res) {
@@ -244,7 +310,7 @@ void cs_init_lib_math(CsState &cs) {
         cs_mathop<CsInt>(
             args, res, 0, [](CsInt val1, CsInt val2) {
                 return (val2 < CsInt(sizeof(CsInt) * CHAR_BIT))
-                    ? (val1 << ostd::max(val2, 0))
+                    ? (val1 << ostd::max(val2, CsInt(0)))
                     : 0;
             }, CsMathNoop<CsInt>()
         );
@@ -253,7 +319,7 @@ void cs_init_lib_math(CsState &cs) {
         cs_mathop<CsInt>(
             args, res, 0, [](CsInt val1, CsInt val2) {
                 return val1 >> ostd::clamp(
-                    val2, 0, CsInt(sizeof(CsInt) * CHAR_BIT)
+                    val2, CsInt(0), CsInt(sizeof(CsInt) * CHAR_BIT)
                 );
             }, CsMathNoop<CsInt>()
         );
@@ -281,7 +347,7 @@ void cs_init_lib_math(CsState &cs) {
                 if (val2) {
                     return val1 / val2;
                 }
-                return 0;
+                return CsInt(0);
             }, CsMathNoop<CsInt>()
         );
     });
@@ -291,7 +357,7 @@ void cs_init_lib_math(CsState &cs) {
                 if (val2) {
                     return val1 % val2;
                 }
-                return 0;
+                return CsInt(0);
             }, CsMathNoop<CsInt>()
         );
     });

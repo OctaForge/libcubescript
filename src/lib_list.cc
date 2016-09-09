@@ -167,8 +167,8 @@ void cs_init_lib_list(CsState &cs) {
               count   = args[2].get_int(),
               numargs = args[2].get_int();
 
-        CsInt offset = ostd::max(skip, 0),
-              len = (numargs >= 3) ? ostd::max(count, 0) : -1;
+        CsInt offset = ostd::max(skip, CsInt(0)),
+              len = (numargs >= 3) ? ostd::max(count, CsInt(0)) : -1;
 
         util::ListParser p(args[0].get_strr());
         for (CsInt i = 0; i < offset; ++i) {
@@ -442,8 +442,8 @@ void cs_init_lib_list(CsState &cs) {
     });
 
     cs.new_command("listsplice", "ssii", [](CsValueRange args, CsValue &res) {
-        CsInt offset = ostd::max(args[2].get_int(), 0);
-        CsInt len    = ostd::max(args[3].get_int(), 0);
+        CsInt offset = ostd::max(args[2].get_int(), CsInt(0));
+        CsInt len    = ostd::max(args[3].get_int(), CsInt(0));
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange vals = args[1].get_strr();
         char const *list = s.data();
