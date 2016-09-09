@@ -132,29 +132,6 @@ CsStackState cs_save_stack(CsState &cs) {
     return CsStackState(ret, total != dalias->get_value());
 }
 
-void cs_debug_alias(CsState &cs) {
-    CsIvar *dalias = static_cast<CsIvar *>(cs.identmap[DbgaliasIdx]);
-    if (!dalias->get_value()) {
-        return;
-    }
-    int total = 0, depth = 0;
-    for (CsIdentLink *l = cs.p_callstack; l != &cs.noalias; l = l->next) {
-        total++;
-    }
-    for (CsIdentLink *l = cs.p_callstack; l != &cs.noalias; l = l->next) {
-        CsIdent *id = l->id;
-        ++depth;
-        if (depth < dalias->get_value()) {
-            cs.get_err().writefln("  %d) %s", total - depth + 1, id->get_name());
-        } else if (l->next == &cs.noalias) {
-            cs.get_err().writefln(
-                depth == dalias->get_value() ? "  %d) %s" : "  ..%d) %s",
-                total - depth + 1, id->get_name()
-            );
-        }
-    }
-}
-
 static void bcode_ref(ostd::Uint32 *code) {
     if (!code) {
         return;

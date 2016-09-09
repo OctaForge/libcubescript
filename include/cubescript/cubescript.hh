@@ -385,7 +385,14 @@ struct OSTD_EXPORT CsState {
         }, error, stack, &func);
     }
 
-    void error(CsString msg);
+    void error(ostd::ConstCharRange msg);
+
+    template<typename ...A>
+    void error(ostd::ConstCharRange msg, A &&...args) {
+        auto app = ostd::appender<CsString>();
+        ostd::format(app, msg, ostd::forward<A>(args)...);
+        error(app.get());
+    }
 
     void clear_override(CsIdent &id);
     void clear_overrides();

@@ -442,12 +442,12 @@ bool CsState::ipcall(
     return true;
 }
 
-void CsState::error(CsString msg) {
+void CsState::error(ostd::ConstCharRange msg) {
     if (protect) {
-        throw CsErrorException(ostd::move(msg), cs_save_stack(*this));
+        throw CsErrorException(msg, cs_save_stack(*this));
     } else {
         if (p_panicfunc) {
-            p_panicfunc(ostd::move(msg), cs_save_stack(*this));
+            p_panicfunc(msg, cs_save_stack(*this));
         }
         exit(EXIT_FAILURE);
     }

@@ -103,8 +103,6 @@ ostd::ConstCharRange cs_debug_line(
     ostd::ConstCharRange p, ostd::ConstCharRange fmt, ostd::CharRange buf
 );
 
-void cs_debug_alias(CsState &cs);
-
 CsStackState cs_save_stack(CsState &cs);
 
 template<typename ...A>
@@ -113,7 +111,8 @@ void cs_debug_code(CsState &cs, ostd::ConstCharRange fmt, A &&...args) {
         return;
     }
     cs.get_err().writefln(fmt, ostd::forward<A>(args)...);
-    cs_debug_alias(cs);
+    auto st = cs_save_stack(cs);
+    cscript::util::print_stack(cs.get_err().iter(), st);
 }
 
 template<typename ...A>
@@ -128,7 +127,8 @@ void cs_debug_code_line(
         cs_debug_line(p, fmt, ostd::CharRange(buf.data(), buf.size())),
         ostd::forward<A>(args)...
     );
-    cs_debug_alias(cs);
+    auto st = cs_save_stack(cs);
+    cscript::util::print_stack(cs.get_err().iter(), st);
 }
 
 struct GenState {
