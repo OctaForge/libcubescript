@@ -198,7 +198,7 @@ static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
     signal(SIGINT, do_sigint);
     ostd::String err;
     cscript::CsStackState st;
-    if (!cs.pcall([&]() {
+    auto tocall = [&]() {
         if (file) {
             if (!cs.run_file(line, ret)) {
                 ostd::err.writeln("cannot read file: ", line);
@@ -206,7 +206,8 @@ static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
         } else {
             cs.run(line, ret);
         }
-    }, &err, &st)) {
+    };
+    if (!cs.pcall(tocall, &err, &st)) {
         signal(SIGINT, SIG_DFL);
         ostd::ConstCharRange terr = err;
         auto col = ostd::find(terr, ':');
