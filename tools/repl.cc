@@ -193,7 +193,7 @@ static void do_sigint(int n) {
     }
 }
 
-static void do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
+static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
     CsValue ret;
     signal(SIGINT, do_sigint);
     ostd::String err;
@@ -208,14 +208,18 @@ static void do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
         }
     }, &err, &st)) {
         signal(SIGINT, SIG_DFL);
+        if (!file && ((err == "missing \"]\"") || (err == "missing \")\""))) {
+            return true;
+        }
         cs.get_out().writeln("error: ", err);
         cscript::util::print_stack(cs.get_out().iter(), st);
-        return;
+        return false;
     }
     signal(SIGINT, SIG_DFL);
     if (ret.get_type() != CsValueType::Null) {
         ostd::writeln(ret.get_str());
     }
+    return false;
 }
 
 static void do_tty(CsState &cs) {
@@ -237,16 +241,21 @@ static void do_tty(CsState &cs) {
         if (lv.empty()) {
             continue;
         }
-        while (lv.back() == '\\') {
-            lv.resize(lv.size() - 1);
+        while ((lv.back() == '\\') || do_call(cs, lv)) {
+            bool bsl = (lv.back() == '\\');
+            if (bsl) {
+                lv.resize(lv.size() - 1);
+            }
             auto line2 = read_line(prompt2);
             if (!line2) {
                 return;
             }
+            if (!bsl) {
+                lv += '\n';
+            }
             lv += line2.value();
         }
         add_history(lv);
-        do_call(cs, lv);
         if (do_exit) {
             return;
         }
