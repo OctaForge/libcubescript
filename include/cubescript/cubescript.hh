@@ -693,7 +693,7 @@ namespace util {
             auto rt = ostd::format(
                 writer,
                 ((nd->index == 1) && st.gap())
-                    ? "  ..%d) %s\n" : "  %d) %s\n",
+                    ? "  ..%d) %s" : "  %d) %s",
                 nd->index, nd->id->get_name()
             );
             if (rt > 0) {
@@ -702,6 +702,9 @@ namespace util {
                 return ret;
             }
             nd = nd->next;
+            if (nd) {
+                ret += writer.put('\n');
+            }
         }
         return ret;
     }

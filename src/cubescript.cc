@@ -1080,30 +1080,32 @@ void cs_init_lib_base(CsState &cs) {
         cs.error(args[0].get_strr());
     });
 
-    cs.new_command("pcall", "erre", [&cs](CsValueRange args, CsValue &ret) {
-        CsStackedValue cst, cret;
-        if (
-            !cst.set_alias(args[1].get_ident()) ||
-            !cret.set_alias(args[2].get_ident())
-        ) {
+    cs.new_command("pcall", "err", [&cs](CsValueRange args, CsValue &ret) {
+        CsAlias *cret = args[1].get_ident()->get_alias(),
+                *css  = args[2].get_ident()->get_alias();
+        if (!cret || !css) {
             ret.set_int(0);
             return;
         }
         CsString errmsg;
-        CsValue result;
+        CsValue result, tback;
+        CsStackState stack;
         bool rc = cs.pcall([&cs, &args, &result]() {
             cs.run(args[0].get_code(), result);
-        }, &errmsg);
+        }, &errmsg, &stack);
         ret.set_int(rc);
-        cst.set_int(rc);
-        cst.push();
         if (!rc) {
-            cret.set_str(ostd::move(errmsg));
-        } else {
-            cret = ostd::move(result);
+            result.set_str(ostd::move(errmsg));
+            if (stack.get()) {
+                auto app = ostd::appender<CsString>();
+                cscript::util::print_stack(app, stack);
+                tback.set_str(ostd::move(app.get()));
+            }
         }
-        cret.push();
-        cs.run(args[3].get_code());
+        CsAliasInternal::set_alias(cret, cs, result);
+        if (css->get_index() != DummyIdx) {
+            CsAliasInternal::set_alias(css, cs, tback);
+        }
     });
 
     cs.new_command("?", "tTT", [](CsValueRange args, CsValue &res) {

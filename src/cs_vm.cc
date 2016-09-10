@@ -96,7 +96,7 @@ CsStackState cs_save_stack(CsState &cs) {
             nd->next = nullptr;
         }
     }
-    return CsStackState(ret, total != dalias->get_value());
+    return CsStackState(ret, total > dalias->get_value());
 }
 
 static void bcode_ref(ostd::Uint32 *code) {
