@@ -10,21 +10,15 @@
 #include <ostd/stream.hh>
 
 namespace cscript {
-    template<typename T>
-    using CsAllocator = ostd::Allocator<T>;
-
     using CsInt = int;
     using CsFloat = float;
-    using CsString = ostd::StringBase<char, CsAllocator<char>>;
+    using CsString = ostd::String;
 
     template<typename K, typename V>
-    using CsMap = ostd::Map<
-        K, V, ostd::ToHash<K>, ostd::EqualWithCstr<K>,
-        CsAllocator<ostd::Pair<K const, V const>>
-    >;
+    using CsMap = ostd::Map<K, V>;
 
     template<typename T>
-    using CsVector = ostd::Vector<T, CsAllocator<T>>;
+    using CsVector = ostd::Vector<T>;
 
     using CsStream = ostd::Stream;
 
