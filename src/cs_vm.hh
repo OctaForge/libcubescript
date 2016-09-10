@@ -99,10 +99,6 @@ struct CsErrorException {
     {}
 };
 
-ostd::ConstCharRange cs_debug_line(
-    ostd::ConstCharRange p, ostd::ConstCharRange fmt, ostd::CharRange buf
-);
-
 CsStackState cs_save_stack(CsState &cs);
 
 template<typename ...A>
@@ -119,9 +115,12 @@ struct GenState {
     CsState &cs;
     CsVector<ostd::Uint32> code;
     char const *source;
+    ostd::ConstCharRange src_file, src_str;
 
     GenState() = delete;
-    GenState(CsState &csr): cs(csr), code(), source(nullptr) {}
+    GenState(CsState &csr):
+        cs(csr), code(), source(nullptr), src_file(), src_str()
+    {}
 
     void gen_str(ostd::ConstCharRange word, bool macro = false) {
         if (word.size() <= 3 && !macro) {

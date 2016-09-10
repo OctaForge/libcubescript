@@ -8,13 +8,50 @@
 
 namespace cscript {
 
+static ostd::ConstCharRange cs_debug_line(
+    ostd::ConstCharRange p, ostd::ConstCharRange srcf, ostd::ConstCharRange srcs,
+    ostd::ConstCharRange fmt, ostd::CharRange buf
+) {
+    if (srcs.empty()) {
+        return fmt;
+    }
+    ostd::Size num = 1;
+    ostd::ConstCharRange line(srcs);
+    for (;;) {
+        ostd::ConstCharRange end = ostd::find(line, '\n');
+        if (!end.empty()) {
+            line = ostd::slice_until(line, end);
+        }
+        if (&p[0] >= &line[0] && &p[0] <= &line[line.size()]) {
+            ostd::CharRange r(buf);
+            if (!srcf.empty()) {
+                ostd::format(r, "%s:%d: %s", srcf, num, fmt);
+            } else {
+                ostd::format(r, "%d: %s", num, fmt);
+            }
+            r.put('\0');
+            return buf.data(); /* trigger strlen */
+        }
+        if (end.empty()) {
+            break;
+        }
+        line = end;
+        line.pop_front();
+        ++num;
+    }
+    return fmt;
+}
+
 template<typename ...A>
 static void cs_error_line(
-    CsState &cs, ostd::ConstCharRange p, ostd::ConstCharRange fmt, A &&...args
+    GenState &gs, ostd::ConstCharRange p, ostd::ConstCharRange fmt, A &&...args
 ) {
     ostd::Array<char, 256> buf;
-    auto rfmt = cs_debug_line(p, fmt, ostd::CharRange(buf.data(), buf.size()));
-    cs.error(rfmt, ostd::forward<A>(args)...);
+    auto rfmt = cs_debug_line(
+        p, gs.src_file, gs.src_str, fmt,
+        ostd::CharRange(buf.data(), buf.size())
+    );
+    gs.cs.error(rfmt, ostd::forward<A>(args)...);
 }
 
 char *cs_dup_ostr(ostd::ConstCharRange s) {
@@ -797,7 +834,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
         char c = gs.next_char();
         switch (c) {
             case '\0':
-                cs_error_line(gs.cs, line, "missing \"]\"");
+                cs_error_line(gs, line, "missing \"]\"");
                 return;
             case '\"':
                 gs.source = parsestring(gs.source);
@@ -825,7 +862,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
                 if (brak > level) {
                     continue;
                 } else if (brak < level) {
-                    cs_error_line(gs.cs, line, "too many @s");
+                    cs_error_line(gs, line, "too many @s");
                     return;
                 }
                 if (!concs && prevargs >= MaxResults) {
@@ -1688,7 +1725,7 @@ endstatement:
             case '\0':
                 if (c != brak) {
                     cs_error_line(
-                        gs.cs, line, "missing \"%c\"", char(brak)
+                        gs, line, "missing \"%c\"", char(brak)
                     );
                     return;
                 }
@@ -1699,7 +1736,7 @@ endstatement:
                 if (c == brak) {
                     return;
                 }
-                cs_error_line(gs.cs, line, "unexpected \"%c\"", c);
+                cs_error_line(gs, line, "unexpected \"%c\"", c);
                 return;
             case '/':
                 if (gs.current() == '/') {
