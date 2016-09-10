@@ -208,10 +208,15 @@ static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
         }
     }, &err, &st)) {
         signal(SIGINT, SIG_DFL);
-        if (!file && ((err == "missing \"]\"") || (err == "missing \")\""))) {
+        ostd::ConstCharRange terr = err;
+        auto col = ostd::find(terr, ':');
+        if (!col.empty()) {
+            terr = col + 2;
+        }
+        if (!file && ((terr == "missing \"]\"") || (terr == "missing \")\""))) {
             return true;
         }
-        cs.get_out().writeln("error: ", err);
+        cs.get_out().writeln(col.empty() ? "stdin: " : "stdin:", err);
         cscript::util::print_stack(cs.get_out().iter(), st);
         return false;
     }
@@ -250,7 +255,7 @@ static void do_tty(CsState &cs) {
             if (!line2) {
                 return;
             }
-            if (!bsl) {
+            if (!bsl || (line2.value() == "\\")) {
                 lv += '\n';
             }
             lv += line2.value();
