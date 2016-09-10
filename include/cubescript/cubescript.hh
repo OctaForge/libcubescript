@@ -338,6 +338,9 @@ using CsPanicCb = ostd::Function<void(ostd::ConstCharRange, CsStackState)>;
 
 template<typename T>
 struct CsAllocator {
+    template<typename TT>
+    friend struct CsAllocator;
+
     using Value = T;
     static constexpr bool PropagateOnContainerCopyAssignment = true;
     static constexpr bool PropagateOnContainerMoveAssignment = true;
@@ -346,6 +349,9 @@ struct CsAllocator {
     CsAllocator() = delete;
     CsAllocator(CsAllocator const &a): p_state(a.p_state) {}
     CsAllocator(CsState &cs): p_state(cs) {}
+
+    template<typename TT>
+    CsAllocator(CsAllocator<TT> const &a): p_state(a.p_state) {}
 
     T *allocate(ostd::Size n, void const * = nullptr);
     void deallocate(T *p, ostd::Size n);
