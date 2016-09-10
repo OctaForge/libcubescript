@@ -261,7 +261,7 @@ CsState::CsState():
     noalias.argstack = nullptr;
 
     /* default panic func */
-    p_panicfunc = [this](CsString v, CsStackState) {
+    p_panicfunc = [this](ostd::ConstCharRange v, CsStackState) {
         get_err().writefln(
             "PANIC: unprotected error in call to CubeScript (%s)", v
         );

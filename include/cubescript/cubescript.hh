@@ -339,7 +339,7 @@ private:
 };
 
 using CsHookCb = ostd::Function<void()>;
-using CsPanicCb = ostd::Function<void(CsString, CsStackState)>;
+using CsPanicCb = ostd::Function<void(ostd::ConstCharRange, CsStackState)>;
 
 struct OSTD_EXPORT CsState {
     CsMap<ostd::ConstCharRange, CsIdent *> idents;
