@@ -776,7 +776,8 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                     char((op >> 16) & 0xFF),
                     char((op >> 24) & 0xFF), '\0'
                 };
-                args[numargs++].set_str(s);
+                /* gotta cast or r.size() == potentially 3 */
+                args[numargs++].set_str(static_cast<char const *>(s));
                 continue;
             }
             case CsCodeVal | CsRetNull:
