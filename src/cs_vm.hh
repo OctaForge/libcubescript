@@ -236,6 +236,13 @@ static inline void bcode_decr(ostd::Uint32 *bc) {
     }
 }
 
+static inline bool cs_is_arg_used(CsState &cs, CsIdent *id) {
+    if (!cs.p_callstack) {
+        return true;
+    }
+    return cs.p_callstack->usedargs & (1 << id->get_index());
+}
+
 struct CsAliasInternal {
     static void push_arg(
         CsAlias *a, CsValue &v, CsIdentStack &st, bool um = true
@@ -284,7 +291,7 @@ struct CsAliasInternal {
     }
 
     static void set_arg(CsAlias *a, CsState &cs, CsValue &v) {
-        if (cs.p_callstack->usedargs & (1 << a->get_index())) {
+        if (cs_is_arg_used(cs, a)) {
             a->p_val = ostd::move(v);
             clean_code(a);
         } else {
@@ -323,6 +330,10 @@ struct CsAliasInternal {
 
 template<typename F>
 static void cs_do_args(CsState &cs, F body) {
+    if (!cs.p_callstack) {
+        body();
+        return;
+    }
     CsIdentStack argstack[MaxArguments];
     int argmask1 = cs.p_callstack->usedargs;
     for (int i = 0; argmask1; argmask1 >>= 1, ++i) {

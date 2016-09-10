@@ -345,8 +345,7 @@ struct OSTD_EXPORT CsState {
     CsMap<ostd::ConstCharRange, CsIdent *> idents;
     CsVector<CsIdent *> identmap;
 
-    CsIdentLink noalias;
-    CsIdentLink *p_callstack = &noalias;
+    CsIdentLink *p_callstack = nullptr;
 
     int identflags = 0;
     int nodebug = 0;

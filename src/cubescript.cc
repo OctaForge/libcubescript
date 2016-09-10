@@ -255,11 +255,6 @@ void cs_init_lib_base(CsState &cs);
 CsState::CsState():
     p_callhook(), p_panicfunc(), p_out(&ostd::out), p_err(&ostd::err)
 {
-    noalias.id = nullptr;
-    noalias.next = nullptr;
-    noalias.usedargs = (1 << MaxArguments) - 1;
-    noalias.argstack = nullptr;
-
     /* default panic func */
     p_panicfunc = [this](ostd::ConstCharRange v, CsStackState) {
         get_err().writefln(
@@ -286,11 +281,7 @@ CsState::CsState():
     })->p_type = CsIdDo;
 
     new_command("doargs", "e", [this](CsValueRange args, CsValue &res) {
-        if (p_callstack != &noalias) {
-            cs_do_args(*this, [&]() { run(args[0].get_code(), res); });
-        } else {
-            run(args[0].get_code(), res);
-        }
+        cs_do_args(*this, [&]() { run(args[0].get_code(), res); });
     })->p_type = CsIdDoArgs;
 
     new_command("if", "tee", [this](CsValueRange args, CsValue &res) {
@@ -881,10 +872,7 @@ CsState::get_alias_val(ostd::ConstCharRange name) {
     if (!a) {
         return ostd::nothing;
     }
-    if (
-        (a->get_index() < MaxArguments) &&
-        !(p_callstack->usedargs & (1 << a->get_index()))
-    ) {
+    if ((a->get_index() < MaxArguments) && !cs_is_arg_used(*this, a)) {
         return ostd::nothing;
     }
     return ostd::move(a->get_value().get_str());

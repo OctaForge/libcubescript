@@ -66,34 +66,34 @@ bool CsStackState::gap() const {
 CsStackState cs_save_stack(CsState &cs) {
     CsIvar *dalias = static_cast<CsIvar *>(cs.identmap[DbgaliasIdx]);
     if (!dalias->get_value()) {
-        return CsStackState(nullptr, true);
+        return CsStackState(nullptr, !!cs.p_callstack);
     }
     int total = 0, depth = 0;
-    for (CsIdentLink *l = cs.p_callstack; l != &cs.noalias; l = l->next) {
+    for (CsIdentLink *l = cs.p_callstack; l; l = l->next) {
         total++;
     }
     if (!total) {
-        return CsStackState(nullptr, true);
+        return CsStackState(nullptr, false);
     }
     CsStackStateNode *st =
         new CsStackStateNode[ostd::min(total, dalias->get_value())];
     CsStackStateNode *ret = st, *nd = st;
     ++st;
-    for (CsIdentLink *l = cs.p_callstack; l != &cs.noalias; l = l->next) {
+    for (CsIdentLink *l = cs.p_callstack; l; l = l->next) {
         ++depth;
         if (depth < dalias->get_value()) {
             nd->id = l->id;
             nd->index = total - depth + 1;
-            if (l->next == &cs.noalias) {
+            if (!l->next) {
                 nd->next = nullptr;
             } else {
                 nd->next = st;
             }
             nd = st++;
-        } else if (l->next == &cs.noalias) {
+        } else if (!l->next) {
             nd->id = l->id;
             nd->index = 1;
-            nd->next = NULL;
+            nd->next = nullptr;
         }
     }
     return CsStackState(ret, total != dalias->get_value());
@@ -487,7 +487,7 @@ static inline CsAlias *cs_get_lookup_id(CsState &cs, ostd::Uint32 op) {
 
 static inline CsAlias *cs_get_lookuparg_id(CsState &cs, ostd::Uint32 op) {
     CsIdent *id = cs.identmap[op >> 8];
-    if (!(cs.p_callstack->usedargs & (1 << id->get_index()))) {
+    if (!cs_is_arg_used(cs, id)) {
         return nullptr;
     }
     return static_cast<CsAlias *>(id);
@@ -510,10 +510,7 @@ static inline int cs_get_lookupu_type(
                 if (id->get_flags() & CsIdfUnknown) {
                     break;
                 }
-                if (
-                    (id->get_index() < MaxArguments) &&
-                    !(cs.p_callstack->usedargs & (1 << id->get_index()))
-                ) {
+                if ((id->get_index() < MaxArguments) && !cs_is_arg_used(cs, id)) {
                     return CsIdUnknown;
                 }
                 return CsIdAlias;
@@ -655,13 +652,11 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
             case CsCodeDoArgs | CsRetString:
             case CsCodeDoArgs | CsRetInt:
             case CsCodeDoArgs | CsRetFloat:
-                if (cs.p_callstack != &cs.noalias) {
-                    cs_do_args(cs, [&]() {
-                        cs.run(args[--numargs].get_code(), result);
-                        force_arg(result, op & CsCodeRetMask);
-                    });
-                    continue;
-                }
+                cs_do_args(cs, [&]() {
+                    cs.run(args[--numargs].get_code(), result);
+                    force_arg(result, op & CsCodeRetMask);
+                });
+                continue;
             /* fallthrough */
             case CsCodeDo | CsRetNull:
             case CsCodeDo | CsRetString:
@@ -899,7 +894,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 continue;
             case CsCodeIdentArg: {
                 CsAlias *a = static_cast<CsAlias *>(cs.identmap[op >> 8]);
-                if (!(cs.p_callstack->usedargs & (1 << a->get_index()))) {
+                if (!cs_is_arg_used(cs, a)) {
                     CsValue nv;
                     CsAliasInternal::push_arg(
                         a, nv, cs.p_callstack->argstack[a->get_index()], false
@@ -919,10 +914,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 ) {
                     id = cs.new_ident(arg.get_strr());
                 }
-                if (
-                    id->get_index() < MaxArguments &&
-                    !(cs.p_callstack->usedargs & (1 << id->get_index()))
-                ) {
+                if ((id->get_index() < MaxArguments) && !cs_is_arg_used(cs, id)) {
                     CsValue nv;
                     CsAliasInternal::push_arg(
                         static_cast<CsAlias *>(id), nv,
@@ -1401,7 +1393,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 result.force_null();
                 CsIdent *id = cs.identmap[op >> 13];
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
-                if (!(cs.p_callstack->usedargs & (1 << id->get_index()))) {
+                if (!cs_is_arg_used(cs, id)) {
                     numargs = offset;
                     force_arg(result, op & CsCodeRetMask);
                     continue;
@@ -1514,8 +1506,8 @@ noid:
                     case CsIdAlias: {
                         CsAlias *a = static_cast<CsAlias *>(id);
                         if (
-                            a->get_index() < MaxArguments &&
-                            !(cs.p_callstack->usedargs & (1 << a->get_index()))
+                            (a->get_index() < MaxArguments) &&
+                            !cs_is_arg_used(cs, a)
                         ) {
                             numargs = offset - 1;
                             force_arg(result, op & CsCodeRetMask);
@@ -1619,10 +1611,10 @@ void CsState::run(CsIdent *id, CsValueRange args, CsValue &ret) {
                 break;
             case CsIdentType::Alias: {
                 CsAlias *a = static_cast<CsAlias *>(id);
-                if (a->get_index() < MaxArguments) {
-                    if (!(p_callstack->usedargs & (1 << a->get_index()))) {
-                        break;
-                    }
+                if (
+                    (a->get_index() < MaxArguments) && !cs_is_arg_used(*this, a)
+                ) {
+                    break;
                 }
                 if (a->get_value().get_type() == CsValueType::Null) {
                     break;
