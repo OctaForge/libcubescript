@@ -1,18 +1,18 @@
 # libcubescript
 
-Libcubescript is an embeddable implementation of the Cubescript scripting
-language. Cubescript is the console/config language of the Cube engines/games
+Libcubescript is an embeddable implementation of the CubeScript scripting
+language. CubeScript is the console/config language of the Cube engines/games
 (and derived engines/games). It's a simplistic language defined around the
 idea of everything being a string, with Lisp-like syntax (allowing various
 control structures to be defined as commands).
 
 Libcubescript is originally based on the implementation from the Cube 2 engine,
-but it's largely rewritten. Here are some of the benefits over the original
+but largely rewritten. Here are some of the benefits over the original
 implementation:
 
 * Independent implementation (can be embedded in any project)
 * No global state (multiple CubeScripts in a single program)
-* Modern C++14 API (no macros, strongly typed enums, lambda support, range support etc.)
+* Modern C++14 API (no macros, strongly typed enums, lambdas, ranges etc.)
 * C++14 lambdas can be used as commands (including captures and type inference)
 * Error handling including recovery (protected call system similar to Lua)
 * No manual memory mangement, values manage themselves
