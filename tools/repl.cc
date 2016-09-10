@@ -207,7 +207,7 @@ static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
             cs.run(line, ret);
         }
     };
-    if (!cs.pcall(tocall, &err, &st)) {
+    if (!cs.pcall(ostd::move(tocall), &err, &st)) {
         signal(SIGINT, SIG_DFL);
         ostd::ConstCharRange terr = err;
         auto col = ostd::find(terr, ':');
