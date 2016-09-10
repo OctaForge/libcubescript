@@ -8,6 +8,15 @@
 
 namespace cscript {
 
+template<typename ...A>
+static void cs_error_line(
+    CsState &cs, ostd::ConstCharRange p, ostd::ConstCharRange fmt, A &&...args
+) {
+    ostd::Array<char, 256> buf;
+    auto rfmt = cs_debug_line(p, fmt, ostd::CharRange(buf.data(), buf.size()));
+    cs.error(rfmt, ostd::forward<A>(args)...);
+}
+
 char *cs_dup_ostr(ostd::ConstCharRange s) {
     char *r = new char[s.size() + 1];
     if (s.data()) {
@@ -788,9 +797,8 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
         char c = gs.next_char();
         switch (c) {
             case '\0':
-                cs_debug_code_line(gs.cs, line, "missing \"]\"");
-                gs.source--;
-                goto done;
+                cs_error_line(gs.cs, line, "missing \"]\"");
+                return;
             case '\"':
                 gs.source = parsestring(gs.source);
                 if (gs.current() == '\"') {
@@ -817,7 +825,8 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
                 if (brak > level) {
                     continue;
                 } else if (brak < level) {
-                    cs_debug_code_line(gs.cs, line, "too many @s");
+                    cs_error_line(gs.cs, line, "too many @s");
+                    return;
                 }
                 if (!concs && prevargs >= MaxResults) {
                     gs.code.push(CsCodeEnter);
@@ -843,7 +852,6 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
             }
         }
     }
-done:
     if (gs.source - 1 > start) {
         if (!concs) {
             switch (wordtype) {
@@ -1679,9 +1687,10 @@ endstatement:
         switch (c) {
             case '\0':
                 if (c != brak) {
-                    cs_debug_code_line(
+                    cs_error_line(
                         gs.cs, line, "missing \"%c\"", char(brak)
                     );
+                    return;
                 }
                 gs.source--;
                 return;
@@ -1690,8 +1699,8 @@ endstatement:
                 if (c == brak) {
                     return;
                 }
-                cs_debug_code_line(gs.cs, line, "unexpected \"%c\"", c);
-                break;
+                cs_error_line(gs.cs, line, "unexpected \"%c\"", c);
+                return;
             case '/':
                 if (gs.current() == '/') {
                     gs.source += strcspn(gs.source, "\n\0");

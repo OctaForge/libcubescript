@@ -108,6 +108,9 @@ CsStackState cs_save_stack(CsState &cs) {
     for (CsIdentLink *l = cs.p_callstack; l != &cs.noalias; l = l->next) {
         total++;
     }
+    if (!total) {
+        return CsStackState(nullptr, true);
+    }
     CsStackStateNode *st =
         new CsStackStateNode[ostd::min(total, dalias->get_value())];
     CsStackStateNode *ret = st, *nd = st;

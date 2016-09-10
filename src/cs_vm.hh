@@ -115,22 +115,6 @@ void cs_debug_code(CsState &cs, ostd::ConstCharRange fmt, A &&...args) {
     cscript::util::print_stack(cs.get_err().iter(), st);
 }
 
-template<typename ...A>
-void cs_debug_code_line(
-    CsState &cs, ostd::ConstCharRange p, ostd::ConstCharRange fmt, A &&...args
-) {
-    if (cs.nodebug) {
-        return;
-    }
-    ostd::Array<char, 256> buf;
-    cs.get_err().writefln(
-        cs_debug_line(p, fmt, ostd::CharRange(buf.data(), buf.size())),
-        ostd::forward<A>(args)...
-    );
-    auto st = cs_save_stack(cs);
-    cscript::util::print_stack(cs.get_err().iter(), st);
-}
-
 struct GenState {
     CsState &cs;
     CsVector<ostd::Uint32> code;
