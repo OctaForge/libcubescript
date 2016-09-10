@@ -301,12 +301,7 @@ private:
     int p_numargs;
 };
 
-struct CsIdentLink {
-    CsIdent *id;
-    CsIdentLink *next;
-    int usedargs;
-    CsIdentStack *argstack;
-};
+struct CsIdentLink;
 
 enum {
     CsLibMath   = 1 << 0,

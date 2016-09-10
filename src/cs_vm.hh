@@ -24,6 +24,13 @@ enum {
     CsIdLocal, CsIdDo, CsIdDoArgs, CsIdIf, CsIdResult, CsIdNot, CsIdAnd, CsIdOr
 };
 
+struct CsIdentLink {
+    CsIdent *id;
+    CsIdentLink *next;
+    int usedargs;
+    CsIdentStack *argstack;
+};
+
 enum {
     CsValNull = 0, CsValInt, CsValFloat, CsValString,
     CsValAny, CsValCode, CsValMacro, CsValIdent, CsValCstring,
