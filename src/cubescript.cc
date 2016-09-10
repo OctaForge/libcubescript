@@ -1298,15 +1298,6 @@ void cs_init_lib_base(CsState &cs) {
         );
     });
 
-    cs.new_command("nodebug", "e", [&cs](CsValueRange args, CsValue &res) {
-        ++cs.nodebug;
-        cs_do_and_cleanup([&]() {
-            cs.run(args[0].get_code(), res);
-        }, [&cs]() {
-            --cs.nodebug;
-        });
-    });
-
     cs.new_command("push", "rTe", [&cs](CsValueRange args, CsValue &res) {
         CsStackedValue idv{args[0].get_ident()};
         if (!idv.has_alias() || (idv.get_alias()->get_index() < MaxArguments)) {

@@ -343,7 +343,6 @@ struct OSTD_EXPORT CsState {
     CsIdentLink *p_callstack = nullptr;
 
     int identflags = 0;
-    int nodebug = 0;
     int protect = 0;
 
     CsState();

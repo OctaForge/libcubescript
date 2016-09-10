@@ -110,9 +110,6 @@ CsStackState cs_save_stack(CsState &cs);
 
 template<typename ...A>
 void cs_debug_code(CsState &cs, ostd::ConstCharRange fmt, A &&...args) {
-    if (cs.nodebug) {
-        return;
-    }
     cs.get_err().writefln(fmt, ostd::forward<A>(args)...);
     auto st = cs_save_stack(cs);
     cscript::util::print_stack(cs.get_err().iter(), st);
