@@ -336,6 +336,32 @@ private:
 using CsHookCb = ostd::Function<void()>;
 using CsPanicCb = ostd::Function<void(ostd::ConstCharRange, CsStackState)>;
 
+template<typename T>
+struct CsAllocator {
+    using Value = T;
+    static constexpr bool PropagateOnContainerCopyAssignment = true;
+    static constexpr bool PropagateOnContainerMoveAssignment = true;
+    static constexpr bool PropagateOnContainerSwap = true;
+
+    CsAllocator() = delete;
+    CsAllocator(CsAllocator const &a): p_state(a.p_state) {}
+    CsAllocator(CsState &cs): p_state(cs) {}
+
+    T *allocate(ostd::Size n, void const * = nullptr);
+    void deallocate(T *p, ostd::Size n);
+
+    bool operator==(CsAllocator const &o) const {
+        return &p_state != &o.p_state;
+    }
+
+    bool operator!=(CsAllocator const &o) const {
+        return &p_state != &o.p_state;
+    }
+
+private:
+    CsState &p_state;
+};
+
 struct OSTD_EXPORT CsState {
     CsMap<ostd::ConstCharRange, CsIdent *> idents;
     CsVector<CsIdent *> identmap;
@@ -360,6 +386,13 @@ struct OSTD_EXPORT CsState {
     CsHookCb const &get_call_hook() const;
     CsHookCb &get_call_hook();
 
+    template<typename F>
+    CsHookCb set_call_hook(F &&f) {
+        return set_call_hook(CsHookCb(
+            ostd::allocator_arg, CsAllocator<char>(*this), ostd::forward<F>(f)
+        ));
+    }
+
     virtual void *alloc(void *ptr, ostd::Size olds, ostd::Size news);
 
     void init_libs(int libs = CsLibAll);
@@ -367,6 +400,13 @@ struct OSTD_EXPORT CsState {
     CsPanicCb set_panic_func(CsPanicCb func);
     CsPanicCb const &get_panic_func() const;
     CsPanicCb &get_panic_func();
+
+    template<typename F>
+    CsPanicCb set_panic_func(F &&f) {
+        return set_panic_func(CsPanicCb(
+            ostd::allocator_arg, CsAllocator<char>(*this), ostd::forward<F>(f)
+        ));
+    }
 
     template<typename F>
     bool pcall(
@@ -406,9 +446,44 @@ struct OSTD_EXPORT CsState {
         CsVarCb f = CsVarCb(), int flags = 0
     );
 
+    template<typename F>
+    CsIvar *new_ivar(
+        ostd::ConstCharRange n, CsInt m, CsInt x, CsInt v, F &&f, int flags = 0
+    ) {
+        return new_ivar(n, m, x, v, CsVarCb(
+            ostd::allocator_arg, CsAllocator<char>(*this), ostd::forward<F>(f)
+        ), flags);
+    }
+    template<typename F>
+    CsFvar *new_fvar(
+        ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat v, F &&f,
+        int flags = 0
+    ) {
+        return new_fvar(n, m, x, v, CsVarCb(
+            ostd::allocator_arg, CsAllocator<char>(*this), ostd::forward<F>(f)
+        ), flags);
+    }
+    template<typename F>
+    CsSvar *new_svar(
+        ostd::ConstCharRange n, CsString v, F &&f, int flags = 0
+    ) {
+        return new_svar(n, ostd::move(v), CsVarCb(
+            ostd::allocator_arg, CsAllocator<char>(*this), ostd::forward<F>(f)
+        ), flags);
+    }
+
     CsCommand *new_command(
         ostd::ConstCharRange name, ostd::ConstCharRange args, CsCommandCb func
     );
+
+    template<typename F>
+    CsCommand *new_command(
+        ostd::ConstCharRange name, ostd::ConstCharRange args, F &&f
+    ) {
+        return new_command(name, args, CsCommandCb(
+            ostd::allocator_arg, CsAllocator<char>(*this), ostd::forward<F>(f)
+        ));
+    }
 
     CsIdent *get_ident(ostd::ConstCharRange name) {
         CsIdent **id = idents.at(name);
@@ -537,6 +612,16 @@ private:
     CsIdentStack p_stack;
     bool p_pushed;
 };
+
+template<typename T>
+T *CsAllocator<T>::allocate(ostd::Size n, void const *) {
+    return static_cast<T *>(p_state.alloc(nullptr, 0, n * sizeof(T)));
+}
+
+template<typename T>
+void CsAllocator<T>::deallocate(T *p, ostd::Size n) {
+    p_state.alloc(p, n * sizeof(T), 0);
+}
 
 namespace util {
     template<typename R>
