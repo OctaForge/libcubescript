@@ -217,8 +217,10 @@ static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
             return true;
         }
         cs.get_out().writeln(col.empty() ? "stdin: " : "stdin:", err);
-        cscript::util::print_stack(cs.get_out().iter(), st);
-        cs.get_out().write('\n');
+        if (st.get()) {
+            cscript::util::print_stack(cs.get_out().iter(), st);
+            cs.get_out().write('\n');
+        }
         return false;
     }
     signal(SIGINT, SIG_DFL);
