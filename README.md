@@ -10,12 +10,14 @@ Libcubescript is originally based on the implementation from the Cube 2 engine,
 but it's largely rewritten. Here are some of the benefits over the original
 implementation:
 
-* Independent implementation that can be embedded in any project
-* No global state - multiple Cubescripts can be present within a single program
-* Modern C++14 API (no macro mess like in the original)
+* Independent implementation (can be embedded in any project)
+* No global state (multiple CubeScripts in a single program)
+* Modern C++14 API (no macros, strongly typed enums, lambda support, range support etc.)
 * C++14 lambdas can be used as commands (including captures and type inference)
+* Error handling including recovery (protected call system similar to Lua)
+* No manual memory mangement, values manage themselves
 * Clean codebase that is easy to read and contribute to
-* Core types can be changed as needed at compile time (larger floats? no problem)
+* Support for arbitrary size integers and floats (can be set at compile time)
 * Allows building into a static or shared library, supports `-fvisibility=hidden`
 
 Upcoming features:
