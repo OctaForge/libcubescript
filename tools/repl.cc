@@ -27,8 +27,6 @@ static bool stdin_is_tty() {
 
 /* line editing support */
 
-CsState *gcs = nullptr;
-
 #ifdef CS_REPL_HAS_COMPLETE
 static ostd::ConstCharRange get_complete_cmd(ostd::ConstCharRange buf) {
     ostd::ConstCharRange not_allowed = "\"/;()[] \t\r\n\0";
@@ -132,11 +130,11 @@ static void fill_cmd_args(ostd::String &writer, ostd::ConstCharRange args) {
     }
 }
 
-static CsCommand *get_hint_cmd(ostd::ConstCharRange buf) {
+static CsCommand *get_hint_cmd(CsState &cs, ostd::ConstCharRange buf) {
     ostd::ConstCharRange nextchars = "([;";
     auto lp = ostd::find_one_of(buf, nextchars);
     if (!lp.empty()) {
-        CsCommand *cmd = get_hint_cmd(buf + 1);
+        CsCommand *cmd = get_hint_cmd(cs, buf + 1);
         if (cmd) {
             return cmd;
         }
@@ -150,7 +148,7 @@ static CsCommand *get_hint_cmd(ostd::ConstCharRange buf) {
         buf = ostd::slice_until(buf, s);
     }
     if (!buf.empty()) {
-        auto cmd = gcs->get_ident(buf);
+        auto cmd = cs.get_ident(buf);
         return cmd ? cmd->get_command() : nullptr;
     }
     return nullptr;
@@ -182,19 +180,19 @@ void print_version() {
     ostd::writeln(version);
 }
 
+static CsState *scs = nullptr;
 static void do_sigint(int n) {
     /* in case another SIGINT happens, terminate normally */
     signal(n, SIG_DFL);
-    if (gcs) {
-        gcs->set_call_hook([](CsState &cs) {
-            cs.set_call_hook(nullptr);
-            cs.error("<execution interrupted>");
-        });
-    }
+    scs->set_call_hook([](CsState &cs) {
+        cs.set_call_hook(nullptr);
+        cs.error("<execution interrupted>");
+    });
 }
 
 static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
     CsValue ret;
+    scs = &cs;
     signal(SIGINT, do_sigint);
     ostd::String err;
     cscript::CsStackState st;
@@ -209,6 +207,7 @@ static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
     };
     if (!cs.pcall(ostd::move(tocall), &err, &st)) {
         signal(SIGINT, SIG_DFL);
+        scs = nullptr;
         ostd::ConstCharRange terr = err;
         auto col = ostd::find(terr, ':');
         if (!col.empty()) {
@@ -225,6 +224,7 @@ static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
         return false;
     }
     signal(SIGINT, SIG_DFL);
+    scs = nullptr;
     if (ret.get_type() != CsValueType::Null) {
         ostd::writeln(ret.get_str());
     }
@@ -242,7 +242,7 @@ static void do_tty(CsState &cs) {
 
     ostd::writeln(version, " (REPL mode)");
     for (;;) {
-        auto line = read_line(prompt);
+        auto line = read_line(cs, prompt);
         if (!line) {
             return;
         }
@@ -255,7 +255,7 @@ static void do_tty(CsState &cs) {
             if (bsl) {
                 lv.resize(lv.size() - 1);
             }
-            auto line2 = read_line(prompt2);
+            auto line2 = read_line(cs, prompt2);
             if (!line2) {
                 return;
             }
@@ -264,7 +264,7 @@ static void do_tty(CsState &cs) {
             }
             lv += line2.value();
         }
-        add_history(lv);
+        add_history(cs, lv);
         if (do_exit) {
             return;
         }
@@ -272,11 +272,10 @@ static void do_tty(CsState &cs) {
 }
 
 int main(int argc, char **argv) {
-    CsState csg;
-    gcs = &csg;
-    csg.init_libs();
+    CsState gcs;
+    gcs.init_libs();
 
-    csg.new_command("exec", "sb", [](CsState &cs, auto args, auto &res) {
+    gcs.new_command("exec", "sb", [](CsState &cs, auto args, auto &res) {
         auto file = args[0].get_strr();
         bool ret = cs.run_file(file);
         if (!ret) {
@@ -289,7 +288,7 @@ int main(int argc, char **argv) {
         }
     });
 
-    csg.new_command("echo", "C", [](CsState &cs, auto args, auto &) {
+    gcs.new_command("echo", "C", [](CsState &cs, auto args, auto &) {
         cs.get_out().writeln(args[0].get_strr());
     });
 
@@ -366,31 +365,31 @@ endargs:
                 if (*str == '\0') {
                     str = argv[++i];
                 }
-                do_call(csg, str);
+                do_call(gcs, str);
                 break;
             }
         }
     }
     if (firstarg) {
-        do_call(csg, argv[firstarg], true);
+        do_call(gcs, argv[firstarg], true);
     }
     if (!firstarg && !has_str && !has_ver) {
         if (stdin_is_tty()) {
-            init_lineedit(argv[0]);
-            do_tty(csg);
+            init_lineedit(gcs, argv[0]);
+            do_tty(gcs);
             return 0;
         } else {
             ostd::String str;
             for (char c = '\0'; (c = ostd::in.getchar()) != EOF;) {
                 str += c;
             }
-            do_call(csg, str);
+            do_call(gcs, str);
         }
     }
     if (has_inter) {
         if (stdin_is_tty()) {
-            init_lineedit(argv[0]);
-            do_tty(csg);
+            init_lineedit(gcs, argv[0]);
+            do_tty(gcs);
         }
         return 0;
     }

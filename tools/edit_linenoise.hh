@@ -13,10 +13,12 @@
 
 #include "linenoise.hh"
 
+static CsState *ln_cs = nullptr;
+
 #ifdef CS_REPL_HAS_COMPLETE
 static void ln_complete(char const *buf, linenoiseCompletions *lc) {
     ostd::ConstCharRange cmd = get_complete_cmd(buf);
-    for (auto id: gcs->identmap.iter()) {
+    for (auto id: ln_cs->identmap.iter()) {
         if (!id->is_command()) {
             continue;
         }
@@ -33,7 +35,7 @@ static void ln_complete(char const *buf, linenoiseCompletions *lc) {
 
 #ifdef CS_REPL_HAS_HINTS
 static char *ln_hint(char const *buf, int *color, int *bold) {
-    CsCommand *cmd = get_hint_cmd(buf);
+    CsCommand *cmd = get_hint_cmd(*ln_cs, buf);
     if (!cmd) {
         return nullptr;
     }
@@ -52,9 +54,10 @@ static void ln_hint_free(void *hint) {
 }
 #endif /* CS_REPL_HAS_HINTS */
 
-static void init_lineedit(ostd::ConstCharRange) {
+static void init_lineedit(CsState &cs, ostd::ConstCharRange) {
     /* sensible default history size */
     linenoiseHistorySetMaxLen(1000);
+    ln_cs = &cs;
 #ifdef CS_REPL_HAS_COMPLETE
     linenoiseSetCompletionCallback(ln_complete);
 #endif
@@ -64,7 +67,7 @@ static void init_lineedit(ostd::ConstCharRange) {
 #endif
 }
 
-static ostd::Maybe<ostd::String> read_line(CsSvar *pr) {
+static ostd::Maybe<ostd::String> read_line(CsState &, CsSvar *pr) {
     auto line = linenoise(pr->get_value().data());
     if (!line) {
         /* linenoise traps ctrl-c, detect it and let the user exit */
@@ -79,7 +82,7 @@ static ostd::Maybe<ostd::String> read_line(CsSvar *pr) {
     return ostd::move(ret);
 }
 
-static void add_history(ostd::ConstCharRange line) {
+static void add_history(CsState &, ostd::ConstCharRange line) {
     /* backed by ostd::String so it's terminated */
     linenoiseHistoryAdd(line.data());
 }

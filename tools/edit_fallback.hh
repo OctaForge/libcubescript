@@ -4,10 +4,10 @@
 #include <ostd/string.hh>
 #include <ostd/maybe.hh>
 
-static void init_lineedit(ostd::ConstCharRange) {
+static void init_lineedit(CsState &, ostd::ConstCharRange) {
 }
 
-static ostd::Maybe<ostd::String> read_line(CsSvar *pr) {
+static ostd::Maybe<ostd::String> read_line(CsState &, CsSvar *pr) {
     ostd::write(pr->get_value());
     ostd::String ret;
     /* i really need to implement some sort of get_line for ostd streams */
@@ -17,7 +17,7 @@ static ostd::Maybe<ostd::String> read_line(CsSvar *pr) {
     return ostd::move(ret);
 }
 
-static void add_history(ostd::ConstCharRange) {
+static void add_history(CsState &, ostd::ConstCharRange) {
 }
 
 #endif
