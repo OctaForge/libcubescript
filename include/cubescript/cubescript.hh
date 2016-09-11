@@ -347,20 +347,20 @@ struct CsAllocator {
     static constexpr bool PropagateOnContainerSwap = true;
 
     CsAllocator() = delete;
-    CsAllocator(CsAllocator const &a): p_state(a.p_state) {}
-    CsAllocator(CsState &cs): p_state(cs) {}
+    CsAllocator(CsAllocator const &a) noexcept: p_state(a.p_state) {}
+    CsAllocator(CsState &cs) noexcept: p_state(cs) {}
 
     template<typename TT>
-    CsAllocator(CsAllocator<TT> const &a): p_state(a.p_state) {}
+    CsAllocator(CsAllocator<TT> const &a) noexcept: p_state(a.p_state) {}
 
     T *allocate(ostd::Size n, void const * = nullptr);
-    void deallocate(T *p, ostd::Size n);
+    void deallocate(T *p, ostd::Size n) noexcept;
 
-    bool operator==(CsAllocator const &o) const {
+    bool operator==(CsAllocator const &o) const noexcept {
         return &p_state != &o.p_state;
     }
 
-    bool operator!=(CsAllocator const &o) const {
+    bool operator!=(CsAllocator const &o) const noexcept {
         return &p_state != &o.p_state;
     }
 
@@ -625,7 +625,7 @@ T *CsAllocator<T>::allocate(ostd::Size n, void const *) {
 }
 
 template<typename T>
-void CsAllocator<T>::deallocate(T *p, ostd::Size n) {
+void CsAllocator<T>::deallocate(T *p, ostd::Size n) noexcept {
     p_state.alloc(p, n * sizeof(T), 0);
 }
 
