@@ -186,9 +186,9 @@ static void do_sigint(int n) {
     /* in case another SIGINT happens, terminate normally */
     signal(n, SIG_DFL);
     if (gcs) {
-        gcs->set_call_hook([]() {
-            gcs->set_call_hook(nullptr);
-            gcs->error("<execution interrupted>");
+        gcs->set_call_hook([](CsState &cs) {
+            cs.set_call_hook(nullptr);
+            cs.error("<execution interrupted>");
         });
     }
 }
@@ -236,7 +236,7 @@ static void do_tty(CsState &cs) {
     auto prompt2 = cs.new_svar("PROMPT2", ">> ");
 
     bool do_exit = false;
-    cs.new_command("quit", "", [&do_exit](auto, auto &) {
+    cs.new_command("quit", "", [&do_exit](CsState &, auto, auto &) {
         do_exit = true;
     });
 
@@ -272,11 +272,11 @@ static void do_tty(CsState &cs) {
 }
 
 int main(int argc, char **argv) {
-    CsState cs;
-    gcs = &cs;
-    cs.init_libs();
+    CsState csg;
+    gcs = &csg;
+    csg.init_libs();
 
-    cs.new_command("exec", "sb", [&cs](auto args, auto &res) {
+    csg.new_command("exec", "sb", [](CsState &cs, auto args, auto &res) {
         auto file = args[0].get_strr();
         bool ret = cs.run_file(file);
         if (!ret) {
@@ -289,7 +289,7 @@ int main(int argc, char **argv) {
         }
     });
 
-    cs.new_command("echo", "C", [&cs](auto args, auto &) {
+    csg.new_command("echo", "C", [](CsState &cs, auto args, auto &) {
         cs.get_out().writeln(args[0].get_strr());
     });
 
@@ -366,31 +366,31 @@ endargs:
                 if (*str == '\0') {
                     str = argv[++i];
                 }
-                do_call(cs, str);
+                do_call(csg, str);
                 break;
             }
         }
     }
     if (firstarg) {
-        do_call(cs, argv[firstarg], true);
+        do_call(csg, argv[firstarg], true);
     }
     if (!firstarg && !has_str && !has_ver) {
         if (stdin_is_tty()) {
             init_lineedit(argv[0]);
-            do_tty(cs);
+            do_tty(csg);
             return 0;
         } else {
             ostd::String str;
             for (char c = '\0'; (c = ostd::in.getchar()) != EOF;) {
                 str += c;
             }
-            do_call(cs, str);
+            do_call(csg, str);
         }
     }
     if (has_inter) {
         if (stdin_is_tty()) {
             init_lineedit(argv[0]);
-            do_tty(cs);
+            do_tty(csg);
         }
         return 0;
     }

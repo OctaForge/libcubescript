@@ -190,7 +190,7 @@ private:
     int p_index = -1;
 };
 
-using CsVarCb = ostd::Function<void(CsIdent &)>;
+using CsVarCb = ostd::Function<void(CsState &, CsIdent &)>;
 
 struct OSTD_EXPORT CsVar: CsIdent {
     friend struct CsState;
@@ -201,9 +201,9 @@ protected:
 private:
     CsVarCb cb_var;
 
-    void changed() {
+    void changed(CsState &cs) {
         if (cb_var) {
-            cb_var(*this);
+            cb_var(cs, *this);
         }
     }
 };
@@ -281,7 +281,7 @@ private:
     CsValue p_val;
 };
 
-using CsCommandCb = ostd::Function<void(CsValueRange, CsValue &)>;
+using CsCommandCb = ostd::Function<void(CsState &, CsValueRange, CsValue &)>;
 
 struct CsCommand: CsIdent {
     friend struct CsState;
@@ -333,8 +333,9 @@ private:
     bool p_gap;
 };
 
-using CsHookCb = ostd::Function<void()>;
-using CsPanicCb = ostd::Function<void(ostd::ConstCharRange, CsStackState)>;
+using CsHookCb = ostd::Function<void(CsState &)>;
+using CsPanicCb =
+    ostd::Function<void(CsState &, ostd::ConstCharRange, CsStackState)>;
 
 template<typename T>
 struct CsAllocator {

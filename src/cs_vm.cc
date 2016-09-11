@@ -7,8 +7,10 @@
 namespace cscript {
 
 struct CsCommandInternal {
-    static void call(CsCommand *c, CsValueRange args, CsValue &ret) {
-        c->p_cb_cftv(args, ret);
+    static void call(
+        CsState &cs, CsCommand *c, CsValueRange args, CsValue &ret
+    ) {
+        c->p_cb_cftv(cs, args, ret);
     }
 
     static bool has_cb(CsIdent *id) {
@@ -402,12 +404,12 @@ static inline void callcommand(
                 cscript::util::tvals_concat(buf, ostd::iter(args, i), " ");
                 CsValue tv;
                 tv.set_str(ostd::move(buf.get()));
-                CsCommandInternal::call(id, CsValueRange(&tv, 1), res);
+                CsCommandInternal::call(cs, id, CsValueRange(&tv, 1), res);
                 return;
             }
             case 'V':
                 i = ostd::max(i + 1, numargs);
-                CsCommandInternal::call(id, ostd::iter(args, i), res);
+                CsCommandInternal::call(cs, id, ostd::iter(args, i), res);
                 return;
             case '1':
             case '2':
@@ -421,7 +423,7 @@ static inline void callcommand(
         }
     }
     ++i;
-    CsCommandInternal::call(id, CsValueRange(args, i), res);
+    CsCommandInternal::call(cs, id, CsValueRange(args, i), res);
 }
 
 static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result);
@@ -546,7 +548,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
     CsValue args[MaxArguments + MaxResults];
     auto &chook = cs.get_call_hook();
     if (chook) {
-        chook();
+        chook(cs);
     }
     for (;;) {
         ostd::Uint32 op = *code++;
@@ -1270,7 +1272,8 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 int offset = numargs - id->get_num_args();
                 result.force_null();
                 CsCommandInternal::call(
-                    id, CsValueRange(args + offset, id->get_num_args()), result
+                    cs, id, CsValueRange(args + offset, id->get_num_args()),
+                    result
                 );
                 force_arg(result, op & CsCodeRetMask);
                 numargs = offset;
@@ -1285,7 +1288,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
                 result.force_null();
                 CsCommandInternal::call(
-                    id, ostd::iter(&args[offset], callargs), result
+                    cs, id, ostd::iter(&args[offset], callargs), result
                 );
                 force_arg(result, op & CsCodeRetMask);
                 numargs = offset;
@@ -1305,7 +1308,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                     );
                     CsValue tv;
                     tv.set_str(ostd::move(buf.get()));
-                    CsCommandInternal::call(id, CsValueRange(&tv, 1), result);
+                    CsCommandInternal::call(cs, id, CsValueRange(&tv, 1), result);
                 }
                 force_arg(result, op & CsCodeRetMask);
                 numargs = offset;

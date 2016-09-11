@@ -256,8 +256,8 @@ CsState::CsState():
     p_callhook(), p_panicfunc(), p_out(&ostd::out), p_err(&ostd::err)
 {
     /* default panic func */
-    p_panicfunc = [this](ostd::ConstCharRange v, CsStackState) {
-        get_err().writefln(
+    p_panicfunc = [](CsState &cs, ostd::ConstCharRange v, CsStackState) {
+        cs.get_err().writefln(
             "PANIC: unprotected error in call to CubeScript (%s)", v
         );
     };
@@ -276,34 +276,38 @@ CsState::CsState():
     id = new_ivar("dbgalias", 0, 1000, 4);
     assert(id->get_index() == DbgaliasIdx);
 
-    new_command("do", "e", [this](CsValueRange args, CsValue &res) {
-        run(args[0].get_code(), res);
+    new_command("do", "e", [](CsState &cs, CsValueRange args, CsValue &res) {
+        cs.run(args[0].get_code(), res);
     })->p_type = CsIdDo;
 
-    new_command("doargs", "e", [this](CsValueRange args, CsValue &res) {
-        cs_do_args(*this, [&]() { run(args[0].get_code(), res); });
+    new_command("doargs", "e", [](CsState &cs, CsValueRange args, CsValue &res) {
+        cs_do_args(cs, [&cs, &res, &args]() {
+            cs.run(args[0].get_code(), res);
+        });
     })->p_type = CsIdDoArgs;
 
-    new_command("if", "tee", [this](CsValueRange args, CsValue &res) {
-        run((args[0].get_bool() ? args[1] : args[2]).get_code(), res);
+    new_command("if", "tee", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
+        cs.run((args[0].get_bool() ? args[1] : args[2]).get_code(), res);
     })->p_type = CsIdIf;
 
-    new_command("result", "T", [](CsValueRange args, CsValue &res) {
+    new_command("result", "T", [](CsState &, CsValueRange args, CsValue &res) {
         res = ostd::move(args[0]);
     })->p_type = CsIdResult;
 
-    new_command("!", "t", [](CsValueRange args, CsValue &res) {
+    new_command("!", "t", [](CsState &, CsValueRange args, CsValue &res) {
         res.set_int(!args[0].get_bool());
     })->p_type = CsIdNot;
 
-    new_command("&&", "E1V", [this](CsValueRange args, CsValue &res) {
+    new_command("&&", "E1V", [](CsState &cs, CsValueRange args, CsValue &res) {
         if (args.empty()) {
             res.set_int(1);
         } else {
             for (ostd::Size i = 0; i < args.size(); ++i) {
                 CsBytecode *code = args[i].get_code();
                 if (code) {
-                    run(code, res);
+                    cs.run(code, res);
                 } else {
                     res = ostd::move(args[i]);
                 }
@@ -314,14 +318,14 @@ CsState::CsState():
         }
     })->p_type = CsIdAnd;
 
-    new_command("||", "E1V", [this](CsValueRange args, CsValue &res) {
+    new_command("||", "E1V", [](CsState &cs, CsValueRange args, CsValue &res) {
         if (args.empty()) {
             res.set_int(0);
         } else {
             for (ostd::Size i = 0; i < args.size(); ++i) {
                 CsBytecode *code = args[i].get_code();
                 if (code) {
-                    run(code, res);
+                    cs.run(code, res);
                 } else {
                     res = ostd::move(args[i]);
                 }
@@ -438,7 +442,7 @@ void CsState::error(ostd::ConstCharRange msg) {
         throw CsErrorException(msg, cs_save_stack(*this));
     } else {
         if (p_panicfunc) {
-            p_panicfunc(msg, cs_save_stack(*this));
+            p_panicfunc(*this, msg, cs_save_stack(*this));
         }
         exit(EXIT_FAILURE);
     }
@@ -458,19 +462,19 @@ void CsState::clear_override(CsIdent &id) {
         case CsIdentType::Ivar: {
             CsIvar &iv = static_cast<CsIvar &>(id);
             iv.set_value(iv.p_overrideval);
-            iv.changed();
+            iv.changed(*this);
             break;
         }
         case CsIdentType::Fvar: {
             CsFvar &fv = static_cast<CsFvar &>(id);
             fv.set_value(fv.p_overrideval);
-            fv.changed();
+            fv.changed(*this);
             break;
         }
         case CsIdentType::Svar: {
             CsSvar &sv = static_cast<CsSvar &>(id);
             sv.set_value(sv.p_overrideval);
-            sv.changed();
+            sv.changed(*this);
             break;
         }
         default:
@@ -562,7 +566,7 @@ bool CsState::reset_var(ostd::ConstCharRange name) {
 void CsState::touch_var(ostd::ConstCharRange name) {
     CsIdent *id = get_ident(name);
     if (id && id->is_var()) {
-        static_cast<CsVar *>(id)->changed();
+        static_cast<CsVar *>(id)->changed(*this);
     }
 }
 
@@ -760,7 +764,7 @@ void CsState::set_var_int(
         iv->set_value(v);
     }
     if (dofunc) {
-        iv->changed();
+        iv->changed(*this);
     }
 }
 
@@ -785,7 +789,7 @@ void CsState::set_var_float(
         fv->set_value(v);
     }
     if (dofunc) {
-        fv->changed();
+        fv->changed(*this);
     }
 }
 
@@ -806,7 +810,7 @@ void CsState::set_var_str(
     }
     sv->set_value(v);
     if (dofunc) {
-        sv->changed();
+        sv->changed(*this);
     }
 }
 
@@ -916,7 +920,7 @@ void CsState::set_var_int_checked(CsIvar *iv, CsInt v) {
         v = cs_clamp_var(*this, iv, v);
     }
     iv->set_value(v);
-    iv->changed();
+    iv->changed(*this);
 }
 
 void CsState::set_var_int_checked(CsIvar *iv, CsValueRange args) {
@@ -961,7 +965,7 @@ void CsState::set_var_float_checked(CsFvar *fv, CsFloat v) {
         v = cs_clamp_fvar(*this, fv, v);
     }
     fv->set_value(v);
-    fv->changed();
+    fv->changed(*this);
 }
 
 void CsState::set_var_str_checked(CsSvar *sv, ostd::ConstCharRange v) {
@@ -977,7 +981,7 @@ void CsState::set_var_str_checked(CsSvar *sv, ostd::ConstCharRange v) {
         return;
     }
     sv->set_value(v);
-    sv->changed();
+    sv->changed(*this);
 }
 
 CsCommand *CsState::new_command(
@@ -1075,12 +1079,14 @@ static inline void cs_loop_conc(
     res.set_mstr(ostd::CharRange(s.disown(), len));
 }
 
-void cs_init_lib_base(CsState &cs) {
-    cs.new_command("error", "s", [&cs](CsValueRange args, CsValue &) {
+void cs_init_lib_base(CsState &gcs) {
+    gcs.new_command("error", "s", [](CsState &cs, CsValueRange args, CsValue &) {
         cs.error(args[0].get_strr());
     });
 
-    cs.new_command("pcall", "err", [&cs](CsValueRange args, CsValue &ret) {
+    gcs.new_command("pcall", "err", [](
+        CsState &cs, CsValueRange args, CsValue &ret
+    ) {
         CsAlias *cret = args[1].get_ident()->get_alias(),
                 *css  = args[2].get_ident()->get_alias();
         if (!cret || !css) {
@@ -1108,7 +1114,7 @@ void cs_init_lib_base(CsState &cs) {
         }
     });
 
-    cs.new_command("?", "tTT", [](CsValueRange args, CsValue &res) {
+    gcs.new_command("?", "tTT", [](CsState &, CsValueRange args, CsValue &res) {
         if (args[0].get_bool()) {
             res = ostd::move(args[1]);
         } else {
@@ -1116,7 +1122,9 @@ void cs_init_lib_base(CsState &cs) {
         }
     });
 
-    cs.new_command("cond", "ee2V", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("cond", "ee2V", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         for (ostd::Size i = 0; i < args.size(); i += 2) {
             if ((i + 1) < args.size()) {
                 if (cs.run_bool(args[i].get_code())) {
@@ -1130,7 +1138,9 @@ void cs_init_lib_base(CsState &cs) {
         }
     });
 
-    cs.new_command("case", "ite2V", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("case", "ite2V", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         CsInt val = args[0].get_int();
         for (ostd::Size i = 1; (i + 1) < args.size(); i += 2) {
             if (
@@ -1143,7 +1153,9 @@ void cs_init_lib_base(CsState &cs) {
         }
     });
 
-    cs.new_command("casef", "fte2V", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("casef", "fte2V", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         CsFloat val = args[0].get_float();
         for (ostd::Size i = 1; (i + 1) < args.size(); i += 2) {
             if (
@@ -1156,7 +1168,9 @@ void cs_init_lib_base(CsState &cs) {
         }
     });
 
-    cs.new_command("cases", "ste2V", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("cases", "ste2V", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         CsString val = args[0].get_str();
         for (ostd::Size i = 1; (i + 1) < args.size(); i += 2) {
             if (
@@ -1169,7 +1183,9 @@ void cs_init_lib_base(CsState &cs) {
         }
     });
 
-    cs.new_command("pushif", "rTe", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("pushif", "rTe", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         CsStackedValue idv{args[0].get_ident()};
         if (!idv.has_alias() || (idv.get_alias()->get_index() < MaxArguments)) {
             return;
@@ -1181,126 +1197,162 @@ void cs_init_lib_base(CsState &cs) {
         }
     });
 
-    cs.new_command("loop", "rie", [&cs](CsValueRange args, CsValue &) {
+    gcs.new_command("loop", "rie", [](
+        CsState &cs, CsValueRange args, CsValue &
+    ) {
         cs_do_loop(
             cs, *args[0].get_ident(), 0, args[1].get_int(), 1, nullptr,
             args[2].get_code()
         );
     });
 
-    cs.new_command("loop+", "riie", [&cs](CsValueRange args, CsValue &) {
+    gcs.new_command("loop+", "riie", [](
+        CsState &cs, CsValueRange args, CsValue &
+    ) {
         cs_do_loop(
             cs, *args[0].get_ident(), args[1].get_int(), args[2].get_int(), 1,
             nullptr, args[3].get_code()
         );
     });
 
-    cs.new_command("loop*", "riie", [&cs](CsValueRange args, CsValue &) {
+    gcs.new_command("loop*", "riie", [](
+        CsState &cs, CsValueRange args, CsValue &
+    ) {
         cs_do_loop(
             cs, *args[0].get_ident(), 0, args[1].get_int(), args[2].get_int(),
             nullptr, args[3].get_code()
         );
     });
 
-    cs.new_command("loop+*", "riiie", [&cs](CsValueRange args, CsValue &) {
+    gcs.new_command("loop+*", "riiie", [](
+        CsState &cs, CsValueRange args, CsValue &
+    ) {
         cs_do_loop(
             cs, *args[0].get_ident(), args[1].get_int(), args[3].get_int(),
             args[2].get_int(), nullptr, args[4].get_code()
         );
     });
 
-    cs.new_command("loopwhile", "riee", [&cs](CsValueRange args, CsValue &) {
+    gcs.new_command("loopwhile", "riee", [](
+        CsState &cs, CsValueRange args, CsValue &
+    ) {
         cs_do_loop(
             cs, *args[0].get_ident(), 0, args[1].get_int(), 1,
             args[2].get_code(), args[3].get_code()
         );
     });
 
-    cs.new_command("loopwhile+", "riiee", [&cs](CsValueRange args, CsValue &) {
+    gcs.new_command("loopwhile+", "riiee", [](
+        CsState &cs, CsValueRange args, CsValue &
+    ) {
         cs_do_loop(
             cs, *args[0].get_ident(), args[1].get_int(), args[2].get_int(), 1,
             args[3].get_code(), args[4].get_code()
         );
     });
 
-    cs.new_command("loopwhile*", "riiee", [&cs](CsValueRange args, CsValue &) {
+    gcs.new_command("loopwhile*", "riiee", [](
+        CsState &cs, CsValueRange args, CsValue &
+    ) {
         cs_do_loop(
             cs, *args[0].get_ident(), 0, args[2].get_int(), args[1].get_int(),
             args[3].get_code(), args[4].get_code()
         );
     });
 
-    cs.new_command("loopwhile+*", "riiiee", [&cs](CsValueRange args, CsValue &) {
+    gcs.new_command("loopwhile+*", "riiiee", [](
+        CsState &cs, CsValueRange args, CsValue &
+    ) {
         cs_do_loop(
             cs, *args[0].get_ident(), args[1].get_int(), args[3].get_int(),
             args[2].get_int(), args[4].get_code(), args[5].get_code()
         );
     });
 
-    cs.new_command("while", "ee", [&cs](CsValueRange args, CsValue &) {
+    gcs.new_command("while", "ee", [](
+        CsState &cs, CsValueRange args, CsValue &
+    ) {
         CsBytecode *cond = args[0].get_code(), *body = args[1].get_code();
         while (cs.run_bool(cond)) {
             cs.run_int(body);
         }
     });
 
-    cs.new_command("loopconcat", "rie", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("loopconcat", "rie", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         cs_loop_conc(
             cs, res, *args[0].get_ident(), 0, args[1].get_int(), 1,
             args[2].get_code(), true
         );
     });
 
-    cs.new_command("loopconcat+", "riie", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("loopconcat+", "riie", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         cs_loop_conc(
-            cs, res, *args[0].get_ident(), args[1].get_int(), args[2].get_int(), 1,
-            args[3].get_code(), true
+            cs, res, *args[0].get_ident(), args[1].get_int(),
+            args[2].get_int(), 1, args[3].get_code(), true
         );
     });
 
-    cs.new_command("loopconcat*", "riie", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("loopconcat*", "riie", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         cs_loop_conc(
-            cs, res, *args[0].get_ident(), 0, args[2].get_int(), args[1].get_int(),
-            args[3].get_code(), true
+            cs, res, *args[0].get_ident(), 0, args[2].get_int(),
+            args[1].get_int(), args[3].get_code(), true
         );
     });
 
-    cs.new_command("loopconcat+*", "riiie", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("loopconcat+*", "riiie", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         cs_loop_conc(
-            cs, res, *args[0].get_ident(), args[1].get_int(), args[3].get_int(),
-            args[2].get_int(), args[4].get_code(), true
+            cs, res, *args[0].get_ident(), args[1].get_int(),
+            args[3].get_int(), args[2].get_int(), args[4].get_code(), true
         );
     });
 
-    cs.new_command("loopconcatword", "rie", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("loopconcatword", "rie", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         cs_loop_conc(
             cs, res, *args[0].get_ident(), 0, args[1].get_int(), 1,
             args[2].get_code(), false
         );
     });
 
-    cs.new_command("loopconcatword+", "riie", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("loopconcatword+", "riie", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         cs_loop_conc(
-            cs, res, *args[0].get_ident(), args[1].get_int(), args[2].get_int(), 1,
-            args[3].get_code(), false
+            cs, res, *args[0].get_ident(), args[1].get_int(),
+            args[2].get_int(), 1, args[3].get_code(), false
         );
     });
 
-    cs.new_command("loopconcatword*", "riie", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("loopconcatword*", "riie", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         cs_loop_conc(
-            cs, res, *args[0].get_ident(), 0, args[2].get_int(), args[1].get_int(),
-            args[3].get_code(), false
+            cs, res, *args[0].get_ident(), 0, args[2].get_int(),
+            args[1].get_int(), args[3].get_code(), false
         );
     });
 
-    cs.new_command("loopconcatword+*", "riiie", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("loopconcatword+*", "riiie", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         cs_loop_conc(
             cs, res, *args[0].get_ident(), args[1].get_int(), args[3].get_int(),
             args[2].get_int(), args[4].get_code(), false
         );
     });
 
-    cs.new_command("push", "rTe", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("push", "rTe", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         CsStackedValue idv{args[0].get_ident()};
         if (!idv.has_alias() || (idv.get_alias()->get_index() < MaxArguments)) {
             return;
@@ -1310,33 +1362,51 @@ void cs_init_lib_base(CsState &cs) {
         cs.run(args[2].get_code(), res);
     });
 
-    cs.new_command("resetvar", "s", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("resetvar", "s", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         res.set_int(cs.reset_var(args[0].get_strr()));
     });
 
-    cs.new_command("alias", "sT", [&cs](CsValueRange args, CsValue &) {
+    gcs.new_command("alias", "sT", [](
+        CsState &cs, CsValueRange args, CsValue &
+    ) {
         cs.set_alias(args[0].get_strr(), ostd::move(args[1]));
     });
 
-    cs.new_command("getvarmin", "s", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("getvarmin", "s", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         res.set_int(cs.get_var_min_int(args[0].get_strr()).value_or(0));
     });
-    cs.new_command("getvarmax", "s", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("getvarmax", "s", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         res.set_int(cs.get_var_max_int(args[0].get_strr()).value_or(0));
     });
-    cs.new_command("getfvarmin", "s", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("getfvarmin", "s", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         res.set_float(cs.get_var_min_float(args[0].get_strr()).value_or(0.0f));
     });
-    cs.new_command("getfvarmax", "s", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("getfvarmax", "s", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         res.set_float(cs.get_var_max_float(args[0].get_strr()).value_or(0.0f));
     });
 
-    cs.new_command("identexists", "s", [&cs](CsValueRange args, CsValue &res) {
+    gcs.new_command("identexists", "s", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
         res.set_int(cs.have_ident(args[0].get_strr()));
     });
 
-    cs.new_command("getalias", "s", [&cs](CsValueRange args, CsValue &res) {
-        res.set_str(ostd::move(cs.get_alias_val(args[0].get_strr()).value_or("")));
+    gcs.new_command("getalias", "s", [](
+        CsState &cs, CsValueRange args, CsValue &res
+    ) {
+        res.set_str(
+            ostd::move(cs.get_alias_val(args[0].get_strr()).value_or(""))
+        );
     });
 }
 
