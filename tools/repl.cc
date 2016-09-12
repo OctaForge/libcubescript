@@ -194,7 +194,7 @@ static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
     CsValue ret;
     scs = &cs;
     signal(SIGINT, do_sigint);
-    ostd::String err;
+    ostd::ConstCharRange err;
     cscript::CsStackState st;
     auto tocall = [&]() {
         if (file) {

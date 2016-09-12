@@ -99,15 +99,15 @@ constexpr ostd::Size CsTypeStorageSize =
     (sizeof(T) - 1) / sizeof(ostd::Uint32) + 1;
 
 struct CsErrorException {
-    CsString errmsg;
+    ostd::ConstCharRange errmsg;
     CsStackState stack;
     CsErrorException() = delete;
     CsErrorException(CsErrorException const &) = delete;
     CsErrorException(CsErrorException &&v):
-        errmsg(ostd::move(v.errmsg)), stack(ostd::move(v.stack))
+        errmsg(v.errmsg), stack(ostd::move(v.stack))
     {}
-    CsErrorException(CsString &&v, CsStackState &&st):
-        errmsg(ostd::move(v)), stack(ostd::move(st))
+    CsErrorException(ostd::ConstCharRange v, CsStackState &&st):
+        errmsg(v), stack(ostd::move(st))
     {}
 };
 

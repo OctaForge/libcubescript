@@ -424,7 +424,7 @@ struct OSTD_EXPORT CsState {
 
     template<typename F>
     bool pcall(
-        F func, ostd::String *error = nullptr,
+        F func, ostd::ConstCharRange *error = nullptr,
         CsStackState *stack = nullptr
     ) {
         return ipcall([](void *data) {
@@ -436,9 +436,15 @@ struct OSTD_EXPORT CsState {
 
     template<typename ...A>
     void error(ostd::ConstCharRange msg, A &&...args) {
-        auto app = ostd::appender<CsString>();
-        ostd::format(app, msg, ostd::forward<A>(args)...);
-        error(app.get());
+        char fbuf[512];
+        auto ret = ostd::format(
+            ostd::CharRange(fbuf, sizeof(fbuf)), msg, ostd::forward<A>(args)...
+        );
+        if ((ret < 0) || (ostd::Size(ret) > sizeof(fbuf))) {
+            error(msg);
+        } else {
+            error(ostd::CharRange(fbuf, ret));
+        }
     }
 
     void clear_override(CsIdent &id);
@@ -579,10 +585,11 @@ struct OSTD_EXPORT CsState {
 private:
     CsIdent *add_ident(CsIdent *id);
     bool ipcall(
-        void (*f)(void *data), ostd::String *error,
+        void (*f)(void *data), ostd::ConstCharRange *error,
         CsStackState *stack, void *data
     );
 
+    char p_errbuf[512];
     CsHookCb p_callhook;
     CsPanicCb p_panicfunc;
     CsStream *p_out, *p_err;

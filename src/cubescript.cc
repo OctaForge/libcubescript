@@ -430,7 +430,7 @@ CsPanicCb &CsState::get_panic_func() {
 }
 
 bool CsState::ipcall(
-    void (*f)(void *data), ostd::String *error,
+    void (*f)(void *data), ostd::ConstCharRange *error,
     CsStackState *stack, void *data
 ) {
     ++protect;
@@ -439,7 +439,7 @@ bool CsState::ipcall(
     } catch (CsErrorException &v) {
         --protect;
         if (error) {
-            *error = ostd::move(v.errmsg);
+            *error = v.errmsg;
         }
         if (stack) {
             *stack = ostd::move(v.stack);
@@ -454,11 +454,16 @@ bool CsState::ipcall(
 }
 
 void CsState::error(ostd::ConstCharRange msg) {
+    if (msg.size() > sizeof(p_errbuf)) {
+        msg = msg.slice(0, sizeof(p_errbuf));
+    }
+    memcpy(p_errbuf, msg.data(), msg.size());
+    auto err = ostd::ConstCharRange(p_errbuf, msg.size());
     if (protect) {
-        throw CsErrorException(msg, cs_save_stack(*this));
+        throw CsErrorException(err, cs_save_stack(*this));
     } else {
         if (p_panicfunc) {
-            p_panicfunc(*this, msg, cs_save_stack(*this));
+            p_panicfunc(*this, err, cs_save_stack(*this));
         }
         exit(EXIT_FAILURE);
     }
@@ -1140,7 +1145,7 @@ void cs_init_lib_base(CsState &gcs) {
             ret.set_int(0);
             return;
         }
-        CsString errmsg;
+        ostd::ConstCharRange errmsg;
         CsValue result, tback;
         CsStackState stack;
         bool rc = cs.pcall([&cs, &args, &result]() {
@@ -1148,7 +1153,7 @@ void cs_init_lib_base(CsState &gcs) {
         }, &errmsg, &stack);
         ret.set_int(rc);
         if (!rc) {
-            result.set_str(ostd::move(errmsg));
+            result.set_str(errmsg);
             if (stack.get()) {
                 auto app = ostd::appender<CsString>();
                 cscript::util::print_stack(app, stack);
