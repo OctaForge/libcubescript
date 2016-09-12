@@ -1,5 +1,7 @@
 # libcubescript
 
+![CubeScript REPL](https://ftp.octaforge.org/q66/random/cs_repl.gif)
+
 ## Overview
 
 Libcubescript is an embeddable implementation of the CubeScript scripting
