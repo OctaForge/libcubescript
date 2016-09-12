@@ -89,6 +89,11 @@ enum {
     CsRetFloat  = CsValFloat << CsCodeRet,
 };
 
+struct CsSharedState {
+    CsMap<ostd::ConstCharRange, CsIdent *> idents;
+    CsVector<CsIdent *> identmap;
+};
+
 template<typename T>
 constexpr ostd::Size CsTypeStorageSize =
     (sizeof(T) - 1) / sizeof(ostd::Uint32) + 1;
@@ -202,7 +207,7 @@ struct GenState {
     }
 
     void gen_ident() {
-        gen_ident(cs.identmap[DummyIdx]);
+        gen_ident(cs.p_state->identmap[DummyIdx]);
     }
 
     void gen_ident(ostd::ConstCharRange word) {
@@ -343,7 +348,7 @@ static void cs_do_args(CsState &cs, F body) {
     for (int i = 0; argmask1; argmask1 >>= 1, ++i) {
         if (argmask1 & 1) {
             CsAliasInternal::undo_arg(
-                static_cast<CsAlias *>(cs.identmap[i]), argstack[i]
+                static_cast<CsAlias *>(cs.p_state->identmap[i]), argstack[i]
             );
         }
     }
@@ -359,7 +364,7 @@ static void cs_do_args(CsState &cs, F body) {
         for (int i = 0; argmask2; argmask2 >>= 1, ++i) {
             if (argmask2 & 1) {
                 CsAliasInternal::redo_arg(
-                    static_cast<CsAlias *>(cs.identmap[i]), argstack[i]
+                    static_cast<CsAlias *>(cs.p_state->identmap[i]), argstack[i]
                 );
             }
         }

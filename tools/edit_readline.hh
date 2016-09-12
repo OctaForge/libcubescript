@@ -20,7 +20,7 @@ static char *ln_complete_list(char const *buf, int state) {
 
     if (!state) {
         cmd = get_complete_cmd(buf);
-        itr = rd_cs->identmap.iter();
+        itr = rd_cs->get_idents();
     }
 
     for (; !itr.empty(); itr.pop_front()) {

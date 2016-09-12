@@ -190,6 +190,9 @@ private:
     int p_index = -1;
 };
 
+using CsIdentRange = ostd::PointerRange<CsIdent *>;
+using CsConstIdentRange = ostd::PointerRange<CsIdent const *>;
+
 using CsVarCb = ostd::Function<void(CsState &, CsIdent &)>;
 
 struct OSTD_EXPORT CsVar: CsIdent {
@@ -369,10 +372,10 @@ private:
     CsState &p_state;
 };
 
-struct OSTD_EXPORT CsState {
-    CsMap<ostd::ConstCharRange, CsIdent *> idents;
-    CsVector<CsIdent *> identmap;
+struct CsSharedState;
 
+struct OSTD_EXPORT CsState {
+    CsSharedState *p_state;
     CsIdentLink *p_callstack = nullptr;
 
     int identflags = 0;
@@ -380,6 +383,10 @@ struct OSTD_EXPORT CsState {
 
     CsState();
     virtual ~CsState();
+
+    bool is_alive() const {
+        return bool(p_state);
+    }
 
     CsStream const &get_out() const;
     CsStream &get_out();
@@ -492,25 +499,12 @@ struct OSTD_EXPORT CsState {
         ));
     }
 
-    CsIdent *get_ident(ostd::ConstCharRange name) {
-        CsIdent **id = idents.at(name);
-        if (!id) {
-            return nullptr;
-        }
-        return *id;
-    }
+    CsIdent *get_ident(ostd::ConstCharRange name);
+    CsAlias *get_alias(ostd::ConstCharRange name);
+    bool have_ident(ostd::ConstCharRange name);
 
-    CsAlias *get_alias(ostd::ConstCharRange name) {
-        CsIdent *id = get_ident(name);
-        if (!id->is_alias()) {
-            return nullptr;
-        }
-        return static_cast<CsAlias *>(id);
-    }
-
-    bool have_ident(ostd::ConstCharRange name) {
-        return idents.at(name) != nullptr;
-    }
+    CsIdentRange get_idents();
+    CsConstIdentRange get_idents() const;
 
     bool reset_var(ostd::ConstCharRange name);
     void touch_var(ostd::ConstCharRange name);

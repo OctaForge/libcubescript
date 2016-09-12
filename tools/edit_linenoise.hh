@@ -18,7 +18,7 @@ static CsState *ln_cs = nullptr;
 #ifdef CS_REPL_HAS_COMPLETE
 static void ln_complete(char const *buf, linenoiseCompletions *lc) {
     ostd::ConstCharRange cmd = get_complete_cmd(buf);
-    for (auto id: ln_cs->identmap.iter()) {
+    for (auto id: ln_cs->get_idents()) {
         if (!id->is_command()) {
             continue;
         }

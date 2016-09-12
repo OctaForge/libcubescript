@@ -253,8 +253,19 @@ int CsCommand::get_num_args() const {
 void cs_init_lib_base(CsState &cs);
 
 CsState::CsState():
-    p_callhook(), p_panicfunc(), p_out(&ostd::out), p_err(&ostd::err)
+    p_state(nullptr), p_callhook(), p_panicfunc(),
+    p_out(&ostd::out), p_err(&ostd::err)
 {
+    CsSharedState *ps = static_cast<CsSharedState *>(
+        alloc(nullptr, 0, sizeof(CsSharedState))
+    );
+    if (!ps) {
+        return;
+    }
+    /* TODO: protect with a Box */
+    new (ps) CsSharedState();
+    p_state = ps;
+
     /* default panic func */
     p_panicfunc = [](CsState &cs, ostd::ConstCharRange v, CsStackState) {
         cs.get_err().writefln(
@@ -342,7 +353,10 @@ CsState::CsState():
 }
 
 CsState::~CsState() {
-    for (auto &p: idents.iter()) {
+    if (!p_state) {
+        return;
+    }
+    for (auto &p: p_state->idents.iter()) {
         CsIdent *i = p.second;
         CsAlias *a = i->get_alias();
         if (a) {
@@ -351,6 +365,8 @@ CsState::~CsState() {
         }
         delete i;
     }
+    p_state->~CsSharedState();
+    alloc(p_state, sizeof(CsSharedState), 0);
 }
 
 CsStream const &CsState::get_out() const {
@@ -484,7 +500,7 @@ void CsState::clear_override(CsIdent &id) {
 }
 
 void CsState::clear_overrides() {
-    for (auto &p: idents.iter()) {
+    for (auto &p: p_state->idents.iter()) {
         clear_override(*(p.second));
     }
 }
@@ -493,9 +509,9 @@ CsIdent *CsState::add_ident(CsIdent *id) {
     if (!id) {
         return nullptr;
     }
-    idents[id->get_name()] = id;
-    id->p_index = identmap.size();
-    return identmap.push(id);
+    p_state->idents[id->get_name()] = id;
+    id->p_index = p_state->identmap.size();
+    return p_state->identmap.push(id);
 }
 
 CsIdent *CsState::new_ident(ostd::ConstCharRange name, int flags) {
@@ -505,7 +521,7 @@ CsIdent *CsState::new_ident(ostd::ConstCharRange name, int flags) {
             cs_debug_code(
                 *this, "number %s is not a valid identifier name", name
             );
-            return identmap[DummyIdx];
+            return p_state->identmap[DummyIdx];
         }
         id = add_ident(new CsAlias(name, flags));
     }
@@ -526,8 +542,39 @@ CsIdent *CsState::force_ident(CsValue &v) {
         default:
             break;
     }
-    v.set_ident(identmap[DummyIdx]);
-    return identmap[DummyIdx];
+    v.set_ident(p_state->identmap[DummyIdx]);
+    return p_state->identmap[DummyIdx];
+}
+
+CsIdent *CsState::get_ident(ostd::ConstCharRange name) {
+    CsIdent **id = p_state->idents.at(name);
+    if (!id) {
+        return nullptr;
+    }
+    return *id;
+}
+
+CsAlias *CsState::get_alias(ostd::ConstCharRange name) {
+    CsIdent **id = p_state->idents.at(name);
+    if (!id || !(*id)->is_alias()) {
+        return nullptr;
+    }
+    return static_cast<CsAlias *>(*id);
+}
+
+bool CsState::have_ident(ostd::ConstCharRange name) {
+    return p_state->idents.at(name) != nullptr;
+}
+
+CsIdentRange CsState::get_idents() {
+    return CsIdentRange(p_state->identmap.data(), p_state->identmap.size());
+}
+
+CsConstIdentRange CsState::get_idents() const {
+    return CsConstIdentRange(
+        const_cast<CsIdent const **>(p_state->identmap.data()),
+        p_state->identmap.size()
+    );
 }
 
 CsIvar *CsState::new_ivar(

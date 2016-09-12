@@ -273,6 +273,9 @@ static void do_tty(CsState &cs) {
 
 int main(int argc, char **argv) {
     CsState gcs;
+    if (!gcs.is_alive()) {
+        return 1;
+    }
     gcs.init_libs();
 
     gcs.new_command("exec", "sb", [](CsState &cs, auto args, auto &res) {
