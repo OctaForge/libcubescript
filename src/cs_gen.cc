@@ -51,7 +51,7 @@ static void cs_error_line(
         p, gs.src_file, gs.src_str, fmt,
         ostd::CharRange(buf.data(), buf.size())
     );
-    gs.cs.error(rfmt, ostd::forward<A>(args)...);
+    throw CsErrorException(gs.cs, rfmt, ostd::forward<A>(args)...);
 }
 
 char *cs_dup_ostr(ostd::ConstCharRange s) {

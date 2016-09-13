@@ -101,6 +101,20 @@ CsStackState cs_save_stack(CsState &cs) {
     return CsStackState(ret, total > dalias->get_value());
 }
 
+CsStackState CsErrorException::save_stack(CsState &cs) {
+    return cs_save_stack(cs);
+}
+
+ostd::ConstCharRange CsErrorException::save_msg(
+    CsState &cs, ostd::ConstCharRange msg
+) {
+    if (msg.size() > sizeof(cs.p_errbuf)) {
+        msg = msg.slice(0, sizeof(cs.p_errbuf));
+    }
+    memcpy(cs.p_errbuf, msg.data(), msg.size());
+    return ostd::ConstCharRange(cs.p_errbuf, msg.size());
+}
+
 static void bcode_ref(ostd::Uint32 *code) {
     if (!code) {
         return;

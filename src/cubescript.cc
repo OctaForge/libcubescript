@@ -396,15 +396,6 @@ void *CsState::alloc(void *ptr, ostd::Size, ostd::Size ns) {
     return new unsigned char[ns];
 }
 
-void CsState::error(ostd::ConstCharRange msg) {
-    if (msg.size() > sizeof(p_errbuf)) {
-        msg = msg.slice(0, sizeof(p_errbuf));
-    }
-    memcpy(p_errbuf, msg.data(), msg.size());
-    auto err = ostd::ConstCharRange(p_errbuf, msg.size());
-    throw CsErrorException(err, cs_save_stack(*this));
-}
-
 void CsState::clear_override(CsIdent &id) {
     if (!(id.get_flags() & CsIdfOverridden)) {
         return;
@@ -1073,7 +1064,7 @@ static inline void cs_loop_conc(
 
 void cs_init_lib_base(CsState &gcs) {
     gcs.new_command("error", "s", [](CsState &cs, CsValueRange args, CsValue &) {
-        cs.error(args[0].get_strr());
+        throw cscript::CsErrorException(cs, args[0].get_strr());
     });
 
     gcs.new_command("pcall", "err", [](

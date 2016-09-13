@@ -319,56 +319,7 @@ struct CsStackStateNode {
     int index;
 };
 
-struct CsStackState {
-    CsStackState(CsStackStateNode *nd = nullptr, bool gap = false);
-    CsStackState(CsStackState const &) = delete;
-    CsStackState(CsStackState &&st);
-    ~CsStackState();
-
-    CsStackState &operator=(CsStackState const &) = delete;
-    CsStackState &operator=(CsStackState &&);
-
-    CsStackStateNode const *get() const;
-    bool gap() const;
-
-private:
-    CsStackStateNode *p_node;
-    bool p_gap;
-};
-
-struct CsErrorException {
-    friend struct CsState;
-
-    CsErrorException() = delete;
-    CsErrorException(CsErrorException const &) = delete;
-    CsErrorException(CsErrorException &&v):
-        p_errmsg(v.p_errmsg), p_stack(ostd::move(v.p_stack))
-    {}
-
-    ostd::ConstCharRange what() const {
-        return p_errmsg;
-    }
-
-    CsStackState &get_stack() {
-        return p_stack;
-    }
-
-    CsStackState const &get_stack() const {
-        return p_stack;
-    }
-
-private:
-    CsErrorException(ostd::ConstCharRange v, CsStackState &&st):
-        p_errmsg(v), p_stack(ostd::move(st))
-    {}
-
-    ostd::ConstCharRange p_errmsg;
-    CsStackState p_stack;
-};
-
 using CsHookCb = ostd::Function<void(CsState &)>;
-using CsPanicCb =
-    ostd::Function<void(CsState &, ostd::ConstCharRange, CsStackState)>;
 
 template<typename T>
 struct CsAllocator {
@@ -402,9 +353,12 @@ private:
     CsState &p_state;
 };
 
+struct CsErrorException;
 struct CsSharedState;
 
 struct OSTD_EXPORT CsState {
+    friend struct CsErrorException;
+
     CsSharedState *p_state;
     CsIdentLink *p_callstack = nullptr;
 
@@ -457,21 +411,6 @@ struct OSTD_EXPORT CsState {
     }
 
     void init_libs(int libs = CsLibAll);
-
-    void error(ostd::ConstCharRange msg);
-
-    template<typename ...A>
-    void error(ostd::ConstCharRange msg, A &&...args) {
-        char fbuf[512];
-        auto ret = ostd::format(
-            ostd::CharRange(fbuf, sizeof(fbuf)), msg, ostd::forward<A>(args)...
-        );
-        if ((ret < 0) || (ostd::Size(ret) > sizeof(fbuf))) {
-            error(msg);
-        } else {
-            error(ostd::CharRange(fbuf, ret));
-        }
-    }
 
     void clear_override(CsIdent &id);
     void clear_overrides();
@@ -614,6 +553,75 @@ private:
     char p_errbuf[512];
     CsHookCb p_callhook;
     CsStream *p_out, *p_err;
+};
+
+struct CsStackState {
+    CsStackState(CsStackStateNode *nd = nullptr, bool gap = false);
+    CsStackState(CsStackState const &) = delete;
+    CsStackState(CsStackState &&st);
+    ~CsStackState();
+
+    CsStackState &operator=(CsStackState const &) = delete;
+    CsStackState &operator=(CsStackState &&);
+
+    CsStackStateNode const *get() const;
+    bool gap() const;
+
+private:
+    CsStackStateNode *p_node;
+    bool p_gap;
+};
+
+struct CsErrorException {
+    friend struct CsState;
+
+    CsErrorException() = delete;
+    CsErrorException(CsErrorException const &) = delete;
+    CsErrorException(CsErrorException &&v):
+        p_errmsg(v.p_errmsg), p_stack(ostd::move(v.p_stack))
+    {}
+
+    ostd::ConstCharRange what() const {
+        return p_errmsg;
+    }
+
+    CsStackState &get_stack() {
+        return p_stack;
+    }
+
+    CsStackState const &get_stack() const {
+        return p_stack;
+    }
+
+    CsErrorException(CsState &cs, ostd::ConstCharRange msg):
+        p_errmsg(), p_stack()
+    {
+        p_errmsg = save_msg(cs, msg);
+        p_stack = save_stack(cs);
+    }
+
+    template<typename ...A>
+    CsErrorException(CsState &cs, ostd::ConstCharRange msg, A &&...args):
+        p_errmsg(), p_stack()
+    {
+        char fbuf[512];
+        auto ret = ostd::format(
+            ostd::CharRange(fbuf, sizeof(fbuf)), msg, ostd::forward<A>(args)...
+        );
+        if ((ret < 0) || (ostd::Size(ret) > sizeof(fbuf))) {
+            p_errmsg = save_msg(cs, msg);
+        } else {
+            p_errmsg = save_msg(cs, ostd::CharRange(fbuf, ret));
+        }
+        p_stack = save_stack(cs);
+    }
+
+private:
+    CsStackState save_stack(CsState &cs);
+    ostd::ConstCharRange save_msg(CsState &cs, ostd::ConstCharRange v);
+
+    ostd::ConstCharRange p_errmsg;
+    CsStackState p_stack;
 };
 
 struct OSTD_EXPORT CsStackedValue: CsValue {

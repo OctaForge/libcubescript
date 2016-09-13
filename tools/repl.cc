@@ -186,7 +186,7 @@ static void do_sigint(int n) {
     signal(n, SIG_DFL);
     scs->set_call_hook([](CsState &cs) {
         cs.set_call_hook(nullptr);
-        cs.error("<execution interrupted>");
+        throw cscript::CsErrorException(cs, "<execution interrupted>");
     });
 }
 
