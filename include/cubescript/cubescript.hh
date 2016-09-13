@@ -336,6 +336,36 @@ private:
     bool p_gap;
 };
 
+struct CsErrorException {
+    friend struct CsState;
+
+    CsErrorException() = delete;
+    CsErrorException(CsErrorException const &) = delete;
+    CsErrorException(CsErrorException &&v):
+        p_errmsg(v.p_errmsg), p_stack(ostd::move(v.p_stack))
+    {}
+
+    ostd::ConstCharRange what() const {
+        return p_errmsg;
+    }
+
+    CsStackState &get_stack() {
+        return p_stack;
+    }
+
+    CsStackState const &get_stack() const {
+        return p_stack;
+    }
+
+private:
+    CsErrorException(ostd::ConstCharRange v, CsStackState &&st):
+        p_errmsg(v), p_stack(ostd::move(st))
+    {}
+
+    ostd::ConstCharRange p_errmsg;
+    CsStackState p_stack;
+};
+
 using CsHookCb = ostd::Function<void(CsState &)>;
 using CsPanicCb =
     ostd::Function<void(CsState &, ostd::ConstCharRange, CsStackState)>;
@@ -379,14 +409,9 @@ struct OSTD_EXPORT CsState {
     CsIdentLink *p_callstack = nullptr;
 
     int identflags = 0;
-    int protect = 0;
 
     CsState();
     virtual ~CsState();
-
-    bool is_alive() const {
-        return bool(p_state);
-    }
 
     CsStream const &get_out() const;
     CsStream &get_out();
@@ -407,30 +432,31 @@ struct OSTD_EXPORT CsState {
         ));
     }
 
-    virtual void *alloc(void *ptr, ostd::Size olds, ostd::Size news);
+    void *alloc(void *ptr, ostd::Size olds, ostd::Size news);
+
+    template<typename T, typename ...A>
+    T *create(A &&...args) {
+        T *ret = static_cast<T *>(alloc(nullptr, 0, sizeof(T)));
+        new (ret) T(ostd::forward<A>(args)...);
+        return ret;
+    }
+
+    template<typename T>
+    T *create_array(ostd::Size len) {
+        T *ret = static_cast<T *>(alloc(nullptr, 0, len * sizeof(T)));
+        for (ostd::Size i = 0; i < len; ++i) {
+            new (&ret[i]) T();
+        }
+        return ret;
+    }
+
+    template<typename T>
+    void destroy(T *v) noexcept {
+        v->~T();
+        alloc(v, sizeof(T), 0);
+    }
 
     void init_libs(int libs = CsLibAll);
-
-    CsPanicCb set_panic_func(CsPanicCb func);
-    CsPanicCb const &get_panic_func() const;
-    CsPanicCb &get_panic_func();
-
-    template<typename F>
-    CsPanicCb set_panic_func(F &&f) {
-        return set_panic_func(CsPanicCb(
-            ostd::allocator_arg, CsAllocator<char>(*this), ostd::forward<F>(f)
-        ));
-    }
-
-    template<typename F>
-    bool pcall(
-        F func, ostd::ConstCharRange *error = nullptr,
-        CsStackState *stack = nullptr
-    ) {
-        return ipcall([](void *data) {
-            (*static_cast<F *>(data))();
-        }, error, stack, &func);
-    }
 
     void error(ostd::ConstCharRange msg);
 
@@ -584,14 +610,9 @@ struct OSTD_EXPORT CsState {
 
 private:
     CsIdent *add_ident(CsIdent *id);
-    bool ipcall(
-        void (*f)(void *data), ostd::ConstCharRange *error,
-        CsStackState *stack, void *data
-    );
 
     char p_errbuf[512];
     CsHookCb p_callhook;
-    CsPanicCb p_panicfunc;
     CsStream *p_out, *p_err;
 };
 

@@ -253,26 +253,9 @@ int CsCommand::get_num_args() const {
 void cs_init_lib_base(CsState &cs);
 
 CsState::CsState():
-    p_state(nullptr), p_callhook(), p_panicfunc(),
+    p_state(create<CsSharedState>()), p_callhook(),
     p_out(&ostd::out), p_err(&ostd::err)
 {
-    CsSharedState *ps = static_cast<CsSharedState *>(
-        alloc(nullptr, 0, sizeof(CsSharedState))
-    );
-    if (!ps) {
-        return;
-    }
-    /* TODO: protect with a Box */
-    new (ps) CsSharedState();
-    p_state = ps;
-
-    /* default panic func */
-    p_panicfunc = [](CsState &cs, ostd::ConstCharRange v, CsStackState) {
-        cs.get_err().writefln(
-            "PANIC: unprotected error in call to CubeScript (%s)", v
-        );
-    };
-
     for (int i = 0; i < MaxArguments; ++i) {
         char buf[32];
         snprintf(buf, sizeof(buf), "arg%d", i + 1);
@@ -363,10 +346,9 @@ CsState::~CsState() {
             a->get_value().force_null();
             CsAliasInternal::clean_code(a);
         }
-        delete i;
+        destroy(i);
     }
-    p_state->~CsSharedState();
-    alloc(p_state, sizeof(CsSharedState), 0);
+    destroy(p_state);
 }
 
 CsStream const &CsState::get_out() const {
@@ -408,49 +390,10 @@ CsHookCb &CsState::get_call_hook() {
 }
 
 void *CsState::alloc(void *ptr, ostd::Size, ostd::Size ns) {
-    delete[] static_cast<ostd::byte *>(ptr);
     if (!ns) {
-        return nullptr;
+        delete static_cast<unsigned char *>(ptr);
     }
-    return new ostd::byte[ns];
-}
-
-CsPanicCb CsState::set_panic_func(CsPanicCb func) {
-    auto hk = ostd::move(p_panicfunc);
-    p_panicfunc = ostd::move(func);
-    return hk;
-}
-
-CsPanicCb const &CsState::get_panic_func() const {
-    return p_panicfunc;
-}
-
-CsPanicCb &CsState::get_panic_func() {
-    return p_panicfunc;
-}
-
-bool CsState::ipcall(
-    void (*f)(void *data), ostd::ConstCharRange *error,
-    CsStackState *stack, void *data
-) {
-    ++protect;
-    try {
-        f(data);
-    } catch (CsErrorException &v) {
-        --protect;
-        if (error) {
-            *error = v.errmsg;
-        }
-        if (stack) {
-            *stack = ostd::move(v.stack);
-        }
-        return false;
-    } catch (...) {
-        --protect;
-        throw;
-    }
-    --protect;
-    return true;
+    return new unsigned char[ns];
 }
 
 void CsState::error(ostd::ConstCharRange msg) {
@@ -459,14 +402,7 @@ void CsState::error(ostd::ConstCharRange msg) {
     }
     memcpy(p_errbuf, msg.data(), msg.size());
     auto err = ostd::ConstCharRange(p_errbuf, msg.size());
-    if (protect) {
-        throw CsErrorException(err, cs_save_stack(*this));
-    } else {
-        if (p_panicfunc) {
-            p_panicfunc(*this, err, cs_save_stack(*this));
-        }
-        exit(EXIT_FAILURE);
-    }
+    throw CsErrorException(err, cs_save_stack(*this));
 }
 
 void CsState::clear_override(CsIdent &id) {
@@ -528,7 +464,7 @@ CsIdent *CsState::new_ident(ostd::ConstCharRange name, int flags) {
             );
             return p_state->identmap[DummyIdx];
         }
-        id = add_ident(new CsAlias(name, flags));
+        id = add_ident(create<CsAlias>(name, flags));
     }
     return id;
 }
@@ -585,20 +521,24 @@ CsConstIdentRange CsState::get_idents() const {
 CsIvar *CsState::new_ivar(
     ostd::ConstCharRange n, CsInt m, CsInt x, CsInt v, CsVarCb f, int flags
 ) {
-    return add_ident(new CsIvar(n, m, x, v, ostd::move(f), flags))->get_ivar();
+    return add_ident(
+        create<CsIvar>(n, m, x, v, ostd::move(f), flags)
+    )->get_ivar();
 }
 
 CsFvar *CsState::new_fvar(
     ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat v, CsVarCb f, int flags
 ) {
-    return add_ident(new CsFvar(n, m, x, v, ostd::move(f), flags))->get_fvar();
+    return add_ident(
+        create<CsFvar>(n, m, x, v, ostd::move(f), flags)
+    )->get_fvar();
 }
 
 CsSvar *CsState::new_svar(
     ostd::ConstCharRange n, CsString v, CsVarCb f, int flags
 ) {
     return add_ident(
-        new CsSvar(n, ostd::move(v), ostd::move(f), flags)
+        create<CsSvar>(n, ostd::move(v), ostd::move(f), flags)
     )->get_svar();
 }
 
@@ -654,7 +594,7 @@ void CsState::set_alias(ostd::ConstCharRange name, CsValue v) {
     } else if (cs_check_num(name)) {
         cs_debug_code(*this, "cannot alias number %s", name);
     } else {
-        add_ident(new CsAlias(name, ostd::move(v), identflags));
+        add_ident(create<CsAlias>(name, ostd::move(v), identflags));
     }
 }
 
@@ -1084,7 +1024,7 @@ CsCommand *CsState::new_command(
         }
     }
     return static_cast<CsCommand *>(
-        add_ident(new CsCommand(name, args, nargs, ostd::move(func)))
+        add_ident(create<CsCommand>(name, args, nargs, ostd::move(func)))
     );
 }
 
@@ -1145,21 +1085,20 @@ void cs_init_lib_base(CsState &gcs) {
             ret.set_int(0);
             return;
         }
-        ostd::ConstCharRange errmsg;
         CsValue result, tback;
-        CsStackState stack;
-        bool rc = cs.pcall([&cs, &args, &result]() {
+        bool rc = true;
+        try {
             cs.run(args[0].get_code(), result);
-        }, &errmsg, &stack);
-        ret.set_int(rc);
-        if (!rc) {
-            result.set_str(errmsg);
-            if (stack.get()) {
+        } catch (CsErrorException const &e) {
+            result.set_str(e.what());
+            if (e.get_stack().get()) {
                 auto app = ostd::appender<CsString>();
-                cscript::util::print_stack(app, stack);
+                cscript::util::print_stack(app, e.get_stack());
                 tback.set_str(ostd::move(app.get()));
             }
+            rc = false;
         }
+        ret.set_int(rc);
         CsAliasInternal::set_alias(cret, cs, result);
         if (css->get_index() != DummyIdx) {
             CsAliasInternal::set_alias(css, cs, tback);

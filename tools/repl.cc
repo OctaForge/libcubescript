@@ -194,9 +194,7 @@ static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
     CsValue ret;
     scs = &cs;
     signal(SIGINT, do_sigint);
-    ostd::ConstCharRange err;
-    cscript::CsStackState st;
-    auto tocall = [&]() {
+    try {
         if (file) {
             if (!cs.run_file(line, ret)) {
                 ostd::err.writeln("cannot read file: ", line);
@@ -204,11 +202,10 @@ static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
         } else {
             cs.run(line, ret);
         }
-    };
-    if (!cs.pcall(ostd::move(tocall), &err, &st)) {
+    } catch (cscript::CsErrorException const &e) {
         signal(SIGINT, SIG_DFL);
         scs = nullptr;
-        ostd::ConstCharRange terr = err;
+        ostd::ConstCharRange terr = e.what();
         auto col = ostd::find(terr, ':');
         if (!col.empty()) {
             terr = col + 2;
@@ -216,9 +213,9 @@ static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
         if (!file && ((terr == "missing \"]\"") || (terr == "missing \")\""))) {
             return true;
         }
-        cs.get_out().writeln(col.empty() ? "stdin: " : "stdin:", err);
-        if (st.get()) {
-            cscript::util::print_stack(cs.get_out().iter(), st);
+        cs.get_out().writeln(col.empty() ? "stdin: " : "stdin:", e.what());
+        if (e.get_stack().get()) {
+            cscript::util::print_stack(cs.get_out().iter(), e.get_stack());
             cs.get_out().write('\n');
         }
         return false;
@@ -273,9 +270,6 @@ static void do_tty(CsState &cs) {
 
 int main(int argc, char **argv) {
     CsState gcs;
-    if (!gcs.is_alive()) {
-        return 1;
-    }
     gcs.init_libs();
 
     gcs.new_command("exec", "sb", [](CsState &cs, auto args, auto &res) {
