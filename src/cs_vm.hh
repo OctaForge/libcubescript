@@ -111,6 +111,59 @@ struct CsErrorException {
     {}
 };
 
+inline void *cs_alloc_throw(
+    CsState &cs, void *ptr, ostd::Size olds, ostd::Size news
+) {
+    void *ret = cs.alloc(ptr, olds, news);
+    if (news && !ret) {
+        cs.error("could not allocate memory");
+    }
+    return ret;
+}
+
+template<typename T, typename ...A>
+inline T *cs_new(CsState &cs, A &&...args) {
+    void *ret = cs.alloc(nullptr, 0, sizeof(T));
+    if (!ret) {
+        return nullptr;
+    }
+    new (ret) T(ostd::forward<A>(args)...);
+    return static_cast<T *>(ret);
+}
+
+template<typename T>
+inline T *cs_new_array(CsState &cs, ostd::Size len) {
+    T *ret = static_cast<T *>(cs.alloc(nullptr, 0, len * sizeof(T)));
+    if (ret) {
+        for (ostd::Size i = 0; i < len; ++i) {
+            new (&ret[i]) T();
+        }
+    }
+    return ret;
+}
+
+template<typename T, typename ...A>
+inline T *cs_new_throw(CsState &cs, A &&...args) {
+    void *ret = cs_alloc_throw(cs, nullptr, 0, sizeof(T));
+    new (ret) T(ostd::forward<A>(args)...);
+    return static_cast<T *>(ret);
+}
+
+template<typename T>
+inline T *cs_new_array_throw(CsState &cs, ostd::Size len) {
+    T *ret = static_cast<T *>(cs_alloc_throw(cs, nullptr, 0, len * sizeof(T)));
+    for (ostd::Size i = 0; i < len; ++i) {
+        new (&ret[i]) T();
+    }
+    return ret;
+}
+
+template<typename T>
+inline void cs_delete(CsState &cs, T *v) noexcept {
+    v->~T();
+    cs.alloc(v, sizeof(T), 0);
+}
+
 CsStackState cs_save_stack(CsState &cs);
 
 template<typename ...A>
