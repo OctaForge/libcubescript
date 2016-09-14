@@ -35,18 +35,22 @@ static inline void cs_pop_alias(CsIdent *id) {
     }
 }
 
-CsStackState::CsStackState(CsStackStateNode *nd, bool gap):
-    p_node(nd), p_gap(gap)
+CsStackState::CsStackState(CsState &cs, CsStackStateNode *nd, bool gap):
+    p_state(cs), p_node(nd), p_gap(gap)
 {}
 CsStackState::CsStackState(CsStackState &&st):
-    p_node(st.p_node), p_gap(st.p_gap)
+    p_state(st.p_state), p_node(st.p_node), p_gap(st.p_gap)
 {
     st.p_node = nullptr;
     st.p_gap = false;
 }
 
 CsStackState::~CsStackState() {
-    delete[] p_node;
+    ostd::Size len = 0;
+    for (CsStackStateNode const *nd = p_node; nd; nd = nd->next) {
+        ++len;
+    }
+    p_state.destroy_array(p_node, len);
 }
 
 CsStackState &CsStackState::operator=(CsStackState &&st) {
@@ -68,17 +72,18 @@ bool CsStackState::gap() const {
 CsStackState cs_save_stack(CsState &cs) {
     CsIvar *dalias = static_cast<CsIvar *>(cs.p_state->identmap[DbgaliasIdx]);
     if (!dalias->get_value()) {
-        return CsStackState(nullptr, !!cs.p_callstack);
+        return CsStackState(cs, nullptr, !!cs.p_callstack);
     }
     int total = 0, depth = 0;
     for (CsIdentLink *l = cs.p_callstack; l; l = l->next) {
         total++;
     }
     if (!total) {
-        return CsStackState(nullptr, false);
+        return CsStackState(cs, nullptr, false);
     }
-    CsStackStateNode *st =
-        new CsStackStateNode[ostd::min(total, dalias->get_value())];
+    CsStackStateNode *st = cs.create_array<CsStackStateNode>(
+        ostd::min(total, dalias->get_value())
+    );
     CsStackStateNode *ret = st, *nd = st;
     ++st;
     for (CsIdentLink *l = cs.p_callstack; l; l = l->next) {
@@ -98,7 +103,7 @@ CsStackState cs_save_stack(CsState &cs) {
             nd->next = nullptr;
         }
     }
-    return CsStackState(ret, total > dalias->get_value());
+    return CsStackState(cs, ret, total > dalias->get_value());
 }
 
 CsStackState CsErrorException::save_stack(CsState &cs) {

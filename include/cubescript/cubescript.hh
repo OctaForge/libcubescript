@@ -313,12 +313,6 @@ enum {
     CsLibAll    = 0b111
 };
 
-struct CsStackStateNode {
-    CsStackStateNode const *next;
-    CsIdent const *id;
-    int index;
-};
-
 using CsHookCb = ostd::Function<void(CsState &)>;
 using CsAllocCb = void *(*)(void *, void *, ostd::Size, ostd::Size);
 
@@ -409,6 +403,12 @@ struct OSTD_EXPORT CsState {
     void destroy(T *v) noexcept {
         v->~T();
         alloc(v, sizeof(T), 0);
+    }
+
+    template<typename T>
+    void destroy_array(T *v, ostd::Size len) noexcept {
+        v->~T();
+        alloc(v, len * sizeof(T), 0);
     }
 
     void init_libs(int libs = CsLibAll);
@@ -558,8 +558,15 @@ private:
     CsStream *p_out, *p_err;
 };
 
+struct CsStackStateNode {
+    CsStackStateNode const *next;
+    CsIdent const *id;
+    int index;
+};
+
 struct CsStackState {
-    CsStackState(CsStackStateNode *nd = nullptr, bool gap = false);
+    CsStackState() = delete;
+    CsStackState(CsState &cs, CsStackStateNode *nd = nullptr, bool gap = false);
     CsStackState(CsStackState const &) = delete;
     CsStackState(CsStackState &&st);
     ~CsStackState();
@@ -571,6 +578,7 @@ struct CsStackState {
     bool gap() const;
 
 private:
+    CsState &p_state;
     CsStackStateNode *p_node;
     bool p_gap;
 };
@@ -597,7 +605,7 @@ struct CsErrorException {
     }
 
     CsErrorException(CsState &cs, ostd::ConstCharRange msg):
-        p_errmsg(), p_stack()
+        p_errmsg(), p_stack(cs)
     {
         p_errmsg = save_msg(cs, msg);
         p_stack = save_stack(cs);
@@ -605,7 +613,7 @@ struct CsErrorException {
 
     template<typename ...A>
     CsErrorException(CsState &cs, ostd::ConstCharRange msg, A &&...args):
-        p_errmsg(), p_stack()
+        p_errmsg(), p_stack(cs)
     {
         char fbuf[512];
         auto ret = ostd::format(

@@ -397,6 +397,7 @@ void *CsState::alloc(void *ptr, ostd::Size os, ostd::Size ns) {
     }
     if (!ns) {
         delete[] static_cast<unsigned char *>(ptr);
+        return nullptr;
     }
     return new unsigned char[ns];
 }
