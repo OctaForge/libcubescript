@@ -320,6 +320,7 @@ struct CsStackStateNode {
 };
 
 using CsHookCb = ostd::Function<void(CsState &)>;
+using CsAllocCb = void *(*)(void *, void *, ostd::Size, ostd::Size);
 
 template<typename T>
 struct CsAllocator {
@@ -364,7 +365,7 @@ struct OSTD_EXPORT CsState {
 
     int identflags = 0;
 
-    CsState();
+    CsState(CsAllocCb func = nullptr, void *data = nullptr);
     virtual ~CsState();
 
     CsStream const &get_out() const;
@@ -550,6 +551,8 @@ struct OSTD_EXPORT CsState {
 private:
     CsIdent *add_ident(CsIdent *id);
 
+    CsAllocCb p_allocf;
+    void *p_aptr;
     char p_errbuf[512];
     CsHookCb p_callhook;
     CsStream *p_out, *p_err;

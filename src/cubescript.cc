@@ -252,10 +252,12 @@ int CsCommand::get_num_args() const {
 
 void cs_init_lib_base(CsState &cs);
 
-CsState::CsState():
-    p_state(create<CsSharedState>()), p_callhook(),
+CsState::CsState(CsAllocCb func, void *data):
+    p_state(nullptr),
+    p_allocf(func), p_aptr(data), p_callhook(),
     p_out(&ostd::out), p_err(&ostd::err)
 {
+    p_state = create<CsSharedState>();
     for (int i = 0; i < MaxArguments; ++i) {
         char buf[32];
         snprintf(buf, sizeof(buf), "arg%d", i + 1);
@@ -389,9 +391,12 @@ CsHookCb &CsState::get_call_hook() {
     return p_callhook;
 }
 
-void *CsState::alloc(void *ptr, ostd::Size, ostd::Size ns) {
+void *CsState::alloc(void *ptr, ostd::Size os, ostd::Size ns) {
+    if (p_allocf) {
+        return p_allocf(p_aptr, ptr, os, ns);
+    }
     if (!ns) {
-        delete static_cast<unsigned char *>(ptr);
+        delete[] static_cast<unsigned char *>(ptr);
     }
     return new unsigned char[ns];
 }
