@@ -1750,6 +1750,28 @@ void CsState::run(CsIdent *id, CsValueRange args) {
     run(id, args, ret);
 }
 
+CsLoopState CsState::run_loop(CsBytecode *code, CsValue &ret) {
+    ++p_inloop;
+    try {
+        run(code, ret);
+    } catch (CsBreakException) {
+        --p_inloop;
+        return CsLoopState::Break;
+    } catch (CsContinueException) {
+        --p_inloop;
+        return CsLoopState::Continue;
+    } catch (...) {
+        --p_inloop;
+        throw;
+    }
+    return CsLoopState::Normal;
+}
+
+CsLoopState CsState::run_loop(CsBytecode *code) {
+    CsValue ret;
+    return run_loop(code, ret);
+}
+
 static bool cs_run_file(
     CsState &cs, ostd::ConstCharRange fname, CsValue &ret
 ) {

@@ -86,10 +86,18 @@ static void cs_loop_list_conc(
             r.push(' ');
         }
         CsValue v;
-        cs.run(body, v);
+        switch (cs.run_loop(body, v)) {
+            case CsLoopState::Break:
+                goto end;
+            case CsLoopState::Continue:
+                continue;
+            default:
+                break;
+        }
         CsString vstr = ostd::move(v.get_str());
         r.push_n(vstr.data(), vstr.size());
     }
+end:
     r.push('\0');
     ostd::Size len = r.size();
     res.set_mstr(ostd::CharRange(r.disown(), len - 1));
@@ -311,8 +319,15 @@ void cs_init_lib_list(CsState &gcs) {
         for (util::ListParser p(args[1].get_strr()); p.parse(); ++n) {
             idv.set_mstr(p.element().disown());
             idv.push();
-            cs.run_int(body);
+            switch (cs.run_loop(body)) {
+                case CsLoopState::Break:
+                    goto end;
+                default: /* continue and normal */
+                    break;
+            }
         }
+end:
+        return;
     });
 
     gcs.new_command("looplist2", "rrse", [](
@@ -329,8 +344,15 @@ void cs_init_lib_list(CsState &gcs) {
             idv2.set_mstr(p.parse() ? p.element().disown() : cs_dup_ostr(""));
             idv1.push();
             idv2.push();
-            cs.run_int(body);
+            switch (cs.run_loop(body)) {
+                case CsLoopState::Break:
+                    goto end;
+                default: /* continue and normal */
+                    break;
+            }
         }
+end:
+        return;
     });
 
     gcs.new_command("looplist3", "rrrse", [](
@@ -351,8 +373,15 @@ void cs_init_lib_list(CsState &gcs) {
             idv1.push();
             idv2.push();
             idv3.push();
-            cs.run_int(body);
+            switch (cs.run_loop(body)) {
+                case CsLoopState::Break:
+                    goto end;
+                default: /* continue and normal */
+                    break;
+            }
         }
+end:
+        return;
     });
 
     gcs.new_command("looplistconcat", "rse", [](

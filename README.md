@@ -30,6 +30,7 @@ advantages, including:
 * Modern C++14 API (no macros, strongly typed enums, lambdas, ranges etc.)
 * C++14 lambdas can be used as commands (including captures and type inference)
 * Error handling including recovery (protected call system similar to Lua)
+* Loop control statements (`break` and `continue`)
 * No manual memory mangement, values manage themselves
 * Clean codebase that is easy to read and contribute to
 * Support for arbitrary size integers and floats (can be set at compile time)
@@ -40,7 +41,6 @@ There are some features that are a work in progress and will come later:
 * A degree of thread safety (see below)
 * Custom allocator support (control over how heap memory is allocated)
 * Coroutines
-* Loop control statements (`break` and `continue`)
 
 The API is currently very unstable, as is the actual codebase. Therefore you
 should not use the project in production environments just yet, but you're

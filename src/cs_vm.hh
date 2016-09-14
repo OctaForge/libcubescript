@@ -94,6 +94,12 @@ struct CsSharedState {
     CsVector<CsIdent *> identmap;
 };
 
+struct CsBreakException {
+};
+
+struct CsContinueException {
+};
+
 template<typename T>
 constexpr ostd::Size CsTypeStorageSize =
     (sizeof(T) - 1) / sizeof(ostd::Uint32) + 1;

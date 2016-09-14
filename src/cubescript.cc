@@ -1039,8 +1039,15 @@ static inline void cs_do_loop(
         if (cond && !cs.run_bool(cond)) {
             break;
         }
-        cs.run_int(body);
+        switch (cs.run_loop(body)) {
+            case CsLoopState::Break:
+                goto end;
+            default: /* continue and normal */
+                break;
+        }
     }
+end:
+    return;
 }
 
 static inline void cs_loop_conc(
@@ -1056,13 +1063,21 @@ static inline void cs_loop_conc(
         idv.set_int(offset + i * step);
         idv.push();
         CsValue v;
-        cs.run(body, v);
+        switch (cs.run_loop(body, v)) {
+            case CsLoopState::Break:
+                goto end;
+            case CsLoopState::Continue:
+                continue;
+            default:
+                break;
+        }
         CsString vstr = ostd::move(v.get_str());
         if (space && i) {
             s.push(' ');
         }
         s.push_n(vstr.data(), vstr.size());
     }
+end:
     s.push('\0');
     ostd::Size len = s.size() - 1;
     res.set_mstr(ostd::CharRange(s.disown(), len));
@@ -1070,7 +1085,7 @@ static inline void cs_loop_conc(
 
 void cs_init_lib_base(CsState &gcs) {
     gcs.new_command("error", "s", [](CsState &cs, CsValueRange args, CsValue &) {
-        throw cscript::CsErrorException(cs, args[0].get_strr());
+        throw CsErrorException(cs, args[0].get_strr());
     });
 
     gcs.new_command("pcall", "err", [](
@@ -1099,6 +1114,22 @@ void cs_init_lib_base(CsState &gcs) {
         CsAliasInternal::set_alias(cret, cs, result);
         if (css->get_index() != DummyIdx) {
             CsAliasInternal::set_alias(css, cs, tback);
+        }
+    });
+
+    gcs.new_command("break", "", [](CsState &cs, auto, auto &) {
+        if (cs.is_in_loop()) {
+            throw CsBreakException();
+        } else {
+            throw CsErrorException(cs, "no loop to break");
+        }
+    });
+
+    gcs.new_command("continue", "", [](CsState &cs, auto, auto &) {
+        if (cs.is_in_loop()) {
+            throw CsContinueException();
+        } else {
+            throw CsErrorException(cs, "no loop to continue");
         }
     });
 
@@ -1262,8 +1293,15 @@ void cs_init_lib_base(CsState &gcs) {
     ) {
         CsBytecode *cond = args[0].get_code(), *body = args[1].get_code();
         while (cs.run_bool(cond)) {
-            cs.run_int(body);
+            switch (cs.run_loop(body)) {
+                case CsLoopState::Break:
+                    goto end;
+                default: /* continue and normal */
+                    break;
+            }
         }
+end:
+        return;
     });
 
     gcs.new_command("loopconcat", "rie", [](

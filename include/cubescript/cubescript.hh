@@ -351,6 +351,10 @@ private:
 struct CsErrorException;
 struct CsSharedState;
 
+enum class CsLoopState {
+    Normal = 0, Break, Continue
+};
+
 struct OSTD_EXPORT CsState {
     friend struct CsErrorException;
 
@@ -505,6 +509,13 @@ struct OSTD_EXPORT CsState {
     void run(ostd::ConstCharRange code);
     void run(CsIdent *id, CsValueRange args);
 
+    CsLoopState run_loop(CsBytecode *code, CsValue &ret);
+    CsLoopState run_loop(CsBytecode *code);
+
+    bool is_in_loop() const {
+        return p_inloop;
+    }
+
     ostd::Maybe<CsString> run_file_str(ostd::ConstCharRange fname);
     ostd::Maybe<CsInt> run_file_int(ostd::ConstCharRange fname);
     ostd::Maybe<CsFloat> run_file_float(ostd::ConstCharRange fname);
@@ -551,10 +562,15 @@ struct OSTD_EXPORT CsState {
 private:
     CsIdent *add_ident(CsIdent *id);
 
+    int p_inloop = 0;
+
     CsAllocCb p_allocf;
     void *p_aptr;
+
     char p_errbuf[512];
+
     CsHookCb p_callhook;
+
     CsStream *p_out, *p_err;
 };
 
