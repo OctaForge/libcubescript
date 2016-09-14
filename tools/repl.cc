@@ -233,7 +233,7 @@ static void do_tty(CsState &cs) {
     auto prompt2 = cs.new_svar("PROMPT2", ">> ");
 
     bool do_exit = false;
-    cs.new_command("quit", "", [&do_exit](CsState &, auto, auto &) {
+    cs.new_command("quit", "", [&do_exit](auto &, auto, auto &) {
         do_exit = true;
     });
 
@@ -272,7 +272,7 @@ int main(int argc, char **argv) {
     CsState gcs;
     gcs.init_libs();
 
-    gcs.new_command("exec", "sb", [](CsState &cs, auto args, auto &res) {
+    gcs.new_command("exec", "sb", [](auto &cs, auto args, auto &res) {
         auto file = args[0].get_strr();
         bool ret = cs.run_file(file);
         if (!ret) {
@@ -285,7 +285,7 @@ int main(int argc, char **argv) {
         }
     });
 
-    gcs.new_command("echo", "C", [](CsState &cs, auto args, auto &) {
+    gcs.new_command("echo", "C", [](auto &cs, auto args, auto &) {
         cs.get_out().writeln(args[0].get_strr());
     });
 

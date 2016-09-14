@@ -141,11 +141,11 @@ static inline void cs_list_merge(CsValueRange args, CsValue &res, F cmp) {
 static void cs_init_lib_list_sort(CsState &cs);
 
 void cs_init_lib_list(CsState &gcs) {
-    gcs.new_command("listlen", "s", [](CsState &, CsValueRange args, CsValue &res) {
+    gcs.new_command("listlen", "s", [](auto &, auto args, auto &res) {
         res.set_int(CsInt(util::list_length(args[0].get_strr())));
     });
 
-    gcs.new_command("at", "si1V", [](CsState &, CsValueRange args, CsValue &res) {
+    gcs.new_command("at", "si1V", [](auto &, auto args, auto &res) {
         if (args.empty()) {
             return;
         }
@@ -170,9 +170,7 @@ void cs_init_lib_list(CsState &gcs) {
         res.set_mstr(er);
     });
 
-    gcs.new_command("sublist", "siiN", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("sublist", "siiN", [](auto &, auto args, auto &res) {
         CsInt skip    = args[1].get_int(),
               count   = args[2].get_int(),
               numargs = args[2].get_int();
@@ -201,9 +199,7 @@ void cs_init_lib_list(CsState &gcs) {
         res.set_str(ostd::ConstCharRange(list, qend - list));
     });
 
-    gcs.new_command("listfind", "rse", [](
-        CsState &cs, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("listfind", "rse", [](auto &cs, auto args, auto &res) {
         CsStackedValue idv{args[0].get_ident()};
         if (!idv.has_alias()) {
             res.set_int(-1);
@@ -223,9 +219,7 @@ void cs_init_lib_list(CsState &gcs) {
         res.set_int(-1);
     });
 
-    gcs.new_command("listassoc", "rse", [](
-        CsState &cs, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("listassoc", "rse", [](auto &cs, auto args, auto &res) {
         CsStackedValue idv{args[0].get_ident()};
         if (!idv.has_alias()) {
             return;
@@ -251,27 +245,21 @@ void cs_init_lib_list(CsState &gcs) {
         }
     });
 
-    gcs.new_command("listfind=", "i", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("listfind=", "i", [](auto &, auto args, auto &res) {
         cs_list_find<CsInt>(
             args, res, [](const util::ListParser &p, CsInt val) {
                 return cs_parse_int(p.item) == val;
             }
         );
     });
-    gcs.new_command("listfind=f", "f", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("listfind=f", "f", [](auto &, auto args, auto &res) {
         cs_list_find<CsFloat>(
             args, res, [](const util::ListParser &p, CsFloat val) {
                 return cs_parse_float(p.item) == val;
             }
         );
     });
-    gcs.new_command("listfind=s", "s", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("listfind=s", "s", [](auto &, auto args, auto &res) {
         cs_list_find<ostd::ConstCharRange>(
             args, res, [](const util::ListParser &p, ostd::ConstCharRange val) {
                 return p.item == val;
@@ -279,27 +267,21 @@ void cs_init_lib_list(CsState &gcs) {
         );
     });
 
-    gcs.new_command("listassoc=", "i", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("listassoc=", "i", [](auto &, auto args, auto &res) {
         cs_list_assoc<CsInt>(
             args, res, [](const util::ListParser &p, CsInt val) {
                 return cs_parse_int(p.item) == val;
             }
         );
     });
-    gcs.new_command("listassoc=f", "f", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("listassoc=f", "f", [](auto &, auto args, auto &res) {
         cs_list_assoc<CsFloat>(
             args, res, [](const util::ListParser &p, CsFloat val) {
                 return cs_parse_float(p.item) == val;
             }
         );
     });
-    gcs.new_command("listassoc=s", "s", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("listassoc=s", "s", [](auto &, auto args, auto &res) {
         cs_list_assoc<ostd::ConstCharRange>(
             args, res, [](const util::ListParser &p, ostd::ConstCharRange val) {
                 return p.item == val;
@@ -307,9 +289,7 @@ void cs_init_lib_list(CsState &gcs) {
         );
     });
 
-    gcs.new_command("looplist", "rse", [](
-        CsState &cs, CsValueRange args, CsValue &
-    ) {
+    gcs.new_command("looplist", "rse", [](auto &cs, auto args, auto &) {
         CsStackedValue idv{args[0].get_ident()};
         if (!idv.has_alias()) {
             return;
@@ -330,9 +310,7 @@ end:
         return;
     });
 
-    gcs.new_command("looplist2", "rrse", [](
-        CsState &cs, CsValueRange args, CsValue &
-    ) {
+    gcs.new_command("looplist2", "rrse", [](auto &cs, auto args, auto &) {
         CsStackedValue idv1{args[0].get_ident()}, idv2{args[1].get_ident()};
         if (!idv1.has_alias() || !idv2.has_alias()) {
             return;
@@ -355,9 +333,7 @@ end:
         return;
     });
 
-    gcs.new_command("looplist3", "rrrse", [](
-        CsState &cs, CsValueRange args, CsValue &
-    ) {
+    gcs.new_command("looplist3", "rrrse", [](auto &cs, auto args, auto &) {
         CsStackedValue idv1{args[0].get_ident()};
         CsStackedValue idv2{args[1].get_ident()};
         CsStackedValue idv3{args[2].get_ident()};
@@ -384,9 +360,7 @@ end:
         return;
     });
 
-    gcs.new_command("looplistconcat", "rse", [](
-        CsState &cs, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("looplistconcat", "rse", [](auto &cs, auto args, auto &res) {
         cs_loop_list_conc(
             cs, res, args[0].get_ident(), args[1].get_strr(),
             args[2].get_code(), true
@@ -394,7 +368,7 @@ end:
     });
 
     gcs.new_command("looplistconcatword", "rse", [](
-        CsState &cs, CsValueRange args, CsValue &res
+        auto &cs, auto args, auto &res
     ) {
         cs_loop_list_conc(
             cs, res, args[0].get_ident(), args[1].get_strr(),
@@ -402,9 +376,7 @@ end:
         );
     });
 
-    gcs.new_command("listfilter", "rse", [](
-        CsState &cs, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("listfilter", "rse", [](auto &cs, auto args, auto &res) {
         CsStackedValue idv{args[0].get_ident()};
         if (!idv.has_alias()) {
             return;
@@ -428,9 +400,7 @@ end:
         res.set_mstr(ostd::CharRange(r.disown(), len));
     });
 
-    gcs.new_command("listcount", "rse", [](
-        CsState &cs, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("listcount", "rse", [](auto &cs, auto args, auto &res) {
         CsStackedValue idv{args[0].get_ident()};
         if (!idv.has_alias()) {
             return;
@@ -448,9 +418,7 @@ end:
         res.set_int(r);
     });
 
-    gcs.new_command("prettylist", "ss", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("prettylist", "ss", [](auto &, auto args, auto &res) {
         CsVector<char> buf;
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange conj = args[1].get_strr();
@@ -484,33 +452,23 @@ end:
         res.set_mstr(ostd::CharRange(buf.disown(), slen));
     });
 
-    gcs.new_command("indexof", "ss", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("indexof", "ss", [](auto &, auto args, auto &res) {
         res.set_int(
             cs_list_includes(args[0].get_strr(), args[1].get_strr())
         );
     });
 
-    gcs.new_command("listdel", "ss", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("listdel", "ss", [](auto &, auto args, auto &res) {
         cs_list_merge<false, false>(args, res, ostd::Less<int>());
     });
-    gcs.new_command("listintersect", "ss", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("listintersect", "ss", [](auto &, auto args, auto &res) {
         cs_list_merge<false, false>(args, res, ostd::GreaterEqual<int>());
     });
-    gcs.new_command("listunion", "ss", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("listunion", "ss", [](auto &, auto args, auto &res) {
         cs_list_merge<true, true>(args, res, ostd::Less<int>());
     });
 
-    gcs.new_command("listsplice", "ssii", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("listsplice", "ssii", [](auto &, auto args, auto &res) {
         CsInt offset = ostd::max(args[2].get_int(), CsInt(0));
         CsInt len    = ostd::max(args[3].get_int(), CsInt(0));
         ostd::ConstCharRange s = args[0].get_strr();
@@ -679,17 +637,13 @@ static void cs_list_sort(
 }
 
 static void cs_init_lib_list_sort(CsState &gcs) {
-    gcs.new_command("sortlist", "srree", [](
-        CsState &cs, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("sortlist", "srree", [](auto &cs, auto args, auto &res) {
         cs_list_sort(
             cs, res, args[0].get_strr(), args[1].get_ident(),
             args[2].get_ident(), args[3].get_code(), args[4].get_code()
         );
     });
-    gcs.new_command("uniquelist", "srre", [](
-        CsState &cs, CsValueRange args, CsValue &res
-    ) {
+    gcs.new_command("uniquelist", "srre", [](auto &cs, auto args, auto &res) {
         cs_list_sort(
             cs, res, args[0].get_strr(), args[1].get_ident(),
             args[2].get_ident(), nullptr, args[3].get_code()

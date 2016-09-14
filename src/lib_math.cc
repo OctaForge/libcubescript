@@ -138,74 +138,68 @@ inline auto cs_fmod(double f, double f2) { return fmod(f, f2); }
 inline auto cs_fmod(long double f, long double f2) { return fmodl(f, f2); }
 
 void cs_init_lib_math(CsState &cs) {
-    cs.new_command("sin", "f", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("sin", "f", [](auto &, auto args, auto &res) {
         res.set_float(cs_sin(args[0].get_float() * RAD));
     });
-    cs.new_command("cos", "f", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("cos", "f", [](auto &, auto args, auto &res) {
         res.set_float(cs_cos(args[0].get_float() * RAD));
     });
-    cs.new_command("tan", "f", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("tan", "f", [](auto &, auto args, auto &res) {
         res.set_float(cs_tan(args[0].get_float() * RAD));
     });
 
-    cs.new_command("asin", "f", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("asin", "f", [](auto &, auto args, auto &res) {
         res.set_float(cs_asin(args[0].get_float()) / RAD);
     });
-    cs.new_command("acos", "f", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("acos", "f", [](auto &, auto args, auto &res) {
         res.set_float(cs_acos(args[0].get_float()) / RAD);
     });
-    cs.new_command("atan", "f", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("atan", "f", [](auto &, auto args, auto &res) {
         res.set_float(cs_atan(args[0].get_float()) / RAD);
     });
-    cs.new_command("atan2", "ff", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    cs.new_command("atan2", "ff", [](auto &, auto args, auto &res) {
         res.set_float(cs_atan2(args[0].get_float(), args[1].get_float()) / RAD);
     });
 
-    cs.new_command("sqrt", "f", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("sqrt", "f", [](auto &, auto args, auto &res) {
         res.set_float(cs_sqrt(args[0].get_float()));
     });
-    cs.new_command("loge", "f", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("loge", "f", [](auto &, auto args, auto &res) {
         res.set_float(cs_log(args[0].get_float()));
     });
-    cs.new_command("log2", "f", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("log2", "f", [](auto &, auto args, auto &res) {
         res.set_float(cs_log(args[0].get_float()) / M_LN2);
     });
-    cs.new_command("log10", "f", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("log10", "f", [](auto &, auto args, auto &res) {
         res.set_float(cs_log10(args[0].get_float()));
     });
 
-    cs.new_command("exp", "f", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("exp", "f", [](auto &, auto args, auto &res) {
         res.set_float(cs_exp(args[0].get_float()));
     });
 
-    cs.new_command("min", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("min", "i1V", [](auto &, auto args, auto &res) {
         CsInt v = (!args.empty() ? args[0].get_int() : 0);
         for (ostd::Size i = 1; i < args.size(); ++i) {
             v = ostd::min(v, args[i].get_int());
         }
         res.set_int(v);
     });
-    cs.new_command("max", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("max", "i1V", [](auto &, auto args, auto &res) {
         CsInt v = (!args.empty() ? args[0].get_int() : 0);
         for (ostd::Size i = 1; i < args.size(); ++i) {
             v = ostd::max(v, args[i].get_int());
         }
         res.set_int(v);
     });
-    cs.new_command("minf", "f1V", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    cs.new_command("minf", "f1V", [](auto &, auto args, auto &res) {
         CsFloat v = (!args.empty() ? args[0].get_float() : 0);
         for (ostd::Size i = 1; i < args.size(); ++i) {
             v = ostd::min(v, args[i].get_float());
         }
         res.set_float(v);
     });
-    cs.new_command("maxf", "f1V", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    cs.new_command("maxf", "f1V", [](auto &, auto args, auto &res) {
         CsFloat v = (!args.empty() ? args[0].get_float() : 0);
         for (ostd::Size i = 1; i < args.size(); ++i) {
             v = ostd::max(v, args[i].get_float());
@@ -213,23 +207,21 @@ void cs_init_lib_math(CsState &cs) {
         res.set_float(v);
     });
 
-    cs.new_command("abs", "i", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("abs", "i", [](auto &, auto args, auto &res) {
         res.set_int(cs_abs(args[0].get_int()));
     });
-    cs.new_command("absf", "f", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("absf", "f", [](auto &, auto args, auto &res) {
         res.set_float(cs_abs(args[0].get_float()));
     });
 
-    cs.new_command("floor", "f", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("floor", "f", [](auto &, auto args, auto &res) {
         res.set_float(cs_floor(args[0].get_float()));
     });
-    cs.new_command("ceil", "f", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("ceil", "f", [](auto &, auto args, auto &res) {
         res.set_float(cs_ceil(args[0].get_float()));
     });
 
-    cs.new_command("round", "ff", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    cs.new_command("round", "ff", [](auto &, auto args, auto &res) {
         CsFloat step = args[1].get_float();
         CsFloat r = args[0].get_float();
         if (step > 0) {
@@ -241,43 +233,43 @@ void cs_init_lib_math(CsState &cs) {
         res.set_float(r);
     });
 
-    cs.new_command("+", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("+", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(args, res, 0, ostd::Add<CsInt>(), CsMathNoop<CsInt>());
     });
-    cs.new_command("*", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("*", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
             args, res, 1, ostd::Multiply<CsInt>(), CsMathNoop<CsInt>()
         );
     });
-    cs.new_command("-", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("-", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
             args, res, 0, ostd::Subtract<CsInt>(), ostd::Negate<CsInt>()
         );
     });
 
-    cs.new_command("^", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("^", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
             args, res, 0, ostd::BitXor<CsInt>(), [](CsInt val) { return ~val; }
         );
     });
-    cs.new_command("~", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("~", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
             args, res, 0, ostd::BitXor<CsInt>(), [](CsInt val) { return ~val; }
         );
     });
-    cs.new_command("&", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("&", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
             args, res, 0, ostd::BitAnd<CsInt>(), CsMathNoop<CsInt>()
         );
     });
-    cs.new_command("|", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("|", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
             args, res, 0, ostd::BitOr<CsInt>(), CsMathNoop<CsInt>()
         );
     });
 
     /* special combined cases */
-    cs.new_command("^~", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("^~", "i1V", [](auto &, auto args, auto &res) {
         CsInt val;
         if (args.size() >= 2) {
             val = args[0].get_int() ^ ~args[1].get_int();
@@ -289,7 +281,7 @@ void cs_init_lib_math(CsState &cs) {
         }
         res.set_int(val);
     });
-    cs.new_command("&~", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("&~", "i1V", [](auto &, auto args, auto &res) {
         CsInt val;
         if (args.size() >= 2) {
             val = args[0].get_int() & ~args[1].get_int();
@@ -301,7 +293,7 @@ void cs_init_lib_math(CsState &cs) {
         }
         res.set_int(val);
     });
-    cs.new_command("|~", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("|~", "i1V", [](auto &, auto args, auto &res) {
         CsInt val;
         if (args.size() >= 2) {
             val = args[0].get_int() | ~args[1].get_int();
@@ -314,7 +306,7 @@ void cs_init_lib_math(CsState &cs) {
         res.set_int(val);
     });
 
-    cs.new_command("<<", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("<<", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
             args, res, 0, [](CsInt val1, CsInt val2) {
                 return (val2 < CsInt(sizeof(CsInt) * CHAR_BIT))
@@ -323,7 +315,7 @@ void cs_init_lib_math(CsState &cs) {
             }, CsMathNoop<CsInt>()
         );
     });
-    cs.new_command(">>", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command(">>", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
             args, res, 0, [](CsInt val1, CsInt val2) {
                 return val1 >> ostd::clamp(
@@ -333,23 +325,23 @@ void cs_init_lib_math(CsState &cs) {
         );
     });
 
-    cs.new_command("+f", "f1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("+f", "f1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsFloat>(
             args, res, 0, ostd::Add<CsFloat>(), CsMathNoop<CsFloat>()
         );
     });
-    cs.new_command("*f", "f1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("*f", "f1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsFloat>(
             args, res, 1, ostd::Multiply<CsFloat>(), CsMathNoop<CsFloat>()
         );
     });
-    cs.new_command("-f", "f1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("-f", "f1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsFloat>(
             args, res, 0, ostd::Subtract<CsFloat>(), ostd::Negate<CsFloat>()
         );
     });
 
-    cs.new_command("div", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("div", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
             args, res, 0, [](CsInt val1, CsInt val2) {
                 if (val2) {
@@ -359,7 +351,7 @@ void cs_init_lib_math(CsState &cs) {
             }, CsMathNoop<CsInt>()
         );
     });
-    cs.new_command("mod", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("mod", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
             args, res, 0, [](CsInt val1, CsInt val2) {
                 if (val2) {
@@ -369,9 +361,7 @@ void cs_init_lib_math(CsState &cs) {
             }, CsMathNoop<CsInt>()
         );
     });
-    cs.new_command("divf", "f1V", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    cs.new_command("divf", "f1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsFloat>(
             args, res, 0, [](CsFloat val1, CsFloat val2) {
                 if (val2) {
@@ -381,9 +371,7 @@ void cs_init_lib_math(CsState &cs) {
             }, CsMathNoop<CsFloat>()
         );
     });
-    cs.new_command("modf", "f1V", [](
-        CsState &, CsValueRange args, CsValue &res
-    ) {
+    cs.new_command("modf", "f1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsFloat>(
             args, res, 0, [](CsFloat val1, CsFloat val2) {
                 if (val2) {
@@ -394,7 +382,7 @@ void cs_init_lib_math(CsState &cs) {
         );
     });
 
-    cs.new_command("pow", "f1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("pow", "f1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsFloat>(
             args, res, 0, [](CsFloat val1, CsFloat val2) {
                 return CsFloat(pow(val1, val2));
@@ -402,41 +390,41 @@ void cs_init_lib_math(CsState &cs) {
         );
     });
 
-    cs.new_command("=", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("=", "i1V", [](auto &, auto args, auto &res) {
         cs_cmpop<CsInt>(args, res, ostd::Equal<CsInt>());
     });
-    cs.new_command("!=", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("!=", "i1V", [](auto &, auto args, auto &res) {
         cs_cmpop<CsInt>(args, res, ostd::NotEqual<CsInt>());
     });
-    cs.new_command("<", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("<", "i1V", [](auto &, auto args, auto &res) {
         cs_cmpop<CsInt>(args, res, ostd::Less<CsInt>());
     });
-    cs.new_command(">", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command(">", "i1V", [](auto &, auto args, auto &res) {
         cs_cmpop<CsInt>(args, res, ostd::Greater<CsInt>());
     });
-    cs.new_command("<=", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("<=", "i1V", [](auto &, auto args, auto &res) {
         cs_cmpop<CsInt>(args, res, ostd::LessEqual<CsInt>());
     });
-    cs.new_command(">=", "i1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command(">=", "i1V", [](auto &, auto args, auto &res) {
         cs_cmpop<CsInt>(args, res, ostd::GreaterEqual<CsInt>());
     });
 
-    cs.new_command("=f", "f1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("=f", "f1V", [](auto &, auto args, auto &res) {
         cs_cmpop<CsFloat>(args, res, ostd::Equal<CsFloat>());
     });
-    cs.new_command("!=f", "f1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("!=f", "f1V", [](auto &, auto args, auto &res) {
         cs_cmpop<CsFloat>(args, res, ostd::NotEqual<CsFloat>());
     });
-    cs.new_command("<f", "f1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("<f", "f1V", [](auto &, auto args, auto &res) {
         cs_cmpop<CsFloat>(args, res, ostd::Less<CsFloat>());
     });
-    cs.new_command(">f", "f1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command(">f", "f1V", [](auto &, auto args, auto &res) {
         cs_cmpop<CsFloat>(args, res, ostd::Greater<CsFloat>());
     });
-    cs.new_command("<=f", "f1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command("<=f", "f1V", [](auto &, auto args, auto &res) {
         cs_cmpop<CsFloat>(args, res, ostd::LessEqual<CsFloat>());
     });
-    cs.new_command(">=f", "f1V", [](CsState &, CsValueRange args, CsValue &res) {
+    cs.new_command(">=f", "f1V", [](auto &, auto args, auto &res) {
         cs_cmpop<CsFloat>(args, res, ostd::GreaterEqual<CsFloat>());
     });
 }
