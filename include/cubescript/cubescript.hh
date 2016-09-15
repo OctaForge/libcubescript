@@ -482,7 +482,7 @@ struct OSTD_EXPORT CsState {
     CsIdentRange get_idents();
     CsConstIdentRange get_idents() const;
 
-    bool reset_var(ostd::ConstCharRange name);
+    void reset_var(ostd::ConstCharRange name);
     void touch_var(ostd::ConstCharRange name);
 
     CsString run_str(CsBytecode *code);

@@ -69,7 +69,7 @@ bool CsStackState::gap() const {
     return p_gap;
 }
 
-CsStackState cs_save_stack(CsState &cs) {
+CsStackState CsErrorException::save_stack(CsState &cs) {
     CsIvar *dalias = static_cast<CsIvar *>(cs.p_state->identmap[DbgaliasIdx]);
     if (!dalias->get_value()) {
         return CsStackState(cs, nullptr, !!cs.p_callstack);
@@ -104,10 +104,6 @@ CsStackState cs_save_stack(CsState &cs) {
         }
     }
     return CsStackState(cs, ret, total > dalias->get_value());
-}
-
-CsStackState CsErrorException::save_stack(CsState &cs) {
-    return cs_save_stack(cs);
 }
 
 ostd::ConstCharRange CsErrorException::save_msg(

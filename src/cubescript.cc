@@ -470,10 +470,9 @@ CsIdent *CsState::new_ident(ostd::ConstCharRange name, int flags) {
     CsIdent *id = get_ident(name);
     if (!id) {
         if (cs_check_num(name)) {
-            cs_debug_code(
+            throw CsErrorException(
                 *this, "number %s is not a valid identifier name", name
             );
-            return p_state->identmap[DummyIdx];
         }
         id = add_ident(create<CsAlias>(name, flags));
     }
@@ -553,17 +552,15 @@ CsSvar *CsState::new_svar(
     )->get_svar();
 }
 
-bool CsState::reset_var(ostd::ConstCharRange name) {
+void CsState::reset_var(ostd::ConstCharRange name) {
     CsIdent *id = get_ident(name);
     if (!id) {
-        return false;
+        throw CsErrorException(*this, "variable %s does not exist", name);
     }
     if (id->get_flags() & CsIdfReadOnly) {
-        cs_debug_code(*this, "variable %s is read only", id->get_name());
-        return false;
+        throw CsErrorException(*this, "variable %s is read only", name);
     }
     clear_override(*id);
-    return true;
 }
 
 void CsState::touch_var(ostd::ConstCharRange name) {
@@ -596,14 +593,13 @@ void CsState::set_alias(ostd::ConstCharRange name, CsValue v) {
                 set_var_str_checked(static_cast<CsSvar *>(id), v.get_str());
                 break;
             default:
-                cs_debug_code(
+                throw CsErrorException(
                     *this, "cannot redefine builtin %s with an alias",
                     id->get_name()
                 );
-                break;
         }
     } else if (cs_check_num(name)) {
-        cs_debug_code(*this, "cannot alias number %s", name);
+        throw CsErrorException(*this, "cannot alias number %s", name);
     } else {
         add_ident(create<CsAlias>(name, ostd::move(v), identflags));
     }
@@ -726,13 +722,12 @@ int CsIdent::get_index() const {
 }
 
 template<typename SF>
-static inline bool cs_override_var(CsState &cs, CsVar *v, int &vflags, SF sf) {
+static inline void cs_override_var(CsState &cs, CsVar *v, int &vflags, SF sf) {
     if ((cs.identflags & CsIdfOverridden) || (vflags & CsIdfOverride)) {
         if (vflags & CsIdfPersist) {
-            cs_debug_code(
+            throw CsErrorException(
                 cs, "cannot override persistent variable '%s'", v->get_name()
             );
-            return false;
         }
         if (!(vflags & CsIdfOverridden)) {
             sf();
@@ -743,7 +738,6 @@ static inline bool cs_override_var(CsState &cs, CsVar *v, int &vflags, SF sf) {
             vflags &= ~CsIdfOverridden;
         }
     }
-    return true;
 }
 
 void CsState::set_var_int(
@@ -754,13 +748,10 @@ void CsState::set_var_int(
         return;
     }
     CsIvar *iv = static_cast<CsIvar *>(id);
-    bool success = cs_override_var(
+    cs_override_var(
         *this, iv, iv->p_flags,
         [&iv]() { iv->p_overrideval = iv->get_value(); }
     );
-    if (!success) {
-        return;
-    }
     if (doclamp) {
         iv->set_value(ostd::clamp(v, iv->get_val_min(), iv->get_val_max()));
     } else {
@@ -779,13 +770,10 @@ void CsState::set_var_float(
         return;
     }
     CsFvar *fv = static_cast<CsFvar *>(id);
-    bool success = cs_override_var(
+    cs_override_var(
         *this, fv, fv->p_flags,
         [&fv]() { fv->p_overrideval = fv->get_value(); }
     );
-    if (!success) {
-        return;
-    }
     if (doclamp) {
         fv->set_value(ostd::clamp(v, fv->get_val_min(), fv->get_val_max()));
     } else {
@@ -804,13 +792,10 @@ void CsState::set_var_str(
         return;
     }
     CsSvar *sv = static_cast<CsSvar *>(id);
-    bool success = cs_override_var(
+    cs_override_var(
         *this, sv, sv->p_flags,
         [&sv]() { sv->p_overrideval = sv->get_value(); }
     );
-    if (!success) {
-        return;
-    }
     sv->set_value(v);
     if (dofunc) {
         sv->changed(*this);
@@ -893,7 +878,7 @@ CsInt cs_clamp_var(CsState &cs, CsIvar *iv, CsInt v) {
     } else {
         return v;
     }
-    cs_debug_code(
+    throw CsErrorException(
         cs,
         (iv->get_flags() & CsIdfHex)
             ? (
@@ -904,21 +889,18 @@ CsInt cs_clamp_var(CsState &cs, CsIvar *iv, CsInt v) {
             : "valid range for '%s' is %d..%d",
         iv->get_name(), iv->get_val_min(), iv->get_val_max()
     );
-    return v;
 }
 
 void CsState::set_var_int_checked(CsIvar *iv, CsInt v) {
     if (iv->get_flags() & CsIdfReadOnly) {
-        cs_debug_code(*this, "variable '%s' is read only", iv->get_name());
-        return;
+        throw CsErrorException(
+            *this, "variable '%s' is read only", iv->get_name()
+        );
     }
-    bool success = cs_override_var(
+    cs_override_var(
         *this, iv, iv->p_flags,
         [&iv]() { iv->p_overrideval = iv->get_value(); }
     );
-    if (!success) {
-        return;
-    }
     if ((v < iv->get_val_min()) || (v > iv->get_val_max())) {
         v = cs_clamp_var(*this, iv, v);
     }
@@ -945,7 +927,7 @@ CsFloat cs_clamp_fvar(CsState &cs, CsFvar *fv, CsFloat v) {
     } else {
         return v;
     }
-    cs_debug_code(
+    throw CsErrorException(
         cs, "valid range for '%s' is %s..%s", floatstr(fv->get_val_min()),
         floatstr(fv->get_val_max())
     );
@@ -954,16 +936,14 @@ CsFloat cs_clamp_fvar(CsState &cs, CsFvar *fv, CsFloat v) {
 
 void CsState::set_var_float_checked(CsFvar *fv, CsFloat v) {
     if (fv->get_flags() & CsIdfReadOnly) {
-        cs_debug_code(*this, "variable '%s' is read only", fv->get_name());
-        return;
+        throw CsErrorException(
+            *this, "variable '%s' is read only", fv->get_name()
+        );
     }
-    bool success = cs_override_var(
+    cs_override_var(
         *this, fv, fv->p_flags,
         [&fv]() { fv->p_overrideval = fv->get_value(); }
     );
-    if (!success) {
-        return;
-    }
     if ((v < fv->get_val_min()) || (v > fv->get_val_max())) {
         v = cs_clamp_fvar(*this, fv, v);
     }
@@ -973,16 +953,14 @@ void CsState::set_var_float_checked(CsFvar *fv, CsFloat v) {
 
 void CsState::set_var_str_checked(CsSvar *sv, ostd::ConstCharRange v) {
     if (sv->get_flags() & CsIdfReadOnly) {
-        cs_debug_code(*this, "variable '%s' is read only", sv->get_name());
-        return;
+        throw CsErrorException(
+            *this, "variable '%s' is read only", sv->get_name()
+        );
     }
-    bool success = cs_override_var(
+    cs_override_var(
         *this, sv, sv->p_flags,
         [&sv]() { sv->p_overrideval = sv->get_value(); }
     );
-    if (!success) {
-        return;
-    }
     sv->set_value(v);
     sv->changed(*this);
 }
@@ -1124,9 +1102,7 @@ void cs_init_lib_base(CsState &gcs) {
         }
         ret.set_int(rc);
         CsAliasInternal::set_alias(cret, cs, result);
-        if (css->get_index() != DummyIdx) {
-            CsAliasInternal::set_alias(css, cs, tback);
-        }
+        CsAliasInternal::set_alias(css, cs, tback);
     });
 
     gcs.new_command("?", "tTT", [](auto &, auto args, auto &res) {
@@ -1344,8 +1320,8 @@ end:
         cs.run(args[2].get_code(), res);
     });
 
-    gcs.new_command("resetvar", "s", [](auto &cs, auto args, auto &res) {
-        res.set_int(cs.reset_var(args[0].get_strr()));
+    gcs.new_command("resetvar", "s", [](auto &cs, auto args, auto &) {
+        cs.reset_var(args[0].get_strr());
     });
 
     gcs.new_command("alias", "sT", [](auto &cs, auto args, auto &) {
