@@ -3,8 +3,6 @@
 
 namespace cscript {
 
-char *cs_dup_ostr(ostd::ConstCharRange s);
-
 template<typename T>
 struct CsArgVal;
 
@@ -502,7 +500,7 @@ end:
 }
 
 struct ListSortItem {
-    char const *str;
+    ostd::ConstCharRange str;
     ostd::ConstCharRange quote;
 };
 
@@ -531,19 +529,16 @@ static void cs_list_sort(
     CsAlias *xa = static_cast<CsAlias *>(x), *ya = static_cast<CsAlias *>(y);
 
     CsVector<ListSortItem> items;
-    ostd::Size clen = list.size();
     ostd::Size total = 0;
 
-    char *cstr = cs_dup_ostr(list);
     for (util::ListParser p(list); p.parse();) {
-        cstr[&p.item[p.item.size()] - list.data()] = '\0';
-        ListSortItem item = { &cstr[p.item.data() - list.data()], p.quote };
+        ListSortItem item = { p.item, p.quote };
         items.push(item);
         total += item.quote.size();
     }
 
     if (items.empty()) {
-        res.set_mstr(cstr);
+        res.set_str(list);
         return;
     }
 
@@ -595,28 +590,19 @@ static void cs_list_sort(
     xval.pop();
     yval.pop();
 
-    char *sorted = cstr;
-    ostd::Size sortedlen = totaluniq + ostd::max(nuniq - 1, ostd::Size(0));
-    if (clen < sortedlen) {
-        delete[] cstr;
-        sorted = new char[sortedlen + 1];
-    }
-
-    ostd::Size offset = 0;
+    CsString sorted;
+    sorted.reserve(totaluniq + ostd::max(nuniq - 1, ostd::Size(0)));
     for (ostd::Size i = 0; i < items.size(); ++i) {
         ListSortItem &item = items[i];
         if (item.quote.empty()) {
             continue;
         }
         if (i) {
-            sorted[offset++] = ' ';
+            sorted += ' ';
         }
-        memcpy(&sorted[offset], item.quote.data(), item.quote.size());
-        offset += item.quote.size();
+        sorted += item.quote;
     }
-    sorted[offset] = '\0';
-
-    res.set_mstr(sorted);
+    res.set_str(ostd::move(sorted));
 }
 
 static void cs_init_lib_list_sort(CsState &gcs) {
