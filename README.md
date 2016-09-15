@@ -1,6 +1,6 @@
 # libcubescript
 
-![CubeScript REPL](https://ftp.octaforge.org/q66/random/cs_repl.gif)
+![CubeScript REPL](https://ftp.octaforge.org/q66/random/libcs_repl.gif)
 
 ## Overview
 
