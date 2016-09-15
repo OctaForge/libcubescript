@@ -97,16 +97,18 @@ void CsValue::set_float(CsFloat val) {
 }
 
 void CsValue::set_str(CsString val) {
-    if (val.size() == 0) {
+    csv_cleanup(p_type, p_stor);
+    p_type = CsValueType::String;
+    p_len = val.size();
+    if (p_len == 0) {
         /* ostd zero length strings cannot be disowned */
         char *buf = new char[1];
         buf[0] = '\0';
-        set_mstr(buf);
+        csv_get<char *>(p_stor) = buf;
         return;
     }
-    ostd::CharRange cr = val.iter();
+    csv_get<char *>(p_stor) = val.data();
     val.disown();
-    set_mstr(cr);
 }
 
 void CsValue::set_null() {
@@ -125,13 +127,6 @@ void CsValue::set_cstr(ostd::ConstCharRange val) {
     p_type = CsValueType::Cstring;
     p_len = val.size();
     csv_get<char const *>(p_stor) = val.data();
-}
-
-void CsValue::set_mstr(ostd::CharRange val) {
-    csv_cleanup(p_type, p_stor);
-    p_type = CsValueType::String;
-    p_len = val.size();
-    csv_get<char *>(p_stor) = val.data();
 }
 
 void CsValue::set_ident(CsIdent *val) {

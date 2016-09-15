@@ -57,11 +57,11 @@ CsSvar::CsSvar(ostd::ConstCharRange name, CsString v, CsVarCb f, int fl):
     p_storage(ostd::move(v)), p_overrideval()
 {}
 
-CsAlias::CsAlias(ostd::ConstCharRange name, char *a, int fl):
+CsAlias::CsAlias(ostd::ConstCharRange name, CsString a, int fl):
     CsIdent(CsIdentType::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
-    p_val.set_mstr(a);
+    p_val.set_str(ostd::move(a));
 }
 CsAlias::CsAlias(ostd::ConstCharRange name, CsInt a, int fl):
     CsIdent(CsIdentType::Alias, name, fl),
@@ -1008,7 +1008,7 @@ static inline void cs_loop_conc(
     if (n <= 0 || !idv.has_alias()) {
         return;
     }
-    CsVector<char> s;
+    CsString s;
     for (CsInt i = 0; i < n; ++i) {
         idv.set_int(offset + i * step);
         idv.push();
@@ -1021,16 +1021,13 @@ static inline void cs_loop_conc(
             default:
                 break;
         }
-        CsString vstr = ostd::move(v.get_str());
         if (space && i) {
-            s.push(' ');
+            s += ' ';
         }
-        s.push_n(vstr.data(), vstr.size());
+        s += v.get_str();
     }
 end:
-    s.push('\0');
-    ostd::Size len = s.size() - 1;
-    res.set_mstr(ostd::CharRange(s.disown(), len));
+    res.set_str(ostd::move(s));
 }
 
 void cs_init_lib_base(CsState &gcs) {

@@ -82,7 +82,6 @@ struct OSTD_EXPORT CsValue {
     void set_null();
     void set_code(CsBytecode *val);
     void set_cstr(ostd::ConstCharRange val);
-    void set_mstr(ostd::CharRange val);
     void set_ident(CsIdent *val);
     void set_macro(ostd::ConstCharRange val);
 
@@ -281,7 +280,7 @@ struct OSTD_EXPORT CsAlias: CsIdent {
     void get_cstr(CsValue &v) const;
     void get_cval(CsValue &v) const;
 private:
-    CsAlias(ostd::ConstCharRange n, char *a, int flags);
+    CsAlias(ostd::ConstCharRange n, CsString a, int flags);
     CsAlias(ostd::ConstCharRange n, CsInt a, int flags);
     CsAlias(ostd::ConstCharRange n, CsFloat a, int flags);
     CsAlias(ostd::ConstCharRange n, int flags);
