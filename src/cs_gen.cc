@@ -54,7 +54,7 @@ static void cs_error_line(
     throw CsErrorException(gs.cs, rfmt, ostd::forward<A>(args)...);
 }
 
-char *cs_dup_ostr(ostd::ConstCharRange s) {
+static char *cs_dup_ostr(ostd::ConstCharRange s) {
     char *r = new char[s.size() + 1];
     if (s.data()) {
         memcpy(r, s.data(), s.size());

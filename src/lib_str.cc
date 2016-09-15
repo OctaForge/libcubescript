@@ -50,68 +50,55 @@ void cs_init_lib_string(CsState &cs) {
     });
 
     cs.new_command("codestr", "i", [](auto &, auto args, auto &res) {
-        char *s = new char[2];
-        s[0] = char(args[0].get_int());
-        s[1] = '\0';
-        res.set_mstr(s);
+        res.set_str(CsString(1, char(args[0].get_int())));
     });
 
     cs.new_command("strlower", "s", [](auto &, auto args, auto &res) {
-        ostd::ConstCharRange s = args[0].get_strr();
-        char *buf = new char[s.size() + 1];
+        CsString s = args[0].get_str();
         for (auto i: ostd::range(s.size())) {
-            buf[i] = tolower(s[i]);
+            s[i] = tolower(s[i]);
         }
-        buf[s.size()] = '\0';
-        res.set_mstr(ostd::CharRange(buf, s.size()));
+        res.set_str(ostd::move(s));
     });
 
     cs.new_command("strupper", "s", [](auto &, auto args, auto &res) {
-        ostd::ConstCharRange s = args[0].get_strr();
-        char *buf = new char[s.size() + 1];
+        CsString s = args[0].get_str();
         for (auto i: ostd::range(s.size())) {
-            buf[i] = toupper(s[i]);
+            s[i] = toupper(s[i]);
         }
-        buf[s.size()] = '\0';
-        res.set_mstr(ostd::CharRange(buf, s.size()));
+        res.set_str(ostd::move(s));
     });
 
     cs.new_command("escape", "s", [](auto &, auto args, auto &res) {
-        auto x = ostd::appender<CsString>();
-        util::escape_string(x, args[0].get_strr());
-        ostd::Size len = x.size();
-        res.set_mstr(ostd::CharRange(x.get().disown(), len));
+        auto s = ostd::appender<CsString>();
+        util::escape_string(s, args[0].get_strr());
+        res.set_str(ostd::move(s.get()));
     });
 
     cs.new_command("unescape", "s", [](auto &, auto args, auto &res) {
-        ostd::ConstCharRange s = args[0].get_strr();
-        char *buf = new char[s.size() + 1];
-        auto writer = ostd::CharRange(buf, s.size() + 1);
-        util::unescape_string(writer, s);
-        writer.put('\0');
-        res.set_mstr(ostd::CharRange(buf, s.size()));
+        auto s = ostd::appender<CsString>();
+        util::unescape_string(s, args[0].get_strr());
+        res.set_str(ostd::move(s.get()));
     });
 
     cs.new_command("concat", "V", [](auto &, auto args, auto &res) {
         auto s = ostd::appender<CsString>();
         cscript::util::tvals_concat(s, args, " ");
-        res.set_mstr(s.get().iter());
-        s.get().disown();
+        res.set_str(ostd::move(s.get()));
     });
 
     cs.new_command("concatword", "V", [](auto &, auto args, auto &res) {
         auto s = ostd::appender<CsString>();
         cscript::util::tvals_concat(s, args);
-        res.set_mstr(s.get().iter());
-        s.get().disown();
+        res.set_str(ostd::move(s.get()));
     });
 
     cs.new_command("format", "V", [](auto &, auto args, auto &res) {
         if (args.empty()) {
             return;
         }
-        CsVector<char> s;
-        CsString fs = ostd::move(args[0].get_str());
+        CsString s;
+        CsString fs = args[0].get_str();
         ostd::ConstCharRange f = fs.iter();
         while (!f.empty()) {
             char c = *f;
@@ -121,33 +108,26 @@ void cs_init_lib_string(CsState &cs) {
                 ++f;
                 if (ic >= '1' && ic <= '9') {
                     int i = ic - '0';
-                    CsString sub = ostd::move(
-                        (ostd::Size(i) < args.size())
-                            ? args[i].get_str()
-                            : CsString("")
-                    );
-                    s.push_n(sub.data(), sub.size());
+                    if (ostd::Size(i) < args.size()) {
+                        s += args[i].get_str();
+                    }
                 } else {
-                    s.push(ic);
+                    s += ic;
                 }
             } else {
-                s.push(c);
+                s += c;
             }
         }
-        s.push('\0');
-        ostd::Size len = s.size() - 1;
-        res.set_mstr(ostd::CharRange(s.disown(), len));
+        res.set_str(ostd::move(s));
     });
 
     cs.new_command("tohex", "ii", [](auto &, auto args, auto &res) {
-        auto r = ostd::appender<CsVector<char>>();
+        auto r = ostd::appender<CsString>();
         ostd::format(
             r, "0x%.*X", ostd::max(args[1].get_int(), CsInt(1)),
             args[0].get_int()
         );
-        r.put('\0');
-        ostd::Size len = r.size() - 1;
-        res.set_mstr(ostd::CharRange(r.get().disown(), len));
+        res.set_str(ostd::move(r.get()));
     });
 
     cs.new_command("substr", "siiN", [](auto &, auto args, auto &res) {
@@ -193,7 +173,7 @@ void cs_init_lib_string(CsState &cs) {
         if (newval2.empty()) {
             newval2 = newval;
         }
-        CsVector<char> buf;
+        CsString buf;
         if (!oldval.size()) {
             res.set_str(s);
             return;
@@ -208,22 +188,12 @@ void cs_init_lib_string(CsState &cs) {
                 }
             }
             if (!found.empty()) {
-                auto bef = ostd::slice_until(s, found);
-                for (; !bef.empty(); ++bef) {
-                    buf.push(*bef);
-                }
-                auto use = (i & 1) ? newval2 : newval;
-                for (; !use.empty(); ++use) {
-                    buf.push(*use);
-                }
+                buf += ostd::slice_until(s, found);
+                buf += (i & 1) ? newval2 : newval;
                 s = found + oldval.size();
             } else {
-                for (; !s.empty(); ++s) {
-                    buf.push(*s);
-                }
-                buf.push('\0');
-                ostd::Size len = buf.size() - 1;
-                res.set_mstr(ostd::CharRange(buf.disown(), len));
+                buf += s;
+                res.set_str(ostd::move(buf));
                 return;
             }
         }
@@ -234,22 +204,20 @@ void cs_init_lib_string(CsState &cs) {
         ostd::ConstCharRange vals = args[1].get_strr();
         CsInt skip   = args[2].get_int(),
               count  = args[3].get_int();
-        CsInt slen   = CsInt(s.size()),
-              vlen   = CsInt(vals.size());
-        CsInt offset = ostd::clamp(skip, CsInt(0), slen),
-              len    = ostd::clamp(count, CsInt(0), slen - offset);
-        char *p = new char[slen - len + vlen + 1];
+        CsInt offset = ostd::clamp(skip, CsInt(0), CsInt(s.size())),
+              len    = ostd::clamp(count, CsInt(0), CsInt(s.size()) - offset);
+        CsString p;
+        p.reserve(s.size() - len + vals.size());
         if (offset) {
-            memcpy(p, s.data(), offset);
+            p += s.slice(0, offset);
         }
-        if (vlen) {
-            memcpy(&p[offset], vals.data(), vlen);
+        if (!vals.empty()) {
+            p += vals;
         }
-        if (offset + len < slen) {
-            memcpy(&p[offset + vlen], &s[offset + len], slen - (offset + len));
+        if ((offset + len) < CsInt(s.size())) {
+            p += s.slice(offset + len, s.size());
         }
-        p[slen - len + vlen] = '\0';
-        res.set_mstr(ostd::CharRange(p, slen - len + vlen));
+        res.set_str(ostd::move(p));
     });
 }
 
