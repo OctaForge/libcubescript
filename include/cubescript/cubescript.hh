@@ -204,6 +204,8 @@ protected:
 private:
     CsVarCb cb_var;
 
+    virtual CsString to_printable() const = 0;
+
     void changed(CsState &cs) {
         if (cb_var) {
             cb_var(cs, *this);
@@ -219,6 +221,8 @@ struct OSTD_EXPORT CsIvar: CsVar {
 
     CsInt get_value() const;
     void set_value(CsInt val);
+
+    CsString to_printable() const final;
 
 private:
     CsIvar(
@@ -237,6 +241,8 @@ struct OSTD_EXPORT CsFvar: CsVar {
     CsFloat get_value() const;
     void set_value(CsFloat val);
 
+    CsString to_printable() const final;
+
 private:
     CsFvar(
         ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat v,
@@ -251,6 +257,8 @@ struct OSTD_EXPORT CsSvar: CsVar {
 
     ostd::ConstCharRange get_value() const;
     void set_value(CsString val);
+
+    CsString to_printable() const final;
 
 private:
     CsSvar(ostd::ConstCharRange n, CsString v, CsVarCb f, int flags);
@@ -365,10 +373,6 @@ struct OSTD_EXPORT CsState {
 
     CsState(CsAllocCb func = nullptr, void *data = nullptr);
     virtual ~CsState();
-
-    CsStream const &get_out() const;
-    CsStream &get_out();
-    void set_out(CsStream &s);
 
     CsHookCb set_call_hook(CsHookCb func);
     CsHookCb const &get_call_hook() const;
@@ -550,10 +554,7 @@ struct OSTD_EXPORT CsState {
 
     ostd::Maybe<CsString> get_alias_val(ostd::ConstCharRange name);
 
-    void print_var(CsVar *v);
-    virtual void print_var(CsIvar *iv);
-    virtual void print_var(CsFvar *fv);
-    virtual void print_var(CsSvar *sv);
+    virtual void print_var(CsVar *v);
 
 private:
     CsIdent *add_ident(CsIdent *id);
@@ -566,8 +567,6 @@ private:
     char p_errbuf[512];
 
     CsHookCb p_callhook;
-
-    CsStream *p_out;
 };
 
 struct CsStackStateNode {

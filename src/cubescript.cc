@@ -221,6 +221,22 @@ void CsIvar::set_value(CsInt val) {
     p_storage = val;
 }
 
+CsString CsIvar::to_printable() const {
+    CsInt i = p_storage;
+    auto app = ostd::appender<CsString>();
+    if (!(get_flags() & CsIdfHex) || (i < 0)) {
+        format(app, IvarFormat, get_name(), i);
+    } else if (p_maxval == 0xFFFFFF) {
+        format(
+            app, IvarHexColorFormat, get_name(),
+            i, (i >> 16) & 0xFF, (i >> 8) & 0xFF, i & 0xFF
+        );
+    } else {
+        format(app, IvarHexFormat, get_name(), i);
+    }
+    return ostd::move(app.get());
+}
+
 CsFloat CsFvar::get_val_min() const {
     return p_minval;
 }
@@ -235,11 +251,29 @@ void CsFvar::set_value(CsFloat val) {
     p_storage = val;
 }
 
+CsString CsFvar::to_printable() const {
+    CsFloat f = p_storage;
+    auto app = ostd::appender<CsString>();
+    format(app, (f == CsInt(f)) ? FvarRoundFormat : FvarFormat, get_name(), f);
+    return ostd::move(app.get());
+}
+
 ostd::ConstCharRange CsSvar::get_value() const {
     return p_storage.iter();
 }
 void CsSvar::set_value(CsString val) {
     p_storage = ostd::move(val);
+}
+
+CsString CsSvar::to_printable() const {
+    ostd::ConstCharRange s = p_storage;
+    auto app = ostd::appender<CsString>();
+    if (ostd::find(s, '"').empty()) {
+        format(app, SvarFormat, get_name(), s);
+    } else {
+        format(app, SvarQuotedFormat, get_name(), s);
+    }
+    return ostd::move(app.get());
 }
 
 ostd::ConstCharRange CsCommand::get_args() const {
@@ -254,8 +288,7 @@ void cs_init_lib_base(CsState &cs);
 
 CsState::CsState(CsAllocCb func, void *data):
     p_state(nullptr),
-    p_allocf(func), p_aptr(data), p_callhook(),
-    p_out(&ostd::out)
+    p_allocf(func), p_aptr(data), p_callhook()
 {
     p_state = create<CsSharedState>();
     for (int i = 0; i < MaxArguments; ++i) {
@@ -365,18 +398,6 @@ CsState::~CsState() {
         destroy(i);
     }
     destroy(p_state);
-}
-
-CsStream const &CsState::get_out() const {
-    return *p_out;
-}
-
-CsStream &CsState::get_out() {
-    return *p_out;
-}
-
-void CsState::set_out(CsStream &s) {
-    p_out = &s;
 }
 
 CsHookCb CsState::set_call_hook(CsHookCb func) {
@@ -593,59 +614,8 @@ void CsState::set_alias(ostd::ConstCharRange name, CsValue v) {
     }
 }
 
-void CsState::print_var(CsIvar *iv) {
-    CsInt i = iv->get_value();
-    if (i < 0) {
-        get_out().writefln("%s = %d", iv->get_name(), i);
-        return;
-    }
-    if (iv->get_flags() & CsIdfHex) {
-        if (iv->get_val_max() == 0xFFFFFF) {
-            get_out().writefln(
-                "%s = 0x%.6X (%d, %d, %d)", iv->get_name(),
-                i, (i >> 16) & 0xFF, (i >> 8) & 0xFF, i & 0xFF
-            );
-        } else {
-            get_out().writefln("%s = 0x%X", iv->get_name(), i);
-        }
-    } else {
-        get_out().writefln("%s = %d", iv->get_name(), i);
-    }
-}
-
-void CsState::print_var(CsFvar *fv) {
-    get_out().writefln("%s = %s", fv->get_name(), floatstr(fv->get_value()));
-}
-
-void CsState::print_var(CsSvar *sv) {
-    ostd::ConstCharRange sval = sv->get_value();
-    if (ostd::find(sval, '"').empty()) {
-        get_out().writefln("%s = \"%s\"", sv->get_name(), sval);
-    } else {
-        get_out().writefln("%s = [%s]", sv->get_name(), sval);
-    }
-}
-
 void CsState::print_var(CsVar *v) {
-    switch (v->get_type()) {
-        case CsIdentType::Ivar: {
-            CsIvar *iv = static_cast<CsIvar *>(v);
-            print_var(iv);
-            break;
-        }
-        case CsIdentType::Fvar: {
-            CsFvar *fv = static_cast<CsFvar *>(v);
-            print_var(fv);
-            break;
-        }
-        case CsIdentType::Svar: {
-            CsSvar *sv = static_cast<CsSvar *>(v);
-            print_var(sv);
-            break;
-        }
-        default:
-            break;
-    }
+    writeln(v->to_printable());
 }
 
 void CsAlias::get_cstr(CsValue &v) const {

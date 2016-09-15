@@ -217,10 +217,10 @@ static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
         if (!file && ((terr == "missing \"]\"") || (terr == "missing \")\""))) {
             return true;
         }
-        cs.get_out().writeln(!is_lnum ? "stdin: " : "stdin:", e.what());
+        ostd::writeln(!is_lnum ? "stdin: " : "stdin:", e.what());
         if (e.get_stack().get()) {
-            cscript::util::print_stack(cs.get_out().iter(), e.get_stack());
-            cs.get_out().write('\n');
+            cscript::util::print_stack(ostd::out.iter(), e.get_stack());
+            ostd::write('\n');
         }
         return false;
     }
@@ -286,8 +286,8 @@ int main(int argc, char **argv) {
         }
     });
 
-    gcs.new_command("echo", "C", [](auto &cs, auto args, auto &) {
-        cs.get_out().writeln(args[0].get_strr());
+    gcs.new_command("echo", "C", [](auto &, auto args, auto &) {
+        ostd::writeln(args[0].get_strr());
     });
 
     int firstarg = 0;

@@ -1506,7 +1506,7 @@ noid:
                     }
                     case CsIdIvar:
                         if (callargs <= 0) {
-                            cs.print_var(static_cast<CsIvar *>(id));
+                            cs.print_var(static_cast<CsVar *>(id));
                         } else {
                             cs.set_var_int_checked(
                                 static_cast<CsIvar *>(id),
@@ -1518,7 +1518,7 @@ noid:
                         continue;
                     case CsIdFvar:
                         if (callargs <= 0) {
-                            cs.print_var(static_cast<CsFvar *>(id));
+                            cs.print_var(static_cast<CsVar *>(id));
                         } else {
                             cs.set_var_float_checked(
                                 static_cast<CsFvar *>(id),
@@ -1530,7 +1530,7 @@ noid:
                         continue;
                     case CsIdSvar:
                         if (callargs <= 0) {
-                            cs.print_var(static_cast<CsSvar *>(id));
+                            cs.print_var(static_cast<CsVar *>(id));
                         } else {
                             cs.set_var_str_checked(
                                 static_cast<CsSvar *>(id),
@@ -1623,14 +1623,14 @@ void CsState::run(CsIdent *id, CsValueRange args, CsValue &ret) {
                 break;
             case CsIdentType::Ivar:
                 if (args.empty()) {
-                    print_var(static_cast<CsIvar *>(id));
+                    print_var(static_cast<CsVar *>(id));
                 } else {
                     set_var_int_checked(static_cast<CsIvar *>(id), args);
                 }
                 break;
             case CsIdentType::Fvar:
                 if (args.empty()) {
-                    print_var(static_cast<CsFvar *>(id));
+                    print_var(static_cast<CsVar *>(id));
                 } else {
                     set_var_float_checked(
                         static_cast<CsFvar *>(id), args[0].force_float()
@@ -1639,7 +1639,7 @@ void CsState::run(CsIdent *id, CsValueRange args, CsValue &ret) {
                 break;
             case CsIdentType::Svar:
                 if (args.empty()) {
-                    print_var(static_cast<CsSvar *>(id));
+                    print_var(static_cast<CsVar *>(id));
                 } else {
                     set_var_str_checked(
                         static_cast<CsSvar *>(id), args[0].force_str()

@@ -28,6 +28,14 @@ namespace cscript {
     constexpr auto const IntFormat = "%d";
     constexpr auto const FloatFormat = "%.7g";
     constexpr auto const RoundFloatFormat = "%.1f";
+
+    constexpr auto const IvarFormat = "%s = %d";
+    constexpr auto const IvarHexFormat = "%s = 0x%X";
+    constexpr auto const IvarHexColorFormat = "%s = 0x%.6X (%d, %d, %d)";
+    constexpr auto const FvarFormat = "%s = %.7g";
+    constexpr auto const FvarRoundFormat = "%s = %.1f";
+    constexpr auto const SvarFormat = "%s = \"%s\"";
+    constexpr auto const SvarQuotedFormat = "%s = [%s]";
 } /* namespace cscript */
 
 #endif /* LIBCUBESCRIPT_CUBESCRIPT_CONF_HH */
