@@ -55,10 +55,7 @@ static inline void cs_list_assoc(CsValueRange args, CsValue &res, F cmp) {
     for (util::ListParser p(args[0].get_strr()); p.parse();) {
         if (cmp(p, val)) {
             if (p.parse()) {
-                auto elem = p.element();
-                auto er = elem.iter();
-                elem.disown();
-                res.set_mstr(er);
+                res.set_str(p.element());
             }
             return;
         }
@@ -76,14 +73,13 @@ static void cs_loop_list_conc(
     if (!idv.has_alias()) {
         return;
     }
-    CsVector<char> r;
+    CsString r;
     int n = 0;
     for (util::ListParser p(list); p.parse(); ++n) {
-        char *val = p.element().disown();
-        idv.set_mstr(val);
+        idv.set_str(p.element());
         idv.push();
         if (n && space) {
-            r.push(' ');
+            r += ' ';
         }
         CsValue v;
         switch (cs.run_loop(body, v)) {
@@ -94,13 +90,10 @@ static void cs_loop_list_conc(
             default:
                 break;
         }
-        CsString vstr = ostd::move(v.get_str());
-        r.push_n(vstr.data(), vstr.size());
+        r += v.get_str();
     }
 end:
-    r.push('\0');
-    ostd::Size len = r.size();
-    res.set_mstr(ostd::CharRange(r.disown(), len - 1));
+    res.set_str(ostd::move(r));
 }
 
 int cs_list_includes(ostd::ConstCharRange list, ostd::ConstCharRange needle) {
@@ -118,9 +111,9 @@ template<bool PushList, bool Swap, typename F>
 static inline void cs_list_merge(CsValueRange args, CsValue &res, F cmp) {
     ostd::ConstCharRange list = args[0].get_strr();
     ostd::ConstCharRange elems = args[1].get_strr();
-    CsVector<char> buf;
+    CsString buf;
     if (PushList) {
-        buf.push_n(list.data(), list.size());
+        buf += list;
     }
     if (Swap) {
         ostd::swap(list, elems);
@@ -128,14 +121,12 @@ static inline void cs_list_merge(CsValueRange args, CsValue &res, F cmp) {
     for (util::ListParser p(list); p.parse();) {
         if (cmp(cs_list_includes(elems, p.item), 0)) {
             if (!buf.empty()) {
-                buf.push(' ');
+                buf += ' ';
             }
-            buf.push_n(p.quote.data(), p.quote.size());
+            buf += p.quote;
         }
     }
-    buf.push('\0');
-    ostd::Size len = buf.size() - 1;
-    res.set_mstr(ostd::CharRange(buf.disown(), len));
+    res.set_str(ostd::move(buf));
 }
 
 static void cs_init_lib_list_sort(CsState &cs);
@@ -164,10 +155,7 @@ void cs_init_lib_list(CsState &gcs) {
                 p.item = p.quote = ostd::ConstCharRange();
             }
         }
-        auto elem = p.element();
-        auto er = p.element().iter();
-        elem.disown();
-        res.set_mstr(er);
+        res.set_str(p.element());
     });
 
     gcs.new_command("sublist", "siiN", [](auto &, auto args, auto &res) {
@@ -209,7 +197,7 @@ void cs_init_lib_list(CsState &gcs) {
         int n = -1;
         for (util::ListParser p(args[1].get_strr()); p.parse();) {
             ++n;
-            idv.set_mstr(cs_dup_ostr(p.item));
+            idv.set_str(p.item);
             idv.push();
             if (cs.run_bool(body)) {
                 res.set_int(CsInt(n));
@@ -228,14 +216,11 @@ void cs_init_lib_list(CsState &gcs) {
         int n = -1;
         for (util::ListParser p(args[1].get_strr()); p.parse();) {
             ++n;
-            idv.set_mstr(cs_dup_ostr(p.item));
+            idv.set_str(p.item);
             idv.push();
             if (cs.run_bool(body)) {
                 if (p.parse()) {
-                    auto elem = p.element();
-                    auto er = elem.iter();
-                    elem.disown();
-                    res.set_mstr(er);
+                    res.set_str(p.element());
                 }
                 break;
             }
@@ -297,7 +282,7 @@ void cs_init_lib_list(CsState &gcs) {
         auto body = args[2].get_code();
         int n = 0;
         for (util::ListParser p(args[1].get_strr()); p.parse(); ++n) {
-            idv.set_mstr(p.element().disown());
+            idv.set_str(p.element());
             idv.push();
             switch (cs.run_loop(body)) {
                 case CsLoopState::Break:
@@ -318,8 +303,12 @@ end:
         auto body = args[3].get_code();
         int n = 0;
         for (util::ListParser p(args[2].get_strr()); p.parse(); n += 2) {
-            idv1.set_mstr(p.element().disown());
-            idv2.set_mstr(p.parse() ? p.element().disown() : cs_dup_ostr(""));
+            idv1.set_str(p.element());
+            if (p.parse()) {
+                idv2.set_str(p.element());
+            } else {
+                idv2.set_str("");
+            }
             idv1.push();
             idv2.push();
             switch (cs.run_loop(body)) {
@@ -343,9 +332,17 @@ end:
         auto body = args[4].get_code();
         int n = 0;
         for (util::ListParser p(args[3].get_strr()); p.parse(); n += 3) {
-            idv1.set_mstr(p.element().disown());
-            idv2.set_mstr(p.parse() ? p.element().disown() : cs_dup_ostr(""));
-            idv3.set_mstr(p.parse() ? p.element().disown() : cs_dup_ostr(""));
+            idv1.set_str(p.element());
+            if (p.parse()) {
+                idv2.set_str(p.element());
+            } else {
+                idv2.set_str("");
+            }
+            if (p.parse()) {
+                idv3.set_str(p.element());
+            } else {
+                idv3.set_str("");
+            }
             idv1.push();
             idv2.push();
             idv3.push();
@@ -382,22 +379,19 @@ end:
             return;
         }
         auto body = args[2].get_code();
-        CsVector<char> r;
+        CsString r;
         int n = 0;
         for (util::ListParser p(args[1].get_strr()); p.parse(); ++n) {
-            char *val = cs_dup_ostr(p.item);
-            idv.set_mstr(val);
+            idv.set_str(p.item);
             idv.push();
             if (cs.run_bool(body)) {
                 if (r.size()) {
-                    r.push(' ');
+                    r += ' ';
                 }
-                r.push_n(p.quote.data(), p.quote.size());
+                r += p.quote;
             }
         }
-        r.push('\0');
-        ostd::Size len = r.size() - 1;
-        res.set_mstr(ostd::CharRange(r.disown(), len));
+        res.set_str(ostd::move(r));
     });
 
     gcs.new_command("listcount", "rse", [](auto &cs, auto args, auto &res) {
@@ -408,8 +402,7 @@ end:
         auto body = args[2].get_code();
         int n = 0, r = 0;
         for (util::ListParser p(args[1].get_strr()); p.parse(); ++n) {
-            char *val = cs_dup_ostr(p.item);
-            idv.set_mstr(val);
+            idv.set_str(p.item);
             idv.push();
             if (cs.run_bool(body)) {
                 r++;
@@ -419,37 +412,29 @@ end:
     });
 
     gcs.new_command("prettylist", "ss", [](auto &, auto args, auto &res) {
-        CsVector<char> buf;
+        auto buf = ostd::appender<CsString>();
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange conj = args[1].get_strr();
         ostd::Size len = util::list_length(s);
         ostd::Size n = 0;
         for (util::ListParser p(s); p.parse(); ++n) {
             if (!p.quote.empty() && (p.quote.front() == '"')) {
-                buf.reserve(buf.size() + p.item.size());
-                auto writer = ostd::CharRange(
-                    &buf[buf.size()], buf.capacity() - buf.size()
-                );
-                ostd::Size adv = util::unescape_string(writer, p.item);
-                writer.put('\0');
-                buf.advance(adv);
+                util::unescape_string(buf, p.item);
             } else {
-                buf.push_n(p.item.data(), p.item.size());
+                buf.put_n(p.item.data(), p.item.size());
             }
             if ((n + 1) < len) {
                 if ((len > 2) || conj.empty()) {
-                    buf.push(',');
+                    buf.put(',');
                 }
                 if ((n + 2 == len) && !conj.empty()) {
-                    buf.push(' ');
-                    buf.push_n(conj.data(), conj.size());
+                    buf.put(' ');
+                    buf.put_n(conj.data(), conj.size());
                 }
-                buf.push(' ');
+                buf.put(' ');
             }
         }
-        buf.push('\0');
-        ostd::Size slen = buf.size() - 1;
-        res.set_mstr(ostd::CharRange(buf.disown(), slen));
+        res.set_str(ostd::move(buf.get()));
     });
 
     gcs.new_command("indexof", "ss", [](auto &, auto args, auto &res) {
@@ -481,15 +466,15 @@ end:
             }
         }
         char const *qend = !p.quote.empty() ? &p.quote[p.quote.size()] : list;
-        CsVector<char> buf;
+        CsString buf;
         if (qend > list) {
-            buf.push_n(list, qend - list);
+            buf += ostd::ConstCharRange(list, qend - list);
         }
         if (!vals.empty()) {
             if (!buf.empty()) {
-                buf.push(' ');
+                buf += ' ';
             }
-            buf.push_n(vals.data(), vals.size());
+            buf += vals;
         }
         for (CsInt i = 0; i < len; ++i) {
             if (!p.parse()) {
@@ -504,15 +489,13 @@ end:
                     break;
                 default:
                     if (!buf.empty()) {
-                        buf.push(' ');
+                        buf += ' ';
                     }
-                    buf.push_n(p.input.data(), p.input.size());
+                    buf += p.input;
                     break;
             }
         }
-        buf.push('\0');
-        ostd::Size slen = buf.size() - 1;
-        res.set_mstr(ostd::CharRange(buf.disown(), slen));
+        res.set_str(ostd::move(buf));
     });
 
     cs_init_lib_list_sort(gcs);
