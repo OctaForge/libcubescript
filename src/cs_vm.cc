@@ -238,9 +238,7 @@ static inline void force_arg(CsValue &v, int type) {
     }
 }
 
-static ostd::Uint32 *skipcode(
-    ostd::Uint32 *code, CsValue *result = nullptr
-) {
+static ostd::Uint32 *skipcode(ostd::Uint32 *code) {
     int depth = 0;
     for (;;) {
         ostd::Uint32 op = *code++;
@@ -270,9 +268,6 @@ static ostd::Uint32 *skipcode(
             case CsCodeExit | CsRetInt:
             case CsCodeExit | CsRetFloat:
                 if (depth <= 0) {
-                    if (result) {
-                        force_arg(*result, op & CsCodeRetMask);
-                    }
                     return code;
                 }
                 --depth;
@@ -503,7 +498,7 @@ static thread_local int rundepth = 0;
 static inline CsAlias *cs_get_lookup_id(CsState &cs, ostd::Uint32 op) {
     CsIdent *id = cs.p_state->identmap[op >> 8];
     if (id->get_flags() & CsIdfUnknown) {
-        cs_debug_code(cs, "unknown alias lookup: %s", id->get_name());
+        throw CsErrorException(cs, "unknown alias lookup: %s", id->get_name());
     }
     return static_cast<CsAlias *>(id);
 }
@@ -554,15 +549,13 @@ static inline int cs_get_lookupu_type(
                 return CsIdUnknown;
         }
     }
-    cs_debug_code(cs, "unknown alias lookup: %s", arg.get_strr());
-    return CsIdUnknown;
+    throw CsErrorException(cs, "unknown alias lookup: %s", arg.get_strr());
 }
 
 static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
     result.set_null();
     if (rundepth >= MaxRunDepth) {
-        cs_debug_code(cs, "exceeded recursion limit");
-        return skipcode(code, &result);
+        throw CsErrorException(cs, "exceeded recursion limit");
     }
     ++rundepth;
     int numargs = 0;
@@ -1423,10 +1416,10 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 CsIdent *id = cs.p_state->identmap[op >> 13];
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
                 if (id->get_flags() & CsIdfUnknown) {
-                    cs_debug_code(cs, "unknown command: %s", id->get_name());
-                    numargs = offset;
                     force_arg(result, op & CsCodeRetMask);
-                    continue;
+                    throw CsErrorException(
+                        cs, "unknown command: %s", id->get_name()
+                    );
                 }
                 cs_call_alias(
                     cs, static_cast<CsAlias *>(id), args, result, callargs,
@@ -1476,11 +1469,11 @@ noid:
                     if (cs_check_num(idarg.get_strr())) {
                         goto litval;
                     }
-                    cs_debug_code(cs, "unknown command: %s", idarg.get_strr());
                     result.force_null();
-                    numargs = offset - 1;
                     force_arg(result, op & CsCodeRetMask);
-                    continue;
+                    throw CsErrorException(
+                        cs, "unknown command: %s", idarg.get_strr()
+                    );
                 }
                 result.force_null();
                 switch (id->get_type_raw()) {
@@ -1608,7 +1601,7 @@ void CsState::run(CsIdent *id, CsValueRange args, CsValue &ret) {
     ret.set_null();
     ++rundepth;
     if (rundepth > MaxRunDepth) {
-        cs_debug_code(*this, "exceeded recursion limit");
+        throw CsErrorException(*this, "exceeded recursion limit");
     } else if (id) {
         switch (id->get_type()) {
             default:

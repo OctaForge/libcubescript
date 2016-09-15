@@ -207,13 +207,17 @@ static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
         scs = nullptr;
         ostd::ConstCharRange terr = e.what();
         auto col = ostd::find(terr, ':');
+        bool is_lnum = false;
         if (!col.empty()) {
+            is_lnum = ostd::find_if(
+                ostd::slice_until(terr, col), [](auto c) { return !isdigit(c); }
+            ).empty();
             terr = col + 2;
         }
         if (!file && ((terr == "missing \"]\"") || (terr == "missing \")\""))) {
             return true;
         }
-        cs.get_out().writeln(col.empty() ? "stdin: " : "stdin:", e.what());
+        cs.get_out().writeln(!is_lnum ? "stdin: " : "stdin:", e.what());
         if (e.get_stack().get()) {
             cscript::util::print_stack(cs.get_out().iter(), e.get_stack());
             cs.get_out().write('\n');
