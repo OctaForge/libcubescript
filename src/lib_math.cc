@@ -64,7 +64,7 @@ static inline void cs_cmpop(CsValueRange args, CsValue &res, F cmp) {
     if (args.size() >= 2) {
         val = cmp(CsMathVal<T>::get(args[0]), CsMathVal<T>::get(args[1]));
         for (ostd::Size i = 2; (i < args.size()) && val; ++i) {
-            val = cmp(val, CsMathVal<T>::get(args[i]));
+            val = cmp(CsMathVal<T>::get(args[i - 1]), CsMathVal<T>::get(args[i]));
         }
     } else {
         val = cmp(!args.empty() ? CsMathVal<T>::get(args[0]) : T(0), T(0));
