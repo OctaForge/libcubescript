@@ -370,10 +370,6 @@ struct OSTD_EXPORT CsState {
     CsStream &get_out();
     void set_out(CsStream &s);
 
-    CsStream const &get_err() const;
-    CsStream &get_err();
-    void set_err(CsStream &s);
-
     CsHookCb set_call_hook(CsHookCb func);
     CsHookCb const &get_call_hook() const;
     CsHookCb &get_call_hook();
@@ -571,7 +567,7 @@ private:
 
     CsHookCb p_callhook;
 
-    CsStream *p_out, *p_err;
+    CsStream *p_out;
 };
 
 struct CsStackStateNode {

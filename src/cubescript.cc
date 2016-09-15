@@ -255,7 +255,7 @@ void cs_init_lib_base(CsState &cs);
 CsState::CsState(CsAllocCb func, void *data):
     p_state(nullptr),
     p_allocf(func), p_aptr(data), p_callhook(),
-    p_out(&ostd::out), p_err(&ostd::err)
+    p_out(&ostd::out)
 {
     p_state = create<CsSharedState>();
     for (int i = 0; i < MaxArguments; ++i) {
@@ -377,18 +377,6 @@ CsStream &CsState::get_out() {
 
 void CsState::set_out(CsStream &s) {
     p_out = &s;
-}
-
-CsStream const &CsState::get_err() const {
-    return *p_err;
-}
-
-CsStream &CsState::get_err() {
-    return *p_err;
-}
-
-void CsState::set_err(CsStream &s) {
-    p_err = &s;
 }
 
 CsHookCb CsState::set_call_hook(CsHookCb func) {

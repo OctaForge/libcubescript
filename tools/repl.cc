@@ -276,16 +276,13 @@ int main(int argc, char **argv) {
     CsState gcs;
     gcs.init_libs();
 
-    gcs.new_command("exec", "sb", [](auto &cs, auto args, auto &res) {
+    gcs.new_command("exec", "s", [](auto &cs, auto args, auto &) {
         auto file = args[0].get_strr();
         bool ret = cs.run_file(file);
         if (!ret) {
-            if (args[1].get_int()) {
-                cs.get_err().writefln("could not run file \"%s\"", file);
-            }
-            res.set_int(0);
-        } else {
-            res.set_int(1);
+            throw cscript::CsErrorException(
+                cs, "could not run file \"%s\"", file
+            );
         }
     });
 
