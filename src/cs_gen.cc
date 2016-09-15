@@ -1540,7 +1540,7 @@ compilecomv:
                                 if (!more) {
                                     if (op1 == (CsCodeBlock | (len1 << 8))) {
                                         gs.code[start1] = (len1 << 8) |
-                                            CsCodeJumpFalse;
+                                            CsCodeJumpB | CsCodeFlagFalse;
                                         gs.code[start1 + 1] = CsCodeEnterResult;
                                         gs.code[start1 + len1] = (
                                             gs.code[start1 + len1] & ~CsCodeRetMask
@@ -1556,7 +1556,7 @@ compilecomv:
                                         if (op1 == (CsCodeBlock | (len1 << 8))) {
                                             gs.code[start1] = (
                                                 (start2 - start1) << 8
-                                            ) | CsCodeJumpFalse;
+                                            ) | CsCodeJumpB | CsCodeFlagFalse;
                                             gs.code[start1 + 1] = CsCodeEnterResult;
                                             gs.code[start1 + len1] = (
                                                 gs.code[start1 + len1] & ~CsCodeRetMask
@@ -1570,7 +1570,8 @@ compilecomv:
                                         } else if (op1 == (CsCodeEmpty | (len1 << 8))) {
                                             gs.code[start1] = CsCodeNull |
                                                 (inst2 & CsCodeRetMask);
-                                            gs.code[start2] = (len2 << 8) | CsCodeJumpTrue;
+                                            gs.code[start2] = (len2 << 8)
+                                                | CsCodeJumpB | CsCodeFlagTrue;
                                             gs.code[start2 + 1] = CsCodeEnterResult;
                                             gs.code[start2 + len2] = (
                                                 gs.code[start2 + len2] & ~CsCodeRetMask
@@ -1653,8 +1654,8 @@ compilecomv:
                                 );
                             } else {
                                 ostd::Uint32 op = (id->get_type_raw() == CsIdAnd)
-                                    ? CsCodeJumpResultFalse
-                                    : CsCodeJumpResultTrue;
+                                    ? (CsCodeJumpResult | CsCodeFlagFalse)
+                                    : (CsCodeJumpResult | CsCodeFlagTrue);
                                 gs.code.push(op);
                                 end = gs.code.size();
                                 while ((start + 1) < end) {

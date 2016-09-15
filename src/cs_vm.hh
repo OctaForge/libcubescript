@@ -75,8 +75,7 @@ enum {
     CsCodePrint,
     CsCodeLocal,
     CsCodeDo, CsCodeDoArgs,
-    CsCodeJump, CsCodeJumpTrue, CsCodeJumpFalse,
-    CsCodeJumpResultTrue, CsCodeJumpResultFalse,
+    CsCodeJump, CsCodeJumpB, CsCodeJumpResult,
 
     CsCodeOpMask = 0x3F,
     CsCodeRet = 6,
@@ -87,6 +86,10 @@ enum {
     CsRetString = CsValString << CsCodeRet,
     CsRetInt    = CsValInt << CsCodeRet,
     CsRetFloat  = CsValFloat << CsCodeRet,
+
+    /* CsCodeJumpB, CsCodeJumpResult */
+    CsCodeFlagTrue = 1 << CsCodeRet,
+    CsCodeFlagFalse = 0 << CsCodeRet
 };
 
 struct CsSharedState {

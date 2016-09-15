@@ -253,10 +253,10 @@ static ostd::Uint32 *skipcode(
             }
             case CsCodeBlock:
             case CsCodeJump:
-            case CsCodeJumpTrue:
-            case CsCodeJumpFalse:
-            case CsCodeJumpResultTrue:
-            case CsCodeJumpResultFalse: {
+            case CsCodeJumpB | CsCodeFlagTrue:
+            case CsCodeJumpB | CsCodeFlagFalse:
+            case CsCodeJumpResult | CsCodeFlagTrue:
+            case CsCodeJumpResult | CsCodeFlagFalse: {
                 ostd::Uint32 len = op >> 8;
                 code += len;
                 continue;
@@ -694,21 +694,21 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 code += len;
                 continue;
             }
-            case CsCodeJumpTrue: {
+            case CsCodeJumpB | CsCodeFlagTrue: {
                 ostd::Uint32 len = op >> 8;
                 if (args[--numargs].get_bool()) {
                     code += len;
                 }
                 continue;
             }
-            case CsCodeJumpFalse: {
+            case CsCodeJumpB | CsCodeFlagFalse: {
                 ostd::Uint32 len = op >> 8;
                 if (!args[--numargs].get_bool()) {
                     code += len;
                 }
                 continue;
             }
-            case CsCodeJumpResultTrue: {
+            case CsCodeJumpResult | CsCodeFlagTrue: {
                 ostd::Uint32 len = op >> 8;
                 --numargs;
                 if (args[numargs].get_type() == CsValueType::Code) {
@@ -721,7 +721,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 }
                 continue;
             }
-            case CsCodeJumpResultFalse: {
+            case CsCodeJumpResult | CsCodeFlagFalse: {
                 ostd::Uint32 len = op >> 8;
                 --numargs;
                 if (args[numargs].get_type() == CsValueType::Code) {
