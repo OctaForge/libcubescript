@@ -352,11 +352,15 @@ static void cs_do_args(CsState &cs, F body) {
     }
     CsIdentLink *prevstack = cs.p_callstack->next;
     CsIdentLink aliaslink = {
-        cs.p_callstack->id, cs.p_callstack, prevstack->usedargs, prevstack->argstack
+        cs.p_callstack->id, cs.p_callstack,
+        prevstack ? prevstack->usedargs : ((1 << MaxArguments) - 1),
+        prevstack ? prevstack->argstack : nullptr
     };
     cs.p_callstack = &aliaslink;
     cs_do_and_cleanup(ostd::move(body), [&]() {
-        prevstack->usedargs = aliaslink.usedargs;
+        if (prevstack) {
+            prevstack->usedargs = aliaslink.usedargs;
+        }
         cs.p_callstack = aliaslink.next;
         int argmask2 = cs.p_callstack->usedargs;
         for (int i = 0; argmask2; argmask2 >>= 1, ++i) {
