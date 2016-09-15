@@ -21,7 +21,8 @@ static constexpr int DbgaliasIdx = MaxArguments + 2;
 
 enum {
     CsIdUnknown = -1, CsIdIvar, CsIdFvar, CsIdSvar, CsIdCommand, CsIdAlias,
-    CsIdLocal, CsIdDo, CsIdDoArgs, CsIdIf, CsIdResult, CsIdNot, CsIdAnd, CsIdOr
+    CsIdLocal, CsIdDo, CsIdDoArgs, CsIdIf, CsIdBreak, CsIdContinue, CsIdResult,
+    CsIdNot, CsIdAnd, CsIdOr
 };
 
 struct CsIdentLink {
@@ -76,6 +77,7 @@ enum {
     CsCodeLocal,
     CsCodeDo, CsCodeDoArgs,
     CsCodeJump, CsCodeJumpB, CsCodeJumpResult,
+    CsCodeBreak,
 
     CsCodeOpMask = 0x3F,
     CsCodeRet = 6,

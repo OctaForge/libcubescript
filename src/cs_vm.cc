@@ -734,6 +734,20 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 }
                 continue;
             }
+            case CsCodeBreak | CsCodeFlagFalse:
+                if (cs.is_in_loop()) {
+                    throw CsBreakException();
+                } else {
+                    throw CsErrorException(cs, "no loop to break");
+                }
+                break;
+            case CsCodeBreak | CsCodeFlagTrue:
+                if (cs.is_in_loop()) {
+                    throw CsContinueException();
+                } else {
+                    throw CsErrorException(cs, "no loop to continue");
+                }
+                break;
 
             case CsCodeMacro: {
                 ostd::Uint32 len = op >> 8;

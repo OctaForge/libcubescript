@@ -1587,6 +1587,12 @@ compilecomv:
                             }
                         }
                         break;
+                    case CsIdBreak:
+                        gs.code.push(CsCodeBreak | CsCodeFlagFalse);
+                        break;
+                    case CsIdContinue:
+                        gs.code.push(CsCodeBreak | CsCodeFlagTrue);
+                        break;
                     case CsIdResult:
                         if (more) {
                             more = compilearg(gs, CsValAny, prevargs);

@@ -332,6 +332,22 @@ CsState::CsState(CsAllocCb func, void *data):
 
     new_command("local", nullptr, nullptr)->p_type = CsIdLocal;
 
+    new_command("break", "", [](auto &cs, auto, auto &) {
+        if (cs.is_in_loop()) {
+            throw CsBreakException();
+        } else {
+            throw CsErrorException(cs, "no loop to break");
+        }
+    })->p_type = CsIdBreak;
+
+    new_command("continue", "", [](auto &cs, auto, auto &) {
+        if (cs.is_in_loop()) {
+            throw CsContinueException();
+        } else {
+            throw CsErrorException(cs, "no loop to continue");
+        }
+    })->p_type = CsIdContinue;
+
     cs_init_lib_base(*this);
 }
 
@@ -1110,22 +1126,6 @@ void cs_init_lib_base(CsState &gcs) {
         CsAliasInternal::set_alias(cret, cs, result);
         if (css->get_index() != DummyIdx) {
             CsAliasInternal::set_alias(css, cs, tback);
-        }
-    });
-
-    gcs.new_command("break", "", [](auto &cs, auto, auto &) {
-        if (cs.is_in_loop()) {
-            throw CsBreakException();
-        } else {
-            throw CsErrorException(cs, "no loop to break");
-        }
-    });
-
-    gcs.new_command("continue", "", [](auto &cs, auto, auto &) {
-        if (cs.is_in_loop()) {
-            throw CsContinueException();
-        } else {
-            throw CsErrorException(cs, "no loop to continue");
         }
     });
 
