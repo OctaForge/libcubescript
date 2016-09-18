@@ -185,7 +185,7 @@ static inline ostd::Uint32 *forcecode(CsState &cs, CsValue &v) {
         GenState gs(cs);
         gs.code.reserve(64);
         gs.gen_main(v.get_str());
-        v.set_code(reinterpret_cast<CsBytecode *>(gs.code.disown() + 1));
+        v.set_code(reinterpret_cast<CsBytecode *>(gs.code.release() + 1));
         code = reinterpret_cast<ostd::Uint32 *>(v.get_code());
     }
     return code;
@@ -886,7 +886,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                         break;
                 }
                 arg.set_code(
-                    reinterpret_cast<CsBytecode *>(gs.code.disown() + 1)
+                    reinterpret_cast<CsBytecode *>(gs.code.release() + 1)
                 );
                 continue;
             }
@@ -902,7 +902,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                             gs.code.reserve(64);
                             gs.gen_main(s);
                             arg.set_code(reinterpret_cast<CsBytecode *>(
-                                gs.code.disown() + 1
+                                gs.code.release() + 1
                             ));
                         } else {
                             arg.force_null();
@@ -1584,7 +1584,7 @@ static void cs_run(
     gs.gen_main(code.data(), CsValAny);
     runcode(cs, gs.code.data() + 1, ret);
     if (int(gs.code[0]) >= 0x100) {
-        gs.code.disown();
+        gs.code.release();
     }
 }
 

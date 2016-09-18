@@ -101,14 +101,14 @@ void CsValue::set_str(CsString val) {
     p_type = CsValueType::String;
     p_len = val.size();
     if (p_len == 0) {
-        /* ostd zero length strings cannot be disowned */
+        /* ostd zero length strings cannot be releaseed */
         char *buf = new char[1];
         buf[0] = '\0';
         csv_get<char *>(p_stor) = buf;
         return;
     }
     csv_get<char *>(p_stor) = val.data();
-    val.disown();
+    val.release();
 }
 
 void CsValue::set_null() {
