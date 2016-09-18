@@ -340,7 +340,7 @@ struct CsAllocator {
     template<typename TT>
     CsAllocator(CsAllocator<TT> const &a) noexcept: p_state(a.p_state) {}
 
-    T *allocate(ostd::Size n, void const * = nullptr);
+    T *allocate(ostd::Size n);
     void deallocate(T *p, ostd::Size n) noexcept;
 
     bool operator==(CsAllocator const &o) const noexcept {
@@ -672,7 +672,7 @@ private:
 };
 
 template<typename T>
-T *CsAllocator<T>::allocate(ostd::Size n, void const *) {
+T *CsAllocator<T>::allocate(ostd::Size n) {
     return static_cast<T *>(p_state.alloc(nullptr, 0, n * sizeof(T)));
 }
 
