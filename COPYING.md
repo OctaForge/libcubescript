@@ -3,7 +3,12 @@
 Libcubescript is licensed under the University of Illinois/NCSA Open Source License,
 a permissive, non-copyleft, BSD style license. The license text goes as follows:
 
-Copyright (c) 2016 Daniel "q66" Kolesa. All rights reserved.
+Copyright (c):
+
+* 2001-2015 Wouter "aardappel" van Oortmerssen and Lee "eihrul" Salzman
+* 2016 Daniel "q66" Kolesa.
+
+All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal with
@@ -38,7 +43,7 @@ game/engine, which by now serves mostly as an inspiration, as the code has been
 largely rewritten (though isolated bits of the original source may remain); it
 was provided under the zlib license and was:
 
-Copyright (C) 2001-2015 Wouter "aardappel" van Oortmerssen and Lee "eihrul" Salzman
+Copyright (c) 2001-2015 Wouter "aardappel" van Oortmerssen and Lee "eihrul" Salzman
 
 For copyright holders beyond just CubeScript, please refer to Cube 2's original
 license file. Permission was given by the original copyright holders to re-license
