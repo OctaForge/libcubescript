@@ -54,24 +54,6 @@ static void cs_error_line(
     throw CsErrorException(gs.cs, rfmt, ostd::forward<A>(args)...);
 }
 
-static char const *parsestring(char const *p) {
-    while (*p) {
-        switch (*p) {
-            case '\r':
-            case '\n':
-            case '\"':
-                return p;
-            case '^':
-                if (*++p) {
-                    break;
-                }
-                return p;
-        }
-        ++p;
-    }
-    return p;
-}
-
 static ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
     while (!str.empty()) {
         switch (*str) {
@@ -93,7 +75,22 @@ static ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
 
 ostd::ConstCharRange GenState::get_str() {
     char const *beg = source + 1;
-    source = parsestring(beg);
+    source = beg;
+    for (; current(); next_char()) {
+        switch (current()) {
+            case '\r':
+            case '\n':
+            case '\"':
+                goto done;
+            case '^':
+                next_char();
+                if (current()) {
+                    break;
+                }
+                goto done;
+        }
+    }
+done:
     auto ret = ostd::ConstCharRange(beg, source);
     if (current() == '\"') {
         next_char();
@@ -425,25 +422,19 @@ static inline char const *compileblock(
 }
 
 static inline void compileunescapestr(GenState &gs, bool macro = false) {
-    gs.next_char();
-    char const *end = parsestring(gs.source);
+    auto str = gs.get_str();
     gs.code.push(macro ? CsCodeMacro : (CsCodeVal | CsRetString));
     gs.code.reserve(
-        gs.code.size() + (end - gs.source) / sizeof(ostd::Uint32) + 1
+        gs.code.size() + str.size() / sizeof(ostd::Uint32) + 1
     );
     char *buf = reinterpret_cast<char *>(&gs.code[gs.code.size()]);
     auto writer = ostd::CharRange(
         buf, (gs.code.capacity() - gs.code.size()) * sizeof(ostd::Uint32)
     );
-    ostd::Size len = util::unescape_string(
-        writer, ostd::ConstCharRange(gs.source, end)
-    );
-    writer.put('\0');
+    ostd::Size len = util::unescape_string(writer, str);
     memset(&buf[len], 0, sizeof(ostd::Uint32) - len % sizeof(ostd::Uint32));
     gs.code.back() |= len << 8;
     gs.code.advance(len / sizeof(ostd::Uint32) + 1);
-    gs.source = end;
-    if (*gs.source == '\"') gs.next_char();
 }
 
 static bool compilearg(
@@ -827,29 +818,30 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
     int concs = 0;
     for (int brak = 1; brak;) {
         gs.source += strcspn(gs.source, "@\"/[]\0");
-        char c = gs.next_char();
+        char c = gs.current();
         switch (c) {
             case '\0':
                 cs_error_line(gs, line, "missing \"]\"");
                 return;
             case '\"':
-                gs.source = parsestring(gs.source);
-                if (gs.current() == '\"') {
-                    gs.next_char();
-                }
+                gs.get_str();
                 break;
             case '/':
+                gs.next_char();
                 if (gs.current() == '/') {
                     gs.source += strcspn(gs.source, "\n\0");
                 }
                 break;
             case '[':
+                gs.next_char();
                 brak++;
                 break;
             case ']':
+                gs.next_char();
                 brak--;
                 break;
             case '@': {
+                gs.next_char();
                 char const *esc = gs.source;
                 while (gs.current() == '@') {
                     gs.next_char();
@@ -988,10 +980,7 @@ static bool compilearg(
         case '\"':
             switch (wordtype) {
                 case CsValPop:
-                    gs.source = parsestring(gs.source + 1);
-                    if (gs.current() == '\"') {
-                        gs.next_char();
-                    }
+                    gs.get_str();
                     break;
                 case CsValCond: {
                     auto s = gs.get_str_dup();
@@ -1072,9 +1061,7 @@ static bool compilearg(
         default:
             switch (wordtype) {
                 case CsValPop: {
-                    char const *s = gs.source;
-                    gs.source = parseword(gs.source);
-                    return gs.source != s;
+                    return !gs.get_word().empty();
                 }
                 case CsValCond: {
                     auto s = gs.get_word();
