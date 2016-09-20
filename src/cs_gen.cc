@@ -74,6 +74,7 @@ static ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
 }
 
 ostd::ConstCharRange GenState::get_str() {
+    char const *ln = source;
     char const *beg = source + 1;
     source = beg;
     for (; current(); next_char()) {
@@ -92,9 +93,10 @@ ostd::ConstCharRange GenState::get_str() {
     }
 done:
     auto ret = ostd::ConstCharRange(beg, source);
-    if (current() == '\"') {
-        next_char();
+    if (current() != '\"') {
+        cs_error_line(*this, ln, "unfinished string '%s'", ln);
     }
+    next_char();
     return ret;
 }
 

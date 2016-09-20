@@ -30,6 +30,7 @@ advantages, including:
 * Modern C++14 API (no macros, strongly typed enums, lambdas, ranges etc.)
 * C++14 lambdas can be used as commands (including captures and type inference)
 * Error handling including recovery (protected call system similar to Lua)
+* Stricter parsing (strings cannot be left unfinished)
 * Loop control statements (`break` and `continue`)
 * No manual memory mangement, values manage themselves
 * Clean codebase that is easy to read and contribute to
@@ -38,6 +39,7 @@ advantages, including:
 
 There are some features that are a work in progress and will come later:
 
+* More helpful debug information (proper line infos at both parse and run time)
 * A degree of thread safety (see below)
 * Custom allocator support (control over how heap memory is allocated)
 * Coroutines
