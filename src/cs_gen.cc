@@ -54,15 +54,6 @@ static void cs_error_line(
     throw CsErrorException(gs.cs, rfmt, ostd::forward<A>(args)...);
 }
 
-static char *cs_dup_ostr(ostd::ConstCharRange s) {
-    char *r = new char[s.size() + 1];
-    if (s.data()) {
-        memcpy(r, s.data(), s.size());
-    }
-    r[s.size()] = 0;
-    return r;
-}
-
 static char const *parsestring(char const *p) {
     while (*p) {
         switch (*p) {
@@ -100,6 +91,27 @@ static ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
     return str;
 }
 
+ostd::ConstCharRange GenState::get_str() {
+    char const *beg = source + 1;
+    source = parsestring(beg);
+    auto ret = ostd::ConstCharRange(beg, source);
+    if (current() == '\"') {
+        next_char();
+    }
+    return ret;
+}
+
+CsString GenState::get_str_dup(bool unescape) {
+    auto str = get_str();
+    auto app = ostd::appender<CsString>();
+    if (unescape) {
+        util::unescape_string(app, str);
+    } else {
+        app.get() = str;
+    }
+    return ostd::move(app.get());
+}
+
 static inline void skipcomments(char const *&p) {
     for (;;) {
         p += strspn(p, " \t\r");
@@ -108,20 +120,6 @@ static inline void skipcomments(char const *&p) {
         }
         p += strcspn(p, "\n\0");
     }
-}
-
-static inline char *cutstring(char const *&p) {
-    p++;
-    char const *end = parsestring(p);
-    char *buf = new char[end - p + 1];
-    auto writer = ostd::CharRange(buf, end - p + 1);
-    util::unescape_string(writer, ostd::ConstCharRange(p, end));
-    writer.put('\0');
-    p = end;
-    if (*p == '\"') {
-        p++;
-    }
-    return buf;
 }
 
 static char const *parseword(char const *p) {
@@ -167,11 +165,11 @@ static char const *parseword(char const *p) {
     return p;
 }
 
-static inline char *cutword(char const *&p) {
-    char const *word = p;
-    p = parseword(p);
-    if (p != word) {
-        return cs_dup_ostr(ostd::ConstCharRange(word, p - word));
+ostd::ConstCharRange GenState::get_word() {
+    char const *beg = source;
+    source = parseword(source);
+    if (source != beg) {
+        return ostd::ConstCharRange(beg, source);
     }
     return nullptr;
 }
@@ -450,11 +448,11 @@ static inline void compileunescapestr(GenState &gs, bool macro = false) {
 
 static bool compilearg(
     GenState &gs, int wordtype, int prevargs = MaxResults,
-    ostd::Box<char[]> *word = nullptr
+    CsString *word = nullptr
 );
 
 static void compilelookup(GenState &gs, int ltype, int prevargs = MaxResults) {
-    ostd::Box<char[]> lookup;
+    CsString lookup;
     gs.next_char();
     switch (gs.current()) {
         case '(':
@@ -467,13 +465,13 @@ static void compilelookup(GenState &gs, int ltype, int prevargs = MaxResults) {
             compilelookup(gs, CsValCstring, prevargs);
             break;
         case '\"':
-            lookup = ostd::Box<char[]>(cutstring(gs.source));
+            lookup = gs.get_str_dup();
             goto lookupid;
         default: {
-            lookup = ostd::Box<char[]>(cutword(gs.source));
-            if (!lookup) goto invalid;
+            lookup = gs.get_word();
+            if (lookup.empty()) goto invalid;
 lookupid:
-            CsIdent *id = gs.cs.new_ident(lookup.get());
+            CsIdent *id = gs.cs.new_ident(lookup);
             if (id) {
                 switch (id->get_type()) {
                     case CsIdentType::Ivar:
@@ -659,7 +657,7 @@ lookupid:
                         goto invalid;
                 }
             }
-            gs.gen_str(lookup.get(), true);
+            gs.gen_str(lookup, true);
             break;
         }
     }
@@ -764,8 +762,7 @@ done:
 }
 
 static bool compileblocksub(GenState &gs, int prevargs) {
-    ostd::Box<char[]> lookup;
-    ostd::ConstCharRange lkup;
+    CsString lookup;
     char const *op;
     switch (gs.current()) {
         case '(':
@@ -780,20 +777,19 @@ static bool compileblocksub(GenState &gs, int prevargs) {
             gs.code.push(CsCodeLookupMu);
             break;
         case '\"':
-            lookup = ostd::Box<char[]>(cutstring(gs.source));
+            lookup = gs.get_str_dup();
             goto lookupid;
         default: {
             op = gs.source;
             while (isalnum(gs.current()) || gs.current() == '_') {
                 gs.next_char();
             }
-            lkup = ostd::ConstCharRange(op, gs.source - op);
-            if (lkup.empty()) {
+            lookup = ostd::ConstCharRange(op, gs.source - op);
+            if (lookup.empty()) {
                 return false;
             }
-            lookup = ostd::Box<char[]>(cs_dup_ostr(lkup));
 lookupid:
-            CsIdent *id = gs.cs.new_ident(lookup.get());
+            CsIdent *id = gs.cs.new_ident(lookup);
             if (id) {
                 switch (id->get_type()) {
                     case CsIdentType::Ivar:
@@ -817,7 +813,7 @@ lookupid:
                         break;
                 }
             }
-            gs.gen_str(lookup.get(), true);
+            gs.gen_str(lookup, true);
             gs.code.push(CsCodeLookupMu);
 done:
             break;
@@ -985,12 +981,8 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
 }
 
 static bool compilearg(
-    GenState &gs, int wordtype, int prevargs, ostd::Box<char[]> *word
+    GenState &gs, int wordtype, int prevargs, CsString *word
 ) {
-    ostd::Box<char[]> unused;
-    if (!word) {
-        word = &unused;
-    }
     skipcomments(gs.source);
     switch (gs.current()) {
         case '\"':
@@ -1002,23 +994,23 @@ static bool compilearg(
                     }
                     break;
                 case CsValCond: {
-                    char *s = cutstring(gs.source);
-                    if (s[0]) {
-                        compileblock(gs, s);
+                    auto s = gs.get_str_dup();
+                    if (!s.empty()) {
+                        compileblock(gs, s.data());
                     } else {
                         gs.gen_null();
                     }
-                    delete[] s;
                     break;
                 }
                 case CsValCode: {
-                    char *s = cutstring(gs.source);
-                    compileblock(gs, s);
-                    delete[] s;
+                    auto s = gs.get_str_dup();
+                    compileblock(gs, s.data());
                     break;
                 }
                 case CsValWord:
-                    *word = ostd::Box<char[]>(cutstring(gs.source));
+                    if (word) {
+                        *word = gs.get_str_dup();
+                    }
                     break;
                 case CsValAny:
                 case CsValString:
@@ -1029,9 +1021,8 @@ static bool compilearg(
                     compileunescapestr(gs, true);
                     break;
                 default: {
-                    char *s = cutstring(gs.source);
+                    auto s = gs.get_str_dup();
                     gs.gen_value(wordtype, s);
-                    delete[] s;
                     break;
                 }
             }
@@ -1086,33 +1077,34 @@ static bool compilearg(
                     return gs.source != s;
                 }
                 case CsValCond: {
-                    char *s = cutword(gs.source);
-                    if (!s) {
+                    auto s = gs.get_word();
+                    if (s.empty()) {
                         return false;
                     }
-                    compileblock(gs, s);
-                    delete[] s;
+                    compileblock(gs, CsString(s).data());
                     return true;
                 }
                 case CsValCode: {
-                    char *s = cutword(gs.source);
-                    if (!s) {
+                    auto s = gs.get_word();
+                    if (s.empty()) {
                         return false;
                     }
-                    compileblock(gs, s);
-                    delete[] s;
+                    compileblock(gs, CsString(s).data());
                     return true;
                 }
-                case CsValWord:
-                    *word = ostd::Box<char[]>(cutword(gs.source));
-                    return !!*word;
+                case CsValWord: {
+                    auto w = gs.get_word();
+                    if (word) {
+                        *word = w;
+                    }
+                    return !w.empty();
+                }
                 default: {
-                    char *s = cutword(gs.source);
-                    if (!s) {
+                    auto s = gs.get_word();
+                    if (s.empty()) {
                         return false;
                     }
-                    gs.gen_value(wordtype, s);
-                    delete[] s;
+                    gs.gen_value(wordtype, CsString(s));
                     return true;
                 }
             }
@@ -1489,10 +1481,10 @@ static void compile_and_or(
 
 static void compilestatements(GenState &gs, int rettype, int brak, int prevargs) {
     char const *line = gs.source;
-    ostd::Box<char[]> idname;
+    CsString idname;
     for (;;) {
         skipcomments(gs.source);
-        idname.reset();
+        idname.clear();
         bool more = compilearg(gs, CsValWord, prevargs, &idname);
         if (!more) {
             goto endstatement;
@@ -1511,8 +1503,8 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
                 case '\n':
                 case '\0':
                     gs.next_char();
-                    if (idname) {
-                        CsIdent *id = gs.cs.new_ident(idname.get());
+                    if (!idname.empty()) {
+                        CsIdent *id = gs.cs.new_ident(idname);
                         if (id) {
                             switch (id->get_type()) {
                                 case CsIdentType::Alias:
@@ -1558,7 +1550,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
                                     break;
                             }
                         }
-                        gs.gen_str(idname.get(), true);
+                        gs.gen_str(idname, true);
                     }
                     more = compilearg(gs, CsValAny);
                     if (!more) {
@@ -1568,7 +1560,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
                     goto endstatement;
             }
         }
-        if (!idname) {
+        if (idname.empty()) {
 noid:
             int numargs = 0;
             while (numargs < MaxArguments) {
@@ -1580,26 +1572,26 @@ noid:
             }
             gs.code.push(CsCodeCallU | (numargs << 8));
         } else {
-            CsIdent *id = gs.cs.get_ident(idname.get());
+            CsIdent *id = gs.cs.get_ident(idname);
             if (!id) {
-                if (!cs_check_num(idname.get())) {
-                    gs.gen_str(idname.get(), true);
+                if (!cs_check_num(idname)) {
+                    gs.gen_str(idname, true);
                     goto noid;
                 }
                 switch (rettype) {
                     case CsValAny:
                     case CsValCany: {
-                        ostd::ConstCharRange end = idname.get();
+                        ostd::ConstCharRange end = idname;
                         CsInt val = cs_parse_int(end, &end);
                         if (!end.empty()) {
-                            gs.gen_str(idname.get(), rettype == CsValCany);
+                            gs.gen_str(idname, rettype == CsValCany);
                         } else {
                             gs.gen_int(val);
                         }
                         break;
                     }
                     default:
-                        gs.gen_value(rettype, idname.get());
+                        gs.gen_value(rettype, idname);
                         break;
                 }
                 gs.code.push(CsCodeResult);

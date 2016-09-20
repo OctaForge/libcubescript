@@ -120,6 +120,11 @@ struct GenState {
         cs(csr), code(), source(nullptr), src_file(), src_str()
     {}
 
+    ostd::ConstCharRange get_str();
+    CsString get_str_dup(bool unescape = true);
+
+    ostd::ConstCharRange get_word();
+
     void gen_str(ostd::ConstCharRange word, bool macro = false) {
         if (word.size() <= 3 && !macro) {
             ostd::Uint32 op = CsCodeValInt | CsRetString;
