@@ -1577,8 +1577,7 @@ static void cs_run(
     CsValue &ret
 ) {
     GenState gs(cs);
-    gs.src_file = file;
-    gs.src_str = code;
+    gs.src_name = file;
     gs.code.reserve(64);
     /* FIXME range */
     gs.gen_main(code.data(), CsValAny);

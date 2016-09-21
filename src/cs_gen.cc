@@ -8,11 +8,28 @@
 
 namespace cscript {
 
+static ostd::ConstCharRange cs_get_debug_fmt(
+    GenState &gs, ostd::ConstCharRange fmt, ostd::CharRange buf
+) {
+    ostd::CharRange r = buf;
+    if (gs.src_name.empty()) {
+        ostd::format(r, "%s:%d: %s", gs.src_name, gs.current_line, fmt);
+    } else {
+        ostd::format(r, "%d: %s", gs.current_line, fmt);
+    }
+    r.put('\0');
+    return buf.data();
+}
+
 template<typename ...A>
 static void cs_error_line(
     GenState &gs, ostd::ConstCharRange fmt, A &&...args
 ) {
-    throw CsErrorException(gs.cs, fmt, ostd::forward<A>(args)...);
+    ostd::Array<char, 256> buf;
+    auto rfmt = cs_get_debug_fmt(
+        gs, fmt, ostd::CharRange(buf.data(), buf.size())
+    );
+    throw CsErrorException(gs.cs, rfmt, ostd::forward<A>(args)...);
 }
 
 static ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
@@ -36,7 +53,7 @@ static ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
 
 ostd::ConstCharRange GenState::get_str() {
     auto ln = source;
-    source.pop_front();
+    next_char();
     auto beg = source;
     for (; current(); next_char()) {
         switch (current()) {
@@ -176,8 +193,9 @@ static inline int cs_ret_code(int type, int def = 0) {
 static void compilestatements(
     GenState &gs, int rettype, int brak = '\0', int prevargs = 0
 );
-static inline ostd::ConstCharRange compileblock(
-    GenState &gs, ostd::ConstCharRange p, int rettype = CsRetNull, int brak = '\0'
+static inline ostd::Pair<ostd::ConstCharRange, int> compileblock(
+    GenState &gs, ostd::ConstCharRange p, int line,
+    int rettype = CsRetNull, int brak = '\0'
 );
 
 void GenState::gen_int(ostd::ConstCharRange word) {
@@ -188,7 +206,7 @@ void GenState::gen_float(ostd::ConstCharRange word) {
     gen_float(cs_parse_float(word));
 }
 
-void GenState::gen_value(int wordtype, ostd::ConstCharRange word) {
+void GenState::gen_value(int wordtype, ostd::ConstCharRange word, int line) {
     switch (wordtype) {
         case CsValCany:
             if (!word.empty()) {
@@ -218,13 +236,13 @@ void GenState::gen_value(int wordtype, ostd::ConstCharRange word) {
             break;
         case CsValCond:
             if (!word.empty()) {
-                compileblock(*this, word);
+                compileblock(*this, word, line);
             } else {
                 gen_null();
             }
             break;
         case CsValCode:
-            compileblock(*this, word);
+            compileblock(*this, word, line);
             break;
         case CsValIdent:
             gen_ident(word);
@@ -238,18 +256,23 @@ static inline void compileblock(GenState &gs) {
     gs.code.push(CsCodeEmpty);
 }
 
-static inline ostd::ConstCharRange compileblock(
-    GenState &gs, ostd::ConstCharRange p, int rettype, int brak
+static inline ostd::Pair<ostd::ConstCharRange, int> compileblock(
+    GenState &gs, ostd::ConstCharRange p, int line, int rettype, int brak
 ) {
     ostd::Size start = gs.code.size();
     gs.code.push(CsCodeBlock);
     gs.code.push(CsCodeOffset | ((start + 2) << 8));
+    int retline = line;
     if (p) {
         ostd::ConstCharRange op = gs.source;
+        int oldline = gs.current_line;
         gs.source = p;
+        gs.current_line = line;
         compilestatements(gs, CsValAny, brak);
         p = gs.source;
+        retline = gs.current_line;
         gs.source = op;
+        gs.current_line = oldline;
     }
     if (gs.code.size() > start + 2) {
         gs.code.push(CsCodeExit | rettype);
@@ -258,7 +281,7 @@ static inline ostd::ConstCharRange compileblock(
         gs.code.resize(start);
         gs.code.push(CsCodeEmpty | rettype);
     }
-    return p;
+    return ostd::make_pair(p, retline);
 }
 
 static inline void compileunescapestr(GenState &gs, bool macro = false) {
@@ -650,6 +673,7 @@ done:
 
 static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
     char const *start = gs.source.data();
+    int curline = gs.current_line;
     int concs = 0;
     for (int brak = 1; brak;) {
         switch (gs.skip_until("@\"/[]")) {
@@ -703,6 +727,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
                 }
                 if (concs) {
                     start = gs.source.data();
+                    curline = gs.current_line;
                 } else if (prevargs >= MaxResults) {
                     gs.code.pop();
                 }
@@ -719,11 +744,14 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
                 case CsValPop:
                     return;
                 case CsValCode:
-                case CsValCond:
-                    gs.source = compileblock(gs, ostd::ConstCharRange(
+                case CsValCond: {
+                    auto ret = compileblock(gs, ostd::ConstCharRange(
                         start, gs.source.data() + gs.source.size()
-                    ), CsRetNull, ']');
+                    ), curline, CsRetNull, ']');
+                    gs.source = ret.first;
+                    gs.current_line = ret.second;
                     return;
+                }
                 case CsValIdent:
                     gs.gen_ident(ostd::ConstCharRange(start, gs.source.data() - 1));
                     return;
@@ -821,9 +849,10 @@ static bool compilearg(
                     gs.get_str();
                     break;
                 case CsValCond: {
+                    int line = gs.current_line;
                     auto s = gs.get_str_dup();
                     if (!s.empty()) {
-                        compileblock(gs, s);
+                        compileblock(gs, s, line);
                     } else {
                         gs.gen_null();
                     }
@@ -848,8 +877,9 @@ static bool compilearg(
                     compileunescapestr(gs, true);
                     break;
                 default: {
+                    int line = gs.current_line;
                     auto s = gs.get_str_dup();
-                    gs.gen_value(wordtype, s);
+                    gs.gen_value(wordtype, s, line);
                     break;
                 }
             }
@@ -902,19 +932,21 @@ static bool compilearg(
                     return !gs.get_word().empty();
                 }
                 case CsValCond: {
+                    int line = gs.current_line;
                     auto s = gs.get_word();
                     if (s.empty()) {
                         return false;
                     }
-                    compileblock(gs, s);
+                    compileblock(gs, s, line);
                     return true;
                 }
                 case CsValCode: {
+                    int line = gs.current_line;
                     auto s = gs.get_word();
                     if (s.empty()) {
                         return false;
                     }
-                    compileblock(gs, s);
+                    compileblock(gs, s, line);
                     return true;
                 }
                 case CsValWord: {
@@ -925,11 +957,12 @@ static bool compilearg(
                     return !w.empty();
                 }
                 default: {
+                    int line = gs.current_line;
                     auto s = gs.get_word();
                     if (s.empty()) {
                         return false;
                     }
-                    gs.gen_value(wordtype, s);
+                    gs.gen_value(wordtype, s, line);
                     return true;
                 }
             }
@@ -1309,6 +1342,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
     for (;;) {
         gs.skip_comments();
         idname.clear();
+        int curline = gs.current_line;
         bool more = compilearg(gs, CsValWord, prevargs, &idname);
         if (!more) {
             goto endstatement;
@@ -1415,7 +1449,7 @@ noid:
                         break;
                     }
                     default:
-                        gs.gen_value(rettype, idname);
+                        gs.gen_value(rettype, idname, curline);
                         break;
                 }
                 gs.code.push(CsCodeResult);

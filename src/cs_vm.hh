@@ -113,11 +113,12 @@ struct GenState {
     CsState &cs;
     CsVector<ostd::Uint32> code;
     ostd::ConstCharRange source;
-    ostd::ConstCharRange src_file, src_str;
+    int current_line;
+    ostd::ConstCharRange src_name;
 
     GenState() = delete;
     GenState(CsState &csr):
-        cs(csr), code(), source(nullptr), src_file(), src_str()
+        cs(csr), code(), source(nullptr), current_line(1), src_name()
     {}
 
     ostd::ConstCharRange get_str();
@@ -209,7 +210,8 @@ struct GenState {
     }
 
     void gen_value(
-        int wordtype, ostd::ConstCharRange word = ostd::ConstCharRange()
+        int wordtype, ostd::ConstCharRange word = ostd::ConstCharRange(),
+        int line = 0
     );
 
     void gen_main(ostd::ConstCharRange s, int ret_type = CsValAny);
@@ -217,6 +219,9 @@ struct GenState {
     void next_char() {
         if (source.empty()) {
             return;
+        }
+        if (*source == '\n') {
+            ++current_line;
         }
         source.pop_front();
     }
