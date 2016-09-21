@@ -1,4 +1,4 @@
-#include "cubescript/cubescript_conf.hh"
+#include "cubescript/cubescript.hh"
 #include "cs_util.hh"
 
 #include <ctype.h>
@@ -184,5 +184,217 @@ done:
     }
     return ret;
 }
+
+namespace util {
+    static ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
+        while (!str.empty()) {
+            switch (*str) {
+                case '\r':
+                case '\n':
+                case '\"':
+                    return str;
+                case '^':
+                    ++str;
+                    if (!str.empty()) {
+                        break;
+                    }
+                    return str;
+            }
+            ++str;
+        }
+        return str;
+    }
+
+    static ostd::ConstCharRange cs_parse_word(ostd::ConstCharRange str) {
+        for (;;) {
+            str = ostd::find_one_of(str, ostd::ConstCharRange("\"/;()[] \t\r\n"));
+            if (str.empty()) {
+                return str;
+            }
+            switch (*str) {
+                case '"':
+                case ';':
+                case ' ':
+                case '\t':
+                case '\r':
+                case '\n':
+                    return str;
+                case '/':
+                    if (str[1] == '/') {
+                        return str;
+                    }
+                    break;
+                case '[':
+                    str = cs_parse_word(str + 1);
+                    if (str.empty() || (*str != ']')) {
+                        return str;
+                    }
+                    break;
+                case '(':
+                    str = cs_parse_word(str + 1);
+                    if (str.empty() || (*str != ')')) {
+                        return str;
+                    }
+                    break;
+                case ']':
+                case ')':
+                    return str;
+            }
+            ++str;
+        }
+        return str;
+    }
+
+    void ListParser::skip() {
+        for (;;) {
+            while (!input.empty()) {
+                char c = *input;
+                if ((c == ' ') || (c == '\t') || (c == '\r') || (c == '\n')) {
+                    ++input;
+                } else {
+                    break;
+                }
+            }
+            if ((input.size() < 2) || (input[0] != '/') || (input[1] != '/')) {
+                break;
+            }
+            input = ostd::find(input, '\n');
+        }
+    }
+
+    bool ListParser::parse() {
+        skip();
+        if (input.empty()) {
+            return false;
+        }
+        switch (*input) {
+            case '"':
+                quote = input;
+                ++input;
+                item = input;
+                input = cs_parse_str(input);
+                item = ostd::slice_until(item, input);
+                if (!input.empty() && (*input == '"')) {
+                    input.pop_front();
+                }
+                quote = ostd::slice_until(quote, input);
+                break;
+            case '(':
+            case '[': {
+                quote = input;
+                ++input;
+                item = input;
+                char btype = *quote;
+                int brak = 1;
+                for (;;) {
+                    input = ostd::find_one_of(
+                        input, ostd::ConstCharRange("\"/;()[]")
+                    );
+                    if (input.empty()) {
+                        return true;
+                    }
+                    char c = *input;
+                    ++input;
+                    switch (c) {
+                        case '"':
+                            input = cs_parse_str(input);
+                            if (!input.empty() && (*input == '"')) {
+                                ++input;
+                            }
+                            break;
+                        case '/':
+                            if (!input.empty() && (*input == '/')) {
+                                input = ostd::find(input, '\n');
+                            }
+                            break;
+                        case '(':
+                        case '[':
+                            brak += (c == btype);
+                            break;
+                        case ')':
+                            if ((btype == '(') && (--brak <= 0)) {
+                                goto endblock;
+                            }
+                            break;
+                        case ']':
+                            if ((btype == '[') && (--brak <= 0)) {
+                                goto endblock;
+                            }
+                            break;
+                    }
+                }
+endblock:
+                item = ostd::slice_until(item, input);
+                item.pop_back();
+                quote = ostd::slice_until(quote, input);
+                break;
+            }
+            case ')':
+            case ']':
+                return false;
+            default: {
+                ostd::ConstCharRange e = cs_parse_word(input);
+                quote = item = ostd::slice_until(input, e);
+                input = e;
+                break;
+            }
+        }
+        skip();
+        if (!input.empty() && (*input == ';')) {
+            ++input;
+        }
+        return true;
+    }
+
+    CsString ListParser::element() {
+        CsString s;
+        s.reserve(item.size());
+        if (!quote.empty() && (*quote == '"')) {
+            auto writer = s.iter_cap();
+            util::unescape_string(writer, item);
+            writer.put('\0');
+        } else {
+            memcpy(s.data(), item.data(), item.size());
+            s[item.size()] = '\0';
+        }
+        s.advance(item.size());
+        return s;
+    }
+
+    ostd::Size list_length(ostd::ConstCharRange s) {
+        ListParser p(s);
+        ostd::Size ret = 0;
+        while (p.parse()) {
+            ++ret;
+        }
+        return ret;
+    }
+
+    ostd::Maybe<CsString> list_index(
+        ostd::ConstCharRange s, ostd::Size idx
+    ) {
+        ListParser p(s);
+        for (ostd::Size i = 0; i < idx; ++i) {
+            if (!p.parse()) {
+                return ostd::nothing;
+            }
+        }
+        if (!p.parse()) {
+            return ostd::nothing;
+        }
+        return ostd::move(p.element());
+    }
+
+    CsVector<CsString> list_explode(
+        ostd::ConstCharRange s, ostd::Size limit
+    ) {
+        CsVector<CsString> ret;
+        ListParser p(s);
+        while ((ret.size() < limit) && p.parse()) {
+            ret.push(ostd::move(p.element()));
+        }
+        return ret;
+    }
+} /* namespace util */
 
 } /* namespace cscript */

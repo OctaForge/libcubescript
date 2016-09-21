@@ -40,7 +40,7 @@ src/cubescript.o: include/cubescript/cubescript.hh include/cubescript/cubescript
 src/cs_gen.o: include/cubescript/cubescript.hh include/cubescript/cubescript_conf.hh src/cs_vm.hh src/cs_util.hh
 src/cs_vm.o: include/cubescript/cubescript.hh include/cubescript/cubescript_conf.hh src/cs_vm.hh src/cs_util.hh
 src/cs_val.o: include/cubescript/cubescript.hh include/cubescript/cubescript_conf.hh src/cs_vm.hh src/cs_util.hh
-src/cs_util.o: include/cubescript/cubescript_conf.hh src/cs_util.hh
+src/cs_util.o: include/cubescript/cubescript.hh include/cubescript/cubescript_conf.hh src/cs_util.hh
 src/lib_str.o: include/cubescript/cubescript.hh include/cubescript/cubescript_conf.hh
 src/lib_math.o: include/cubescript/cubescript.hh include/cubescript/cubescript_conf.hh
 src/lib_list.o: include/cubescript/cubescript.hh include/cubescript/cubescript_conf.hh src/cs_util.hh
