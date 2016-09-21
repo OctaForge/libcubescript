@@ -220,7 +220,7 @@ namespace util {
                 case '\n':
                     return str;
                 case '/':
-                    if (str[1] == '/') {
+                    if ((str.size() > 1) && (str[1] == '/')) {
                         return str;
                     }
                     break;

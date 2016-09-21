@@ -112,7 +112,7 @@ constexpr ostd::Size CsTypeStorageSize =
 struct GenState {
     CsState &cs;
     CsVector<ostd::Uint32> code;
-    char const *source;
+    ostd::ConstCharRange source;
     ostd::ConstCharRange src_file, src_str;
 
     GenState() = delete;

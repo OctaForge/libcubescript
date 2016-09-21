@@ -35,9 +35,9 @@ static ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
 }
 
 ostd::ConstCharRange GenState::get_str() {
-    char const *ln = source;
-    char const *beg = source + 1;
-    source = beg;
+    auto ln = source;
+    source.pop_front();
+    auto beg = source;
     for (; current(); next_char()) {
         switch (current()) {
             case '\r':
@@ -53,7 +53,7 @@ ostd::ConstCharRange GenState::get_str() {
         }
     }
 done:
-    auto ret = ostd::ConstCharRange(beg, source);
+    auto ret = ostd::slice_until(beg, source);
     if (current() != '\"') {
         cs_error_line(*this, "unfinished string '%s'", ln);
     }
@@ -73,7 +73,7 @@ CsString GenState::get_str_dup(bool unescape) {
 }
 
 ostd::ConstCharRange GenState::read_macro_name() {
-    char const *op = source;
+    auto op = source;
     char c = current();
     if (!isalpha(c) && (c != '_')) {
         return nullptr;
@@ -81,7 +81,7 @@ ostd::ConstCharRange GenState::read_macro_name() {
     for (; isalnum(c) || (c == '_'); c = current()) {
         next_char();
     }
-    return ostd::ConstCharRange(op, source);
+    return ostd::slice_until(op, source);
 }
 
 char GenState::skip_until(ostd::ConstCharRange chars) {
@@ -120,32 +120,34 @@ void GenState::skip_comments() {
     }
 }
 
-static char const *parseword(char const *p) {
+static ostd::ConstCharRange parseword(ostd::ConstCharRange p) {
     for (;;) {
-        p += strcspn(p, "\"/;()[] \t\r\n\0");
-        switch (p[0]) {
+        p = ostd::find_one_of(p, ostd::ConstCharRange("\"/;()[] \t\r\n"));
+        if (p.empty()) {
+            return p;
+        }
+        switch (*p) {
             case '"':
             case ';':
             case ' ':
             case '\t':
             case '\r':
             case '\n':
-            case '\0':
                 return p;
             case '/':
-                if (p[1] == '/') {
+                if ((p.size() > 1) && (p[1] == '/')) {
                     return p;
                 }
                 break;
             case '[':
                 p = parseword(p + 1);
-                if (*p != ']') {
+                if (p.empty() || (*p != ']')) {
                     return p;
                 }
                 break;
             case '(':
                 p = parseword(p + 1);
-                if (*p != ')') {
+                if (p.empty() || (*p != ')')) {
                     return p;
                 }
                 break;
@@ -159,12 +161,9 @@ static char const *parseword(char const *p) {
 }
 
 ostd::ConstCharRange GenState::get_word() {
-    char const *beg = source;
+    auto beg = source;
     source = parseword(source);
-    if (source != beg) {
-        return ostd::ConstCharRange(beg, source);
-    }
-    return nullptr;
+    return ostd::slice_until(beg, source);
 }
 
 static inline int cs_ret_code(int type, int def = 0) {
@@ -177,8 +176,8 @@ static inline int cs_ret_code(int type, int def = 0) {
 static void compilestatements(
     GenState &gs, int rettype, int brak = '\0', int prevargs = 0
 );
-static inline char const *compileblock(
-    GenState &gs, char const *p, int rettype = CsRetNull, int brak = '\0'
+static inline ostd::ConstCharRange compileblock(
+    GenState &gs, ostd::ConstCharRange p, int rettype = CsRetNull, int brak = '\0'
 );
 
 void GenState::gen_int(ostd::ConstCharRange word) {
@@ -219,13 +218,13 @@ void GenState::gen_value(int wordtype, ostd::ConstCharRange word) {
             break;
         case CsValCond:
             if (!word.empty()) {
-                compileblock(*this, word.data());
+                compileblock(*this, word);
             } else {
                 gen_null();
             }
             break;
         case CsValCode:
-            compileblock(*this, word.data());
+            compileblock(*this, word);
             break;
         case CsValIdent:
             gen_ident(word);
@@ -239,14 +238,14 @@ static inline void compileblock(GenState &gs) {
     gs.code.push(CsCodeEmpty);
 }
 
-static inline char const *compileblock(
-    GenState &gs, char const *p, int rettype, int brak
+static inline ostd::ConstCharRange compileblock(
+    GenState &gs, ostd::ConstCharRange p, int rettype, int brak
 ) {
     ostd::Size start = gs.code.size();
     gs.code.push(CsCodeBlock);
     gs.code.push(CsCodeOffset | ((start + 2) << 8));
     if (p) {
-        char const *op = gs.source;
+        ostd::ConstCharRange op = gs.source;
         gs.source = p;
         compilestatements(gs, CsValAny, brak);
         p = gs.source;
@@ -650,7 +649,7 @@ done:
 }
 
 static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
-    char const *start = gs.source;
+    char const *start = gs.source.data();
     int concs = 0;
     for (int brak = 1; brak;) {
         switch (gs.skip_until("@\"/[]")) {
@@ -675,7 +674,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
                 brak--;
                 break;
             case '@': {
-                char const *esc = gs.source;
+                char const *esc = gs.source.data();
                 int level = 0;
                 while (gs.current() == '@') {
                     ++level;
@@ -703,28 +702,30 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
                     concs++;
                 }
                 if (concs) {
-                    start = gs.source;
+                    start = gs.source.data();
                 } else if (prevargs >= MaxResults) {
                     gs.code.pop();
                 }
                 break;
+            }
             default:
                 gs.next_char();
                 break;
-            }
         }
     }
-    if (gs.source - 1 > start) {
+    if (gs.source.data() - 1 > start) {
         if (!concs) {
             switch (wordtype) {
                 case CsValPop:
                     return;
                 case CsValCode:
                 case CsValCond:
-                    gs.source = compileblock(gs, start, CsRetNull, ']');
+                    gs.source = compileblock(gs, ostd::ConstCharRange(
+                        start, gs.source.data() + gs.source.size()
+                    ), CsRetNull, ']');
                     return;
                 case CsValIdent:
-                    gs.gen_ident(ostd::ConstCharRange(start, gs.source - 1));
+                    gs.gen_ident(ostd::ConstCharRange(start, gs.source.data() - 1));
                     return;
             }
         }
@@ -735,12 +736,12 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
             case CsValCany:
             case CsValCond:
                 compileblockstr(
-                    gs, ostd::ConstCharRange(start, gs.source - 1), true
+                    gs, ostd::ConstCharRange(start, gs.source.data() - 1), true
                 );
                 break;
             default:
                 compileblockstr(
-                    gs, ostd::ConstCharRange(start, gs.source - 1), concs > 0
+                    gs, ostd::ConstCharRange(start, gs.source.data() - 1), concs > 0
                 );
                 break;
         }
@@ -758,26 +759,26 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
     }
     switch (wordtype) {
         case CsValPop:
-            if (concs || gs.source - 1 > start) {
+            if (concs || gs.source.data() - 1 > start) {
                 gs.code.push(CsCodePop);
             }
             break;
         case CsValCond:
-            if (!concs && gs.source - 1 <= start) {
+            if (!concs && gs.source.data() - 1 <= start) {
                 gs.gen_null();
             } else {
                 gs.code.push(CsCodeCond);
             }
             break;
         case CsValCode:
-            if (!concs && gs.source - 1 <= start) {
+            if (!concs && gs.source.data() - 1 <= start) {
                 compileblock(gs);
             } else {
                 gs.code.push(CsCodeCompile);
             }
             break;
         case CsValIdent:
-            if (!concs && gs.source - 1 <= start) {
+            if (!concs && gs.source.data() - 1 <= start) {
                 gs.gen_ident();
             } else {
                 gs.code.push(CsCodeIdentU);
@@ -785,7 +786,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
             break;
         case CsValCstring:
         case CsValCany:
-            if (!concs && gs.source - 1 <= start) {
+            if (!concs && gs.source.data() - 1 <= start) {
                 gs.gen_str(ostd::ConstCharRange(), true);
             }
             break;
@@ -793,13 +794,13 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
         case CsValNull:
         case CsValAny:
         case CsValWord:
-            if (!concs && gs.source - 1 <= start) {
+            if (!concs && gs.source.data() - 1 <= start) {
                 gs.gen_str();
             }
             break;
         default:
             if (!concs) {
-                if (gs.source - 1 <= start) {
+                if (gs.source.data() - 1 <= start) {
                     gs.gen_value(wordtype);
                 } else {
                     gs.code.push(CsCodeForce | (wordtype << CsCodeRet));
@@ -822,7 +823,7 @@ static bool compilearg(
                 case CsValCond: {
                     auto s = gs.get_str_dup();
                     if (!s.empty()) {
-                        compileblock(gs, s.data());
+                        compileblock(gs, s);
                     } else {
                         gs.gen_null();
                     }
@@ -830,7 +831,7 @@ static bool compilearg(
                 }
                 case CsValCode: {
                     auto s = gs.get_str_dup();
-                    compileblock(gs, s.data());
+                    compileblock(gs);
                     break;
                 }
                 case CsValWord:
@@ -905,7 +906,7 @@ static bool compilearg(
                     if (s.empty()) {
                         return false;
                     }
-                    compileblock(gs, CsString(s).data());
+                    compileblock(gs, s);
                     return true;
                 }
                 case CsValCode: {
@@ -913,7 +914,7 @@ static bool compilearg(
                     if (s.empty()) {
                         return false;
                     }
-                    compileblock(gs, CsString(s).data());
+                    compileblock(gs, s);
                     return true;
                 }
                 case CsValWord: {
@@ -928,7 +929,7 @@ static bool compilearg(
                     if (s.empty()) {
                         return false;
                     }
-                    gs.gen_value(wordtype, CsString(s));
+                    gs.gen_value(wordtype, s);
                     return true;
                 }
             }
@@ -1548,7 +1549,7 @@ endstatement:
 }
 
 void GenState::gen_main(ostd::ConstCharRange s, int ret_type) {
-    source = s.data();
+    source = s;
     code.push(CsCodeStart);
     compilestatements(*this, CsValAny);
     code.push(CsCodeExit | ((ret_type < CsValAny) ? (ret_type << CsCodeRet) : 0));
