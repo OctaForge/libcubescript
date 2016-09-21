@@ -675,12 +675,12 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
                 brak--;
                 break;
             case '@': {
-                gs.next_char();
                 char const *esc = gs.source;
+                int level = 0;
                 while (gs.current() == '@') {
+                    ++level;
                     gs.next_char();
                 }
-                int level = gs.source - (esc - 1);
                 if (brak > level) {
                     continue;
                 } else if (brak < level) {
@@ -695,7 +695,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
                     concs = 1;
                 }
                 if (compileblockstr(
-                    gs, ostd::ConstCharRange(start, esc - 1), true
+                    gs, ostd::ConstCharRange(start, esc), true
                 )) {
                     concs++;
                 }
@@ -707,6 +707,9 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
                 } else if (prevargs >= MaxResults) {
                     gs.code.pop();
                 }
+                break;
+            default:
+                gs.next_char();
                 break;
             }
         }
