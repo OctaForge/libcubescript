@@ -8,50 +8,11 @@
 
 namespace cscript {
 
-static ostd::ConstCharRange cs_debug_line(
-    ostd::ConstCharRange p, ostd::ConstCharRange srcf, ostd::ConstCharRange srcs,
-    ostd::ConstCharRange fmt, ostd::CharRange buf
-) {
-    if (srcs.empty()) {
-        return fmt;
-    }
-    ostd::Size num = 1;
-    ostd::ConstCharRange line(srcs);
-    for (;;) {
-        ostd::ConstCharRange end = ostd::find(line, '\n');
-        if (!end.empty()) {
-            line = ostd::slice_until(line, end);
-        }
-        if (&p[0] >= &line[0] && &p[0] <= &line[line.size()]) {
-            ostd::CharRange r(buf);
-            if (!srcf.empty()) {
-                ostd::format(r, "%s:%d: %s", srcf, num, fmt);
-            } else {
-                ostd::format(r, "%d: %s", num, fmt);
-            }
-            r.put('\0');
-            return buf.data(); /* trigger strlen */
-        }
-        if (end.empty()) {
-            break;
-        }
-        line = end;
-        line.pop_front();
-        ++num;
-    }
-    return fmt;
-}
-
 template<typename ...A>
 static void cs_error_line(
-    GenState &gs, ostd::ConstCharRange p, ostd::ConstCharRange fmt, A &&...args
+    GenState &gs, ostd::ConstCharRange fmt, A &&...args
 ) {
-    ostd::Array<char, 256> buf;
-    auto rfmt = cs_debug_line(
-        p, gs.src_file, gs.src_str, fmt,
-        ostd::CharRange(buf.data(), buf.size())
-    );
-    throw CsErrorException(gs.cs, rfmt, ostd::forward<A>(args)...);
+    throw CsErrorException(gs.cs, fmt, ostd::forward<A>(args)...);
 }
 
 static ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
@@ -94,7 +55,7 @@ ostd::ConstCharRange GenState::get_str() {
 done:
     auto ret = ostd::ConstCharRange(beg, source);
     if (current() != '\"') {
-        cs_error_line(*this, ln, "unfinished string '%s'", ln);
+        cs_error_line(*this, "unfinished string '%s'", ln);
     }
     next_char();
     return ret;
@@ -111,13 +72,51 @@ CsString GenState::get_str_dup(bool unescape) {
     return ostd::move(app.get());
 }
 
-static inline void skipcomments(char const *&p) {
+ostd::ConstCharRange GenState::read_macro_name() {
+    char const *op = source;
+    char c = current();
+    if (!isalpha(c) && (c != '_')) {
+        return nullptr;
+    }
+    for (; isalnum(c) || (c == '_'); c = current()) {
+        next_char();
+    }
+    return ostd::ConstCharRange(op, source);
+}
+
+char GenState::skip_until(ostd::ConstCharRange chars) {
+    char c = current();
+    while (c && ostd::find(chars, c).empty()) {
+        next_char();
+        c = current();
+    }
+    return c;
+}
+
+char GenState::skip_until(char cf) {
+    char c = current();
+    while (c && (c != cf)) {
+        next_char();
+        c = current();
+    }
+    return c;
+}
+
+static bool cs_is_hspace(char c) {
+    return (c == ' ') || (c == '\t') || (c == '\r');
+}
+
+void GenState::skip_comments() {
     for (;;) {
-        p += strspn(p, " \t\r");
-        if (p[0] != '/' || p[1] != '/') {
-            break;
+        for (char c = current(); cs_is_hspace(c); c = current()) {
+            next_char();
         }
-        p += strcspn(p, "\n\0");
+        if ((current() != '/') || (current(1) != '/')) {
+            return;
+        }
+        while (current() != '\n') {
+            next_char();
+        }
     }
 }
 
@@ -596,7 +595,6 @@ done:
 
 static bool compileblocksub(GenState &gs, int prevargs) {
     CsString lookup;
-    char const *op;
     switch (gs.current()) {
         case '(':
             if (!compilearg(gs, CsValCany, prevargs)) {
@@ -613,11 +611,7 @@ static bool compileblocksub(GenState &gs, int prevargs) {
             lookup = gs.get_str_dup();
             goto lookupid;
         default: {
-            op = gs.source;
-            while (isalnum(gs.current()) || gs.current() == '_') {
-                gs.next_char();
-            }
-            lookup = ostd::ConstCharRange(op, gs.source - op);
+            lookup = gs.read_macro_name();
             if (lookup.empty()) {
                 return false;
             }
@@ -656,14 +650,12 @@ done:
 }
 
 static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
-    char const *line = gs.source, *start = gs.source;
+    char const *start = gs.source;
     int concs = 0;
     for (int brak = 1; brak;) {
-        gs.source += strcspn(gs.source, "@\"/[]\0");
-        char c = gs.current();
-        switch (c) {
+        switch (gs.skip_until("@\"/[]")) {
             case '\0':
-                cs_error_line(gs, line, "missing \"]\"");
+                cs_error_line(gs, "missing \"]\"");
                 return;
             case '\"':
                 gs.get_str();
@@ -671,7 +663,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
             case '/':
                 gs.next_char();
                 if (gs.current() == '/') {
-                    gs.source += strcspn(gs.source, "\n\0");
+                    gs.skip_until('\n');
                 }
                 break;
             case '[':
@@ -692,7 +684,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
                 if (brak > level) {
                     continue;
                 } else if (brak < level) {
-                    cs_error_line(gs, line, "too many @s");
+                    cs_error_line(gs, "too many @s");
                     return;
                 }
                 if (!concs && prevargs >= MaxResults) {
@@ -817,7 +809,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
 static bool compilearg(
     GenState &gs, int wordtype, int prevargs, CsString *word
 ) {
-    skipcomments(gs.source);
+    gs.skip_comments();
     switch (gs.current()) {
         case '\"':
             switch (wordtype) {
@@ -1309,16 +1301,15 @@ static void compile_and_or(
 }
 
 static void compilestatements(GenState &gs, int rettype, int brak, int prevargs) {
-    char const *line = gs.source;
     CsString idname;
     for (;;) {
-        skipcomments(gs.source);
+        gs.skip_comments();
         idname.clear();
         bool more = compilearg(gs, CsValWord, prevargs, &idname);
         if (!more) {
             goto endstatement;
         }
-        skipcomments(gs.source);
+        gs.skip_comments();
         if (gs.current() == '=') {
             switch (gs.source[1]) {
                 case '/':
@@ -1525,30 +1516,30 @@ endstatement:
         if (more) {
             while (compilearg(gs, CsValPop));
         }
-        gs.source += strcspn(gs.source, ")];/\n\0");
-        char c = gs.next_char();
-        switch (c) {
+        switch (gs.skip_until(")];/\n")) {
             case '\0':
-                if (c != brak) {
-                    cs_error_line(
-                        gs, line, "missing \"%c\"", char(brak)
-                    );
+                if (gs.current() != brak) {
+                    cs_error_line(gs, "missing \"%c\"", char(brak));
                     return;
                 }
-                gs.source--;
                 return;
             case ')':
             case ']':
-                if (c == brak) {
+                if (gs.current() == brak) {
+                    gs.next_char();
                     return;
                 }
-                cs_error_line(gs, line, "unexpected \"%c\"", c);
+                cs_error_line(gs, "unexpected \"%c\"", gs.current());
                 return;
             case '/':
+                gs.next_char();
                 if (gs.current() == '/') {
-                    gs.source += strcspn(gs.source, "\n\0");
+                    gs.skip_until('\n');
                 }
                 goto endstatement;
+            default:
+                gs.next_char();
+                break;
         }
     }
 }

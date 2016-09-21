@@ -218,9 +218,16 @@ struct GenState {
         return *source++;
     }
 
-    char current() {
-        return *source;
+    char current(int ahead = 0) {
+        return source[ahead];
     }
+
+    ostd::ConstCharRange read_macro_name();
+
+    char skip_until(ostd::ConstCharRange chars);
+    char skip_until(char cf);
+
+    void skip_comments();
 };
 
 CsString intstr(CsInt v);
