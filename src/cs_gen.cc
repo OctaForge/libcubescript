@@ -122,9 +122,6 @@ static inline void skipcomments(char const *&p) {
 }
 
 static char const *parseword(char const *p) {
-    constexpr int maxbrak = 100;
-    static char brakstack[maxbrak];
-    int brakdepth = 0;
     for (;;) {
         p += strcspn(p, "\"/;()[] \t\r\n\0");
         switch (p[0]) {
@@ -142,22 +139,20 @@ static char const *parseword(char const *p) {
                 }
                 break;
             case '[':
-            case '(':
-                if (brakdepth >= maxbrak) {
+                p = parseword(p + 1);
+                if (*p != ']') {
                     return p;
                 }
-                brakstack[brakdepth++] = p[0];
+                break;
+            case '(':
+                p = parseword(p + 1);
+                if (*p != ')') {
+                    return p;
+                }
                 break;
             case ']':
-                if (brakdepth <= 0 || brakstack[--brakdepth] != '[') {
-                    return p;
-                }
-                break;
             case ')':
-                if (brakdepth <= 0 || brakstack[--brakdepth] != '(') {
-                    return p;
-                }
-                break;
+                return p;
         }
         ++p;
     }
