@@ -218,7 +218,10 @@ struct GenState {
         return *source++;
     }
 
-    char current(int ahead = 0) {
+    char current(ostd::Size ahead = 0) {
+        if (source.size() <= ahead) {
+            return '\0';
+        }
         return source[ahead];
     }
 
