@@ -1314,9 +1314,9 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
         }
         gs.skip_comments();
         if (gs.current() == '=') {
-            switch (gs.source[1]) {
+            switch (gs.current(1)) {
                 case '/':
-                    if (gs.source[2] != '/') {
+                    if (gs.current(2) != '/') {
                         break;
                     }
                 case ';':
