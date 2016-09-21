@@ -214,8 +214,11 @@ struct GenState {
 
     void gen_main(ostd::ConstCharRange s, int ret_type = CsValAny);
 
-    char next_char() {
-        return *source++;
+    void next_char() {
+        if (source.empty()) {
+            return;
+        }
+        source.pop_front();
     }
 
     char current(ostd::Size ahead = 0) {
