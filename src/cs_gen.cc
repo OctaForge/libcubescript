@@ -128,6 +128,22 @@ void GenState::skip_comments() {
         for (char c = current(); cs_is_hspace(c); c = current()) {
             next_char();
         }
+        if (current() == '\\') {
+            char c = current(1);
+            if ((c != '\r') && (c != '\n')) {
+                cs_error_line(*this, "invalid line break");
+            }
+            /* skip backslash */
+            next_char();
+            /* skip CR or LF */
+            next_char();
+            /* when CR, try also skipping LF; covers \r, \n, \r\n */
+            if ((c == '\r') && (current(1) == '\n')) {
+                next_char();
+            }
+            /* skip whitespace on new line */
+            continue;
+        }
         if ((current() != '/') || (current(1) != '/')) {
             return;
         }
@@ -139,13 +155,14 @@ void GenState::skip_comments() {
 
 static ostd::ConstCharRange parseword(ostd::ConstCharRange p) {
     for (;;) {
-        p = ostd::find_one_of(p, ostd::ConstCharRange("\"/;()[] \t\r\n"));
+        p = ostd::find_one_of(p, ostd::ConstCharRange("\"/;\\()[] \t\r\n"));
         if (p.empty()) {
             return p;
         }
         switch (*p) {
             case '"':
             case ';':
+            case '\\':
             case ' ':
             case '\t':
             case '\r':
