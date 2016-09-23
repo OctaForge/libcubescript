@@ -12,7 +12,7 @@ static ostd::ConstCharRange cs_get_debug_fmt(
     GenState &gs, ostd::ConstCharRange fmt, ostd::CharRange buf
 ) {
     ostd::CharRange r = buf;
-    if (gs.src_name.empty()) {
+    if (!gs.src_name.empty()) {
         ostd::format(r, "%s:%d: %s", gs.src_name, gs.current_line, fmt);
     } else {
         ostd::format(r, "%d: %s", gs.current_line, fmt);
