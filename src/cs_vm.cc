@@ -641,7 +641,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 force_arg(result, op & CsCodeRetMask);
             /* fallthrough */
             case CsCodeExit | CsRetNull:
-                goto exit;
+                return code;
             case CsCodeResultArg | CsRetString:
             case CsCodeResultArg | CsRetInt:
             case CsCodeResultArg | CsRetFloat:
@@ -667,7 +667,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                         cs_pop_alias(args[i].get_ident());
                     }
                 });
-                goto exit;
+                return code;
             }
 
             case CsCodeDoArgs | CsRetNull:
@@ -1512,7 +1512,7 @@ noid:
                                 cs_pop_alias(args[offset + j].get_ident());
                             }
                         });
-                        goto exit;
+                        return code;
                     }
                     case CsIdIvar:
                         if (callargs <= 0) {
@@ -1573,7 +1573,6 @@ noid:
             }
         }
     }
-exit:
     return code;
 }
 
