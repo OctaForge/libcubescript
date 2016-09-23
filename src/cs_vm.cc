@@ -491,6 +491,19 @@ static inline void cs_call_alias(
 static constexpr int MaxRunDepth = 255;
 static thread_local int rundepth = 0;
 
+struct RunDepthRef {
+    RunDepthRef() = delete;
+    RunDepthRef(CsState &cs) {
+        if (rundepth >= MaxRunDepth) {
+            throw CsErrorException(cs, "exceeded recursion limit");
+        }
+        ++rundepth;
+    }
+    RunDepthRef(RunDepthRef const &) = delete;
+    RunDepthRef(RunDepthRef &&) = delete;
+    ~RunDepthRef() { --rundepth; }
+};
+
 static inline CsAlias *cs_get_lookup_id(CsState &cs, ostd::Uint32 op) {
     CsIdent *id = cs.p_state->identmap[op >> 8];
     if (id->get_flags() & CsIdfUnknown) {
@@ -550,10 +563,7 @@ static inline int cs_get_lookupu_type(
 
 static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
     result.set_null();
-    if (rundepth >= MaxRunDepth) {
-        throw CsErrorException(cs, "exceeded recursion limit");
-    }
-    ++rundepth;
+    RunDepthRef level{cs}; /* incr and decr on scope exit */
     int numargs = 0;
     CsValue args[MaxArguments + MaxResults];
     auto &chook = cs.get_call_hook();
@@ -1564,7 +1574,6 @@ noid:
         }
     }
 exit:
-    --rundepth;
     return code;
 }
 
@@ -1594,10 +1603,8 @@ void CsState::run(ostd::ConstCharRange code, CsValue &ret) {
 void CsState::run(CsIdent *id, CsValueRange args, CsValue &ret) {
     int nargs = int(args.size());
     ret.set_null();
-    ++rundepth;
-    if (rundepth > MaxRunDepth) {
-        throw CsErrorException(*this, "exceeded recursion limit");
-    } else if (id) {
+    RunDepthRef level{*this}; /* incr and decr on scope exit */
+    if (id) {
         switch (id->get_type()) {
             default:
                 if (!CsCommandInternal::has_cb(id)) {
@@ -1662,7 +1669,6 @@ void CsState::run(CsIdent *id, CsValueRange args, CsValue &ret) {
             }
         }
     }
-    --rundepth;
 }
 
 CsString CsState::run_str(CsBytecode *code) {
