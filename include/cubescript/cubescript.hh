@@ -741,6 +741,19 @@ namespace util {
                         ret += writer.put(str.front());
                         break;
                 }
+            } else if (str.front() == '\\') {
+                str.pop_front();
+                if (str.empty()) {
+                    break;
+                }
+                char c = str.front();
+                if ((c == '\r') || (c == '\n')) {
+                    if (!str.empty() && (c == '\r') && (str.front() == '\n')) {
+                        str.pop_front();
+                    }
+                    continue;
+                }
+                ret += writer.put('\\');
             } else {
                 ret += writer.put(str.front());
             }

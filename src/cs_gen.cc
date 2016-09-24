@@ -45,6 +45,16 @@ static ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
                     break;
                 }
                 return str;
+            case '\\':
+                ++str;
+                if (!str.empty() && ((*str == '\r') || (*str == '\n'))) {
+                    char c = *str;
+                    ++str;
+                    if (!str.empty() && (c == '\r') && (*str == '\n')) {
+                        ++str;
+                    }
+                }
+                continue;
         }
         ++str;
     }
@@ -67,6 +77,17 @@ ostd::ConstCharRange GenState::get_str() {
                     break;
                 }
                 goto done;
+            case '\\': {
+                next_char();
+                char c = current();
+                if ((c == '\r') || (c == '\n')) {
+                    if ((c == '\r') && (current(1) == '\n')) {
+                        next_char();
+                    }
+                    next_char();
+                }
+                continue;
+            }
         }
     }
 done:

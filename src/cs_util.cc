@@ -199,6 +199,16 @@ namespace util {
                         break;
                     }
                     return str;
+                case '\\':
+                    ++str;
+                    if (!str.empty() && ((*str == '\r') || (*str == '\n'))) {
+                        char c = *str;
+                        ++str;
+                        if (!str.empty() && (c == '\r') && (*str == '\n')) {
+                            ++str;
+                        }
+                    }
+                    continue;
             }
             ++str;
         }
