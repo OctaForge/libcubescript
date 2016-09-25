@@ -284,9 +284,12 @@ namespace util {
                 item = input;
                 input = cs_parse_str(input);
                 item = ostd::slice_until(item, input);
-                if (!input.empty() && (*input == '"')) {
-                    input.pop_front();
+                if (input.empty() || (*input != '\"')) {
+                    throw CsErrorException(
+                        p_state, "unfinished string '\"%s'", item
+                    );
                 }
+                input.pop_front();
                 quote = ostd::slice_until(quote, input);
                 break;
             case '(':
@@ -371,8 +374,8 @@ endblock:
         return s;
     }
 
-    ostd::Size list_length(ostd::ConstCharRange s) {
-        ListParser p(s);
+    ostd::Size list_length(CsState &cs, ostd::ConstCharRange s) {
+        ListParser p(cs, s);
         ostd::Size ret = 0;
         while (p.parse()) {
             ++ret;
@@ -381,9 +384,9 @@ endblock:
     }
 
     ostd::Maybe<CsString> list_index(
-        ostd::ConstCharRange s, ostd::Size idx
+        CsState &cs, ostd::ConstCharRange s, ostd::Size idx
     ) {
-        ListParser p(s);
+        ListParser p(cs, s);
         for (ostd::Size i = 0; i < idx; ++i) {
             if (!p.parse()) {
                 return ostd::nothing;
@@ -396,10 +399,10 @@ endblock:
     }
 
     CsVector<CsString> list_explode(
-        ostd::ConstCharRange s, ostd::Size limit
+        CsState &cs, ostd::ConstCharRange s, ostd::Size limit
     ) {
         CsVector<CsString> ret;
-        ListParser p(s);
+        ListParser p(cs, s);
         while ((ret.size() < limit) && p.parse()) {
             ret.push(ostd::move(p.element()));
         }

@@ -767,20 +767,25 @@ namespace util {
         ostd::ConstCharRange item = ostd::ConstCharRange();
 
         ListParser() = delete;
-        ListParser(ostd::ConstCharRange src): input(src) {}
+        ListParser(CsState &cs, ostd::ConstCharRange src):
+            input(src), p_state(cs)
+        {}
 
         void skip();
         bool parse();
 
         CsString element();
+
+private:
+        CsState &p_state;
     };
 
-    ostd::Size list_length(ostd::ConstCharRange s);
+    ostd::Size list_length(CsState &cs, ostd::ConstCharRange s);
     ostd::Maybe<CsString> list_index(
-        ostd::ConstCharRange s, ostd::Size idx
+        CsState &cs, ostd::ConstCharRange s, ostd::Size idx
     );
     CsVector<CsString> list_explode(
-        ostd::ConstCharRange s, ostd::Size limit = -1
+        CsState &cs, ostd::ConstCharRange s, ostd::Size limit = -1
     );
 
     template<typename R>
