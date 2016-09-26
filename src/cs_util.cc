@@ -186,19 +186,23 @@ done:
 }
 
 namespace util {
-    static ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
+    static ostd::ConstCharRange cs_parse_str(
+        CsState &cs, ostd::ConstCharRange str
+    ) {
+        ostd::ConstCharRange orig = str;
+        ++str;
         while (!str.empty()) {
             switch (*str) {
                 case '\r':
                 case '\n':
                 case '\"':
-                    return str;
+                    goto end;
                 case '^':
                     ++str;
                     if (!str.empty()) {
                         break;
                     }
-                    return str;
+                    goto end;
                 case '\\':
                     ++str;
                     if (!str.empty() && ((*str == '\r') || (*str == '\n'))) {
@@ -212,7 +216,13 @@ namespace util {
             }
             ++str;
         }
-        return str;
+end:
+        if (str.empty() || (*str != '\"')) {
+            throw CsErrorException(
+                cs, "unfinished string '%s'", ostd::slice_until(orig, str)
+            );
+        }
+        return str + 1;
     }
 
     static ostd::ConstCharRange cs_parse_word(ostd::ConstCharRange str) {
@@ -280,17 +290,9 @@ namespace util {
         switch (*input) {
             case '"':
                 quote = input;
-                ++input;
-                item = input;
-                input = cs_parse_str(input);
-                item = ostd::slice_until(item, input);
-                if (input.empty() || (*input != '\"')) {
-                    throw CsErrorException(
-                        p_state, "unfinished string '\"%s'", item
-                    );
-                }
-                input.pop_front();
+                input = cs_parse_str(p_state, input);
                 quote = ostd::slice_until(quote, input);
+                item = quote.slice(1, quote.size() - 1);
                 break;
             case '(':
             case '[': {
@@ -310,10 +312,7 @@ namespace util {
                     ++input;
                     switch (c) {
                         case '"':
-                            input = cs_parse_str(input);
-                            if (!input.empty() && (*input == '"')) {
-                                ++input;
-                            }
+                            input = cs_parse_str(p_state, input);
                             break;
                         case '/':
                             if (!input.empty() && (*input == '/')) {
