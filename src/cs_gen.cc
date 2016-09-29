@@ -8,30 +8,6 @@
 
 namespace cscript {
 
-static ostd::ConstCharRange cs_get_debug_fmt(
-    GenState &gs, ostd::ConstCharRange fmt, ostd::CharRange buf
-) {
-    ostd::CharRange r = buf;
-    if (!gs.src_name.empty()) {
-        ostd::format(r, "%s:%d: %s", gs.src_name, gs.current_line, fmt);
-    } else {
-        ostd::format(r, "%d: %s", gs.current_line, fmt);
-    }
-    r.put('\0');
-    return buf.data();
-}
-
-template<typename ...A>
-static void cs_error_line(
-    GenState &gs, ostd::ConstCharRange fmt, A &&...args
-) {
-    ostd::Array<char, 256> buf;
-    auto rfmt = cs_get_debug_fmt(
-        gs, fmt, ostd::CharRange(buf.data(), buf.size())
-    );
-    throw CsErrorException(gs.cs, rfmt, ostd::forward<A>(args)...);
-}
-
 static ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
     while (!str.empty()) {
         switch (*str) {
@@ -93,7 +69,7 @@ ostd::ConstCharRange GenState::get_str() {
 done:
     auto ret = ostd::slice_until(beg, source);
     if (current() != '\"') {
-        cs_error_line(*this, "unfinished string '%s'", ln);
+        throw CsErrorException(cs, "unfinished string '%s'", ln);
     }
     next_char();
     return ret;
@@ -152,7 +128,7 @@ void GenState::skip_comments() {
         if (current() == '\\') {
             char c = current(1);
             if ((c != '\r') && (c != '\n')) {
-                cs_error_line(*this, "invalid line break");
+                throw CsErrorException(cs, "invalid line break");
             }
             /* skip backslash */
             next_char();
@@ -675,7 +651,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
     for (int brak = 1; brak;) {
         switch (gs.skip_until("@\"/[]")) {
             case '\0':
-                cs_error_line(gs, "missing \"]\"");
+                throw CsErrorException(gs.cs, "missing \"]\"");
                 return;
             case '\"':
                 gs.get_str();
@@ -704,7 +680,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
                 if (brak > level) {
                     continue;
                 } else if (brak < level) {
-                    cs_error_line(gs, "too many @s");
+                    throw CsErrorException(gs.cs, "too many @s");
                     return;
                 }
                 if (!concs && prevargs >= MaxResults) {
@@ -1554,7 +1530,7 @@ endstatement:
         switch (gs.skip_until(")];/\n")) {
             case '\0':
                 if (gs.current() != brak) {
-                    cs_error_line(gs, "missing \"%c\"", char(brak));
+                    throw CsErrorException(gs.cs, "missing \"%c\"", char(brak));
                     return;
                 }
                 return;
@@ -1564,7 +1540,7 @@ endstatement:
                     gs.next_char();
                     return;
                 }
-                cs_error_line(gs, "unexpected \"%c\"", gs.current());
+                throw CsErrorException(gs.cs, "unexpected \"%c\"", gs.current());
                 return;
             case '/':
                 gs.next_char();

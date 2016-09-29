@@ -357,6 +357,7 @@ private:
 
 struct CsErrorException;
 struct CsSharedState;
+struct GenState;
 
 enum class CsLoopState {
     Normal = 0, Break, Continue
@@ -364,6 +365,7 @@ enum class CsLoopState {
 
 struct OSTD_EXPORT CsState {
     friend struct CsErrorException;
+    friend struct GenState;
 
     CsSharedState *p_state;
     CsIdentLink *p_callstack = nullptr;
@@ -558,6 +560,7 @@ struct OSTD_EXPORT CsState {
 private:
     CsIdent *add_ident(CsIdent *id);
 
+    GenState *p_pstate = nullptr;
     int p_inloop = 0;
 
     CsAllocCb p_allocf;

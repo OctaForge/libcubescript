@@ -112,6 +112,20 @@ ostd::ConstCharRange CsErrorException::save_msg(
     if (msg.size() > sizeof(cs.p_errbuf)) {
         msg = msg.slice(0, sizeof(cs.p_errbuf));
     }
+    GenState *gs = cs.p_pstate;
+    if (gs) {
+        /* we can attach line number */
+        ostd::CharRange r(cs.p_errbuf, sizeof(cs.p_errbuf));
+        ostd::Ptrdiff sz = -1;
+        if (!gs->src_name.empty()) {
+            sz = ostd::format(r, "%s:%d: %s", gs->src_name, gs->current_line, msg);
+        } else {
+            sz = ostd::format(r, "%d: %s", gs->current_line, msg);
+        }
+        if (sz > 0) {
+            return ostd::ConstCharRange(cs.p_errbuf, sz);
+        }
+    }
     memcpy(cs.p_errbuf, msg.data(), msg.size());
     return ostd::ConstCharRange(cs.p_errbuf, msg.size());
 }
@@ -185,6 +199,7 @@ static inline ostd::Uint32 *forcecode(CsState &cs, CsValue &v) {
         GenState gs(cs);
         gs.code.reserve(64);
         gs.gen_main(v.get_str());
+        gs.done();
         v.set_code(reinterpret_cast<CsBytecode *>(gs.code.release() + 1));
         code = reinterpret_cast<ostd::Uint32 *>(v.get_code());
     }
@@ -895,6 +910,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                         gs.code.push(CsCodeExit);
                         break;
                 }
+                gs.done();
                 arg.set_code(
                     reinterpret_cast<CsBytecode *>(gs.code.release() + 1)
                 );
@@ -911,6 +927,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                             GenState gs(cs);
                             gs.code.reserve(64);
                             gs.gen_main(s);
+                            gs.done();
                             arg.set_code(reinterpret_cast<CsBytecode *>(
                                 gs.code.release() + 1
                             ));
@@ -1587,8 +1604,8 @@ static void cs_run(
     GenState gs(cs);
     gs.src_name = file;
     gs.code.reserve(64);
-    /* FIXME range */
-    gs.gen_main(code.data(), CsValAny);
+    gs.gen_main(code, CsValAny);
+    gs.done();
     runcode(cs, gs.code.data() + 1, ret);
     if (int(gs.code[0]) >= 0x100) {
         gs.code.release();

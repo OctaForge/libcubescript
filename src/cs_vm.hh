@@ -111,6 +111,8 @@ constexpr ostd::Size CsTypeStorageSize =
 
 struct GenState {
     CsState &cs;
+    GenState *prevps;
+    bool parsing = true;
     CsVector<ostd::Uint32> code;
     ostd::ConstCharRange source;
     int current_line;
@@ -118,8 +120,23 @@ struct GenState {
 
     GenState() = delete;
     GenState(CsState &csr):
-        cs(csr), code(), source(nullptr), current_line(1), src_name()
-    {}
+        cs(csr), prevps(csr.p_pstate), code(),
+        source(nullptr), current_line(1), src_name()
+    {
+        csr.p_pstate = this;
+    }
+
+    ~GenState() {
+        done();
+    }
+
+    void done() {
+        if (!parsing) {
+            return;
+        }
+        cs.p_pstate = prevps;
+        parsing = false;
+    }
 
     ostd::ConstCharRange get_str();
     CsString get_str_dup(bool unescape = true);
