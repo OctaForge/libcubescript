@@ -174,50 +174,9 @@ void GenState::skip_comments() {
     }
 }
 
-static ostd::ConstCharRange parseword(ostd::ConstCharRange p) {
-    for (;;) {
-        p = ostd::find_one_of(p, ostd::ConstCharRange("\"/;\\()[] \t\r\n"));
-        if (p.empty()) {
-            return p;
-        }
-        switch (*p) {
-            case '"':
-            case ';':
-            case '\\':
-            case ' ':
-            case '\t':
-            case '\r':
-            case '\n':
-                return p;
-            case '/':
-                if ((p.size() > 1) && (p[1] == '/')) {
-                    return p;
-                }
-                break;
-            case '[':
-                p = parseword(p + 1);
-                if (p.empty() || (*p != ']')) {
-                    return p;
-                }
-                break;
-            case '(':
-                p = parseword(p + 1);
-                if (p.empty() || (*p != ')')) {
-                    return p;
-                }
-                break;
-            case ']':
-            case ')':
-                return p;
-        }
-        ++p;
-    }
-    return p;
-}
-
 ostd::ConstCharRange GenState::get_word() {
     auto beg = source;
-    source = parseword(source);
+    source = util::parse_word(cs, source);
     return ostd::slice_until(beg, source);
 }
 

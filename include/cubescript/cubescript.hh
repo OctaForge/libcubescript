@@ -761,6 +761,10 @@ namespace util {
         return ret;
     }
 
+    OSTD_EXPORT ostd::ConstCharRange parse_word(
+        CsState &cs, ostd::ConstCharRange str
+    );
+
     struct ListParser {
         ostd::ConstCharRange input;
         ostd::ConstCharRange quote = ostd::ConstCharRange();

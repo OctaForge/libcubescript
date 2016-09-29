@@ -225,7 +225,9 @@ end:
         return str + 1;
     }
 
-    static ostd::ConstCharRange cs_parse_word(ostd::ConstCharRange str) {
+    OSTD_EXPORT ostd::ConstCharRange parse_word(
+        CsState &cs, ostd::ConstCharRange str
+    ) {
         for (;;) {
             str = ostd::find_one_of(str, ostd::ConstCharRange("\"/;()[] \t\r\n"));
             if (str.empty()) {
@@ -245,15 +247,15 @@ end:
                     }
                     break;
                 case '[':
-                    str = cs_parse_word(str + 1);
+                    str = parse_word(cs, str + 1);
                     if (str.empty() || (*str != ']')) {
-                        return str;
+                        throw CsErrorException(cs, "missing \"]\"");
                     }
                     break;
                 case '(':
-                    str = cs_parse_word(str + 1);
+                    str = parse_word(cs, str + 1);
                     if (str.empty() || (*str != ')')) {
-                        return str;
+                        throw CsErrorException(cs, "missing \")\"");
                     }
                     break;
                 case ']':
@@ -345,7 +347,7 @@ endblock:
             case ']':
                 return false;
             default: {
-                ostd::ConstCharRange e = cs_parse_word(input);
+                ostd::ConstCharRange e = parse_word(p_state, input);
                 quote = item = ostd::slice_until(input, e);
                 input = e;
                 break;
