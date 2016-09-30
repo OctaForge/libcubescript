@@ -27,10 +27,10 @@ advantages, including:
 
 * Independent implementation (can be embedded in any project)
 * No global state (multiple CubeScripts in a single program)
-* Modern C++14 API (no macros, strongly typed enums, lambdas, ranges etc.)
+* Modern C++14 API (no macros, use of strongly typed enums, lambdas, ranges etc.)
 * C++14 lambdas can be used as commands (including captures and type inference)
 * Error handling including recovery (protected call system similar to Lua)
-* Stricter parsing (strings cannot be left unfinished)
+* Stricter parsing (strings cannot be left unfinished etc.)
 * Loop control statements (`break` and `continue`)
 * No manual memory mangement, values manage themselves
 * Clean codebase that is easy to read and contribute to
