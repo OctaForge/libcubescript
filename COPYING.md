@@ -6,7 +6,7 @@ a permissive, non-copyleft, BSD style license. The license text goes as follows:
 Copyright (c):
 
 * 2001-2015 Wouter "aardappel" van Oortmerssen and Lee "eihrul" Salzman
-* 2016 Daniel "q66" Kolesa.
+* 2016 Daniel "q66" Kolesa
 
 All rights reserved.
 
