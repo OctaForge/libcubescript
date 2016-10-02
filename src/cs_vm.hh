@@ -97,6 +97,8 @@ enum {
 struct CsSharedState {
     CsMap<ostd::ConstCharRange, CsIdent *> idents;
     CsVector<CsIdent *> identmap;
+    CsAllocCb allocf;
+    void *aptr;
 };
 
 struct CsBreakException {

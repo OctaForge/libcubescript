@@ -287,10 +287,20 @@ int CsCommand::get_num_args() const {
 void cs_init_lib_base(CsState &cs);
 
 CsState::CsState(CsAllocCb func, void *data):
-    p_state(nullptr),
-    p_allocf(func), p_aptr(data), p_callhook()
+    p_state(nullptr), p_callhook()
 {
-    p_state = create<CsSharedState>();
+    if (!func) {
+        func = cs_default_alloc;
+    }
+    /* allocator is not set up yet, use func directly */
+    p_state = static_cast<CsSharedState *>(
+        func(data, nullptr, 0, sizeof(CsSharedState))
+    );
+    new (p_state) CsSharedState();
+    /* set up allocator, from now we can call into alloc() */
+    p_state->allocf = func;
+    p_state->aptr = data;
+
     for (int i = 0; i < MaxArguments; ++i) {
         char buf[32];
         snprintf(buf, sizeof(buf), "arg%d", i + 1);
@@ -415,14 +425,7 @@ CsHookCb &CsState::get_call_hook() {
 }
 
 void *CsState::alloc(void *ptr, ostd::Size os, ostd::Size ns) {
-    if (p_allocf) {
-        return p_allocf(p_aptr, ptr, os, ns);
-    }
-    if (!ns) {
-        delete[] static_cast<unsigned char *>(ptr);
-        return nullptr;
-    }
-    return new unsigned char[ns];
+    return p_state->allocf(p_state->aptr, ptr, os, ns);
 }
 
 void CsState::clear_override(CsIdent &id) {

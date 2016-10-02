@@ -363,6 +363,14 @@ enum class CsLoopState {
     Normal = 0, Break, Continue
 };
 
+static inline void *cs_default_alloc(void *, void *p, ostd::Size, ostd::Size ns) {
+    if (!ns) {
+        delete[] static_cast<unsigned char *>(p);
+        return nullptr;
+    }
+    return new unsigned char[ns];
+}
+
 struct OSTD_EXPORT CsState {
     friend struct CsErrorException;
     friend struct GenState;
@@ -372,7 +380,7 @@ struct OSTD_EXPORT CsState {
 
     int identflags = 0;
 
-    CsState(CsAllocCb func = nullptr, void *data = nullptr);
+    CsState(CsAllocCb func = cs_default_alloc, void *data = nullptr);
     virtual ~CsState();
 
     CsHookCb set_call_hook(CsHookCb func);
@@ -562,9 +570,6 @@ private:
 
     GenState *p_pstate = nullptr;
     int p_inloop = 0;
-
-    CsAllocCb p_allocf;
-    void *p_aptr;
 
     char p_errbuf[512];
 
