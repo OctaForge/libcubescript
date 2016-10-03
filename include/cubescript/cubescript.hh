@@ -116,6 +116,9 @@ struct CsIdentStack {
 };
 
 struct CsState;
+struct CsSharedState;
+struct CsErrorException;
+struct GenState;
 
 enum class CsIdentType {
     Ivar = 0, Fvar, Svar, Command, Alias, Special
@@ -130,6 +133,7 @@ struct CsCommand;
 
 struct OSTD_EXPORT CsIdent {
     friend struct CsState;
+    friend struct CsSharedState;
 
     CsIdent() = delete;
     CsIdent(CsIdent const &) = delete;
@@ -196,6 +200,7 @@ using CsVarCb = ostd::Function<void(CsState &, CsIdent &)>;
 
 struct OSTD_EXPORT CsVar: CsIdent {
     friend struct CsState;
+    friend struct CsSharedState;
 
 protected:
     CsVar(CsIdentType tp, ostd::ConstCharRange name, CsVarCb func, int flags = 0);
@@ -214,6 +219,7 @@ private:
 
 struct OSTD_EXPORT CsIvar: CsVar {
     friend struct CsState;
+    friend struct CsSharedState;
 
     CsInt get_val_min() const;
     CsInt get_val_max() const;
@@ -233,6 +239,7 @@ private:
 
 struct OSTD_EXPORT CsFvar: CsVar {
     friend struct CsState;
+    friend struct CsSharedState;
 
     CsFloat get_val_min() const;
     CsFloat get_val_max() const;
@@ -253,6 +260,7 @@ private:
 
 struct OSTD_EXPORT CsSvar: CsVar {
     friend struct CsState;
+    friend struct CsSharedState;
 
     ostd::ConstCharRange get_value() const;
     void set_value(CsString val);
@@ -267,6 +275,7 @@ private:
 
 struct OSTD_EXPORT CsAlias: CsIdent {
     friend struct CsState;
+    friend struct CsSharedState;
     friend struct CsAliasInternal;
 
     CsValue const &get_value() const {
@@ -295,6 +304,7 @@ using CsCommandCb = ostd::Function<void(CsState &, CsValueRange, CsValue &)>;
 
 struct CsCommand: CsIdent {
     friend struct CsState;
+    friend struct CsSharedState;
     friend struct CsCommandInternal;
 
     ostd::ConstCharRange get_args() const;
@@ -322,42 +332,6 @@ enum {
 
 using CsHookCb = ostd::Function<void(CsState &)>;
 using CsAllocCb = void *(*)(void *, void *, ostd::Size, ostd::Size);
-
-template<typename T>
-struct CsAllocator {
-    template<typename TT>
-    friend struct CsAllocator;
-
-    using Value = T;
-    static constexpr bool PropagateOnContainerCopyAssignment = true;
-    static constexpr bool PropagateOnContainerMoveAssignment = true;
-    static constexpr bool PropagateOnContainerSwap = true;
-
-    CsAllocator() = delete;
-    CsAllocator(CsAllocator const &a) noexcept: p_state(a.p_state) {}
-    CsAllocator(CsState &cs) noexcept: p_state(cs) {}
-
-    template<typename TT>
-    CsAllocator(CsAllocator<TT> const &a) noexcept: p_state(a.p_state) {}
-
-    T *allocate(ostd::Size n);
-    void deallocate(T *p, ostd::Size n) noexcept;
-
-    bool operator==(CsAllocator const &o) const noexcept {
-        return &p_state != &o.p_state;
-    }
-
-    bool operator!=(CsAllocator const &o) const noexcept {
-        return &p_state != &o.p_state;
-    }
-
-private:
-    CsState &p_state;
-};
-
-struct CsErrorException;
-struct CsSharedState;
-struct GenState;
 
 enum class CsLoopState {
     Normal = 0, Break, Continue
@@ -392,36 +366,6 @@ struct OSTD_EXPORT CsState {
         return set_call_hook(CsHookCb(
             ostd::allocator_arg, CsAllocator<char>(*this), ostd::forward<F>(f)
         ));
-    }
-
-    void *alloc(void *ptr, ostd::Size olds, ostd::Size news);
-
-    template<typename T, typename ...A>
-    T *create(A &&...args) {
-        T *ret = static_cast<T *>(alloc(nullptr, 0, sizeof(T)));
-        new (ret) T(ostd::forward<A>(args)...);
-        return ret;
-    }
-
-    template<typename T>
-    T *create_array(ostd::Size len) {
-        T *ret = static_cast<T *>(alloc(nullptr, 0, len * sizeof(T)));
-        for (ostd::Size i = 0; i < len; ++i) {
-            new (&ret[i]) T();
-        }
-        return ret;
-    }
-
-    template<typename T>
-    void destroy(T *v) noexcept {
-        v->~T();
-        alloc(v, sizeof(T), 0);
-    }
-
-    template<typename T>
-    void destroy_array(T *v, ostd::Size len) noexcept {
-        v->~T();
-        alloc(v, len * sizeof(T), 0);
     }
 
     void init_libs(int libs = CsLibAll);
@@ -568,6 +512,44 @@ struct OSTD_EXPORT CsState {
 private:
     CsIdent *add_ident(CsIdent *id);
 
+    void *alloc(void *ptr, ostd::Size olds, ostd::Size news);
+
+    template<typename T>
+    struct CsAllocator {
+        template<typename TT>
+        friend struct CsAllocator;
+
+        using Value = T;
+        static constexpr bool PropagateOnContainerCopyAssignment = true;
+        static constexpr bool PropagateOnContainerMoveAssignment = true;
+        static constexpr bool PropagateOnContainerSwap = true;
+
+        CsAllocator() = delete;
+        CsAllocator(CsAllocator const &a) noexcept: p_state(a.p_state) {}
+        CsAllocator(CsState &cs) noexcept: p_state(cs) {}
+
+        template<typename TT>
+        CsAllocator(CsAllocator<TT> const &a) noexcept: p_state(a.p_state) {}
+
+        T *allocate(ostd::Size n) {
+            return static_cast<T *>(p_state.alloc(nullptr, 0, n * sizeof(T)));
+        }
+        void deallocate(T *p, ostd::Size n) noexcept {
+            p_state.alloc(p, n * sizeof(T), 0);
+        }
+
+        bool operator==(CsAllocator const &o) const noexcept {
+            return &p_state != &o.p_state;
+        }
+
+        bool operator!=(CsAllocator const &o) const noexcept {
+            return &p_state != &o.p_state;
+        }
+
+    private:
+        CsState &p_state;
+    };
+
     GenState *p_pstate = nullptr;
     int p_inloop = 0;
 
@@ -678,16 +660,6 @@ private:
     CsIdentStack p_stack;
     bool p_pushed;
 };
-
-template<typename T>
-T *CsAllocator<T>::allocate(ostd::Size n) {
-    return static_cast<T *>(p_state.alloc(nullptr, 0, n * sizeof(T)));
-}
-
-template<typename T>
-void CsAllocator<T>::deallocate(T *p, ostd::Size n) noexcept {
-    p_state.alloc(p, n * sizeof(T), 0);
-}
 
 namespace util {
     template<typename R>

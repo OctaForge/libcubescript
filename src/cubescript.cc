@@ -405,9 +405,9 @@ CsState::~CsState() {
             a->get_value().force_null();
             CsAliasInternal::clean_code(a);
         }
-        destroy(i);
+        p_state->destroy(i);
     }
-    destroy(p_state);
+    p_state->destroy(p_state);
 }
 
 CsHookCb CsState::set_call_hook(CsHookCb func) {
@@ -425,7 +425,7 @@ CsHookCb &CsState::get_call_hook() {
 }
 
 void *CsState::alloc(void *ptr, ostd::Size os, ostd::Size ns) {
-    return p_state->allocf(p_state->aptr, ptr, os, ns);
+    return p_state->alloc(ptr, os, ns);
 }
 
 void CsState::clear_override(CsIdent &id) {
@@ -486,7 +486,7 @@ CsIdent *CsState::new_ident(ostd::ConstCharRange name, int flags) {
                 *this, "number %s is not a valid identifier name", name
             );
         }
-        id = add_ident(create<CsAlias>(name, flags));
+        id = add_ident(p_state->create<CsAlias>(name, flags));
     }
     return id;
 }
@@ -544,7 +544,7 @@ CsIvar *CsState::new_ivar(
     ostd::ConstCharRange n, CsInt m, CsInt x, CsInt v, CsVarCb f, int flags
 ) {
     return add_ident(
-        create<CsIvar>(n, m, x, v, ostd::move(f), flags)
+        p_state->create<CsIvar>(n, m, x, v, ostd::move(f), flags)
     )->get_ivar();
 }
 
@@ -552,7 +552,7 @@ CsFvar *CsState::new_fvar(
     ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat v, CsVarCb f, int flags
 ) {
     return add_ident(
-        create<CsFvar>(n, m, x, v, ostd::move(f), flags)
+        p_state->create<CsFvar>(n, m, x, v, ostd::move(f), flags)
     )->get_fvar();
 }
 
@@ -560,7 +560,7 @@ CsSvar *CsState::new_svar(
     ostd::ConstCharRange n, CsString v, CsVarCb f, int flags
 ) {
     return add_ident(
-        create<CsSvar>(n, ostd::move(v), ostd::move(f), flags)
+        p_state->create<CsSvar>(n, ostd::move(v), ostd::move(f), flags)
     )->get_svar();
 }
 
@@ -613,7 +613,7 @@ void CsState::set_alias(ostd::ConstCharRange name, CsValue v) {
     } else if (cs_check_num(name)) {
         throw CsErrorException(*this, "cannot alias number %s", name);
     } else {
-        add_ident(create<CsAlias>(name, ostd::move(v), identflags));
+        add_ident(p_state->create<CsAlias>(name, ostd::move(v), identflags));
     }
 }
 
@@ -974,7 +974,7 @@ CsCommand *CsState::new_command(
         }
     }
     return static_cast<CsCommand *>(
-        add_ident(create<CsCommand>(name, args, nargs, ostd::move(func)))
+        add_ident(p_state->create<CsCommand>(name, args, nargs, ostd::move(func)))
     );
 }
 

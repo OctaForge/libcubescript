@@ -99,6 +99,38 @@ struct CsSharedState {
     CsVector<CsIdent *> identmap;
     CsAllocCb allocf;
     void *aptr;
+
+    void *alloc(void *ptr, ostd::Size os, ostd::Size ns) {
+        return allocf(aptr, ptr, os, ns);
+    }
+
+    template<typename T, typename ...A>
+    T *create(A &&...args) {
+        T *ret = static_cast<T *>(alloc(nullptr, 0, sizeof(T)));
+        new (ret) T(ostd::forward<A>(args)...);
+        return ret;
+    }
+
+    template<typename T>
+    T *create_array(ostd::Size len) {
+        T *ret = static_cast<T *>(alloc(nullptr, 0, len * sizeof(T)));
+        for (ostd::Size i = 0; i < len; ++i) {
+            new (&ret[i]) T();
+        }
+        return ret;
+    }
+
+    template<typename T>
+    void destroy(T *v) noexcept {
+        v->~T();
+        alloc(v, sizeof(T), 0);
+    }
+
+    template<typename T>
+    void destroy_array(T *v, ostd::Size len) noexcept {
+        v->~T();
+        alloc(v, len * sizeof(T), 0);
+    }
 };
 
 struct CsBreakException {

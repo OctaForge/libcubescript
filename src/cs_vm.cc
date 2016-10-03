@@ -50,7 +50,7 @@ CsStackState::~CsStackState() {
     for (CsStackStateNode const *nd = p_node; nd; nd = nd->next) {
         ++len;
     }
-    p_state.destroy_array(p_node, len);
+    p_state.p_state->destroy_array(p_node, len);
 }
 
 CsStackState &CsStackState::operator=(CsStackState &&st) {
@@ -81,7 +81,7 @@ CsStackState CsErrorException::save_stack(CsState &cs) {
     if (!total) {
         return CsStackState(cs, nullptr, false);
     }
-    CsStackStateNode *st = cs.create_array<CsStackStateNode>(
+    CsStackStateNode *st = cs.p_state->create_array<CsStackStateNode>(
         ostd::min(total, dalias->get_value())
     );
     CsStackStateNode *ret = st, *nd = st;
