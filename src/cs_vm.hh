@@ -391,8 +391,7 @@ struct CsAliasInternal {
             GenState gs(cs);
             gs.code.reserve(64);
             gs.gen_main(a->get_value().get_str());
-            ostd::Uint32 *code = new ostd::Uint32[gs.code.size()];
-            memcpy(code, gs.code.data(), gs.code.size() * sizeof(ostd::Uint32));
+            ostd::Uint32 *code = gs.code.release();
             bcode_incr(code);
             a->p_acode = reinterpret_cast<CsBytecode *>(code);
         }
