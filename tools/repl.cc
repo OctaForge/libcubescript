@@ -27,8 +27,7 @@ static bool stdin_is_tty() {
 
 /* line editing support */
 
-#ifdef CS_REPL_HAS_COMPLETE
-static ostd::ConstCharRange get_complete_cmd(ostd::ConstCharRange buf) {
+static inline ostd::ConstCharRange get_complete_cmd(ostd::ConstCharRange buf) {
     ostd::ConstCharRange not_allowed = "\"/;()[] \t\r\n\0";
     ostd::ConstCharRange found = ostd::find_one_of(buf, not_allowed);
     while (!found.empty()) {
@@ -38,9 +37,7 @@ static ostd::ConstCharRange get_complete_cmd(ostd::ConstCharRange buf) {
     }
     return buf;
 }
-#endif /* CS_REPL_HAS_COMPLETE */
 
-#ifdef CS_REPL_HAS_HINTS
 static inline ostd::ConstCharRange get_arg_type(char arg) {
     switch (arg) {
         case 'i':
@@ -73,7 +70,7 @@ static inline ostd::ConstCharRange get_arg_type(char arg) {
     return "illegal";
 }
 
-static void fill_cmd_args(ostd::String &writer, ostd::ConstCharRange args) {
+static inline void fill_cmd_args(ostd::String &writer, ostd::ConstCharRange args) {
     char variadic = '\0';
     int nrep = 0;
     if (!args.empty() && ((args.back() == 'V') || (args.back() == 'C'))) {
@@ -130,7 +127,7 @@ static void fill_cmd_args(ostd::String &writer, ostd::ConstCharRange args) {
     }
 }
 
-static CsCommand *get_hint_cmd(CsState &cs, ostd::ConstCharRange buf) {
+static inline CsCommand *get_hint_cmd(CsState &cs, ostd::ConstCharRange buf) {
     ostd::ConstCharRange nextchars = "([;";
     auto lp = ostd::find_one_of(buf, nextchars);
     if (!lp.empty()) {
@@ -153,7 +150,6 @@ static CsCommand *get_hint_cmd(CsState &cs, ostd::ConstCharRange buf) {
     }
     return nullptr;
 }
-#endif /* CS_REPL_HAS_HINTS */
 
 #include "edit_linenoise.hh"
 #include "edit_readline.hh"

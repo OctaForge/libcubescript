@@ -13,7 +13,6 @@
 
 static CsState *rd_cs = nullptr;
 
-#ifdef CS_REPL_HAS_COMPLETE
 static char *ln_complete_list(char const *buf, int state) {
     static ostd::ConstCharRange cmd;
     static ostd::PointerRange<CsIdent *> itr;
@@ -45,9 +44,7 @@ static char **ln_complete(char const *buf, int, int) {
     rl_attempted_completion_over = 1;
     return rl_completion_matches(buf, ln_complete_list);
 }
-#endif
 
-#ifdef CS_REPL_HAS_HINTS
 void ln_hint() {
     CsCommand *cmd = get_hint_cmd(*rd_cs, rl_line_buffer);
     if (!cmd) {
@@ -64,16 +61,11 @@ void ln_hint() {
     rl_redisplay();
     rl_replace_line(old.data(), 0);
 }
-#endif
 
 static void init_lineedit(CsState &cs, ostd::ConstCharRange) {
     rd_cs = &cs;
-#ifdef CS_REPL_HAS_COMPLETE
     rl_attempted_completion_function = ln_complete;
-#endif
-#ifdef CS_REPL_HAS_HINTS
     rl_redisplay_function = ln_hint;
-#endif
 }
 
 static ostd::Maybe<ostd::String> read_line(CsState &, CsSvar *pr) {

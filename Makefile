@@ -30,8 +30,7 @@ $(LIBCS_LIB): $(LIBCS_OBJ)
 
 repl: $(LIBCS_LIB) tools/repl.cc tools/linenoise.cc tools/linenoise.hh
 	$(CXX) $(CXXFLAGS) $(LIBCS_CXXFLAGS) $(LDFLAGS) \
-	-DCS_REPL_USE_LINENOISE -DCS_REPL_HAS_HINTS -DCS_REPL_HAS_COMPLETE \
-	tools/linenoise.cc tools/repl.cc -o repl $(LIBCS_LIB)
+	-DCS_REPL_USE_LINENOISE tools/linenoise.cc tools/repl.cc -o repl $(LIBCS_LIB)
 
 clean:
 	rm -f $(LIBCS_LIB) $(LIBCS_OBJ) repl
