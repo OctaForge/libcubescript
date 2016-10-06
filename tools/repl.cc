@@ -287,7 +287,8 @@ int main(int argc, char **argv) {
     });
 
     int firstarg = 0;
-    bool has_inter = false, has_ver = false, has_help = false, has_str = false;
+    bool has_inter = false, has_ver = false, has_help = false;
+    char const *has_str = nullptr;
     for (int i = 1; i < argc; ++i) {
         if (argv[i][0] != '-') {
             firstarg = i;
@@ -326,13 +327,16 @@ int main(int argc, char **argv) {
                 has_help = true;
                 break;
             case 'e':
-                has_str = true;
                 if (argv[i][2] == '\0') {
                     ++i;
                     if (!argv[i]) {
                         firstarg = -1;
                         goto endargs;
+                    } else {
+                        has_str = argv[i];
                     }
+                } else {
+                    has_str = argv[i] + 2;
                 }
                 break;
             default:
@@ -352,17 +356,8 @@ endargs:
         print_usage(argv[0], false);
         return 0;
     }
-    for (int i = 1; i < ((firstarg > 0) ? firstarg : argc); ++i) {
-        switch (argv[i][1]) {
-            case 'e': {
-                auto str = argv[i] + 2;
-                if (*str == '\0') {
-                    str = argv[++i];
-                }
-                do_call(gcs, str);
-                break;
-            }
-        }
+    if (has_str) {
+        do_call(gcs, has_str);
     }
     if (firstarg) {
         do_call(gcs, argv[firstarg], true);
