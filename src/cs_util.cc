@@ -186,9 +186,12 @@ done:
 }
 
 namespace util {
-    static ostd::ConstCharRange cs_parse_str(
+    OSTD_EXPORT ostd::ConstCharRange parse_string(
         CsState &cs, ostd::ConstCharRange str
     ) {
+        if (str.empty() || (*str != '\"')) {
+            return str;
+        }
         ostd::ConstCharRange orig = str;
         ++str;
         while (!str.empty()) {
@@ -292,7 +295,7 @@ end:
         switch (*input) {
             case '"':
                 quote = input;
-                input = cs_parse_str(p_state, input);
+                input = parse_string(p_state, input);
                 quote = ostd::slice_until(quote, input);
                 item = quote.slice(1, quote.size() - 1);
                 break;
@@ -314,7 +317,7 @@ end:
                     ++input;
                     switch (c) {
                         case '"':
-                            input = cs_parse_str(p_state, input);
+                            input = parse_string(p_state, input);
                             break;
                         case '/':
                             if (!input.empty() && (*input == '/')) {
