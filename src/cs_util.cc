@@ -187,13 +187,16 @@ done:
 
 namespace util {
     OSTD_EXPORT ostd::ConstCharRange parse_string(
-        CsState &cs, ostd::ConstCharRange str
+        CsState &cs, ostd::ConstCharRange str, ostd::Size &nlines
     ) {
+        ostd::Size nl = 0;
+        nlines = nl;
         if (str.empty() || (*str != '\"')) {
             return str;
         }
         ostd::ConstCharRange orig = str;
         ++str;
+        ++nl;
         while (!str.empty()) {
             switch (*str) {
                 case '\r':
@@ -201,25 +204,31 @@ namespace util {
                 case '\"':
                     goto end;
                 case '^':
+                case '\\': {
+                    bool needn = (*str == '\\');
                     ++str;
-                    if (!str.empty()) {
-                        break;
+                    if (str.empty()) {
+                        goto end;
                     }
-                    goto end;
-                case '\\':
-                    ++str;
-                    if (!str.empty() && ((*str == '\r') || (*str == '\n'))) {
+                    if ((*str == '\r') || (*str == '\n')) {
                         char c = *str;
                         ++str;
+                        ++nl;
                         if (!str.empty() && (c == '\r') && (*str == '\n')) {
                             ++str;
                         }
+                    } else if (needn) {
+                        goto end;
+                    } else {
+                        ++str;
                     }
                     continue;
+                }
             }
             ++str;
         }
 end:
+        nlines = nl;
         if (str.empty() || (*str != '\"')) {
             throw CsErrorException(
                 cs, "unfinished string '%s'", ostd::slice_until(orig, str)

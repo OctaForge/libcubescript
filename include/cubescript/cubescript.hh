@@ -742,8 +742,15 @@ namespace util {
     }
 
     OSTD_EXPORT ostd::ConstCharRange parse_string(
-        CsState &cs, ostd::ConstCharRange str
+        CsState &cs, ostd::ConstCharRange str, ostd::Size &nlines
     );
+
+    inline ostd::ConstCharRange parse_string(
+        CsState &cs, ostd::ConstCharRange str
+    ) {
+        ostd::Size nlines;
+        return parse_string(cs, str, nlines);
+    }
 
     OSTD_EXPORT ostd::ConstCharRange parse_word(
         CsState &cs, ostd::ConstCharRange str
