@@ -38,41 +38,12 @@ static ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
 }
 
 ostd::ConstCharRange GenState::get_str() {
-    auto ln = source;
-    next_char();
-    auto beg = source;
-    for (; current(); next_char()) {
-        switch (current()) {
-            case '\r':
-            case '\n':
-            case '\"':
-                goto done;
-            case '^':
-                next_char();
-                if (current()) {
-                    break;
-                }
-                goto done;
-            case '\\': {
-                next_char();
-                char c = current();
-                if ((c == '\r') || (c == '\n')) {
-                    if ((c == '\r') && (current(1) == '\n')) {
-                        next_char();
-                    }
-                    next_char();
-                }
-                continue;
-            }
-        }
-    }
-done:
-    auto ret = ostd::slice_until(beg, source);
-    if (current() != '\"') {
-        throw CsErrorException(cs, "unfinished string '%s'", ln);
-    }
-    next_char();
-    return ret;
+    ostd::Size nl;
+    ostd::ConstCharRange beg = source;
+    source = util::parse_string(cs, source, nl);
+    current_line += int(nl) - 1;
+    ostd::ConstCharRange ret = ostd::slice_until(beg, source);
+    return ret.slice(1, ret.size() - 1);
 }
 
 CsString GenState::get_str_dup(bool unescape) {
