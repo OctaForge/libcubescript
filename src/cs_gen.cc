@@ -8,35 +8,6 @@
 
 namespace cscript {
 
-static ostd::ConstCharRange cs_parse_str(ostd::ConstCharRange str) {
-    while (!str.empty()) {
-        switch (*str) {
-            case '\r':
-            case '\n':
-            case '\"':
-                return str;
-            case '^':
-                ++str;
-                if (!str.empty()) {
-                    break;
-                }
-                return str;
-            case '\\':
-                ++str;
-                if (!str.empty() && ((*str == '\r') || (*str == '\n'))) {
-                    char c = *str;
-                    ++str;
-                    if (!str.empty() && (c == '\r') && (*str == '\n')) {
-                        ++str;
-                    }
-                }
-                continue;
-        }
-        ++str;
-    }
-    return str;
-}
-
 ostd::ConstCharRange GenState::get_str() {
     ostd::Size nl;
     ostd::ConstCharRange beg = source;
@@ -526,15 +497,10 @@ static bool compileblockstr(GenState &gs, ostd::ConstCharRange str, bool macro) 
                 break;
             case '\"': {
                 ostd::ConstCharRange start = str;
-                ++start;
-                ostd::ConstCharRange end = cs_parse_str(start);
-                if (!end.empty() && (*end == '\"')) {
-                    ++end;
-                }
-                ostd::Size slen = str.distance_front(end);
-                memcpy(&buf[len], str.data(), slen);
-                len += slen;
-                str = end;
+                str = util::parse_string(gs.cs, str);
+                ostd::ConstCharRange strr = ostd::slice_until(start, str);
+                memcpy(&buf[len], strr.data(), strr.size());
+                len += strr.size();
                 break;
             }
             case '/':
