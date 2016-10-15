@@ -149,7 +149,7 @@ struct GenState {
     bool parsing = true;
     CsVector<ostd::Uint32> code;
     ostd::ConstCharRange source;
-    int current_line;
+    ostd::Size current_line;
     ostd::ConstCharRange src_name;
 
     GenState() = delete;
