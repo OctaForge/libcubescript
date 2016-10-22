@@ -756,7 +756,7 @@ namespace util {
         CsState &cs, ostd::ConstCharRange str
     );
 
-    struct ListParser {
+    struct OSTD_EXPORT ListParser {
         ostd::ConstCharRange input;
         ostd::ConstCharRange quote = ostd::ConstCharRange();
         ostd::ConstCharRange item = ostd::ConstCharRange();
@@ -775,11 +775,11 @@ private:
         CsState &p_state;
     };
 
-    ostd::Size list_length(CsState &cs, ostd::ConstCharRange s);
-    ostd::Maybe<CsString> list_index(
+    OSTD_EXPORT ostd::Size list_length(CsState &cs, ostd::ConstCharRange s);
+    OSTD_EXPORT ostd::Maybe<CsString> list_index(
         CsState &cs, ostd::ConstCharRange s, ostd::Size idx
     );
-    CsVector<CsString> list_explode(
+    OSTD_EXPORT CsVector<CsString> list_explode(
         CsState &cs, ostd::ConstCharRange s, ostd::Size limit = -1
     );
 

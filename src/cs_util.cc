@@ -387,7 +387,7 @@ endblock:
         return s;
     }
 
-    ostd::Size list_length(CsState &cs, ostd::ConstCharRange s) {
+    OSTD_EXPORT ostd::Size list_length(CsState &cs, ostd::ConstCharRange s) {
         ListParser p(cs, s);
         ostd::Size ret = 0;
         while (p.parse()) {
@@ -396,7 +396,7 @@ endblock:
         return ret;
     }
 
-    ostd::Maybe<CsString> list_index(
+    OSTD_EXPORT ostd::Maybe<CsString> list_index(
         CsState &cs, ostd::ConstCharRange s, ostd::Size idx
     ) {
         ListParser p(cs, s);
@@ -411,7 +411,7 @@ endblock:
         return ostd::move(p.element());
     }
 
-    CsVector<CsString> list_explode(
+    OSTD_EXPORT CsVector<CsString> list_explode(
         CsState &cs, ostd::ConstCharRange s, ostd::Size limit
     ) {
         CsVector<CsString> ret;
