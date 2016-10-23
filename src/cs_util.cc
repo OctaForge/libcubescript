@@ -410,17 +410,6 @@ endblock:
         }
         return ostd::move(p.element());
     }
-
-    OSTD_EXPORT CsVector<CsString> list_explode(
-        CsState &cs, ostd::ConstCharRange s, ostd::Size limit
-    ) {
-        CsVector<CsString> ret;
-        ListParser p(cs, s);
-        while ((ret.size() < limit) && p.parse()) {
-            ret.push(ostd::move(p.element()));
-        }
-        return ret;
-    }
 } /* namespace util */
 
 } /* namespace cscript */

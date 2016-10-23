@@ -779,9 +779,6 @@ private:
     OSTD_EXPORT ostd::Maybe<CsString> list_index(
         CsState &cs, ostd::ConstCharRange s, ostd::Size idx
     );
-    OSTD_EXPORT CsVector<CsString> list_explode(
-        CsState &cs, ostd::ConstCharRange s, ostd::Size limit = -1
-    );
 
     template<typename R>
     inline ostd::Ptrdiff format_int(R &&writer, CsInt val) {
