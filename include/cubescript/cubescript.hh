@@ -768,14 +768,14 @@ namespace util {
 
         void skip();
         bool parse();
+        ostd::Size count();
 
-        CsString element();
+        CsString element() const;
 
 private:
         CsState &p_state;
     };
 
-    OSTD_EXPORT ostd::Size list_length(CsState &cs, ostd::ConstCharRange s);
     OSTD_EXPORT ostd::Maybe<CsString> list_index(
         CsState &cs, ostd::ConstCharRange s, ostd::Size idx
     );

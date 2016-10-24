@@ -372,7 +372,15 @@ endblock:
         return true;
     }
 
-    CsString ListParser::element() {
+    ostd::Size ListParser::count() {
+        ostd::Size ret = 0;
+        while (parse()) {
+            ++ret;
+        }
+        return ret;
+    }
+
+    CsString ListParser::element() const {
         CsString s;
         s.reserve(item.size());
         if (!quote.empty() && (*quote == '"')) {
@@ -385,15 +393,6 @@ endblock:
         }
         s.advance(item.size());
         return s;
-    }
-
-    OSTD_EXPORT ostd::Size list_length(CsState &cs, ostd::ConstCharRange s) {
-        ListParser p(cs, s);
-        ostd::Size ret = 0;
-        while (p.parse()) {
-            ++ret;
-        }
-        return ret;
     }
 
     OSTD_EXPORT ostd::Maybe<CsString> list_index(

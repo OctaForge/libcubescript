@@ -139,7 +139,7 @@ static void cs_init_lib_list_sort(CsState &cs);
 
 void cs_init_lib_list(CsState &gcs) {
     gcs.new_command("listlen", "s", [](auto &cs, auto args, auto &res) {
-        res.set_int(CsInt(util::list_length(cs, args[0].get_strr())));
+        res.set_int(CsInt(util::ListParser(cs, args[0].get_strr()).count()));
     });
 
     gcs.new_command("at", "si1V", [](auto &cs, auto args, auto &res) {
@@ -421,7 +421,7 @@ end:
         auto buf = ostd::appender<CsString>();
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange conj = args[1].get_strr();
-        ostd::Size len = util::list_length(cs, s);
+        ostd::Size len = util::ListParser(cs, s).count();
         ostd::Size n = 0;
         for (util::ListParser p(cs, s); p.parse(); ++n) {
             if (!p.quote.empty() && (p.quote.front() == '"')) {
