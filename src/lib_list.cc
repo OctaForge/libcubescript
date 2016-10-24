@@ -167,7 +167,7 @@ void cs_init_lib_list(CsState &gcs) {
     gcs.new_command("sublist", "siiN", [](auto &cs, auto args, auto &res) {
         CsInt skip    = args[1].get_int(),
               count   = args[2].get_int(),
-              numargs = args[2].get_int();
+              numargs = args[3].get_int();
 
         CsInt offset = ostd::max(skip, CsInt(0)),
               len = (numargs >= 3) ? ostd::max(count, CsInt(0)) : -1;
