@@ -771,6 +771,15 @@ namespace util {
         ostd::Size parse(ostd::Size n);
         ostd::Size count();
 
+        template<typename R>
+        ostd::Size element(R &&writer) const {
+            if (!quote.empty() && (*quote == '"')) {
+                return unescape_string(ostd::forward<R>(writer), item);
+            } else {
+                return writer.put_n(item.data(), item.size());
+            }
+        }
+
         CsString element() const;
 
 private:

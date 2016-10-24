@@ -392,18 +392,9 @@ endblock:
     }
 
     CsString ListParser::element() const {
-        CsString s;
-        s.reserve(item.size());
-        if (!quote.empty() && (*quote == '"')) {
-            auto writer = s.iter_cap();
-            util::unescape_string(writer, item);
-            writer.put('\0');
-        } else {
-            memcpy(s.data(), item.data(), item.size());
-            s[item.size()] = '\0';
-        }
-        s.advance(item.size());
-        return s;
+        auto app = ostd::appender<CsString>();
+        element(app);
+        return ostd::move(app.get());
     }
 } /* namespace util */
 
