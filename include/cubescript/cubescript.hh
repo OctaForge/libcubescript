@@ -768,6 +768,7 @@ namespace util {
 
         void skip();
         bool parse();
+        ostd::Size parse(ostd::Size n);
         ostd::Size count();
 
         CsString element() const;
@@ -775,10 +776,6 @@ namespace util {
 private:
         CsState &p_state;
     };
-
-    OSTD_EXPORT ostd::Maybe<CsString> list_index(
-        CsState &cs, ostd::ConstCharRange s, ostd::Size idx
-    );
 
     template<typename R>
     inline ostd::Ptrdiff format_int(R &&writer, CsInt val) {
