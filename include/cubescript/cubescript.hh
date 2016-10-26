@@ -757,13 +757,12 @@ namespace util {
     );
 
     struct OSTD_EXPORT ListParser {
-        ostd::ConstCharRange input;
         ostd::ConstCharRange quote = ostd::ConstCharRange();
         ostd::ConstCharRange item = ostd::ConstCharRange();
 
         ListParser() = delete;
         ListParser(CsState &cs, ostd::ConstCharRange src):
-            input(src), p_state(cs)
+            p_state(cs), p_input(src)
         {}
 
         void skip();
@@ -786,8 +785,13 @@ namespace util {
             return ostd::move(app.get());
         }
 
+        ostd::ConstCharRange &get_input() {
+            return p_input;
+        }
+
 private:
         CsState &p_state;
+        ostd::ConstCharRange p_input;
     };
 
     template<typename R>

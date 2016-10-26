@@ -281,56 +281,56 @@ end:
 
     void ListParser::skip() {
         for (;;) {
-            while (!input.empty()) {
-                char c = *input;
+            while (!p_input.empty()) {
+                char c = *p_input;
                 if ((c == ' ') || (c == '\t') || (c == '\r') || (c == '\n')) {
-                    ++input;
+                    ++p_input;
                 } else {
                     break;
                 }
             }
-            if ((input.size() < 2) || (input[0] != '/') || (input[1] != '/')) {
+            if ((p_input.size() < 2) || (p_input[0] != '/') || (p_input[1] != '/')) {
                 break;
             }
-            input = ostd::find(input, '\n');
+            p_input = ostd::find(p_input, '\n');
         }
     }
 
     bool ListParser::parse() {
         skip();
-        if (input.empty()) {
+        if (p_input.empty()) {
             return false;
         }
-        switch (*input) {
+        switch (*p_input) {
             case '"':
-                quote = input;
-                input = parse_string(p_state, input);
-                quote = ostd::slice_until(quote, input);
+                quote = p_input;
+                p_input = parse_string(p_state, p_input);
+                quote = ostd::slice_until(quote, p_input);
                 item = quote.slice(1, quote.size() - 1);
                 break;
             case '(':
             case '[': {
-                quote = input;
-                ++input;
-                item = input;
+                quote = p_input;
+                ++p_input;
+                item = p_input;
                 char btype = *quote;
                 int brak = 1;
                 for (;;) {
-                    input = ostd::find_one_of(
-                        input, ostd::ConstCharRange("\"/;()[]")
+                    p_input = ostd::find_one_of(
+                        p_input, ostd::ConstCharRange("\"/;()[]")
                     );
-                    if (input.empty()) {
+                    if (p_input.empty()) {
                         return true;
                     }
-                    char c = *input;
-                    ++input;
+                    char c = *p_input;
+                    ++p_input;
                     switch (c) {
                         case '"':
-                            input = parse_string(p_state, input);
+                            p_input = parse_string(p_state, p_input);
                             break;
                         case '/':
-                            if (!input.empty() && (*input == '/')) {
-                                input = ostd::find(input, '\n');
+                            if (!p_input.empty() && (*p_input == '/')) {
+                                p_input = ostd::find(p_input, '\n');
                             }
                             break;
                         case '(':
@@ -350,24 +350,24 @@ end:
                     }
                 }
 endblock:
-                item = ostd::slice_until(item, input);
+                item = ostd::slice_until(item, p_input);
                 item.pop_back();
-                quote = ostd::slice_until(quote, input);
+                quote = ostd::slice_until(quote, p_input);
                 break;
             }
             case ')':
             case ']':
                 return false;
             default: {
-                ostd::ConstCharRange e = parse_word(p_state, input);
-                quote = item = ostd::slice_until(input, e);
-                input = e;
+                ostd::ConstCharRange e = parse_word(p_state, p_input);
+                quote = item = ostd::slice_until(p_input, e);
+                p_input = e;
                 break;
             }
         }
         skip();
-        if (!input.empty() && (*input == ';')) {
-            ++input;
+        if (!p_input.empty() && (*p_input == ';')) {
+            ++p_input;
         }
         return true;
     }

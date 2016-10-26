@@ -150,7 +150,7 @@ void cs_init_lib_list(CsState &gcs) {
         util::ListParser p(cs, str);
         p.item = str;
         for (ostd::Size i = 1; i < args.size(); ++i) {
-            p.input = str;
+            p.get_input() = str;
             CsInt pos = args[i].get_int();
             for (; pos > 0; --pos) {
                 if (!p.parse()) {
@@ -180,11 +180,11 @@ void cs_init_lib_list(CsState &gcs) {
             if (offset > 0) {
                 p.skip();
             }
-            res.set_str(p.input);
+            res.set_str(p.get_input());
             return;
         }
 
-        char const *list = p.input.data();
+        char const *list = p.get_input().data();
         p.quote = ostd::ConstCharRange();
         if (len > 0 && p.parse()) {
             while (--len > 0 && p.parse());
@@ -488,8 +488,8 @@ end:
             }
         }
         p.skip();
-        if (!p.input.empty()) {
-            switch (p.input.front()) {
+        if (!p.get_input().empty()) {
+            switch (p.get_input().front()) {
                 case ')':
                 case ']':
                     break;
@@ -497,7 +497,7 @@ end:
                     if (!buf.empty()) {
                         buf += ' ';
                     }
-                    buf += p.input;
+                    buf += p.get_input();
                     break;
             }
         }
