@@ -780,7 +780,11 @@ namespace util {
             }
         }
 
-        CsString element() const;
+        CsString element() const {
+            auto app = ostd::appender<CsString>();
+            element(app);
+            return ostd::move(app.get());
+        }
 
 private:
         CsState &p_state;

@@ -390,12 +390,6 @@ endblock:
         }
         return ret;
     }
-
-    CsString ListParser::element() const {
-        auto app = ostd::appender<CsString>();
-        element(app);
-        return ostd::move(app.get());
-    }
 } /* namespace util */
 
 } /* namespace cscript */
