@@ -20,8 +20,6 @@ namespace cscript {
     template<typename T>
     using CsVector = ostd::Vector<T>;
 
-    using CsStream = ostd::Stream;
-
     constexpr CsInt const CsIntMin = INT_MIN;
     constexpr CsInt const CsIntMax = INT_MAX;
 
