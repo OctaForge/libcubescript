@@ -57,7 +57,7 @@ static inline void cs_list_assoc(
     for (util::ListParser p(cs, args[0].get_strr()); p.parse();) {
         if (cmp(p, val)) {
             if (p.parse()) {
-                res.set_str(p.element());
+                res.set_str(p.get_element());
             }
             return;
         }
@@ -78,7 +78,7 @@ static void cs_loop_list_conc(
     CsString r;
     int n = 0;
     for (util::ListParser p(cs, list); p.parse(); ++n) {
-        idv.set_str(p.element());
+        idv.set_str(p.get_element());
         idv.push();
         if (n && space) {
             r += ' ';
@@ -161,7 +161,7 @@ void cs_init_lib_list(CsState &gcs) {
                 p.item = p.quote = ostd::ConstCharRange();
             }
         }
-        res.set_str(p.element());
+        res.set_str(p.get_element());
     });
 
     gcs.new_command("sublist", "siiN", [](auto &cs, auto args, auto &res) {
@@ -226,7 +226,7 @@ void cs_init_lib_list(CsState &gcs) {
             idv.push();
             if (cs.run_bool(body)) {
                 if (p.parse()) {
-                    res.set_str(p.element());
+                    res.set_str(p.get_element());
                 }
                 break;
             }
@@ -288,7 +288,7 @@ void cs_init_lib_list(CsState &gcs) {
         auto body = args[2].get_code();
         int n = 0;
         for (util::ListParser p(cs, args[1].get_strr()); p.parse(); ++n) {
-            idv.set_str(p.element());
+            idv.set_str(p.get_element());
             idv.push();
             switch (cs.run_loop(body)) {
                 case CsLoopState::Break:
@@ -309,9 +309,9 @@ end:
         auto body = args[3].get_code();
         int n = 0;
         for (util::ListParser p(cs, args[2].get_strr()); p.parse(); n += 2) {
-            idv1.set_str(p.element());
+            idv1.set_str(p.get_element());
             if (p.parse()) {
-                idv2.set_str(p.element());
+                idv2.set_str(p.get_element());
             } else {
                 idv2.set_str("");
             }
@@ -338,14 +338,14 @@ end:
         auto body = args[4].get_code();
         int n = 0;
         for (util::ListParser p(cs, args[3].get_strr()); p.parse(); n += 3) {
-            idv1.set_str(p.element());
+            idv1.set_str(p.get_element());
             if (p.parse()) {
-                idv2.set_str(p.element());
+                idv2.set_str(p.get_element());
             } else {
                 idv2.set_str("");
             }
             if (p.parse()) {
-                idv3.set_str(p.element());
+                idv3.set_str(p.get_element());
             } else {
                 idv3.set_str("");
             }

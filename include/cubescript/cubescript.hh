@@ -771,7 +771,7 @@ namespace util {
         ostd::Size count();
 
         template<typename R>
-        ostd::Size element(R &&writer) const {
+        ostd::Size get_element(R &&writer) const {
             if (!quote.empty() && (*quote == '"')) {
                 return unescape_string(ostd::forward<R>(writer), item);
             } else {
@@ -779,9 +779,9 @@ namespace util {
             }
         }
 
-        CsString element() const {
+        CsString get_element() const {
             auto app = ostd::appender<CsString>();
-            element(app);
+            get_element(app);
             return ostd::move(app.get());
         }
 
