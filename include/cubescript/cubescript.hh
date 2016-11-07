@@ -757,9 +757,6 @@ namespace util {
     );
 
     struct OSTD_EXPORT ListParser {
-        ostd::ConstCharRange quote = ostd::ConstCharRange();
-        ostd::ConstCharRange item = ostd::ConstCharRange();
-
         ListParser() = delete;
         ListParser(CsState &cs, ostd::ConstCharRange src):
             p_state(cs), p_input(src)
@@ -771,18 +768,26 @@ namespace util {
         ostd::Size count();
 
         template<typename R>
-        ostd::Size get_element(R &&writer) const {
-            if (!quote.empty() && (*quote == '"')) {
-                return unescape_string(ostd::forward<R>(writer), item);
+        ostd::Size get_item(R &&writer) const {
+            if (!p_quote.empty() && (*p_quote == '"')) {
+                return unescape_string(ostd::forward<R>(writer), p_item);
             } else {
-                return writer.put_n(item.data(), item.size());
+                return writer.put_n(p_item.data(), p_item.size());
             }
         }
 
-        CsString get_element() const {
+        CsString get_item() const {
             auto app = ostd::appender<CsString>();
-            get_element(app);
+            get_item(app);
             return ostd::move(app.get());
+        }
+
+        ostd::ConstCharRange &get_raw_item(bool quoted = false) {
+            return quoted ? p_quote : p_item;
+        }
+
+        ostd::ConstCharRange const &get_raw_item(bool quoted = false) const {
+            return quoted ? p_quote : p_item;
         }
 
         ostd::ConstCharRange &get_input() {
@@ -790,6 +795,8 @@ namespace util {
         }
 
 private:
+        ostd::ConstCharRange p_quote = ostd::ConstCharRange();
+        ostd::ConstCharRange p_item = ostd::ConstCharRange();
         CsState &p_state;
         ostd::ConstCharRange p_input;
     };

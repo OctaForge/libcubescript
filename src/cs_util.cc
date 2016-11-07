@@ -303,17 +303,17 @@ end:
         }
         switch (*p_input) {
             case '"':
-                quote = p_input;
+                p_quote = p_input;
                 p_input = parse_string(p_state, p_input);
-                quote = ostd::slice_until(quote, p_input);
-                item = quote.slice(1, quote.size() - 1);
+                p_quote = ostd::slice_until(p_quote, p_input);
+                p_item = p_quote.slice(1, p_quote.size() - 1);
                 break;
             case '(':
             case '[': {
-                quote = p_input;
+                p_quote = p_input;
                 ++p_input;
-                item = p_input;
-                char btype = *quote;
+                p_item = p_input;
+                char btype = *p_quote;
                 int brak = 1;
                 for (;;) {
                     p_input = ostd::find_one_of(
@@ -350,9 +350,9 @@ end:
                     }
                 }
 endblock:
-                item = ostd::slice_until(item, p_input);
-                item.pop_back();
-                quote = ostd::slice_until(quote, p_input);
+                p_item = ostd::slice_until(p_item, p_input);
+                p_item.pop_back();
+                p_quote = ostd::slice_until(p_quote, p_input);
                 break;
             }
             case ')':
@@ -360,7 +360,7 @@ endblock:
                 return false;
             default: {
                 ostd::ConstCharRange e = parse_word(p_state, p_input);
-                quote = item = ostd::slice_until(p_input, e);
+                p_quote = p_item = ostd::slice_until(p_input, e);
                 p_input = e;
                 break;
             }
