@@ -21,17 +21,15 @@ static inline void p_set_end(
     *end = v;
 }
 
+/* this function assumes the input is definitely a hex digit */
 static inline CsInt p_hexd_to_int(char c) {
-    if ((c >= 48) && (c <= 57)) { /* 0-9 */
-        return c - '0';
-    }
-    if ((c >= 65) && (c <= 70)) { /* A-F */
+    if (c >= 97) { /* a-f */
+        return (c - 'a') + 10;
+    } else if (c >= 65) { /* A-F */
         return (c - 'A') + 10;
     }
-    if ((c >= 97) && (c <= 102)) { /* a-f */
-        return (c - 'a') + 10;
-    }
-    return 0;
+    /* 0-9 */
+    return c - '0';
 }
 
 static inline bool p_check_neg(ostd::ConstCharRange &input) {
