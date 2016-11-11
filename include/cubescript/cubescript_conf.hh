@@ -14,14 +14,7 @@ namespace cscript {
     using CsFloat = float;
     using CsString = ostd::String;
 
-    template<typename K, typename V>
-    using CsMap = ostd::Map<K, V>;
-
-    template<typename T>
-    using CsVector = ostd::Vector<T>;
-
     constexpr CsInt const CsIntMin = INT_MIN;
-    constexpr CsInt const CsIntMax = INT_MAX;
 
     constexpr auto const IntFormat = "%d";
     constexpr auto const FloatFormat = "%.7g";
