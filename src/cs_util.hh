@@ -7,6 +7,9 @@
 
 namespace cscript {
 
+/* TODO: use actual numeric limits as soon as ostd has them */
+constexpr CsInt const CsIntMin = -(~(1ULL << (sizeof(CsInt) * CHAR_BIT - 1))) - 1;
+
 template<typename K, typename V>
 using CsMap = ostd::Map<K, V>;
 

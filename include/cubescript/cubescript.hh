@@ -8,6 +8,7 @@
 
 #include <ostd/platform.hh>
 #include <ostd/types.hh>
+#include <ostd/type_traits.hh>
 #include <ostd/string.hh>
 #include <ostd/vector.hh>
 #include <ostd/map.hh>
@@ -19,6 +20,10 @@
 #include <ostd/format.hh>
 
 namespace cscript {
+
+static_assert(ostd::IsIntegral<CsInt>, "CsInt must be integral");
+static_assert(ostd::IsSigned<CsInt>, "CsInt must be signed");
+static_assert(ostd::IsFloatingPoint<CsFloat>, "CsFloat must be floating point");
 
 enum {
     CsIdfPersist    = 1 << 0,
