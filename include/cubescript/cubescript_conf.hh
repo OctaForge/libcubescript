@@ -12,7 +12,6 @@
 namespace cscript {
     using CsInt = int;
     using CsFloat = float;
-    using CsString = ostd::String;
 
     constexpr auto const IntFormat = "%d";
     constexpr auto const FloatFormat = "%.7g";

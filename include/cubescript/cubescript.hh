@@ -21,6 +21,8 @@
 
 namespace cscript {
 
+using CsString = ostd::String;
+
 static_assert(ostd::IsIntegral<CsInt>, "CsInt must be integral");
 static_assert(ostd::IsSigned<CsInt>, "CsInt must be signed");
 static_assert(ostd::IsFloatingPoint<CsFloat>, "CsFloat must be floating point");
