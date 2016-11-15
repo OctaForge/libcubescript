@@ -1,5 +1,3 @@
-#include <limits.h>
-
 /* c++ versions for overloaded math */
 #include <stdlib.h>
 #include <math.h>
@@ -309,7 +307,7 @@ void cs_init_lib_math(CsState &cs) {
     cs.new_command("<<", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
             args, res, 0, [](CsInt val1, CsInt val2) {
-                return (val2 < CsInt(sizeof(CsInt) * CHAR_BIT))
+                return (val2 < CsInt(ostd::SizeInBits<CsInt>))
                     ? (val1 << ostd::max(val2, CsInt(0)))
                     : 0;
             }, CsMathNoop<CsInt>()
@@ -319,7 +317,7 @@ void cs_init_lib_math(CsState &cs) {
         cs_mathop<CsInt>(
             args, res, 0, [](CsInt val1, CsInt val2) {
                 return val1 >> ostd::clamp(
-                    val2, CsInt(0), CsInt(sizeof(CsInt) * CHAR_BIT)
+                    val2, CsInt(0), CsInt(ostd::SizeInBits<CsInt>)
                 );
             }, CsMathNoop<CsInt>()
         );

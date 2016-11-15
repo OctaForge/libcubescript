@@ -5,6 +5,7 @@
 #include <ctype.h>
 
 #include <ostd/memory.hh>
+#include <ostd/limits.hh>
 
 namespace cscript {
 
@@ -353,7 +354,7 @@ lookupid:
                                     numargs++;
                                     break;
                                 case 'b':
-                                    gs.gen_int(CsIntMin);
+                                    gs.gen_int(ostd::NumericLimitMin<CsInt>);
                                     numargs++;
                                     break;
                                 case 'f':
@@ -939,7 +940,7 @@ static void compile_cmd(
                     if (rep) {
                         break;
                     }
-                    gs.gen_int(CsIntMin);
+                    gs.gen_int(ostd::NumericLimitMin<CsInt>);
                     fakeargs++;
                 }
                 numargs++;

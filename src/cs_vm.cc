@@ -3,6 +3,7 @@
 #include "cs_util.hh"
 
 #include <ostd/memory.hh>
+#include <ostd/limits.hh>
 
 namespace cscript {
 
@@ -320,7 +321,7 @@ static inline void callcommand(
                     if (rep) {
                         break;
                     }
-                    args[i].set_int(CsIntMin);
+                    args[i].set_int(ostd::NumericLimitMin<CsInt>);
                     fakeargs++;
                 } else {
                     args[i].force_int();
