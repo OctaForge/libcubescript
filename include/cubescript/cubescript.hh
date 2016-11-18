@@ -771,7 +771,6 @@ namespace util {
 
         void skip();
         bool parse();
-        ostd::Size parse(ostd::Size n);
         ostd::Size count();
 
         template<typename R>

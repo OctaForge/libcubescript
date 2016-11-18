@@ -370,17 +370,6 @@ endblock:
         return true;
     }
 
-    ostd::Size ListParser::parse(ostd::Size n) {
-        ostd::Size ret = 0;
-        for (ostd::Size i = 0; i < n; ++i) {
-            if (!parse()) {
-                return ret;
-            }
-            ++ret;
-        }
-        return ret;
-    }
-
     ostd::Size ListParser::count() {
         ostd::Size ret = 0;
         while (parse()) {
