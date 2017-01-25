@@ -131,7 +131,7 @@ ostd::ConstCharRange CsErrorException::save_msg(
     return ostd::ConstCharRange(cs.p_errbuf, msg.size());
 }
 
-static void bcode_ref(ostd::Uint32 *code) {
+static void bcode_ref(uint32_t *code) {
     if (!code) {
         return;
     }
@@ -150,7 +150,7 @@ static void bcode_ref(ostd::Uint32 *code) {
     }
 }
 
-static void bcode_unref(ostd::Uint32 *code) {
+static void bcode_unref(uint32_t *code) {
     if (!code) {
         return;
     }
@@ -170,32 +170,32 @@ static void bcode_unref(ostd::Uint32 *code) {
 }
 
 CsBytecodeRef::CsBytecodeRef(CsBytecode *v): p_code(v) {
-    bcode_ref(reinterpret_cast<ostd::Uint32 *>(p_code));
+    bcode_ref(reinterpret_cast<uint32_t *>(p_code));
 }
 CsBytecodeRef::CsBytecodeRef(CsBytecodeRef const &v): p_code(v.p_code) {
-    bcode_ref(reinterpret_cast<ostd::Uint32 *>(p_code));
+    bcode_ref(reinterpret_cast<uint32_t *>(p_code));
 }
 
 CsBytecodeRef::~CsBytecodeRef() {
-    bcode_unref(reinterpret_cast<ostd::Uint32 *>(p_code));
+    bcode_unref(reinterpret_cast<uint32_t *>(p_code));
 }
 
 CsBytecodeRef &CsBytecodeRef::operator=(CsBytecodeRef const &v) {
-    bcode_unref(reinterpret_cast<ostd::Uint32 *>(p_code));
+    bcode_unref(reinterpret_cast<uint32_t *>(p_code));
     p_code = v.p_code;
-    bcode_ref(reinterpret_cast<ostd::Uint32 *>(p_code));
+    bcode_ref(reinterpret_cast<uint32_t *>(p_code));
     return *this;
 }
 
 CsBytecodeRef &CsBytecodeRef::operator=(CsBytecodeRef &&v) {
-    bcode_unref(reinterpret_cast<ostd::Uint32 *>(p_code));
+    bcode_unref(reinterpret_cast<uint32_t *>(p_code));
     p_code = v.p_code;
     v.p_code = nullptr;
     return *this;
 }
 
-static inline ostd::Uint32 *forcecode(CsState &cs, CsValue &v) {
-    ostd::Uint32 *code = reinterpret_cast<ostd::Uint32 *>(v.get_code());
+static inline uint32_t *forcecode(CsState &cs, CsValue &v) {
+    uint32_t *code = reinterpret_cast<uint32_t *>(v.get_code());
     if (!code) {
         GenState gs(cs);
         gs.code.reserve(64);
@@ -204,7 +204,7 @@ static inline ostd::Uint32 *forcecode(CsState &cs, CsValue &v) {
         uint32_t *cbuf = new uint32_t[gs.code.size()];
         memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(uint32_t));
         v.set_code(reinterpret_cast<CsBytecode *>(cbuf + 1));
-        code = reinterpret_cast<ostd::Uint32 *>(v.get_code());
+        code = reinterpret_cast<uint32_t *>(v.get_code());
     }
     return code;
 }
@@ -225,7 +225,7 @@ static inline void forcecond(CsState &cs, CsValue &v) {
     }
 }
 
-static ostd::Uint32 emptyblock[CsValAny][2] = {
+static uint32_t emptyblock[CsValAny][2] = {
     { CsCodeStart + 0x100, CsCodeExit | CsRetNull },
     { CsCodeStart + 0x100, CsCodeExit | CsRetInt },
     { CsCodeStart + 0x100, CsCodeExit | CsRetFloat },
@@ -252,15 +252,15 @@ static inline void force_arg(CsValue &v, int type) {
     }
 }
 
-static ostd::Uint32 *skipcode(ostd::Uint32 *code) {
+static uint32_t *skipcode(uint32_t *code) {
     int depth = 0;
     for (;;) {
-        ostd::Uint32 op = *code++;
+        uint32_t op = *code++;
         switch (op & 0xFF) {
             case CsCodeMacro:
             case CsCodeVal | CsRetString: {
-                ostd::Uint32 len = op >> 8;
-                code += len / sizeof(ostd::Uint32) + 1;
+                uint32_t len = op >> 8;
+                code += len / sizeof(uint32_t) + 1;
                 continue;
             }
             case CsCodeBlock:
@@ -269,7 +269,7 @@ static ostd::Uint32 *skipcode(ostd::Uint32 *code) {
             case CsCodeJumpB | CsCodeFlagFalse:
             case CsCodeJumpResult | CsCodeFlagTrue:
             case CsCodeJumpResult | CsCodeFlagFalse: {
-                ostd::Uint32 len = op >> 8;
+                uint32_t len = op >> 8;
                 code += len;
                 continue;
             }
@@ -291,11 +291,11 @@ static ostd::Uint32 *skipcode(ostd::Uint32 *code) {
 }
 
 CsBytecode *cs_copy_code(CsBytecode *c) {
-    ostd::Uint32 *bcode = reinterpret_cast<ostd::Uint32 *>(c);
-    ostd::Uint32 *end = skipcode(bcode);
-    ostd::Uint32 *dst = new ostd::Uint32[end - bcode + 1];
+    uint32_t *bcode = reinterpret_cast<uint32_t *>(c);
+    uint32_t *end = skipcode(bcode);
+    uint32_t *dst = new uint32_t[end - bcode + 1];
     *dst++ = CsCodeStart;
-    memcpy(dst, bcode, (end - bcode) * sizeof(ostd::Uint32));
+    memcpy(dst, bcode, (end - bcode) * sizeof(uint32_t));
     return reinterpret_cast<CsBytecode *>(dst);
 }
 
@@ -454,11 +454,11 @@ static inline void callcommand(
     CsCommandInternal::call(cs, id, CsValueRange(args, i), res);
 }
 
-static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result);
+static uint32_t *runcode(CsState &cs, uint32_t *code, CsValue &result);
 
 static inline void cs_call_alias(
     CsState &cs, CsAlias *a, CsValue *args, CsValue &result,
-    int callargs, int &nargs, int offset, int skip, ostd::Uint32 op
+    int callargs, int &nargs, int offset, int skip, uint32_t op
 ) {
     CsIvar *anargs = static_cast<CsIvar *>(cs.p_state->identmap[NumargsIdx]);
     CsIdentStack argstack[MaxArguments];
@@ -476,7 +476,7 @@ static inline void cs_call_alias(
         a, cs.p_callstack, (1<<callargs)-1, argstack
     };
     cs.p_callstack = &aliaslink;
-    ostd::Uint32 *codep = reinterpret_cast<ostd::Uint32 *>(
+    uint32_t *codep = reinterpret_cast<uint32_t *>(
         CsAliasInternal::compile_code(a, cs)
     );
     bcode_incr(codep);
@@ -522,7 +522,7 @@ struct RunDepthRef {
     ~RunDepthRef() { --rundepth; }
 };
 
-static inline CsAlias *cs_get_lookup_id(CsState &cs, ostd::Uint32 op) {
+static inline CsAlias *cs_get_lookup_id(CsState &cs, uint32_t op) {
     CsIdent *id = cs.p_state->identmap[op >> 8];
     if (id->get_flags() & CsIdfUnknown) {
         throw CsErrorException(cs, "unknown alias lookup: %s", id->get_name());
@@ -530,7 +530,7 @@ static inline CsAlias *cs_get_lookup_id(CsState &cs, ostd::Uint32 op) {
     return static_cast<CsAlias *>(id);
 }
 
-static inline CsAlias *cs_get_lookuparg_id(CsState &cs, ostd::Uint32 op) {
+static inline CsAlias *cs_get_lookuparg_id(CsState &cs, uint32_t op) {
     CsIdent *id = cs.p_state->identmap[op >> 8];
     if (!cs_is_arg_used(cs, id)) {
         return nullptr;
@@ -539,7 +539,7 @@ static inline CsAlias *cs_get_lookuparg_id(CsState &cs, ostd::Uint32 op) {
 }
 
 static inline int cs_get_lookupu_type(
-    CsState &cs, CsValue &arg, CsIdent *&id, ostd::Uint32 op
+    CsState &cs, CsValue &arg, CsIdent *&id, uint32_t op
 ) {
     if (
         arg.get_type() != CsValueType::String &&
@@ -579,7 +579,7 @@ static inline int cs_get_lookupu_type(
     throw CsErrorException(cs, "unknown alias lookup: %s", arg.get_strr());
 }
 
-static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
+static uint32_t *runcode(CsState &cs, uint32_t *code, CsValue &result) {
     result.set_null();
     RunDepthRef level{cs}; /* incr and decr on scope exit */
     int numargs = 0;
@@ -589,7 +589,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
         chook(cs);
     }
     for (;;) {
-        ostd::Uint32 op = *code++;
+        uint32_t op = *code++;
         switch (op & 0xFF) {
             case CsCodeStart:
             case CsCodeOffset:
@@ -707,26 +707,26 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 continue;
 
             case CsCodeJump: {
-                ostd::Uint32 len = op >> 8;
+                uint32_t len = op >> 8;
                 code += len;
                 continue;
             }
             case CsCodeJumpB | CsCodeFlagTrue: {
-                ostd::Uint32 len = op >> 8;
+                uint32_t len = op >> 8;
                 if (args[--numargs].get_bool()) {
                     code += len;
                 }
                 continue;
             }
             case CsCodeJumpB | CsCodeFlagFalse: {
-                ostd::Uint32 len = op >> 8;
+                uint32_t len = op >> 8;
                 if (!args[--numargs].get_bool()) {
                     code += len;
                 }
                 continue;
             }
             case CsCodeJumpResult | CsCodeFlagTrue: {
-                ostd::Uint32 len = op >> 8;
+                uint32_t len = op >> 8;
                 --numargs;
                 if (args[numargs].get_type() == CsValueType::Code) {
                     cs.run(args[numargs].get_code(), result);
@@ -739,7 +739,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 continue;
             }
             case CsCodeJumpResult | CsCodeFlagFalse: {
-                ostd::Uint32 len = op >> 8;
+                uint32_t len = op >> 8;
                 --numargs;
                 if (args[numargs].get_type() == CsValueType::Code) {
                     cs.run(args[numargs].get_code(), result);
@@ -767,20 +767,20 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 break;
 
             case CsCodeMacro: {
-                ostd::Uint32 len = op >> 8;
+                uint32_t len = op >> 8;
                 args[numargs++].set_macro(ostd::ConstCharRange(
                     reinterpret_cast<char const *>(code), len
                 ));
-                code += len / sizeof(ostd::Uint32) + 1;
+                code += len / sizeof(uint32_t) + 1;
                 continue;
             }
 
             case CsCodeVal | CsRetString: {
-                ostd::Uint32 len = op >> 8;
+                uint32_t len = op >> 8;
                 args[numargs++].set_str(ostd::ConstCharRange(
                     reinterpret_cast<char const *>(code), len
                 ));
-                code += len / sizeof(ostd::Uint32) + 1;
+                code += len / sizeof(uint32_t) + 1;
                 continue;
             }
             case CsCodeValInt | CsRetString: {
@@ -874,7 +874,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 );
                 break;
             case CsCodeBlock: {
-                ostd::Uint32 len = op >> 8;
+                uint32_t len = op >> 8;
                 args[numargs++].set_code(
                     reinterpret_cast<CsBytecode *>(code + 1)
                 );
@@ -1602,7 +1602,7 @@ noid:
 }
 
 void CsState::run(CsBytecode *code, CsValue &ret) {
-    runcode(*this, reinterpret_cast<ostd::Uint32 *>(code), ret);
+    runcode(*this, reinterpret_cast<uint32_t *>(code), ret);
 }
 
 static void cs_run(

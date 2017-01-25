@@ -141,13 +141,13 @@ struct CsContinueException {
 
 template<typename T>
 constexpr size_t CsTypeStorageSize =
-    (sizeof(T) - 1) / sizeof(ostd::Uint32) + 1;
+    (sizeof(T) - 1) / sizeof(uint32_t) + 1;
 
 struct GenState {
     CsState &cs;
     GenState *prevps;
     bool parsing = true;
-    CsVector<ostd::Uint32> code;
+    CsVector<uint32_t> code;
     ostd::ConstCharRange source;
     size_t current_line;
     ostd::ConstCharRange src_name;
@@ -179,9 +179,9 @@ struct GenState {
 
     void gen_str(ostd::ConstCharRange word, bool macro = false) {
         if (word.size() <= 3 && !macro) {
-            ostd::Uint32 op = CsCodeValInt | CsRetString;
+            uint32_t op = CsCodeValInt | CsRetString;
             for (size_t i = 0; i < word.size(); ++i) {
-                op |= ostd::Uint32(ostd::byte(word[i])) << ((i + 1) * 8);
+                op |= uint32_t(ostd::byte(word[i])) << ((i + 1) * 8);
             }
             code.push_back(op);
             return;
@@ -189,14 +189,14 @@ struct GenState {
         code.push_back(
             (macro ? CsCodeMacro : (CsCodeVal | CsRetString)) | (word.size() << 8)
         );
-        auto it = reinterpret_cast<ostd::Uint32 const *>(word.data());
+        auto it = reinterpret_cast<uint32_t const *>(word.data());
         code.insert(
-            code.end(), it, it + (word.size() / sizeof(ostd::Uint32))
+            code.end(), it, it + (word.size() / sizeof(uint32_t))
         );
-        size_t esz = word.size() % sizeof(ostd::Uint32);
+        size_t esz = word.size() % sizeof(uint32_t);
         union {
-            char c[sizeof(ostd::Uint32)];
-            ostd::Uint32 u;
+            char c[sizeof(uint32_t)];
+            uint32_t u;
         } end;
         end.u = 0;
         memcpy(end.c, word.data() + word.size() - esz, esz);
@@ -217,7 +217,7 @@ struct GenState {
         } else {
             union {
                 CsInt i;
-                ostd::Uint32 u[CsTypeStorageSize<CsInt>];
+                uint32_t u[CsTypeStorageSize<CsInt>];
             } c;
             c.i = i;
             code.push_back(CsCodeVal | CsRetInt);
@@ -233,7 +233,7 @@ struct GenState {
         } else {
             union {
                 CsFloat f;
-                ostd::Uint32 u[CsTypeStorageSize<CsFloat>];
+                uint32_t u[CsTypeStorageSize<CsFloat>];
             } c;
             c.f = f;
             code.push_back(CsCodeVal | CsRetFloat);
@@ -297,11 +297,11 @@ CsString floatstr(CsFloat v);
 
 bool cs_check_num(ostd::ConstCharRange s);
 
-static inline void bcode_incr(ostd::Uint32 *bc) {
+static inline void bcode_incr(uint32_t *bc) {
     *bc += 0x100;
 }
 
-static inline void bcode_decr(ostd::Uint32 *bc) {
+static inline void bcode_decr(uint32_t *bc) {
     *bc -= 0x100;
     if (ostd::Int32(*bc) < 0x100) {
         delete[] bc;
@@ -379,7 +379,7 @@ struct CsAliasInternal {
     }
 
     static void clean_code(CsAlias *a) {
-        ostd::Uint32 *bcode = reinterpret_cast<ostd::Uint32 *>(a->p_acode);
+        uint32_t *bcode = reinterpret_cast<uint32_t *>(a->p_acode);
         if (bcode) {
             bcode_decr(bcode);
             a->p_acode = nullptr;
@@ -392,7 +392,7 @@ struct CsAliasInternal {
             gs.code.reserve(64);
             gs.gen_main(a->get_value().get_str());
             /* i wish i could steal the memory somehow */
-            ostd::Uint32 *code = new ostd::Uint32[gs.code.size()];
+            uint32_t *code = new uint32_t[gs.code.size()];
             memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
             bcode_incr(code);
             a->p_acode = reinterpret_cast<CsBytecode *>(code);

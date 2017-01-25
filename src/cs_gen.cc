@@ -192,7 +192,7 @@ static inline ostd::Pair<ostd::ConstCharRange, size_t> compileblock(
     }
     if (gs.code.size() > start + 2) {
         gs.code.push_back(CsCodeExit | rettype);
-        gs.code[start] |= ostd::Uint32(gs.code.size() - (start + 1)) << 8;
+        gs.code[start] |= uint32_t(gs.code.size() - (start + 1)) << 8;
     } else {
         gs.code.resize(start);
         gs.code.push_back(CsCodeEmpty | rettype);
@@ -204,16 +204,16 @@ static inline void compileunescapestr(GenState &gs, bool macro = false) {
     auto str = gs.get_str();
     gs.code.push_back(macro ? CsCodeMacro : (CsCodeVal | CsRetString));
     gs.code.reserve(
-        gs.code.size() + str.size() / sizeof(ostd::Uint32) + 1
+        gs.code.size() + str.size() / sizeof(uint32_t) + 1
     );
-    size_t bufs = (gs.code.capacity() - gs.code.size()) * sizeof(ostd::Uint32);
+    size_t bufs = (gs.code.capacity() - gs.code.size()) * sizeof(uint32_t);
     char *buf = new char[bufs + 1];
     auto writer = ostd::CharRange(buf, bufs);
     size_t len = util::unescape_string(writer, str);
-    memset(&buf[len], 0, sizeof(ostd::Uint32) - len % sizeof(ostd::Uint32));
+    memset(&buf[len], 0, sizeof(uint32_t) - len % sizeof(uint32_t));
     gs.code.back() |= len << 8;
     uint32_t *ubuf = reinterpret_cast<uint32_t *>(buf);
-    gs.code.insert(gs.code.end(), ubuf, ubuf + (len / sizeof(ostd::Uint32) + 1));
+    gs.code.insert(gs.code.end(), ubuf, ubuf + (len / sizeof(uint32_t) + 1));
     delete[] buf;
 }
 
@@ -482,7 +482,7 @@ invalid:
 static bool compileblockstr(GenState &gs, ostd::ConstCharRange str, bool macro) {
     int startc = gs.code.size();
     gs.code.push_back(macro ? CsCodeMacro : CsCodeVal | CsRetString);
-    gs.code.reserve(gs.code.size() + str.size() / sizeof(ostd::Uint32) + 1);
+    gs.code.reserve(gs.code.size() + str.size() / sizeof(uint32_t) + 1);
     char *buf = new char[(str.size() / sizeof(uint32_t) + 1) * sizeof(uint32_t)];
     int len = 0;
     while (!str.empty()) {
@@ -521,9 +521,9 @@ static bool compileblockstr(GenState &gs, ostd::ConstCharRange str, bool macro) 
         }
     }
 done:
-    memset(&buf[len], '\0', sizeof(ostd::Uint32) - len % sizeof(ostd::Uint32));
+    memset(&buf[len], '\0', sizeof(uint32_t) - len % sizeof(uint32_t));
     uint32_t *ubuf = reinterpret_cast<uint32_t *>(buf);
-    gs.code.insert(gs.code.end(), ubuf, ubuf + (len / sizeof(ostd::Uint32) + 1));
+    gs.code.insert(gs.code.end(), ubuf, ubuf + (len / sizeof(uint32_t) + 1));
     gs.code[startc] |= len << 8;
     delete[] buf;
     return true;
@@ -1145,9 +1145,9 @@ static void compile_if(
         } else {
             int start2 = gs.code.size();
             more = compilearg(gs, CsValCode, prevargs + 2);
-            ostd::Uint32 inst1 = gs.code[start1];
-            ostd::Uint32 op1 = inst1 & ~CsCodeRetMask;
-            ostd::Uint32 len1 = start2 - (start1 + 1);
+            uint32_t inst1 = gs.code[start1];
+            uint32_t op1 = inst1 & ~CsCodeRetMask;
+            uint32_t len1 = start2 - (start1 + 1);
             if (!more) {
                 if (op1 == (CsCodeBlock | (len1 << 8))) {
                     gs.code[start1] = (len1 << 8) | CsCodeJumpB | CsCodeFlagFalse;
@@ -1159,9 +1159,9 @@ static void compile_if(
                 }
                 compileblock(gs);
             } else {
-                ostd::Uint32 inst2 = gs.code[start2];
-                ostd::Uint32 op2 = inst2 & ~CsCodeRetMask;
-                ostd::Uint32 len2 = gs.code.size() - (start2 + 1);
+                uint32_t inst2 = gs.code[start2];
+                uint32_t op2 = inst2 & ~CsCodeRetMask;
+                uint32_t len2 = gs.code.size() - (start2 + 1);
                 if (op2 == (CsCodeBlock | (len2 << 8))) {
                     if (op1 == (CsCodeBlock | (len1 << 8))) {
                         gs.code[start1] = ((start2 - start1) << 8)
@@ -1214,7 +1214,7 @@ static void compile_and_or(
             }
             numargs++;
             if ((gs.code[end] & ~CsCodeRetMask) != (
-                CsCodeBlock | (ostd::Uint32(gs.code.size() - (end + 1)) << 8)
+                CsCodeBlock | (uint32_t(gs.code.size() - (end + 1)) << 8)
             )) {
                 break;
             }
@@ -1233,13 +1233,13 @@ static void compile_and_or(
                     (numargs << 8) | (id->get_index() << 13)
             );
         } else {
-            ostd::Uint32 op = (id->get_type_raw() == CsIdAnd)
+            uint32_t op = (id->get_type_raw() == CsIdAnd)
                 ? (CsCodeJumpResult | CsCodeFlagFalse)
                 : (CsCodeJumpResult | CsCodeFlagTrue);
             gs.code.push_back(op);
             end = gs.code.size();
             while ((start + 1) < end) {
-                ostd::Uint32 len = gs.code[start] >> 8;
+                uint32_t len = gs.code[start] >> 8;
                 gs.code[start] = ((end - (start + 1)) << 8) | op;
                 gs.code[start + 1] = CsCodeEnter;
                 gs.code[start + len] = (
