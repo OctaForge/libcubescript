@@ -243,7 +243,7 @@ static void do_tty(CsState &cs) {
         if (!line) {
             return;
         }
-        auto lv = ostd::move(line.value());
+        auto lv = std::move(line.value());
         if (lv.empty()) {
             continue;
         }

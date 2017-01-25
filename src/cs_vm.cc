@@ -431,7 +431,7 @@ static inline void callcommand(
                 auto buf = ostd::appender<CsString>();
                 cscript::util::tvals_concat(buf, ostd::iter(args, i), " ");
                 CsValue tv;
-                tv.set_str(ostd::move(buf.get()));
+                tv.set_str(std::move(buf.get()));
                 CsCommandInternal::call(cs, id, CsValueRange(&tv, 1), res);
                 return;
             }
@@ -666,7 +666,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 force_arg(result, op & CsCodeRetMask);
             /* fallthrough */
             case CsCodeResultArg | CsRetNull:
-                args[numargs++] = ostd::move(result);
+                args[numargs++] = std::move(result);
                 continue;
             case CsCodePrint:
                 cs.print_var(static_cast<CsVar *>(cs.p_state->identmap[op >> 8]));
@@ -731,7 +731,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 if (args[numargs].get_type() == CsValueType::Code) {
                     cs.run(args[numargs].get_code(), result);
                 } else {
-                    result = ostd::move(args[numargs]);
+                    result = std::move(args[numargs]);
                 }
                 if (result.get_bool()) {
                     code += len;
@@ -744,7 +744,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 if (args[numargs].get_type() == CsValueType::Code) {
                     cs.run(args[numargs].get_code(), result);
                 } else {
-                    result = ostd::move(args[numargs]);
+                    result = std::move(args[numargs]);
                 }
                 if (!result.get_bool()) {
                     code += len;
@@ -829,7 +829,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 numargs++;
                 continue;
             case CsCodeDup | CsRetString:
-                args[numargs].set_str(ostd::move(args[numargs - 1].get_str()));
+                args[numargs].set_str(std::move(args[numargs - 1].get_str()));
                 numargs++;
                 continue;
 
@@ -844,12 +844,12 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 continue;
 
             case CsCodeResult | CsRetNull:
-                result = ostd::move(args[--numargs]);
+                result = std::move(args[--numargs]);
                 continue;
             case CsCodeResult | CsRetString:
             case CsCodeResult | CsRetInt:
             case CsCodeResult | CsRetFloat:
-                result = ostd::move(args[--numargs]);
+                result = std::move(args[--numargs]);
                 force_arg(result, op & CsCodeRetMask);
                 continue;
 
@@ -994,7 +994,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 CsValue &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case CsIdAlias:
-                        arg.set_str(ostd::move(
+                        arg.set_str(std::move(
                             static_cast<CsAlias *>(id)->get_value().get_str()
                         ));
                         continue;
@@ -1002,12 +1002,12 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                         arg.set_str(static_cast<CsSvar *>(id)->get_value());
                         continue;
                     case CsIdIvar:
-                        arg.set_str(ostd::move(
+                        arg.set_str(std::move(
                             intstr(static_cast<CsIvar *>(id)->get_value())
                         ));
                         continue;
                     case CsIdFvar:
-                        arg.set_str(ostd::move(
+                        arg.set_str(std::move(
                             floatstr(static_cast<CsFvar *>(id)->get_value())
                         ));
                         continue;
@@ -1020,7 +1020,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
             }
             case CsCodeLookup | CsRetString:
                 args[numargs++].set_str(
-                    ostd::move(cs_get_lookup_id(cs, op)->get_value().get_str())
+                    std::move(cs_get_lookup_id(cs, op)->get_value().get_str())
                 );
                 continue;
             case CsCodeLookupArg | CsRetString: {
@@ -1029,7 +1029,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                     args[numargs++].set_str("");
                 } else {
                     args[numargs++].set_str(
-                        ostd::move(a->get_value().get_str())
+                        std::move(a->get_value().get_str())
                     );
                 }
                 continue;
@@ -1171,12 +1171,12 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                         arg.set_cstr(static_cast<CsSvar *>(id)->get_value());
                         continue;
                     case CsIdIvar:
-                        arg.set_str(ostd::move(
+                        arg.set_str(std::move(
                             intstr(static_cast<CsIvar *>(id)->get_value())
                         ));
                         continue;
                     case CsIdFvar:
-                        arg.set_str(ostd::move(
+                        arg.set_str(std::move(
                             floatstr(static_cast<CsFvar *>(id)->get_value())
                         ));
                         continue;
@@ -1270,7 +1270,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 )->get_value());
                 continue;
             case CsCodeIvar | CsRetString:
-                args[numargs++].set_str(ostd::move(intstr(static_cast<CsIvar *>(
+                args[numargs++].set_str(std::move(intstr(static_cast<CsIvar *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value())));
                 continue;
@@ -1309,7 +1309,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 )->get_value());
                 continue;
             case CsCodeFvar | CsRetString:
-                args[numargs++].set_str(ostd::move(floatstr(
+                args[numargs++].set_str(std::move(floatstr(
                     static_cast<CsFvar *>(
                         cs.p_state->identmap[op >> 8]
                     )->get_value()
@@ -1376,7 +1376,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                         buf, ostd::iter(&args[offset], callargs), " "
                     );
                     CsValue tv;
-                    tv.set_str(ostd::move(buf.get()));
+                    tv.set_str(std::move(buf.get()));
                     CsCommandInternal::call(cs, id, CsValueRange(&tv, 1), result);
                 }
                 force_arg(result, op & CsCodeRetMask);
@@ -1399,7 +1399,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                     ((op & CsCodeOpMask) == CsCodeConc) ? " " : ""
                 );
                 numargs = numargs - numconc;
-                args[numargs].set_str(ostd::move(buf.get()));
+                args[numargs].set_str(std::move(buf.get()));
                 force_arg(args[numargs], op & CsCodeRetMask);
                 numargs++;
                 continue;
@@ -1415,7 +1415,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                     buf, ostd::iter(&args[numargs - numconc], numconc)
                 );
                 numargs = numargs - numconc;
-                result.set_str(ostd::move(buf.get()));
+                result.set_str(std::move(buf.get()));
                 force_arg(result, op & CsCodeRetMask);
                 continue;
             }
@@ -1435,7 +1435,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
             case CsCodeAliasU:
                 numargs -= 2;
                 cs.set_alias(
-                    args[numargs].get_str(), ostd::move(args[numargs + 1])
+                    args[numargs].get_str(), std::move(args[numargs + 1])
                 );
                 continue;
 
@@ -1489,7 +1489,7 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                     idarg.get_type() != CsValueType::Cstring
                 ) {
 litval:
-                    result = ostd::move(idarg);
+                    result = std::move(idarg);
                     force_arg(result, op & CsCodeRetMask);
                     numargs = offset - 1;
                     continue;
@@ -1833,7 +1833,7 @@ ostd::Maybe<CsString> CsState::run_file_str(ostd::ConstCharRange fname) {
     if (!cs_run_file(*this, fname, ret)) {
         return ostd::nothing;
     }
-    return ostd::move(ret.get_str());
+    return std::move(ret.get_str());
 }
 
 ostd::Maybe<CsInt> CsState::run_file_int(ostd::ConstCharRange fname) {

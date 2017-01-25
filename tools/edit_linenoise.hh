@@ -71,7 +71,7 @@ static ostd::Maybe<ostd::String> read_line(CsState &, CsSvar *pr) {
     }
     ostd::String ret = line;
     linenoiseFree(line);
-    return ostd::move(ret);
+    return std::move(ret);
 }
 
 static void add_history(CsState &, ostd::ConstCharRange line) {

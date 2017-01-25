@@ -24,7 +24,7 @@ CsFloat cs_parse_float(
 template<typename F>
 struct CsScopeExit {
     template<typename FF>
-    CsScopeExit(FF &&f): func(ostd::forward<FF>(f)) {}
+    CsScopeExit(FF &&f): func(std::forward<FF>(f)) {}
     ~CsScopeExit() {
         func();
     }
@@ -33,7 +33,7 @@ struct CsScopeExit {
 
 template<typename F1, typename F2>
 inline void cs_do_and_cleanup(F1 &&dof, F2 &&clf) {
-    CsScopeExit<F2> cleanup(ostd::forward<F2>(clf));
+    CsScopeExit<F2> cleanup(std::forward<F2>(clf));
     dof();
 }
 

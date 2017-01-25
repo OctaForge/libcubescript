@@ -41,7 +41,7 @@ CsValue::CsValue(CsValue const &v): CsValue() {
 }
 
 CsValue::CsValue(CsValue &&v): CsValue() {
-    *this = ostd::move(v);
+    *this = std::move(v);
 }
 
 CsValue &CsValue::operator=(CsValue const &v) {
@@ -197,10 +197,10 @@ ostd::ConstCharRange CsValue::force_str() {
     CsString rs;
     switch (get_type()) {
         case CsValueType::Float:
-            rs = ostd::move(floatstr(csv_get<CsFloat>(p_stor)));
+            rs = std::move(floatstr(csv_get<CsFloat>(p_stor)));
             break;
         case CsValueType::Int:
-            rs = ostd::move(intstr(csv_get<CsInt>(p_stor)));
+            rs = std::move(intstr(csv_get<CsInt>(p_stor)));
             break;
         case CsValueType::Macro:
         case CsValueType::Cstring:
@@ -211,7 +211,7 @@ ostd::ConstCharRange CsValue::force_str() {
         default:
             break;
     }
-    set_str(ostd::move(rs));
+    set_str(std::move(rs));
     return ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len);
 }
 
@@ -383,7 +383,7 @@ CsStackedValue &CsStackedValue::operator=(CsValue const &v) {
 }
 
 CsStackedValue &CsStackedValue::operator=(CsValue &&v) {
-    *static_cast<CsValue *>(this) = ostd::move(v);
+    *static_cast<CsValue *>(this) = std::move(v);
     return *this;
 }
 

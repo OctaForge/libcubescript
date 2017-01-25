@@ -107,7 +107,7 @@ struct CsSharedState {
     template<typename T, typename ...A>
     T *create(A &&...args) {
         T *ret = static_cast<T *>(alloc(nullptr, 0, sizeof(T)));
-        new (ret) T(ostd::forward<A>(args)...);
+        new (ret) T(std::forward<A>(args)...);
         return ret;
     }
 
@@ -321,14 +321,14 @@ struct CsAliasInternal {
     ) {
         if (a->p_astack == &st) {
             /* prevent cycles and unnecessary code elsewhere */
-            a->p_val = ostd::move(v);
+            a->p_val = std::move(v);
             clean_code(a);
             return;
         }
-        st.val_s = ostd::move(a->p_val);
+        st.val_s = std::move(a->p_val);
         st.next = a->p_astack;
         a->p_astack = &st;
-        a->p_val = ostd::move(v);
+        a->p_val = std::move(v);
         clean_code(a);
         if (um) {
             a->p_flags &= ~CsIdfUnknown;
@@ -340,31 +340,31 @@ struct CsAliasInternal {
             return;
         }
         CsIdentStack *st = a->p_astack;
-        a->p_val = ostd::move(a->p_astack->val_s);
+        a->p_val = std::move(a->p_astack->val_s);
         clean_code(a);
         a->p_astack = st->next;
     }
 
     static void undo_arg(CsAlias *a, CsIdentStack &st) {
         CsIdentStack *prev = a->p_astack;
-        st.val_s = ostd::move(a->p_val);
+        st.val_s = std::move(a->p_val);
         st.next = prev;
         a->p_astack = prev->next;
-        a->p_val = ostd::move(prev->val_s);
+        a->p_val = std::move(prev->val_s);
         clean_code(a);
     }
 
     static void redo_arg(CsAlias *a, CsIdentStack &st) {
         CsIdentStack *prev = st.next;
-        prev->val_s = ostd::move(a->p_val);
+        prev->val_s = std::move(a->p_val);
         a->p_astack = prev;
-        a->p_val = ostd::move(st.val_s);
+        a->p_val = std::move(st.val_s);
         clean_code(a);
     }
 
     static void set_arg(CsAlias *a, CsState &cs, CsValue &v) {
         if (cs_is_arg_used(cs, a)) {
-            a->p_val = ostd::move(v);
+            a->p_val = std::move(v);
             clean_code(a);
         } else {
             push_arg(a, v, cs.p_callstack->argstack[a->get_index()], false);
@@ -373,7 +373,7 @@ struct CsAliasInternal {
     }
 
     static void set_alias(CsAlias *a, CsState &cs, CsValue &v) {
-        a->p_val = ostd::move(v);
+        a->p_val = std::move(v);
         clean_code(a);
         a->p_flags = (a->p_flags & cs.identflags) | cs.identflags;
     }
@@ -423,7 +423,7 @@ static void cs_do_args(CsState &cs, F body) {
         prevstack ? prevstack->argstack : nullptr
     };
     cs.p_callstack = &aliaslink;
-    cs_do_and_cleanup(ostd::move(body), [&]() {
+    cs_do_and_cleanup(std::move(body), [&]() {
         if (prevstack) {
             prevstack->usedargs = aliaslink.usedargs;
         }

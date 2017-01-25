@@ -58,7 +58,7 @@ void cs_init_lib_string(CsState &cs) {
         for (auto i: ostd::range(s.size())) {
             s[i] = tolower(s[i]);
         }
-        res.set_str(ostd::move(s));
+        res.set_str(std::move(s));
     });
 
     cs.new_command("strupper", "s", [](auto &, auto args, auto &res) {
@@ -66,31 +66,31 @@ void cs_init_lib_string(CsState &cs) {
         for (auto i: ostd::range(s.size())) {
             s[i] = toupper(s[i]);
         }
-        res.set_str(ostd::move(s));
+        res.set_str(std::move(s));
     });
 
     cs.new_command("escape", "s", [](auto &, auto args, auto &res) {
         auto s = ostd::appender<CsString>();
         util::escape_string(s, args[0].get_strr());
-        res.set_str(ostd::move(s.get()));
+        res.set_str(std::move(s.get()));
     });
 
     cs.new_command("unescape", "s", [](auto &, auto args, auto &res) {
         auto s = ostd::appender<CsString>();
         util::unescape_string(s, args[0].get_strr());
-        res.set_str(ostd::move(s.get()));
+        res.set_str(std::move(s.get()));
     });
 
     cs.new_command("concat", "V", [](auto &, auto args, auto &res) {
         auto s = ostd::appender<CsString>();
         cscript::util::tvals_concat(s, args, " ");
-        res.set_str(ostd::move(s.get()));
+        res.set_str(std::move(s.get()));
     });
 
     cs.new_command("concatword", "V", [](auto &, auto args, auto &res) {
         auto s = ostd::appender<CsString>();
         cscript::util::tvals_concat(s, args);
-        res.set_str(ostd::move(s.get()));
+        res.set_str(std::move(s.get()));
     });
 
     cs.new_command("format", "V", [](auto &, auto args, auto &res) {
@@ -118,7 +118,7 @@ void cs_init_lib_string(CsState &cs) {
                 s += c;
             }
         }
-        res.set_str(ostd::move(s));
+        res.set_str(std::move(s));
     });
 
     cs.new_command("tohex", "ii", [](auto &, auto args, auto &res) {
@@ -127,7 +127,7 @@ void cs_init_lib_string(CsState &cs) {
             r, "0x%.*X", ostd::max(args[1].get_int(), CsInt(1)),
             args[0].get_int()
         );
-        res.set_str(ostd::move(r.get()));
+        res.set_str(std::move(r.get()));
     });
 
     cs.new_command("substr", "siiN", [](auto &, auto args, auto &res) {
@@ -193,7 +193,7 @@ void cs_init_lib_string(CsState &cs) {
                 s = found + oldval.size();
             } else {
                 buf += s;
-                res.set_str(ostd::move(buf));
+                res.set_str(std::move(buf));
                 return;
             }
         }
@@ -217,7 +217,7 @@ void cs_init_lib_string(CsState &cs) {
         if ((offset + len) < CsInt(s.size())) {
             p += s.slice(offset + len, s.size());
         }
-        res.set_str(ostd::move(p));
+        res.set_str(std::move(p));
     });
 }
 

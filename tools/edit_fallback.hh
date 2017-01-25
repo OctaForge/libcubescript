@@ -14,7 +14,7 @@ static ostd::Maybe<ostd::String> read_line(CsState &, CsSvar *pr) {
     for (char c = ostd::in.getchar(); c && (c != '\n'); c = ostd::in.getchar()) {
         ret += c;
     }
-    return ostd::move(ret);
+    return std::move(ret);
 }
 
 static void add_history(CsState &, ostd::ConstCharRange) {

@@ -371,7 +371,7 @@ struct OSTD_EXPORT CsState {
     template<typename F>
     CsHookCb set_call_hook(F &&f) {
         return set_call_hook(CsHookCb(
-            ostd::allocator_arg, CsAllocator<char>(*this), ostd::forward<F>(f)
+            ostd::allocator_arg, CsAllocator<char>(*this), std::forward<F>(f)
         ));
     }
 
@@ -401,7 +401,7 @@ struct OSTD_EXPORT CsState {
         ostd::ConstCharRange n, CsInt m, CsInt x, CsInt v, F &&f, int flags = 0
     ) {
         return new_ivar(n, m, x, v, CsVarCb(
-            ostd::allocator_arg, CsAllocator<char>(*this), ostd::forward<F>(f)
+            ostd::allocator_arg, CsAllocator<char>(*this), std::forward<F>(f)
         ), flags);
     }
     template<typename F>
@@ -410,15 +410,15 @@ struct OSTD_EXPORT CsState {
         int flags = 0
     ) {
         return new_fvar(n, m, x, v, CsVarCb(
-            ostd::allocator_arg, CsAllocator<char>(*this), ostd::forward<F>(f)
+            ostd::allocator_arg, CsAllocator<char>(*this), std::forward<F>(f)
         ), flags);
     }
     template<typename F>
     CsSvar *new_svar(
         ostd::ConstCharRange n, CsString v, F &&f, int flags = 0
     ) {
-        return new_svar(n, ostd::move(v), CsVarCb(
-            ostd::allocator_arg, CsAllocator<char>(*this), ostd::forward<F>(f)
+        return new_svar(n, std::move(v), CsVarCb(
+            ostd::allocator_arg, CsAllocator<char>(*this), std::forward<F>(f)
         ), flags);
     }
 
@@ -431,7 +431,7 @@ struct OSTD_EXPORT CsState {
         ostd::ConstCharRange name, ostd::ConstCharRange args, F &&f
     ) {
         return new_command(name, args, CsCommandCb(
-            ostd::allocator_arg, CsAllocator<char>(*this), ostd::forward<F>(f)
+            ostd::allocator_arg, CsAllocator<char>(*this), std::forward<F>(f)
         ));
     }
 
@@ -596,7 +596,7 @@ struct CsErrorException {
     CsErrorException() = delete;
     CsErrorException(CsErrorException const &) = delete;
     CsErrorException(CsErrorException &&v):
-        p_errmsg(v.p_errmsg), p_stack(ostd::move(v.p_stack))
+        p_errmsg(v.p_errmsg), p_stack(std::move(v.p_stack))
     {}
 
     ostd::ConstCharRange what() const {
@@ -624,7 +624,7 @@ struct CsErrorException {
     {
         char fbuf[512];
         auto ret = ostd::format(
-            ostd::CharRange(fbuf, sizeof(fbuf)), msg, ostd::forward<A>(args)...
+            ostd::CharRange(fbuf, sizeof(fbuf)), msg, std::forward<A>(args)...
         );
         if ((ret < 0) || (ostd::Size(ret) > sizeof(fbuf))) {
             p_errmsg = save_msg(cs, msg);
@@ -776,7 +776,7 @@ namespace util {
         template<typename R>
         ostd::Size get_item(R &&writer) const {
             if (!p_quote.empty() && (*p_quote == '"')) {
-                return unescape_string(ostd::forward<R>(writer), p_item);
+                return unescape_string(std::forward<R>(writer), p_item);
             } else {
                 return writer.put_n(p_item.data(), p_item.size());
             }
@@ -785,7 +785,7 @@ namespace util {
         CsString get_item() const {
             auto app = ostd::appender<CsString>();
             get_item(app);
-            return ostd::move(app.get());
+            return std::move(app.get());
         }
 
         ostd::ConstCharRange &get_raw_item(bool quoted = false) {
@@ -809,13 +809,13 @@ private:
 
     template<typename R>
     inline ostd::Ptrdiff format_int(R &&writer, CsInt val) {
-        return ostd::format(ostd::forward<R>(writer), IntFormat, val);
+        return ostd::format(std::forward<R>(writer), IntFormat, val);
     }
 
     template<typename R>
     inline ostd::Ptrdiff format_float(R &&writer, CsFloat val) {
         return ostd::format(
-            ostd::forward<R>(writer),
+            std::forward<R>(writer),
             (val == CsInt(val)) ? RoundFloatFormat : FloatFormat, val
         );
     }
@@ -831,7 +831,7 @@ private:
             switch (vals[i].get_type()) {
                 case CsValueType::Int: {
                     auto r = format_int(
-                        ostd::forward<R>(writer), vals[i].get_int()
+                        std::forward<R>(writer), vals[i].get_int()
                     );
                     if (r > 0) {
                         ret += ostd::Size(r);
@@ -840,7 +840,7 @@ private:
                 }
                 case CsValueType::Float: {
                     auto r = format_float(
-                        ostd::forward<R>(writer), vals[i].get_float()
+                        std::forward<R>(writer), vals[i].get_float()
                     );
                     if (r > 0) {
                         ret += ostd::Size(r);

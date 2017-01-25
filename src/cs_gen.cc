@@ -26,7 +26,7 @@ CsString GenState::get_str_dup(bool unescape) {
     } else {
         app.get() = str;
     }
-    return ostd::move(app.get());
+    return std::move(app.get());
 }
 
 ostd::ConstCharRange GenState::read_macro_name() {
@@ -483,7 +483,7 @@ static bool compileblockstr(GenState &gs, ostd::ConstCharRange str, bool macro) 
     int startc = gs.code.size();
     gs.code.push_back(macro ? CsCodeMacro : CsCodeVal | CsRetString);
     gs.code.reserve(gs.code.size() + str.size() / sizeof(ostd::Uint32) + 1);
-    char *buf = new char[str.size() / sizeof(ostd::Uint32) + 1];
+    char *buf = new char[(str.size() / sizeof(uint32_t) + 1) * sizeof(uint32_t)];
     int len = 0;
     while (!str.empty()) {
         char const *p = str.data();

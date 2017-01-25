@@ -6,13 +6,13 @@ namespace cscript {
 CsString intstr(CsInt v) {
     auto app = ostd::appender<CsString>();
     cscript::util::format_int(app, v);
-    return ostd::move(app.get());
+    return std::move(app.get());
 }
 
 CsString floatstr(CsFloat v) {
     auto app = ostd::appender<CsString>();
     cscript::util::format_float(app, v);
-    return ostd::move(app.get());
+    return std::move(app.get());
 }
 
 bool cs_check_num(ostd::ConstCharRange s) {
@@ -35,33 +35,33 @@ CsIdent::CsIdent(CsIdentType tp, ostd::ConstCharRange nm, int fl):
 {}
 
 CsVar::CsVar(CsIdentType tp, ostd::ConstCharRange name, CsVarCb f, int fl):
-    CsIdent(tp, name, fl), cb_var(ostd::move(f))
+    CsIdent(tp, name, fl), cb_var(std::move(f))
 {}
 
 CsIvar::CsIvar(
     ostd::ConstCharRange name, CsInt m, CsInt x, CsInt v, CsVarCb f, int fl
 ):
-    CsVar(CsIdentType::Ivar, name, ostd::move(f), fl | ((m > x) ? CsIdfReadOnly : 0)),
+    CsVar(CsIdentType::Ivar, name, std::move(f), fl | ((m > x) ? CsIdfReadOnly : 0)),
     p_storage(v), p_minval(m), p_maxval(x), p_overrideval(0)
 {}
 
 CsFvar::CsFvar(
     ostd::ConstCharRange name, CsFloat m, CsFloat x, CsFloat v, CsVarCb f, int fl
 ):
-    CsVar(CsIdentType::Fvar, name, ostd::move(f), fl | ((m > x) ? CsIdfReadOnly : 0)),
+    CsVar(CsIdentType::Fvar, name, std::move(f), fl | ((m > x) ? CsIdfReadOnly : 0)),
     p_storage(v), p_minval(m), p_maxval(x), p_overrideval(0)
 {}
 
 CsSvar::CsSvar(ostd::ConstCharRange name, CsString v, CsVarCb f, int fl):
-    CsVar(CsIdentType::Svar, name, ostd::move(f), fl),
-    p_storage(ostd::move(v)), p_overrideval()
+    CsVar(CsIdentType::Svar, name, std::move(f), fl),
+    p_storage(std::move(v)), p_overrideval()
 {}
 
 CsAlias::CsAlias(ostd::ConstCharRange name, CsString a, int fl):
     CsIdent(CsIdentType::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
-    p_val.set_str(ostd::move(a));
+    p_val.set_str(std::move(a));
 }
 CsAlias::CsAlias(ostd::ConstCharRange name, CsInt a, int fl):
     CsIdent(CsIdentType::Alias, name, fl),
@@ -83,7 +83,7 @@ CsAlias::CsAlias(ostd::ConstCharRange name, int fl):
 }
 CsAlias::CsAlias(ostd::ConstCharRange name, CsValue v, int fl):
     CsIdent(CsIdentType::Alias, name, fl),
-    p_acode(nullptr), p_astack(nullptr), p_val(ostd::move(v))
+    p_acode(nullptr), p_astack(nullptr), p_val(std::move(v))
 {}
 
 CsCommand::CsCommand(
@@ -91,7 +91,7 @@ CsCommand::CsCommand(
     int nargs, CsCommandCb f
 ):
     CsIdent(CsIdentType::Command, name, 0),
-    p_cargs(args), p_cb_cftv(ostd::move(f)), p_numargs(nargs)
+    p_cargs(args), p_cb_cftv(std::move(f)), p_numargs(nargs)
 {}
 
 bool CsIdent::is_alias() const {
@@ -234,7 +234,7 @@ CsString CsIvar::to_printable() const {
     } else {
         format(app, IvarHexFormat, get_name(), i);
     }
-    return ostd::move(app.get());
+    return std::move(app.get());
 }
 
 CsFloat CsFvar::get_val_min() const {
@@ -255,14 +255,14 @@ CsString CsFvar::to_printable() const {
     CsFloat f = p_storage;
     auto app = ostd::appender<CsString>();
     format(app, (f == CsInt(f)) ? FvarRoundFormat : FvarFormat, get_name(), f);
-    return ostd::move(app.get());
+    return std::move(app.get());
 }
 
 ostd::ConstCharRange CsSvar::get_value() const {
     return p_storage.iter();
 }
 void CsSvar::set_value(CsString val) {
-    p_storage = ostd::move(val);
+    p_storage = std::move(val);
 }
 
 CsString CsSvar::to_printable() const {
@@ -273,7 +273,7 @@ CsString CsSvar::to_printable() const {
     } else {
         format(app, SvarQuotedFormat, get_name(), s);
     }
-    return ostd::move(app.get());
+    return std::move(app.get());
 }
 
 ostd::ConstCharRange CsCommand::get_args() const {
@@ -330,7 +330,7 @@ CsState::CsState(CsAllocCb func, void *data):
     })->p_type = CsIdIf;
 
     new_command("result", "T", [](auto &, auto args, auto &res) {
-        res = ostd::move(args[0]);
+        res = std::move(args[0]);
     })->p_type = CsIdResult;
 
     new_command("!", "t", [](auto &, auto args, auto &res) {
@@ -346,7 +346,7 @@ CsState::CsState(CsAllocCb func, void *data):
                 if (code) {
                     cs.run(code, res);
                 } else {
-                    res = ostd::move(args[i]);
+                    res = std::move(args[i]);
                 }
                 if (!res.get_bool()) {
                     break;
@@ -364,7 +364,7 @@ CsState::CsState(CsAllocCb func, void *data):
                 if (code) {
                     cs.run(code, res);
                 } else {
-                    res = ostd::move(args[i]);
+                    res = std::move(args[i]);
                 }
                 if (res.get_bool()) {
                     break;
@@ -411,8 +411,8 @@ CsState::~CsState() {
 }
 
 CsHookCb CsState::set_call_hook(CsHookCb func) {
-    auto hk = ostd::move(p_callhook);
-    p_callhook = ostd::move(func);
+    auto hk = std::move(p_callhook);
+    p_callhook = std::move(func);
     return hk;
 }
 
@@ -545,7 +545,7 @@ CsIvar *CsState::new_ivar(
     ostd::ConstCharRange n, CsInt m, CsInt x, CsInt v, CsVarCb f, int flags
 ) {
     return add_ident(
-        p_state->create<CsIvar>(n, m, x, v, ostd::move(f), flags)
+        p_state->create<CsIvar>(n, m, x, v, std::move(f), flags)
     )->get_ivar();
 }
 
@@ -553,7 +553,7 @@ CsFvar *CsState::new_fvar(
     ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat v, CsVarCb f, int flags
 ) {
     return add_ident(
-        p_state->create<CsFvar>(n, m, x, v, ostd::move(f), flags)
+        p_state->create<CsFvar>(n, m, x, v, std::move(f), flags)
     )->get_fvar();
 }
 
@@ -561,7 +561,7 @@ CsSvar *CsState::new_svar(
     ostd::ConstCharRange n, CsString v, CsVarCb f, int flags
 ) {
     return add_ident(
-        p_state->create<CsSvar>(n, ostd::move(v), ostd::move(f), flags)
+        p_state->create<CsSvar>(n, std::move(v), std::move(f), flags)
     )->get_svar();
 }
 
@@ -614,7 +614,7 @@ void CsState::set_alias(ostd::ConstCharRange name, CsValue v) {
     } else if (cs_check_num(name)) {
         throw CsErrorException(*this, "cannot alias number %s", name);
     } else {
-        add_ident(p_state->create<CsAlias>(name, ostd::move(v), identflags));
+        add_ident(p_state->create<CsAlias>(name, std::move(v), identflags));
     }
 }
 
@@ -632,10 +632,10 @@ void CsAlias::get_cstr(CsValue &v) const {
             v.set_cstr(p_val.get_strr());
             break;
         case CsValueType::Int:
-            v.set_str(ostd::move(intstr(p_val.get_int())));
+            v.set_str(std::move(intstr(p_val.get_int())));
             break;
         case CsValueType::Float:
-            v.set_str(ostd::move(floatstr(p_val.get_float())));
+            v.set_str(std::move(floatstr(p_val.get_float())));
             break;
         default:
             v.set_cstr("");
@@ -829,7 +829,7 @@ CsState::get_alias_val(ostd::ConstCharRange name) {
     if ((a->get_index() < MaxArguments) && !cs_is_arg_used(*this, a)) {
         return ostd::nothing;
     }
-    return ostd::move(a->get_value().get_str());
+    return std::move(a->get_value().get_str());
 }
 
 CsInt cs_clamp_var(CsState &cs, CsIvar *iv, CsInt v) {
@@ -975,7 +975,7 @@ CsCommand *CsState::new_command(
         }
     }
     return static_cast<CsCommand *>(
-        add_ident(p_state->create<CsCommand>(name, args, nargs, ostd::move(func)))
+        add_ident(p_state->create<CsCommand>(name, args, nargs, std::move(func)))
     );
 }
 
@@ -1031,7 +1031,7 @@ static inline void cs_loop_conc(
         s += v.get_str();
     }
 end:
-    res.set_str(ostd::move(s));
+    res.set_str(std::move(s));
 }
 
 void cs_init_lib_base(CsState &gcs) {
@@ -1055,7 +1055,7 @@ void cs_init_lib_base(CsState &gcs) {
             if (e.get_stack().get()) {
                 auto app = ostd::appender<CsString>();
                 cscript::util::print_stack(app, e.get_stack());
-                tback.set_str(ostd::move(app.get()));
+                tback.set_str(std::move(app.get()));
             }
             rc = false;
         }
@@ -1066,9 +1066,9 @@ void cs_init_lib_base(CsState &gcs) {
 
     gcs.new_command("?", "tTT", [](auto &, auto args, auto &res) {
         if (args[0].get_bool()) {
-            res = ostd::move(args[1]);
+            res = std::move(args[1]);
         } else {
-            res = ostd::move(args[2]);
+            res = std::move(args[2]);
         }
     });
 
@@ -1131,7 +1131,7 @@ void cs_init_lib_base(CsState &gcs) {
             return;
         }
         if (args[1].get_bool()) {
-            idv = ostd::move(args[1]);
+            idv = std::move(args[1]);
             idv.push();
             cs.run(args[2].get_code(), res);
         }
@@ -1274,7 +1274,7 @@ end:
         if (!idv.has_alias() || (idv.get_alias()->get_index() < MaxArguments)) {
             return;
         }
-        idv = ostd::move(args[1]);
+        idv = std::move(args[1]);
         idv.push();
         cs.run(args[2].get_code(), res);
     });
@@ -1284,7 +1284,7 @@ end:
     });
 
     gcs.new_command("alias", "sT", [](auto &cs, auto args, auto &) {
-        cs.set_alias(args[0].get_strr(), ostd::move(args[1]));
+        cs.set_alias(args[0].get_strr(), std::move(args[1]));
     });
 
     gcs.new_command("getvarmin", "s", [](auto &cs, auto args, auto &res) {
@@ -1306,7 +1306,7 @@ end:
 
     gcs.new_command("getalias", "s", [](auto &cs, auto args, auto &res) {
         res.set_str(
-            ostd::move(cs.get_alias_val(args[0].get_strr()).value_or(""))
+            std::move(cs.get_alias_val(args[0].get_strr()).value_or(""))
         );
     });
 }
