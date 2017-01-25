@@ -544,7 +544,7 @@ static void cs_list_sort(
 
     for (util::ListParser p(cs, list); p.parse();) {
         ListSortItem item = { p.get_raw_item(), p.get_raw_item(true) };
-        items.push(item);
+        items.push_back(item);
         total += item.quote.size();
     }
 
@@ -563,7 +563,7 @@ static void cs_list_sort(
     ostd::Size nuniq = items.size();
     if (body) {
         ListSortFun f = { cs, xval, yval, body };
-        ostd::sort_cmp(items.iter(), f);
+        ostd::sort_cmp(ostd::iter(items), f);
         if (!cs_code_is_empty(unique)) {
             f.body = unique;
             totaluniq = items[0].quote.size();

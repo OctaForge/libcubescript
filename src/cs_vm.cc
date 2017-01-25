@@ -201,7 +201,9 @@ static inline ostd::Uint32 *forcecode(CsState &cs, CsValue &v) {
         gs.code.reserve(64);
         gs.gen_main(v.get_str());
         gs.done();
-        v.set_code(reinterpret_cast<CsBytecode *>(gs.code.release() + 1));
+        uint32_t *cbuf = new uint32_t[gs.code.size()];
+        memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(uint32_t));
+        v.set_code(reinterpret_cast<CsBytecode *>(cbuf + 1));
         code = reinterpret_cast<ostd::Uint32 *>(v.get_code());
     }
     return code;
@@ -885,17 +887,17 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                 switch (arg.get_type()) {
                     case CsValueType::Int:
                         gs.code.reserve(8);
-                        gs.code.push(CsCodeStart);
+                        gs.code.push_back(CsCodeStart);
                         gs.gen_int(arg.get_int());
-                        gs.code.push(CsCodeResult);
-                        gs.code.push(CsCodeExit);
+                        gs.code.push_back(CsCodeResult);
+                        gs.code.push_back(CsCodeExit);
                         break;
                     case CsValueType::Float:
                         gs.code.reserve(8);
-                        gs.code.push(CsCodeStart);
+                        gs.code.push_back(CsCodeStart);
                         gs.gen_float(arg.get_float());
-                        gs.code.push(CsCodeResult);
-                        gs.code.push(CsCodeExit);
+                        gs.code.push_back(CsCodeResult);
+                        gs.code.push_back(CsCodeExit);
                         break;
                     case CsValueType::String:
                     case CsValueType::Macro:
@@ -905,15 +907,17 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                         break;
                     default:
                         gs.code.reserve(8);
-                        gs.code.push(CsCodeStart);
+                        gs.code.push_back(CsCodeStart);
                         gs.gen_null();
-                        gs.code.push(CsCodeResult);
-                        gs.code.push(CsCodeExit);
+                        gs.code.push_back(CsCodeResult);
+                        gs.code.push_back(CsCodeExit);
                         break;
                 }
                 gs.done();
+                uint32_t *cbuf = new uint32_t[gs.code.size()];
+                memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(uint32_t));
                 arg.set_code(
-                    reinterpret_cast<CsBytecode *>(gs.code.release() + 1)
+                    reinterpret_cast<CsBytecode *>(cbuf + 1)
                 );
                 continue;
             }
@@ -929,9 +933,12 @@ static ostd::Uint32 *runcode(CsState &cs, ostd::Uint32 *code, CsValue &result) {
                             gs.code.reserve(64);
                             gs.gen_main(s);
                             gs.done();
-                            arg.set_code(reinterpret_cast<CsBytecode *>(
-                                gs.code.release() + 1
-                            ));
+                            uint32_t *cbuf = new uint32_t[gs.code.size()];
+                            memcpy(
+                                cbuf, gs.code.data(),
+                                gs.code.size() * sizeof(uint32_t)
+                            );
+                            arg.set_code(reinterpret_cast<CsBytecode *>(cbuf + 1));
                         } else {
                             arg.force_null();
                         }
@@ -1607,9 +1614,11 @@ static void cs_run(
     gs.code.reserve(64);
     gs.gen_main(code, CsValAny);
     gs.done();
-    runcode(cs, gs.code.data() + 1, ret);
-    if (int(gs.code[0]) >= 0x100) {
-        gs.code.release();
+    uint32_t *cbuf = new uint32_t[gs.code.size()];
+    memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(uint32_t));
+    runcode(cs, cbuf + 1, ret);
+    if (int(cbuf[0]) < 0x100) {
+        delete[] cbuf;
     }
 }
 

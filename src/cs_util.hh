@@ -11,7 +11,7 @@ template<typename K, typename V>
 using CsMap = ostd::Map<K, V>;
 
 template<typename T>
-using CsVector = ostd::Vector<T>;
+using CsVector = std::vector<T>;
 
 CsInt cs_parse_int(
     ostd::ConstCharRange input, ostd::ConstCharRange *end = nullptr

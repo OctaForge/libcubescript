@@ -475,7 +475,8 @@ CsIdent *CsState::add_ident(CsIdent *id) {
     }
     p_state->idents[id->get_name()] = id;
     id->p_index = p_state->identmap.size();
-    return p_state->identmap.push(id);
+    p_state->identmap.push_back(id);
+    return p_state->identmap.back();
 }
 
 CsIdent *CsState::new_ident(ostd::ConstCharRange name, int flags) {
