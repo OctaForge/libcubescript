@@ -341,7 +341,7 @@ CsState::CsState(CsAllocCb func, void *data):
         if (args.empty()) {
             res.set_int(1);
         } else {
-            for (ostd::Size i = 0; i < args.size(); ++i) {
+            for (size_t i = 0; i < args.size(); ++i) {
                 CsBytecode *code = args[i].get_code();
                 if (code) {
                     cs.run(code, res);
@@ -359,7 +359,7 @@ CsState::CsState(CsAllocCb func, void *data):
         if (args.empty()) {
             res.set_int(0);
         } else {
-            for (ostd::Size i = 0; i < args.size(); ++i) {
+            for (size_t i = 0; i < args.size(); ++i) {
                 CsBytecode *code = args[i].get_code();
                 if (code) {
                     cs.run(code, res);
@@ -424,7 +424,7 @@ CsHookCb &CsState::get_call_hook() {
     return p_callhook;
 }
 
-void *CsState::alloc(void *ptr, ostd::Size os, ostd::Size ns) {
+void *CsState::alloc(void *ptr, size_t os, size_t ns) {
     return p_state->alloc(ptr, os, ns);
 }
 
@@ -1073,7 +1073,7 @@ void cs_init_lib_base(CsState &gcs) {
     });
 
     gcs.new_command("cond", "ee2V", [](auto &cs, auto args, auto &res) {
-        for (ostd::Size i = 0; i < args.size(); i += 2) {
+        for (size_t i = 0; i < args.size(); i += 2) {
             if ((i + 1) < args.size()) {
                 if (cs.run_bool(args[i].get_code())) {
                     cs.run(args[i + 1].get_code(), res);
@@ -1088,7 +1088,7 @@ void cs_init_lib_base(CsState &gcs) {
 
     gcs.new_command("case", "ite2V", [](auto &cs, auto args, auto &res) {
         CsInt val = args[0].get_int();
-        for (ostd::Size i = 1; (i + 1) < args.size(); i += 2) {
+        for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
                 (args[i].get_type() == CsValueType::Null) ||
                 (args[i].get_int() == val)
@@ -1101,7 +1101,7 @@ void cs_init_lib_base(CsState &gcs) {
 
     gcs.new_command("casef", "fte2V", [](auto &cs, auto args, auto &res) {
         CsFloat val = args[0].get_float();
-        for (ostd::Size i = 1; (i + 1) < args.size(); i += 2) {
+        for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
                 (args[i].get_type() == CsValueType::Null) ||
                 (args[i].get_float() == val)
@@ -1114,7 +1114,7 @@ void cs_init_lib_base(CsState &gcs) {
 
     gcs.new_command("cases", "ste2V", [](auto &cs, auto args, auto &res) {
         CsString val = args[0].get_str();
-        for (ostd::Size i = 1; (i + 1) < args.size(); i += 2) {
+        for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
                 (args[i].get_type() == CsValueType::Null) ||
                 (args[i].get_str() == val)

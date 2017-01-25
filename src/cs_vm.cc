@@ -47,7 +47,7 @@ CsStackState::CsStackState(CsStackState &&st):
 }
 
 CsStackState::~CsStackState() {
-    ostd::Size len = 0;
+    size_t len = 0;
     for (CsStackStateNode const *nd = p_node; nd; nd = nd->next) {
         ++len;
     }
@@ -1525,7 +1525,7 @@ noid:
                         continue;
                     case CsIdLocal: {
                         CsIdentStack locals[MaxArguments];
-                        for (ostd::Size j = 0; j < ostd::Size(callargs); ++j) {
+                        for (size_t j = 0; j < size_t(callargs); ++j) {
                             cs_push_alias(cs.force_ident(
                                 args[offset + j]
                             ), locals[j]);
@@ -1533,7 +1533,7 @@ noid:
                         cs_do_and_cleanup([&]() {
                             code = runcode(cs, code, result);
                         }, [&]() {
-                            for (ostd::Size j = 0; j < ostd::Size(callargs); ++j) {
+                            for (size_t j = 0; j < size_t(callargs); ++j) {
                                 cs_pop_alias(args[offset + j].get_ident());
                             }
                         });
@@ -1810,7 +1810,7 @@ static bool cs_run_file(
     CsState &cs, ostd::ConstCharRange fname, CsValue &ret
 ) {
     ostd::Box<char[]> buf;
-    ostd::Size len;
+    size_t len;
 
     ostd::FileStream f(fname, ostd::StreamMode::read);
     if (!f.is_open()) {

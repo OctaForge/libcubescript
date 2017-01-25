@@ -100,7 +100,7 @@ struct CsSharedState {
     CsAllocCb allocf;
     void *aptr;
 
-    void *alloc(void *ptr, ostd::Size os, ostd::Size ns) {
+    void *alloc(void *ptr, size_t os, size_t ns) {
         return allocf(aptr, ptr, os, ns);
     }
 
@@ -112,9 +112,9 @@ struct CsSharedState {
     }
 
     template<typename T>
-    T *create_array(ostd::Size len) {
+    T *create_array(size_t len) {
         T *ret = static_cast<T *>(alloc(nullptr, 0, len * sizeof(T)));
-        for (ostd::Size i = 0; i < len; ++i) {
+        for (size_t i = 0; i < len; ++i) {
             new (&ret[i]) T();
         }
         return ret;
@@ -127,7 +127,7 @@ struct CsSharedState {
     }
 
     template<typename T>
-    void destroy_array(T *v, ostd::Size len) noexcept {
+    void destroy_array(T *v, size_t len) noexcept {
         v->~T();
         alloc(v, len * sizeof(T), 0);
     }
@@ -140,7 +140,7 @@ struct CsContinueException {
 };
 
 template<typename T>
-constexpr ostd::Size CsTypeStorageSize =
+constexpr size_t CsTypeStorageSize =
     (sizeof(T) - 1) / sizeof(ostd::Uint32) + 1;
 
 struct GenState {
@@ -149,7 +149,7 @@ struct GenState {
     bool parsing = true;
     CsVector<ostd::Uint32> code;
     ostd::ConstCharRange source;
-    ostd::Size current_line;
+    size_t current_line;
     ostd::ConstCharRange src_name;
 
     GenState() = delete;
@@ -180,7 +180,7 @@ struct GenState {
     void gen_str(ostd::ConstCharRange word, bool macro = false) {
         if (word.size() <= 3 && !macro) {
             ostd::Uint32 op = CsCodeValInt | CsRetString;
-            for (ostd::Size i = 0; i < word.size(); ++i) {
+            for (size_t i = 0; i < word.size(); ++i) {
                 op |= ostd::Uint32(ostd::byte(word[i])) << ((i + 1) * 8);
             }
             code.push_back(op);
@@ -193,7 +193,7 @@ struct GenState {
         code.insert(
             code.end(), it, it + (word.size() / sizeof(ostd::Uint32))
         );
-        ostd::Size esz = word.size() % sizeof(ostd::Uint32);
+        size_t esz = word.size() % sizeof(ostd::Uint32);
         union {
             char c[sizeof(ostd::Uint32)];
             ostd::Uint32 u;
@@ -277,7 +277,7 @@ struct GenState {
         source.pop_front();
     }
 
-    char current(ostd::Size ahead = 0) {
+    char current(size_t ahead = 0) {
         if (source.size() <= ahead) {
             return '\0';
         }

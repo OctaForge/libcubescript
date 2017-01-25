@@ -185,9 +185,9 @@ done:
 
 namespace util {
     OSTD_EXPORT ostd::ConstCharRange parse_string(
-        CsState &cs, ostd::ConstCharRange str, ostd::Size &nlines
+        CsState &cs, ostd::ConstCharRange str, size_t &nlines
     ) {
-        ostd::Size nl = 0;
+        size_t nl = 0;
         nlines = nl;
         if (str.empty() || (*str != '\"')) {
             return str;
@@ -370,8 +370,8 @@ endblock:
         return true;
     }
 
-    ostd::Size ListParser::count() {
-        ostd::Size ret = 0;
+    size_t ListParser::count() {
+        size_t ret = 0;
         while (parse()) {
             ++ret;
         }

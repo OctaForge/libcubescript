@@ -149,7 +149,7 @@ void cs_init_lib_list(CsState &gcs) {
         CsString str = std::move(args[0].get_str());
         util::ListParser p(cs, str);
         p.get_raw_item() = str;
-        for (ostd::Size i = 1; i < args.size(); ++i) {
+        for (size_t i = 1; i < args.size(); ++i) {
             p.get_input() = str;
             CsInt pos = args[i].get_int();
             for (; pos > 0; --pos) {
@@ -422,8 +422,8 @@ end:
         auto buf = ostd::appender<CsString>();
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange conj = args[1].get_strr();
-        ostd::Size len = util::ListParser(cs, s).count();
-        ostd::Size n = 0;
+        size_t len = util::ListParser(cs, s).count();
+        size_t n = 0;
         for (util::ListParser p(cs, s); p.parse(); ++n) {
             if (!p.get_raw_item(true).empty() &&
                 (p.get_raw_item(true).front() == '"')) {
@@ -540,7 +540,7 @@ static void cs_list_sort(
     CsAlias *xa = static_cast<CsAlias *>(x), *ya = static_cast<CsAlias *>(y);
 
     CsVector<ListSortItem> items;
-    ostd::Size total = 0;
+    size_t total = 0;
 
     for (util::ListParser p(cs, list); p.parse();) {
         ListSortItem item = { p.get_raw_item(), p.get_raw_item(true) };
@@ -559,8 +559,8 @@ static void cs_list_sort(
     xval.push();
     yval.push();
 
-    ostd::Size totaluniq = total;
-    ostd::Size nuniq = items.size();
+    size_t totaluniq = total;
+    size_t nuniq = items.size();
     if (body) {
         ListSortFun f = { cs, xval, yval, body };
         ostd::sort_cmp(ostd::iter(items), f);
@@ -568,7 +568,7 @@ static void cs_list_sort(
             f.body = unique;
             totaluniq = items[0].quote.size();
             nuniq = 1;
-            for (ostd::Size i = 1; i < items.size(); i++) {
+            for (size_t i = 1; i < items.size(); i++) {
                 ListSortItem &item = items[i];
                 if (f(items[i - 1], item)) {
                     item.quote = nullptr;
@@ -582,9 +582,9 @@ static void cs_list_sort(
         ListSortFun f = { cs, xval, yval, unique };
         totaluniq = items[0].quote.size();
         nuniq = 1;
-        for (ostd::Size i = 1; i < items.size(); i++) {
+        for (size_t i = 1; i < items.size(); i++) {
             ListSortItem &item = items[i];
-            for (ostd::Size j = 0; j < i; ++j) {
+            for (size_t j = 0; j < i; ++j) {
                 ListSortItem &prev = items[j];
                 if (!prev.quote.empty() && f(item, prev)) {
                     item.quote = nullptr;
@@ -602,8 +602,8 @@ static void cs_list_sort(
     yval.pop();
 
     CsString sorted;
-    sorted.reserve(totaluniq + ostd::max(nuniq - 1, ostd::Size(0)));
-    for (ostd::Size i = 0; i < items.size(); ++i) {
+    sorted.reserve(totaluniq + ostd::max(nuniq - 1, size_t(0)));
+    for (size_t i = 0; i < items.size(); ++i) {
         ListSortItem &item = items[i];
         if (item.quote.empty()) {
             continue;

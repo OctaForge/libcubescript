@@ -10,7 +10,7 @@
 namespace cscript {
 
 ostd::ConstCharRange GenState::get_str() {
-    ostd::Size nl;
+    size_t nl;
     ostd::ConstCharRange beg = source;
     source = util::parse_string(cs, source, nl);
     current_line += nl - 1;
@@ -109,8 +109,8 @@ static inline int cs_ret_code(int type, int def = 0) {
 static void compilestatements(
     GenState &gs, int rettype, int brak = '\0', int prevargs = 0
 );
-static inline ostd::Pair<ostd::ConstCharRange, ostd::Size> compileblock(
-    GenState &gs, ostd::ConstCharRange p, ostd::Size line,
+static inline ostd::Pair<ostd::ConstCharRange, size_t> compileblock(
+    GenState &gs, ostd::ConstCharRange p, size_t line,
     int rettype = CsRetNull, int brak = '\0'
 );
 
@@ -172,16 +172,16 @@ static inline void compileblock(GenState &gs) {
     gs.code.push_back(CsCodeEmpty);
 }
 
-static inline ostd::Pair<ostd::ConstCharRange, ostd::Size> compileblock(
-    GenState &gs, ostd::ConstCharRange p, ostd::Size line, int rettype, int brak
+static inline ostd::Pair<ostd::ConstCharRange, size_t> compileblock(
+    GenState &gs, ostd::ConstCharRange p, size_t line, int rettype, int brak
 ) {
-    ostd::Size start = gs.code.size();
+    size_t start = gs.code.size();
     gs.code.push_back(CsCodeBlock);
     gs.code.push_back(CsCodeOffset | ((start + 2) << 8));
-    ostd::Size retline = line;
+    size_t retline = line;
     if (p) {
         ostd::ConstCharRange op = gs.source;
-        ostd::Size oldline = gs.current_line;
+        size_t oldline = gs.current_line;
         gs.source = p;
         gs.current_line = line;
         compilestatements(gs, CsValAny, brak);
@@ -209,7 +209,7 @@ static inline void compileunescapestr(GenState &gs, bool macro = false) {
     size_t bufs = (gs.code.capacity() - gs.code.size()) * sizeof(ostd::Uint32);
     char *buf = new char[bufs + 1];
     auto writer = ostd::CharRange(buf, bufs);
-    ostd::Size len = util::unescape_string(writer, str);
+    size_t len = util::unescape_string(writer, str);
     memset(&buf[len], 0, sizeof(ostd::Uint32) - len % sizeof(ostd::Uint32));
     gs.code.back() |= len << 8;
     uint32_t *ubuf = reinterpret_cast<uint32_t *>(buf);
@@ -587,7 +587,7 @@ done:
 
 static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
     char const *start = gs.source.data();
-    ostd::Size curline = gs.current_line;
+    size_t curline = gs.current_line;
     int concs = 0;
     for (int brak = 1; brak;) {
         switch (gs.skip_until("@\"/[]")) {
@@ -763,7 +763,7 @@ static bool compilearg(
                     gs.get_str();
                     break;
                 case CsValCond: {
-                    ostd::Size line = gs.current_line;
+                    size_t line = gs.current_line;
                     auto s = gs.get_str_dup();
                     if (!s.empty()) {
                         compileblock(gs, s, line);
@@ -791,7 +791,7 @@ static bool compilearg(
                     compileunescapestr(gs, true);
                     break;
                 default: {
-                    ostd::Size line = gs.current_line;
+                    size_t line = gs.current_line;
                     auto s = gs.get_str_dup();
                     gs.gen_value(wordtype, s, line);
                     break;
@@ -810,7 +810,7 @@ static bool compilearg(
                 );
                 gs.code.push_back(CsCodeExit | cs_ret_code(wordtype));
             } else {
-                ostd::Size start = gs.code.size();
+                size_t start = gs.code.size();
                 compilestatements(
                     gs, wordtype > CsValAny ? CsValCany : CsValAny, ')', prevargs
                 );
@@ -846,7 +846,7 @@ static bool compilearg(
                     return !gs.get_word().empty();
                 }
                 case CsValCond: {
-                    ostd::Size line = gs.current_line;
+                    size_t line = gs.current_line;
                     auto s = gs.get_word();
                     if (s.empty()) {
                         return false;
@@ -855,7 +855,7 @@ static bool compilearg(
                     return true;
                 }
                 case CsValCode: {
-                    ostd::Size line = gs.current_line;
+                    size_t line = gs.current_line;
                     auto s = gs.get_word();
                     if (s.empty()) {
                         return false;
@@ -871,7 +871,7 @@ static bool compilearg(
                     return !w.empty();
                 }
                 default: {
-                    ostd::Size line = gs.current_line;
+                    size_t line = gs.current_line;
                     auto s = gs.get_word();
                     if (s.empty()) {
                         return false;
@@ -1256,7 +1256,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
     for (;;) {
         gs.skip_comments();
         idname.clear();
-        ostd::Size curline = gs.current_line;
+        size_t curline = gs.current_line;
         bool more = compilearg(gs, CsValWord, prevargs, &idname);
         if (!more) {
             goto endstatement;

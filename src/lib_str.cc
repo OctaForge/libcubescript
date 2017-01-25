@@ -9,7 +9,7 @@ static inline void cs_strgcmp(CsValueRange args, CsValue &res, F cfunc) {
     bool val;
     if (args.size() >= 2) {
         val = cfunc(args[0].get_strr(), args[1].get_strr());
-        for (ostd::Size i = 2; (i < args.size()) && val; ++i) {
+        for (size_t i = 2; (i < args.size()) && val; ++i) {
             val = cfunc(args[i - 1].get_strr(), args[i].get_strr());
         }
     } else {
@@ -108,7 +108,7 @@ void cs_init_lib_string(CsState &cs) {
                 ++f;
                 if (ic >= '1' && ic <= '9') {
                     int i = ic - '0';
-                    if (ostd::Size(i) < args.size()) {
+                    if (size_t(i) < args.size()) {
                         s += args[i].get_str();
                     }
                 } else {
@@ -178,7 +178,7 @@ void cs_init_lib_string(CsState &cs) {
             res.set_str(s);
             return;
         }
-        for (ostd::Size i = 0;; ++i) {
+        for (size_t i = 0;; ++i) {
             ostd::ConstCharRange found;
             ostd::ConstCharRange trys = s;
             for (; oldval.size() <= trys.size(); ++trys) {

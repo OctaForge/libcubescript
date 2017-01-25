@@ -47,7 +47,7 @@ static inline void cs_mathop(
     T val;
     if (args.size() >= 2) {
         val = binop(CsMathVal<T>::get(args[0]), CsMathVal<T>::get(args[1]));
-        for (ostd::Size i = 2; i < args.size(); ++i) {
+        for (size_t i = 2; i < args.size(); ++i) {
             val = binop(val, CsMathVal<T>::get(args[i]));
         }
     } else {
@@ -61,7 +61,7 @@ static inline void cs_cmpop(CsValueRange args, CsValue &res, F cmp) {
     bool val;
     if (args.size() >= 2) {
         val = cmp(CsMathVal<T>::get(args[0]), CsMathVal<T>::get(args[1]));
-        for (ostd::Size i = 2; (i < args.size()) && val; ++i) {
+        for (size_t i = 2; (i < args.size()) && val; ++i) {
             val = cmp(CsMathVal<T>::get(args[i - 1]), CsMathVal<T>::get(args[i]));
         }
     } else {
@@ -178,28 +178,28 @@ void cs_init_lib_math(CsState &cs) {
 
     cs.new_command("min", "i1V", [](auto &, auto args, auto &res) {
         CsInt v = (!args.empty() ? args[0].get_int() : 0);
-        for (ostd::Size i = 1; i < args.size(); ++i) {
+        for (size_t i = 1; i < args.size(); ++i) {
             v = ostd::min(v, args[i].get_int());
         }
         res.set_int(v);
     });
     cs.new_command("max", "i1V", [](auto &, auto args, auto &res) {
         CsInt v = (!args.empty() ? args[0].get_int() : 0);
-        for (ostd::Size i = 1; i < args.size(); ++i) {
+        for (size_t i = 1; i < args.size(); ++i) {
             v = ostd::max(v, args[i].get_int());
         }
         res.set_int(v);
     });
     cs.new_command("minf", "f1V", [](auto &, auto args, auto &res) {
         CsFloat v = (!args.empty() ? args[0].get_float() : 0);
-        for (ostd::Size i = 1; i < args.size(); ++i) {
+        for (size_t i = 1; i < args.size(); ++i) {
             v = ostd::min(v, args[i].get_float());
         }
         res.set_float(v);
     });
     cs.new_command("maxf", "f1V", [](auto &, auto args, auto &res) {
         CsFloat v = (!args.empty() ? args[0].get_float() : 0);
-        for (ostd::Size i = 1; i < args.size(); ++i) {
+        for (size_t i = 1; i < args.size(); ++i) {
             v = ostd::max(v, args[i].get_float());
         }
         res.set_float(v);
@@ -271,7 +271,7 @@ void cs_init_lib_math(CsState &cs) {
         CsInt val;
         if (args.size() >= 2) {
             val = args[0].get_int() ^ ~args[1].get_int();
-            for (ostd::Size i = 2; i < args.size(); ++i) {
+            for (size_t i = 2; i < args.size(); ++i) {
                 val ^= ~args[i].get_int();
             }
         } else {
@@ -283,7 +283,7 @@ void cs_init_lib_math(CsState &cs) {
         CsInt val;
         if (args.size() >= 2) {
             val = args[0].get_int() & ~args[1].get_int();
-            for (ostd::Size i = 2; i < args.size(); ++i) {
+            for (size_t i = 2; i < args.size(); ++i) {
                 val &= ~args[i].get_int();
             }
         } else {
@@ -295,7 +295,7 @@ void cs_init_lib_math(CsState &cs) {
         CsInt val;
         if (args.size() >= 2) {
             val = args[0].get_int() | ~args[1].get_int();
-            for (ostd::Size i = 2; i < args.size(); ++i) {
+            for (size_t i = 2; i < args.size(); ++i) {
                 val |= ~args[i].get_int();
             }
         } else {
@@ -307,7 +307,7 @@ void cs_init_lib_math(CsState &cs) {
     cs.new_command("<<", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
             args, res, 0, [](CsInt val1, CsInt val2) {
-                return (val2 < CsInt(ostd::SizeInBits<CsInt>))
+                return (val2 < CsInt(size_tInBits<CsInt>))
                     ? (val1 << ostd::max(val2, CsInt(0)))
                     : 0;
             }, CsMathNoop<CsInt>()
@@ -317,7 +317,7 @@ void cs_init_lib_math(CsState &cs) {
         cs_mathop<CsInt>(
             args, res, 0, [](CsInt val1, CsInt val2) {
                 return val1 >> ostd::clamp(
-                    val2, CsInt(0), CsInt(ostd::SizeInBits<CsInt>)
+                    val2, CsInt(0), CsInt(size_tInBits<CsInt>)
                 );
             }, CsMathNoop<CsInt>()
         );

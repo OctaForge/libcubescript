@@ -111,7 +111,7 @@ struct OSTD_EXPORT CsValue {
 
 private:
     ostd::AlignedUnion<1, CsInt, CsFloat, void *> p_stor;
-    ostd::Size p_len;
+    size_t p_len;
     CsValueType p_type;
 };
 
@@ -338,13 +338,13 @@ enum {
 };
 
 using CsHookCb = ostd::Function<void(CsState &)>;
-using CsAllocCb = void *(*)(void *, void *, ostd::Size, ostd::Size);
+using CsAllocCb = void *(*)(void *, void *, size_t, size_t);
 
 enum class CsLoopState {
     Normal = 0, Break, Continue
 };
 
-static inline void *cs_default_alloc(void *, void *p, ostd::Size, ostd::Size ns) {
+static inline void *cs_default_alloc(void *, void *p, size_t, size_t ns) {
     if (!ns) {
         delete[] static_cast<unsigned char *>(p);
         return nullptr;
@@ -519,7 +519,7 @@ struct OSTD_EXPORT CsState {
 private:
     CsIdent *add_ident(CsIdent *id);
 
-    void *alloc(void *ptr, ostd::Size olds, ostd::Size news);
+    void *alloc(void *ptr, size_t olds, size_t news);
 
     template<typename T>
     struct CsAllocator {
@@ -538,10 +538,10 @@ private:
         template<typename TT>
         CsAllocator(CsAllocator<TT> const &a) noexcept: p_state(a.p_state) {}
 
-        T *allocate(ostd::Size n) {
+        T *allocate(size_t n) {
             return static_cast<T *>(p_state.alloc(nullptr, 0, n * sizeof(T)));
         }
-        void deallocate(T *p, ostd::Size n) noexcept {
+        void deallocate(T *p, size_t n) noexcept {
             p_state.alloc(p, n * sizeof(T), 0);
         }
 
@@ -626,7 +626,7 @@ struct CsErrorException {
         auto ret = ostd::format(
             ostd::CharRange(fbuf, sizeof(fbuf)), msg, std::forward<A>(args)...
         );
-        if ((ret < 0) || (ostd::Size(ret) > sizeof(fbuf))) {
+        if ((ret < 0) || (size_t(ret) > sizeof(fbuf))) {
             p_errmsg = save_msg(cs, msg);
         } else {
             p_errmsg = save_msg(cs, ostd::CharRange(fbuf, ret));
@@ -670,8 +670,8 @@ private:
 
 namespace util {
     template<typename R>
-    inline ostd::Size escape_string(R &&writer, ostd::ConstCharRange str) {
-        ostd::Size ret = 2;
+    inline size_t escape_string(R &&writer, ostd::ConstCharRange str) {
+        size_t ret = 2;
         writer.put('"');
         for (; !str.empty(); str.pop_front()) {
             switch (str.front()) {
@@ -700,8 +700,8 @@ namespace util {
     }
 
     template<typename R>
-    inline ostd::Size unescape_string(R &&writer, ostd::ConstCharRange str) {
-        ostd::Size ret = 0;
+    inline size_t unescape_string(R &&writer, ostd::ConstCharRange str) {
+        size_t ret = 0;
         for (; !str.empty(); str.pop_front()) {
             if (str.front() == '^') {
                 str.pop_front();
@@ -749,13 +749,13 @@ namespace util {
     }
 
     OSTD_EXPORT ostd::ConstCharRange parse_string(
-        CsState &cs, ostd::ConstCharRange str, ostd::Size &nlines
+        CsState &cs, ostd::ConstCharRange str, size_t &nlines
     );
 
     inline ostd::ConstCharRange parse_string(
         CsState &cs, ostd::ConstCharRange str
     ) {
-        ostd::Size nlines;
+        size_t nlines;
         return parse_string(cs, str, nlines);
     }
 
@@ -771,10 +771,10 @@ namespace util {
 
         void skip();
         bool parse();
-        ostd::Size count();
+        size_t count();
 
         template<typename R>
-        ostd::Size get_item(R &&writer) const {
+        size_t get_item(R &&writer) const {
             if (!p_quote.empty() && (*p_quote == '"')) {
                 return unescape_string(std::forward<R>(writer), p_item);
             } else {
@@ -821,12 +821,12 @@ private:
     }
 
     template<typename R>
-    inline ostd::Size tvals_concat(
+    inline size_t tvals_concat(
         R &&writer, CsValueRange vals,
         ostd::ConstCharRange sep = ostd::ConstCharRange()
     ) {
-        ostd::Size ret = 0;
-        for (ostd::Size i = 0; i < vals.size(); ++i) {
+        size_t ret = 0;
+        for (size_t i = 0; i < vals.size(); ++i) {
             auto s = ostd::appender<CsString>();
             switch (vals[i].get_type()) {
                 case CsValueType::Int: {
@@ -834,7 +834,7 @@ private:
                         std::forward<R>(writer), vals[i].get_int()
                     );
                     if (r > 0) {
-                        ret += ostd::Size(r);
+                        ret += size_t(r);
                     }
                     break;
                 }
@@ -843,7 +843,7 @@ private:
                         std::forward<R>(writer), vals[i].get_float()
                     );
                     if (r > 0) {
-                        ret += ostd::Size(r);
+                        ret += size_t(r);
                     }
                     break;
                 }
@@ -866,8 +866,8 @@ private:
     }
 
     template<typename R>
-    inline ostd::Size print_stack(R &&writer, CsStackState const &st) {
-        ostd::Size ret = 0;
+    inline size_t print_stack(R &&writer, CsStackState const &st) {
+        size_t ret = 0;
         auto nd = st.get();
         while (nd) {
             auto rt = ostd::format(
@@ -877,7 +877,7 @@ private:
                 nd->index, nd->id->get_name()
             );
             if (rt > 0) {
-                ret += ostd::Size(rt);
+                ret += size_t(rt);
             } else {
                 return ret;
             }
