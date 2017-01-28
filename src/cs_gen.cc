@@ -109,7 +109,7 @@ static inline int cs_ret_code(int type, int def = 0) {
 static void compilestatements(
     GenState &gs, int rettype, int brak = '\0', int prevargs = 0
 );
-static inline ostd::Pair<ostd::ConstCharRange, size_t> compileblock(
+static inline std::pair<ostd::ConstCharRange, size_t> compileblock(
     GenState &gs, ostd::ConstCharRange p, size_t line,
     int rettype = CsRetNull, int brak = '\0'
 );
@@ -172,7 +172,7 @@ static inline void compileblock(GenState &gs) {
     gs.code.push_back(CsCodeEmpty);
 }
 
-static inline ostd::Pair<ostd::ConstCharRange, size_t> compileblock(
+static inline std::pair<ostd::ConstCharRange, size_t> compileblock(
     GenState &gs, ostd::ConstCharRange p, size_t line, int rettype, int brak
 ) {
     size_t start = gs.code.size();
@@ -197,7 +197,7 @@ static inline ostd::Pair<ostd::ConstCharRange, size_t> compileblock(
         gs.code.resize(start);
         gs.code.push_back(CsCodeEmpty | rettype);
     }
-    return ostd::make_pair(p, retline);
+    return std::make_pair(p, retline);
 }
 
 static inline void compileunescapestr(GenState &gs, bool macro = false) {
