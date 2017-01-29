@@ -122,7 +122,7 @@ static inline void cs_list_merge(
         buf += list;
     }
     if (Swap) {
-        ostd::swap(list, elems);
+        std::swap(list, elems);
     }
     for (util::ListParser p(cs, list); p.parse();) {
         if (cmp(cs_list_includes(cs, elems, p.get_raw_item()), 0)) {
