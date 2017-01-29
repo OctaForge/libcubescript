@@ -9,9 +9,27 @@
 #include <ostd/map.hh>
 #include <ostd/stream.hh>
 
+/* do not modify */
+namespace cscript {
+    struct CsState;
+    struct CsIdent;
+    struct CsValue;
+
+    using CsValueRange      = ostd::PointerRange<CsValue>;
+    using CsIdentRange      = ostd::PointerRange<CsIdent *>;
+    using CsConstIdentRange = ostd::PointerRange<CsIdent const *>;
+}
+
+/* configurable section */
 namespace cscript {
     using CsInt = int;
     using CsFloat = float;
+
+    using CsVarCb     = std::function<void(CsState &, CsIdent &)>;
+    using CsCommandCb = std::function<void(CsState &, CsValueRange, CsValue &)>;
+    using CsHookCb    = std::function<void(CsState &)>;
+    using CsAllocCb   = void *(*)(void *, void *, size_t, size_t);
+
 
     constexpr auto const IntFormat = "%d";
     constexpr auto const FloatFormat = "%.7g";

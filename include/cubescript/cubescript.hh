@@ -65,8 +65,6 @@ private:
 
 OSTD_EXPORT bool cs_code_is_empty(CsBytecode *code);
 
-struct CsIdent;
-
 enum class CsValueType {
     Null = 0, Int, Float, String, Cstring, Code, Macro, Ident
 };
@@ -115,14 +113,11 @@ private:
     CsValueType p_type;
 };
 
-using CsValueRange = ostd::PointerRange<CsValue>;
-
 struct CsIdentStack {
     CsValue val_s;
     CsIdentStack *next;
 };
 
-struct CsState;
 struct CsSharedState;
 struct CsErrorException;
 struct GenState;
@@ -199,11 +194,6 @@ protected:
 private:
     int p_index = -1;
 };
-
-using CsIdentRange = ostd::PointerRange<CsIdent *>;
-using CsConstIdentRange = ostd::PointerRange<CsIdent const *>;
-
-using CsVarCb = ostd::Function<void(CsState &, CsIdent &)>;
 
 struct OSTD_EXPORT CsVar: CsIdent {
     friend struct CsState;
@@ -307,8 +297,6 @@ private:
     CsValue p_val;
 };
 
-using CsCommandCb = ostd::Function<void(CsState &, CsValueRange, CsValue &)>;
-
 struct CsCommand: CsIdent {
     friend struct CsState;
     friend struct CsSharedState;
@@ -336,9 +324,6 @@ enum {
     CsLibList   = 1 << 2,
     CsLibAll    = 0b111
 };
-
-using CsHookCb = ostd::Function<void(CsState &)>;
-using CsAllocCb = void *(*)(void *, void *, size_t, size_t);
 
 enum class CsLoopState {
     Normal = 0, Break, Continue
@@ -368,13 +353,6 @@ struct OSTD_EXPORT CsState {
     CsHookCb const &get_call_hook() const;
     CsHookCb &get_call_hook();
 
-    template<typename F>
-    CsHookCb set_call_hook(F &&f) {
-        return set_call_hook(CsHookCb(
-            ostd::allocator_arg, CsAllocator<char>(*this), std::forward<F>(f)
-        ));
-    }
-
     void init_libs(int libs = CsLibAll);
 
     void clear_override(CsIdent &id);
@@ -396,44 +374,9 @@ struct OSTD_EXPORT CsState {
         CsVarCb f = CsVarCb(), int flags = 0
     );
 
-    template<typename F>
-    CsIvar *new_ivar(
-        ostd::ConstCharRange n, CsInt m, CsInt x, CsInt v, F &&f, int flags = 0
-    ) {
-        return new_ivar(n, m, x, v, CsVarCb(
-            ostd::allocator_arg, CsAllocator<char>(*this), std::forward<F>(f)
-        ), flags);
-    }
-    template<typename F>
-    CsFvar *new_fvar(
-        ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat v, F &&f,
-        int flags = 0
-    ) {
-        return new_fvar(n, m, x, v, CsVarCb(
-            ostd::allocator_arg, CsAllocator<char>(*this), std::forward<F>(f)
-        ), flags);
-    }
-    template<typename F>
-    CsSvar *new_svar(
-        ostd::ConstCharRange n, CsString v, F &&f, int flags = 0
-    ) {
-        return new_svar(n, std::move(v), CsVarCb(
-            ostd::allocator_arg, CsAllocator<char>(*this), std::forward<F>(f)
-        ), flags);
-    }
-
     CsCommand *new_command(
         ostd::ConstCharRange name, ostd::ConstCharRange args, CsCommandCb func
     );
-
-    template<typename F>
-    CsCommand *new_command(
-        ostd::ConstCharRange name, ostd::ConstCharRange args, F &&f
-    ) {
-        return new_command(name, args, CsCommandCb(
-            ostd::allocator_arg, CsAllocator<char>(*this), std::forward<F>(f)
-        ));
-    }
 
     CsIdent *get_ident(ostd::ConstCharRange name);
     CsAlias *get_alias(ostd::ConstCharRange name);
