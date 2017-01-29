@@ -1809,7 +1809,7 @@ CsLoopState CsState::run_loop(CsBytecode *code) {
 static bool cs_run_file(
     CsState &cs, ostd::ConstCharRange fname, CsValue &ret
 ) {
-    ostd::Box<char[]> buf;
+    std::unique_ptr<char[]> buf;
     size_t len;
 
     ostd::FileStream f(fname, ostd::StreamMode::read);
@@ -1818,7 +1818,7 @@ static bool cs_run_file(
     }
 
     len = f.size();
-    buf = ostd::make_box<char[]>(len + 1);
+    buf = std::make_unique<char[]>(len + 1);
     if (!buf || f.get(buf.get(), len) != len) {
         return false;
     }
