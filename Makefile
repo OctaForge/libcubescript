@@ -1,7 +1,7 @@
 OSTD_PATH = ../octastd
 
 LIBCS_CXXFLAGS = \
-	-std=c++14 -Wall -Wextra -Wshadow -Wold-style-cast -Iinclude -Isrc -g \
+	-std=c++1z -Wall -Wextra -Wshadow -Wold-style-cast -Iinclude -Isrc -g \
 	-fvisibility=hidden -I$(OSTD_PATH)
 
 LIBCS_LDFLAGS = -shared
