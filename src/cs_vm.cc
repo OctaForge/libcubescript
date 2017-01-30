@@ -117,7 +117,7 @@ ostd::ConstCharRange CsErrorException::save_msg(
     if (gs) {
         /* we can attach line number */
         ostd::CharRange r(cs.p_errbuf, sizeof(cs.p_errbuf));
-        ostd::Ptrdiff sz = -1;
+        std::ptrdiff_t sz = -1;
         if (!gs->src_name.empty()) {
             sz = ostd::format(r, "%s:%d: %s", gs->src_name, gs->current_line, msg);
         } else {
@@ -144,7 +144,7 @@ static void bcode_ref(uint32_t *code) {
             bcode_incr(&code[-1]);
             break;
         case CsCodeOffset:
-            code -= ostd::Ptrdiff(code[-1] >> 8);
+            code -= std::ptrdiff_t(code[-1] >> 8);
             bcode_incr(code);
             break;
     }
@@ -163,7 +163,7 @@ static void bcode_unref(uint32_t *code) {
             bcode_decr(&code[-1]);
             break;
         case CsCodeOffset:
-            code -= ostd::Ptrdiff(code[-1] >> 8);
+            code -= std::ptrdiff_t(code[-1] >> 8);
             bcode_decr(code);
             break;
     }
@@ -1830,34 +1830,34 @@ static bool cs_run_file(
     return true;
 }
 
-ostd::Maybe<CsString> CsState::run_file_str(ostd::ConstCharRange fname) {
+std::optional<CsString> CsState::run_file_str(ostd::ConstCharRange fname) {
     CsValue ret;
     if (!cs_run_file(*this, fname, ret)) {
-        return ostd::nothing;
+        return std::nullopt;
     }
     return ret.get_str();
 }
 
-ostd::Maybe<CsInt> CsState::run_file_int(ostd::ConstCharRange fname) {
+std::optional<CsInt> CsState::run_file_int(ostd::ConstCharRange fname) {
     CsValue ret;
     if (!cs_run_file(*this, fname, ret)) {
-        return ostd::nothing;
+        return std::nullopt;
     }
     return ret.get_int();
 }
 
-ostd::Maybe<CsFloat> CsState::run_file_float(ostd::ConstCharRange fname) {
+std::optional<CsFloat> CsState::run_file_float(ostd::ConstCharRange fname) {
     CsValue ret;
     if (!cs_run_file(*this, fname, ret)) {
-        return ostd::nothing;
+        return std::nullopt;
     }
     return ret.get_float();
 }
 
-ostd::Maybe<bool> CsState::run_file_bool(ostd::ConstCharRange fname) {
+std::optional<bool> CsState::run_file_bool(ostd::ConstCharRange fname) {
     CsValue ret;
     if (!cs_run_file(*this, fname, ret)) {
-        return ostd::nothing;
+        return std::nullopt;
     }
     return ret.get_bool();
 }

@@ -303,7 +303,7 @@ static inline void bcode_incr(uint32_t *bc) {
 
 static inline void bcode_decr(uint32_t *bc) {
     *bc -= 0x100;
-    if (ostd::Int32(*bc) < 0x100) {
+    if (std::int32_t(*bc) < 0x100) {
         delete[] bc;
     }
 }

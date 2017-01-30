@@ -1,9 +1,10 @@
 #include <signal.h>
 
+#include <optional>
+
 #include <ostd/platform.hh>
 #include <ostd/io.hh>
 #include <ostd/string.hh>
-#include <ostd/maybe.hh>
 
 #include <cubescript/cubescript.hh>
 
@@ -110,7 +111,7 @@ static inline void fill_cmd_args(std::string &writer, ostd::ConstCharRange args)
             if (args.size() > 1) {
                 writer += '{';
             }
-            for (ostd::Size i = 0; i < args.size(); ++i) {
+            for (std::size_t i = 0; i < args.size(); ++i) {
                 if (i) {
                     writer += ", ";
                 }

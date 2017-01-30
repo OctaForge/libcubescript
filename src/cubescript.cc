@@ -764,70 +764,70 @@ void CsState::set_var_str(
     }
 }
 
-ostd::Maybe<CsInt> CsState::get_var_int(ostd::ConstCharRange name) {
+std::optional<CsInt> CsState::get_var_int(ostd::ConstCharRange name) {
     CsIdent *id = get_ident(name);
     if (!id || id->is_ivar()) {
-        return ostd::nothing;
+        return std::nullopt;
     }
     return static_cast<CsIvar *>(id)->get_value();
 }
 
-ostd::Maybe<CsFloat> CsState::get_var_float(ostd::ConstCharRange name) {
+std::optional<CsFloat> CsState::get_var_float(ostd::ConstCharRange name) {
     CsIdent *id = get_ident(name);
     if (!id || id->is_fvar()) {
-        return ostd::nothing;
+        return std::nullopt;
     }
     return static_cast<CsFvar *>(id)->get_value();
 }
 
-ostd::Maybe<CsString> CsState::get_var_str(ostd::ConstCharRange name) {
+std::optional<CsString> CsState::get_var_str(ostd::ConstCharRange name) {
     CsIdent *id = get_ident(name);
     if (!id || id->is_svar()) {
-        return ostd::nothing;
+        return std::nullopt;
     }
     return CsString(static_cast<CsSvar *>(id)->get_value());
 }
 
-ostd::Maybe<CsInt> CsState::get_var_min_int(ostd::ConstCharRange name) {
+std::optional<CsInt> CsState::get_var_min_int(ostd::ConstCharRange name) {
     CsIdent *id = get_ident(name);
     if (!id || id->is_ivar()) {
-        return ostd::nothing;
+        return std::nullopt;
     }
     return static_cast<CsIvar *>(id)->get_val_min();
 }
 
-ostd::Maybe<CsInt> CsState::get_var_max_int(ostd::ConstCharRange name) {
+std::optional<CsInt> CsState::get_var_max_int(ostd::ConstCharRange name) {
     CsIdent *id = get_ident(name);
     if (!id || id->is_ivar()) {
-        return ostd::nothing;
+        return std::nullopt;
     }
     return static_cast<CsIvar *>(id)->get_val_max();
 }
 
-ostd::Maybe<CsFloat> CsState::get_var_min_float(ostd::ConstCharRange name) {
+std::optional<CsFloat> CsState::get_var_min_float(ostd::ConstCharRange name) {
     CsIdent *id = get_ident(name);
     if (!id || id->is_fvar()) {
-        return ostd::nothing;
+        return std::nullopt;
     }
     return static_cast<CsFvar *>(id)->get_val_min();
 }
 
-ostd::Maybe<CsFloat> CsState::get_var_max_float(ostd::ConstCharRange name) {
+std::optional<CsFloat> CsState::get_var_max_float(ostd::ConstCharRange name) {
     CsIdent *id = get_ident(name);
     if (!id || id->is_fvar()) {
-        return ostd::nothing;
+        return std::nullopt;
     }
     return static_cast<CsFvar *>(id)->get_val_max();
 }
 
-ostd::Maybe<CsString>
+std::optional<CsString>
 CsState::get_alias_val(ostd::ConstCharRange name) {
     CsAlias *a = get_alias(name);
     if (!a) {
-        return ostd::nothing;
+        return std::nullopt;
     }
     if ((a->get_index() < MaxArguments) && !cs_is_arg_used(*this, a)) {
-        return ostd::nothing;
+        return std::nullopt;
     }
     return a->get_value().get_str();
 }

@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <optional>
+
 #include "cubescript_conf.hh"
 
 #include <ostd/platform.hh>
@@ -14,7 +16,6 @@
 #include <ostd/map.hh>
 #include <ostd/range.hh>
 #include <ostd/utility.hh>
-#include <ostd/maybe.hh>
 #include <ostd/io.hh>
 #include <ostd/functional.hh>
 #include <ostd/format.hh>
@@ -419,10 +420,10 @@ struct OSTD_EXPORT CsState {
         return p_inloop;
     }
 
-    ostd::Maybe<CsString> run_file_str(ostd::ConstCharRange fname);
-    ostd::Maybe<CsInt> run_file_int(ostd::ConstCharRange fname);
-    ostd::Maybe<CsFloat> run_file_float(ostd::ConstCharRange fname);
-    ostd::Maybe<bool> run_file_bool(ostd::ConstCharRange fname);
+    std::optional<CsString> run_file_str(ostd::ConstCharRange fname);
+    std::optional<CsInt> run_file_int(ostd::ConstCharRange fname);
+    std::optional<CsFloat> run_file_float(ostd::ConstCharRange fname);
+    std::optional<bool> run_file_bool(ostd::ConstCharRange fname);
     bool run_file(ostd::ConstCharRange fname, CsValue &ret);
     bool run_file(ostd::ConstCharRange fname);
 
@@ -445,17 +446,17 @@ struct OSTD_EXPORT CsState {
     void set_var_float_checked(CsFvar *fv, CsFloat v);
     void set_var_str_checked(CsSvar *fv, ostd::ConstCharRange v);
 
-    ostd::Maybe<CsInt> get_var_int(ostd::ConstCharRange name);
-    ostd::Maybe<CsFloat> get_var_float(ostd::ConstCharRange name);
-    ostd::Maybe<CsString> get_var_str(ostd::ConstCharRange name);
+    std::optional<CsInt> get_var_int(ostd::ConstCharRange name);
+    std::optional<CsFloat> get_var_float(ostd::ConstCharRange name);
+    std::optional<CsString> get_var_str(ostd::ConstCharRange name);
 
-    ostd::Maybe<CsInt> get_var_min_int(ostd::ConstCharRange name);
-    ostd::Maybe<CsInt> get_var_max_int(ostd::ConstCharRange name);
+    std::optional<CsInt> get_var_min_int(ostd::ConstCharRange name);
+    std::optional<CsInt> get_var_max_int(ostd::ConstCharRange name);
 
-    ostd::Maybe<CsFloat> get_var_min_float(ostd::ConstCharRange name);
-    ostd::Maybe<CsFloat> get_var_max_float(ostd::ConstCharRange name);
+    std::optional<CsFloat> get_var_min_float(ostd::ConstCharRange name);
+    std::optional<CsFloat> get_var_max_float(ostd::ConstCharRange name);
 
-    ostd::Maybe<CsString> get_alias_val(ostd::ConstCharRange name);
+    std::optional<CsString> get_alias_val(ostd::ConstCharRange name);
 
     virtual void print_var(CsVar *v);
 
@@ -751,12 +752,12 @@ private:
     };
 
     template<typename R>
-    inline ostd::Ptrdiff format_int(R &&writer, CsInt val) {
+    inline std::ptrdiff_t format_int(R &&writer, CsInt val) {
         return ostd::format(std::forward<R>(writer), IntFormat, val);
     }
 
     template<typename R>
-    inline ostd::Ptrdiff format_float(R &&writer, CsFloat val) {
+    inline std::ptrdiff_t format_float(R &&writer, CsFloat val) {
         return ostd::format(
             std::forward<R>(writer),
             (val == CsInt(val)) ? RoundFloatFormat : FloatFormat, val

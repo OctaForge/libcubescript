@@ -8,8 +8,9 @@
 #include <ctype.h>
 #include <signal.h>
 
+#include <optional>
+
 #include <ostd/string.hh>
-#include <ostd/maybe.hh>
 
 #include "linenoise.hh"
 
@@ -59,13 +60,13 @@ static void init_lineedit(CsState &cs, ostd::ConstCharRange) {
     linenoiseSetFreeHintsCallback(ln_hint_free);
 }
 
-static ostd::Maybe<std::string> read_line(CsState &, CsSvar *pr) {
+static std::optional<std::string> read_line(CsState &, CsSvar *pr) {
     auto line = linenoise(pr->get_value().data());
     if (!line) {
         /* linenoise traps ctrl-c, detect it and let the user exit */
         if (errno == EAGAIN) {
             raise(SIGINT);
-            return ostd::nothing;
+            return std::nullopt;
         }
         return std::string{};
     }

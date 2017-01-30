@@ -5,8 +5,9 @@
 
 #include <string.h>
 
+#include <optional>
+
 #include <ostd/string.hh>
-#include <ostd/maybe.hh>
 
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -68,7 +69,7 @@ static void init_lineedit(CsState &cs, ostd::ConstCharRange) {
     rl_redisplay_function = ln_hint;
 }
 
-static ostd::Maybe<std::string> read_line(CsState &, CsSvar *pr) {
+static std::optional<std::string> read_line(CsState &, CsSvar *pr) {
     auto line = readline(pr->get_value().data());
     if (!line) {
         return std::string();
