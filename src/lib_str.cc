@@ -99,7 +99,7 @@ void cs_init_lib_string(CsState &cs) {
         }
         CsString s;
         CsString fs = args[0].get_str();
-        ostd::ConstCharRange f = fs.iter();
+        ostd::ConstCharRange f = ostd::iter(fs);
         while (!f.empty()) {
             char c = *f;
             ++f;
@@ -135,12 +135,12 @@ void cs_init_lib_string(CsState &cs) {
         CsInt start = args[1].get_int(), count = args[2].get_int();
         CsInt numargs = args[3].get_int();
         CsInt len = CsInt(s.size()), offset = ostd::clamp(start, CsInt(0), len);
-        res.set_str(ostd::ConstCharRange(
+        res.set_str(CsString{
             &s[offset],
             (numargs >= 3)
-                ? ostd::clamp(count, CsInt(0), len - offset)
-                : (len - offset)
-        ));
+                ? size_t(ostd::clamp(count, CsInt(0), len - offset))
+                : size_t(len - offset)
+        });
     });
 
     cs.new_command("strcmp", "s1V", [](auto &, auto args, auto &res) {
@@ -175,7 +175,7 @@ void cs_init_lib_string(CsState &cs) {
         }
         CsString buf;
         if (!oldval.size()) {
-            res.set_str(s);
+            res.set_str(CsString{s});
             return;
         }
         for (size_t i = 0;; ++i) {

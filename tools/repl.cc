@@ -70,7 +70,7 @@ static inline ostd::ConstCharRange get_arg_type(char arg) {
     return "illegal";
 }
 
-static inline void fill_cmd_args(ostd::String &writer, ostd::ConstCharRange args) {
+static inline void fill_cmd_args(std::string &writer, ostd::ConstCharRange args) {
     char variadic = '\0';
     int nrep = 0;
     if (!args.empty() && ((args.back() == 'V') || (args.back() == 'C'))) {
@@ -368,7 +368,7 @@ endargs:
             do_tty(gcs);
             return 0;
         } else {
-            ostd::String str;
+            std::string str;
             for (char c = '\0'; (c = ostd::in.getchar()) != EOF;) {
                 str += c;
             }

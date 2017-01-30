@@ -36,7 +36,7 @@ static char *ln_hint(char const *buf, int *color, int *bold) {
     if (!cmd) {
         return nullptr;
     }
-    ostd::String args = " [";
+    std::string args = " [";
     fill_cmd_args(args, cmd->get_args());
     args += ']';
     *color = 35;
@@ -59,7 +59,7 @@ static void init_lineedit(CsState &cs, ostd::ConstCharRange) {
     linenoiseSetFreeHintsCallback(ln_hint_free);
 }
 
-static ostd::Maybe<ostd::String> read_line(CsState &, CsSvar *pr) {
+static ostd::Maybe<std::string> read_line(CsState &, CsSvar *pr) {
     auto line = linenoise(pr->get_value().data());
     if (!line) {
         /* linenoise traps ctrl-c, detect it and let the user exit */
@@ -67,15 +67,15 @@ static ostd::Maybe<ostd::String> read_line(CsState &, CsSvar *pr) {
             raise(SIGINT);
             return ostd::nothing;
         }
-        return ostd::String();
+        return std::string{};
     }
-    ostd::String ret = line;
+    std::string ret = line;
     linenoiseFree(line);
     return std::move(ret);
 }
 
 static void add_history(CsState &, ostd::ConstCharRange line) {
-    /* backed by ostd::String so it's terminated */
+    /* backed by std::string so it's terminated */
     linenoiseHistoryAdd(line.data());
 }
 

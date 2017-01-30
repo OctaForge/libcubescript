@@ -777,9 +777,9 @@ static uint32_t *runcode(CsState &cs, uint32_t *code, CsValue &result) {
 
             case CsCodeVal | CsRetString: {
                 uint32_t len = op >> 8;
-                args[numargs++].set_str(ostd::ConstCharRange(
+                args[numargs++].set_str(CsString{
                     reinterpret_cast<char const *>(code), len
-                ));
+                });
                 code += len / sizeof(uint32_t) + 1;
                 continue;
             }
@@ -829,7 +829,7 @@ static uint32_t *runcode(CsState &cs, uint32_t *code, CsValue &result) {
                 numargs++;
                 continue;
             case CsCodeDup | CsRetString:
-                args[numargs].set_str(std::move(args[numargs - 1].get_str()));
+                args[numargs].set_str(args[numargs - 1].get_str());
                 numargs++;
                 continue;
 
@@ -994,22 +994,24 @@ static uint32_t *runcode(CsState &cs, uint32_t *code, CsValue &result) {
                 CsValue &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case CsIdAlias:
-                        arg.set_str(std::move(
+                        arg.set_str(
                             static_cast<CsAlias *>(id)->get_value().get_str()
-                        ));
+                        );
                         continue;
                     case CsIdSvar:
-                        arg.set_str(static_cast<CsSvar *>(id)->get_value());
+                        arg.set_str(CsString{
+                            static_cast<CsSvar *>(id)->get_value()
+                        });
                         continue;
                     case CsIdIvar:
-                        arg.set_str(std::move(
+                        arg.set_str(
                             intstr(static_cast<CsIvar *>(id)->get_value())
-                        ));
+                        );
                         continue;
                     case CsIdFvar:
-                        arg.set_str(std::move(
+                        arg.set_str(
                             floatstr(static_cast<CsFvar *>(id)->get_value())
-                        ));
+                        );
                         continue;
                     case CsIdUnknown:
                         arg.set_str("");
@@ -1020,7 +1022,7 @@ static uint32_t *runcode(CsState &cs, uint32_t *code, CsValue &result) {
             }
             case CsCodeLookup | CsRetString:
                 args[numargs++].set_str(
-                    std::move(cs_get_lookup_id(cs, op)->get_value().get_str())
+                    cs_get_lookup_id(cs, op)->get_value().get_str()
                 );
                 continue;
             case CsCodeLookupArg | CsRetString: {
@@ -1028,9 +1030,7 @@ static uint32_t *runcode(CsState &cs, uint32_t *code, CsValue &result) {
                 if (!a) {
                     args[numargs++].set_str("");
                 } else {
-                    args[numargs++].set_str(
-                        std::move(a->get_value().get_str())
-                    );
+                    args[numargs++].set_str(a->get_value().get_str());
                 }
                 continue;
             }
@@ -1130,7 +1130,9 @@ static uint32_t *runcode(CsState &cs, uint32_t *code, CsValue &result) {
                         static_cast<CsAlias *>(id)->get_value().get_val(arg);
                         continue;
                     case CsIdSvar:
-                        arg.set_str(static_cast<CsSvar *>(id)->get_value());
+                        arg.set_str(CsString{
+                            static_cast<CsSvar *>(id)->get_value()
+                        });
                         continue;
                     case CsIdIvar:
                         arg.set_int(static_cast<CsIvar *>(id)->get_value());
@@ -1171,14 +1173,14 @@ static uint32_t *runcode(CsState &cs, uint32_t *code, CsValue &result) {
                         arg.set_cstr(static_cast<CsSvar *>(id)->get_value());
                         continue;
                     case CsIdIvar:
-                        arg.set_str(std::move(
+                        arg.set_str(
                             intstr(static_cast<CsIvar *>(id)->get_value())
-                        ));
+                        );
                         continue;
                     case CsIdFvar:
-                        arg.set_str(std::move(
+                        arg.set_str(
                             floatstr(static_cast<CsFvar *>(id)->get_value())
-                        ));
+                        );
                         continue;
                     case CsIdUnknown:
                         arg.set_cstr("");
@@ -1237,9 +1239,9 @@ static uint32_t *runcode(CsState &cs, uint32_t *code, CsValue &result) {
 
             case CsCodeSvar | CsRetString:
             case CsCodeSvar | CsRetNull:
-                args[numargs++].set_str(static_cast<CsSvar *>(
+                args[numargs++].set_str(CsString{static_cast<CsSvar *>(
                     cs.p_state->identmap[op >> 8]
-                )->get_value());
+                )->get_value()});
                 continue;
             case CsCodeSvar | CsRetInt:
                 args[numargs++].set_int(cs_parse_int(static_cast<CsSvar *>(
@@ -1270,9 +1272,9 @@ static uint32_t *runcode(CsState &cs, uint32_t *code, CsValue &result) {
                 )->get_value());
                 continue;
             case CsCodeIvar | CsRetString:
-                args[numargs++].set_str(std::move(intstr(static_cast<CsIvar *>(
+                args[numargs++].set_str(intstr(static_cast<CsIvar *>(
                     cs.p_state->identmap[op >> 8]
-                )->get_value())));
+                )->get_value()));
                 continue;
             case CsCodeIvar | CsRetFloat:
                 args[numargs++].set_float(CsFloat(static_cast<CsIvar *>(
@@ -1309,11 +1311,11 @@ static uint32_t *runcode(CsState &cs, uint32_t *code, CsValue &result) {
                 )->get_value());
                 continue;
             case CsCodeFvar | CsRetString:
-                args[numargs++].set_str(std::move(floatstr(
+                args[numargs++].set_str(floatstr(
                     static_cast<CsFvar *>(
                         cs.p_state->identmap[op >> 8]
                     )->get_value()
-                )));
+                ));
                 continue;
             case CsCodeFvar | CsRetInt:
                 args[numargs++].set_int(int(static_cast<CsFvar *>(
@@ -1833,7 +1835,7 @@ ostd::Maybe<CsString> CsState::run_file_str(ostd::ConstCharRange fname) {
     if (!cs_run_file(*this, fname, ret)) {
         return ostd::nothing;
     }
-    return std::move(ret.get_str());
+    return ret.get_str();
 }
 
 ostd::Maybe<CsInt> CsState::run_file_int(ostd::ConstCharRange fname) {

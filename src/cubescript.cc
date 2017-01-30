@@ -259,7 +259,7 @@ CsString CsFvar::to_printable() const {
 }
 
 ostd::ConstCharRange CsSvar::get_value() const {
-    return p_storage.iter();
+    return ostd::iter(p_storage);
 }
 void CsSvar::set_value(CsString val) {
     p_storage = std::move(val);
@@ -619,7 +619,7 @@ void CsState::set_alias(ostd::ConstCharRange name, CsValue v) {
 }
 
 void CsState::print_var(CsVar *v) {
-    writeln(v->to_printable());
+    ostd::writeln(v->to_printable());
 }
 
 void CsAlias::get_cstr(CsValue &v) const {
@@ -632,10 +632,10 @@ void CsAlias::get_cstr(CsValue &v) const {
             v.set_cstr(p_val.get_strr());
             break;
         case CsValueType::Int:
-            v.set_str(std::move(intstr(p_val.get_int())));
+            v.set_str(intstr(p_val.get_int()));
             break;
         case CsValueType::Float:
-            v.set_str(std::move(floatstr(p_val.get_float())));
+            v.set_str(floatstr(p_val.get_float()));
             break;
         default:
             v.set_cstr("");
@@ -758,7 +758,7 @@ void CsState::set_var_str(
         *this, sv, sv->p_flags,
         [&sv]() { sv->p_overrideval = sv->get_value(); }
     );
-    sv->set_value(v);
+    sv->set_value(CsString{v});
     if (dofunc) {
         sv->changed(*this);
     }
@@ -829,7 +829,7 @@ CsState::get_alias_val(ostd::ConstCharRange name) {
     if ((a->get_index() < MaxArguments) && !cs_is_arg_used(*this, a)) {
         return ostd::nothing;
     }
-    return std::move(a->get_value().get_str());
+    return a->get_value().get_str();
 }
 
 CsInt cs_clamp_var(CsState &cs, CsIvar *iv, CsInt v) {
@@ -923,7 +923,7 @@ void CsState::set_var_str_checked(CsSvar *sv, ostd::ConstCharRange v) {
         *this, sv, sv->p_flags,
         [&sv]() { sv->p_overrideval = sv->get_value(); }
     );
-    sv->set_value(v);
+    sv->set_value(CsString{v});
     sv->changed(*this);
 }
 
@@ -1051,7 +1051,7 @@ void cs_init_lib_base(CsState &gcs) {
         try {
             cs.run(args[0].get_code(), result);
         } catch (CsErrorException const &e) {
-            result.set_str(e.what());
+            result.set_str(CsString{e.what()});
             if (e.get_stack().get()) {
                 auto app = ostd::appender<CsString>();
                 cscript::util::print_stack(app, e.get_stack());

@@ -58,9 +58,7 @@ CsValue &CsValue::operator=(CsValue const &v) {
         case CsValueType::String:
         case CsValueType::Cstring:
         case CsValueType::Macro:
-            set_str(
-                ostd::ConstCharRange(csv_get<char const *>(v.p_stor), v.p_len)
-            );
+            set_str(CsString{csv_get<char const *>(v.p_stor), v.p_len});
             break;
         case CsValueType::Code:
             set_code(cs_copy_code(v.get_code()));
@@ -100,15 +98,9 @@ void CsValue::set_str(CsString val) {
     csv_cleanup(p_type, p_stor);
     p_type = CsValueType::String;
     p_len = val.size();
-    if (p_len == 0) {
-        /* ostd zero length strings cannot be releaseed */
-        char *buf = new char[1];
-        buf[0] = '\0';
-        csv_get<char *>(p_stor) = buf;
-        return;
-    }
-    csv_get<char *>(p_stor) = val.data();
-    val.release();
+    char *buf = new char[p_len + 1];
+    memcpy(buf, val.data(), p_len + 1);
+    csv_get<char *>(p_stor) = buf;
 }
 
 void CsValue::set_null() {
@@ -197,10 +189,10 @@ ostd::ConstCharRange CsValue::force_str() {
     CsString rs;
     switch (get_type()) {
         case CsValueType::Float:
-            rs = std::move(floatstr(csv_get<CsFloat>(p_stor)));
+            rs = floatstr(csv_get<CsFloat>(p_stor));
             break;
         case CsValueType::Int:
-            rs = std::move(intstr(csv_get<CsInt>(p_stor)));
+            rs = intstr(csv_get<CsInt>(p_stor));
             break;
         case CsValueType::Macro:
         case CsValueType::Cstring:
@@ -270,7 +262,7 @@ CsString CsValue::get_str() const {
         case CsValueType::String:
         case CsValueType::Macro:
         case CsValueType::Cstring:
-            return ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len);
+            return CsString{csv_get<char const *>(p_stor), p_len};
         case CsValueType::Int:
             return intstr(csv_get<CsInt>(p_stor));
         case CsValueType::Float:
@@ -299,7 +291,7 @@ void CsValue::get_val(CsValue &r) const {
         case CsValueType::Macro:
         case CsValueType::Cstring:
             r.set_str(
-                ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len)
+                CsString{csv_get<char const *>(p_stor), p_len}
             );
             break;
         case CsValueType::Int:

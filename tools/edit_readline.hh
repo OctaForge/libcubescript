@@ -51,8 +51,8 @@ void ln_hint() {
         rl_redisplay();
         return;
     }
-    ostd::String old = rl_line_buffer;
-    ostd::String args = old;
+    std::string old = rl_line_buffer;
+    std::string args = old;
     args += " [";
     fill_cmd_args(args, cmd->get_args());
     args += "] ";
@@ -68,18 +68,18 @@ static void init_lineedit(CsState &cs, ostd::ConstCharRange) {
     rl_redisplay_function = ln_hint;
 }
 
-static ostd::Maybe<ostd::String> read_line(CsState &, CsSvar *pr) {
+static ostd::Maybe<std::string> read_line(CsState &, CsSvar *pr) {
     auto line = readline(pr->get_value().data());
     if (!line) {
-        return ostd::String();
+        return std::string();
     }
-    ostd::String ret = line;
+    std::string ret = line;
     free(line);
     return std::move(ret);
 }
 
 static void add_history(CsState &, ostd::ConstCharRange line) {
-    /* backed by ostd::String so it's terminated */
+    /* backed by std::string so it's terminated */
     add_history(line.data());
 }
 

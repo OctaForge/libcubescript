@@ -7,9 +7,9 @@
 static void init_lineedit(CsState &, ostd::ConstCharRange) {
 }
 
-static ostd::Maybe<ostd::String> read_line(CsState &, CsSvar *pr) {
+static ostd::Maybe<std::string> read_line(CsState &, CsSvar *pr) {
     ostd::write(pr->get_value());
-    ostd::String ret;
+    std::string ret;
     /* i really need to implement some sort of get_line for ostd streams */
     for (char c = ostd::in.getchar(); c && (c != '\n'); c = ostd::in.getchar()) {
         ret += c;

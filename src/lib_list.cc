@@ -180,7 +180,7 @@ void cs_init_lib_list(CsState &gcs) {
             if (offset > 0) {
                 p.skip();
             }
-            res.set_str(p.get_input());
+            res.set_str(CsString{p.get_input()});
             return;
         }
 
@@ -191,7 +191,7 @@ void cs_init_lib_list(CsState &gcs) {
         }
         ostd::ConstCharRange quote = p.get_raw_item(true);
         char const *qend = !quote.empty() ? &quote[quote.size()] : list;
-        res.set_str(ostd::ConstCharRange(list, qend - list));
+        res.set_str(CsString{list, size_t(qend - list)});
     });
 
     gcs.new_command("listfind", "rse", [](auto &cs, auto args, auto &res) {
@@ -204,7 +204,7 @@ void cs_init_lib_list(CsState &gcs) {
         int n = -1;
         for (util::ListParser p(cs, args[1].get_strr()); p.parse();) {
             ++n;
-            idv.set_str(p.get_raw_item());
+            idv.set_str(CsString{p.get_raw_item()});
             idv.push();
             if (cs.run_bool(body)) {
                 res.set_int(CsInt(n));
@@ -223,7 +223,7 @@ void cs_init_lib_list(CsState &gcs) {
         int n = -1;
         for (util::ListParser p(cs, args[1].get_strr()); p.parse();) {
             ++n;
-            idv.set_str(p.get_raw_item());
+            idv.set_str(CsString{p.get_raw_item()});
             idv.push();
             if (cs.run_bool(body)) {
                 if (p.parse()) {
@@ -389,7 +389,7 @@ end:
         CsString r;
         int n = 0;
         for (util::ListParser p(cs, args[1].get_strr()); p.parse(); ++n) {
-            idv.set_str(p.get_raw_item());
+            idv.set_str(CsString{p.get_raw_item()});
             idv.push();
             if (cs.run_bool(body)) {
                 if (r.size()) {
@@ -409,7 +409,7 @@ end:
         auto body = args[2].get_code();
         int n = 0, r = 0;
         for (util::ListParser p(cs, args[1].get_strr()); p.parse(); ++n) {
-            idv.set_str(p.get_raw_item());
+            idv.set_str(CsString{p.get_raw_item()});
             idv.push();
             if (cs.run_bool(body)) {
                 r++;
@@ -549,7 +549,7 @@ static void cs_list_sort(
     }
 
     if (items.empty()) {
-        res.set_str(list);
+        res.set_str(CsString{list});
         return;
     }
 
