@@ -9,11 +9,11 @@
 #include "cubescript_conf.hh"
 
 #include <ostd/platform.hh>
+#include <ostd/memory.hh>
 #include <ostd/types.hh>
 #include <ostd/type_traits.hh>
 #include <ostd/string.hh>
 #include <ostd/vector.hh>
-#include <ostd/map.hh>
 #include <ostd/range.hh>
 #include <ostd/utility.hh>
 #include <ostd/io.hh>

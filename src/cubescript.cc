@@ -398,7 +398,7 @@ CsState::~CsState() {
     if (!p_state) {
         return;
     }
-    for (auto &p: p_state->idents.iter()) {
+    for (auto &p: p_state->idents) {
         CsIdent *i = p.second;
         CsAlias *a = i->get_alias();
         if (a) {
@@ -464,7 +464,7 @@ void CsState::clear_override(CsIdent &id) {
 }
 
 void CsState::clear_overrides() {
-    for (auto &p: p_state->idents.iter()) {
+    for (auto &p: p_state->idents) {
         clear_override(*(p.second));
     }
 }
@@ -511,23 +511,23 @@ CsIdent *CsState::force_ident(CsValue &v) {
 }
 
 CsIdent *CsState::get_ident(ostd::ConstCharRange name) {
-    CsIdent **id = p_state->idents.at(name);
-    if (!id) {
-        return nullptr;
+    auto id = p_state->idents.find(name);
+    if (id != p_state->idents.end()) {
+        return id->second;
     }
-    return *id;
+    return nullptr;
 }
 
 CsAlias *CsState::get_alias(ostd::ConstCharRange name) {
-    CsIdent **id = p_state->idents.at(name);
-    if (!id || !(*id)->is_alias()) {
+    auto id = get_ident(name);
+    if (!id || !id->is_alias()) {
         return nullptr;
     }
-    return static_cast<CsAlias *>(*id);
+    return static_cast<CsAlias *>(id);
 }
 
 bool CsState::have_ident(ostd::ConstCharRange name) {
-    return p_state->idents.at(name) != nullptr;
+    return p_state->idents.find(name) != p_state->idents.end();
 }
 
 CsIdentRange CsState::get_idents() {

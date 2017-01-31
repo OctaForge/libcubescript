@@ -2,12 +2,8 @@
 #define LIBCUBESCRIPT_CUBESCRIPT_CONF_HH
 
 #include <limits.h>
-#include <ostd/types.hh>
-#include <ostd/memory.hh>
-#include <ostd/string.hh>
-#include <ostd/vector.hh>
-#include <ostd/map.hh>
-#include <ostd/stream.hh>
+#include <functional>
+#include <ostd/range.hh>
 
 /* do not modify */
 namespace cscript {

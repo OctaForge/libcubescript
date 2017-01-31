@@ -4,11 +4,12 @@
 #include <ostd/string.hh>
 #include <ostd/utility.hh>
 #include <ostd/type_traits.hh>
+#include <ostd/unordered_map.hh>
 
 namespace cscript {
 
 template<typename K, typename V>
-using CsMap = ostd::Map<K, V>;
+using CsMap = std::unordered_map<K, V>;
 
 template<typename T>
 using CsVector = std::vector<T>;
