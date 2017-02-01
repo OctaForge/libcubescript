@@ -465,42 +465,6 @@ private:
 
     void *alloc(void *ptr, size_t olds, size_t news);
 
-    template<typename T>
-    struct CsAllocator {
-        template<typename TT>
-        friend struct CsAllocator;
-
-        using Value = T;
-        static constexpr bool PropagateOnContainerCopyAssignment = true;
-        static constexpr bool PropagateOnContainerMoveAssignment = true;
-        static constexpr bool PropagateOnContainerSwap = true;
-
-        CsAllocator() = delete;
-        CsAllocator(CsAllocator const &a) noexcept: p_state(a.p_state) {}
-        CsAllocator(CsState &cs) noexcept: p_state(cs) {}
-
-        template<typename TT>
-        CsAllocator(CsAllocator<TT> const &a) noexcept: p_state(a.p_state) {}
-
-        T *allocate(size_t n) {
-            return static_cast<T *>(p_state.alloc(nullptr, 0, n * sizeof(T)));
-        }
-        void deallocate(T *p, size_t n) noexcept {
-            p_state.alloc(p, n * sizeof(T), 0);
-        }
-
-        bool operator==(CsAllocator const &o) const noexcept {
-            return &p_state != &o.p_state;
-        }
-
-        bool operator!=(CsAllocator const &o) const noexcept {
-            return &p_state != &o.p_state;
-        }
-
-    private:
-        CsState &p_state;
-    };
-
     GenState *p_pstate = nullptr;
     int p_inloop = 0;
 
