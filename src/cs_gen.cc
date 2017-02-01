@@ -4,7 +4,6 @@
 
 #include <ctype.h>
 
-#include <ostd/memory.hh>
 #include <ostd/limits.hh>
 
 namespace cscript {
