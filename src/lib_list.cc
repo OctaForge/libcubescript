@@ -1,3 +1,5 @@
+#include <functional>
+
 #include "cubescript/cubescript.hh"
 #include "cs_util.hh"
 
@@ -452,13 +454,13 @@ end:
     });
 
     gcs.new_command("listdel", "ss", [](auto &cs, auto args, auto &res) {
-        cs_list_merge<false, false>(cs, args, res, ostd::Less<int>());
+        cs_list_merge<false, false>(cs, args, res, std::less<int>());
     });
     gcs.new_command("listintersect", "ss", [](auto &cs, auto args, auto &res) {
-        cs_list_merge<false, false>(cs, args, res, ostd::GreaterEqual<int>());
+        cs_list_merge<false, false>(cs, args, res, std::greater_equal<int>());
     });
     gcs.new_command("listunion", "ss", [](auto &cs, auto args, auto &res) {
-        cs_list_merge<true, true>(cs, args, res, ostd::Less<int>());
+        cs_list_merge<true, true>(cs, args, res, std::less<int>());
     });
 
     gcs.new_command("listsplice", "ssii", [](auto &cs, auto args, auto &res) {

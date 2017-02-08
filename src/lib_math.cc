@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <math.h>
 
+#include <functional>
+
 #include "cubescript/cubescript.hh"
 
 namespace cscript {
@@ -232,37 +234,37 @@ void cs_init_lib_math(CsState &cs) {
     });
 
     cs.new_command("+", "i1V", [](auto &, auto args, auto &res) {
-        cs_mathop<CsInt>(args, res, 0, ostd::Add<CsInt>(), CsMathNoop<CsInt>());
+        cs_mathop<CsInt>(args, res, 0, std::plus<CsInt>(), CsMathNoop<CsInt>());
     });
     cs.new_command("*", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
-            args, res, 1, ostd::Multiply<CsInt>(), CsMathNoop<CsInt>()
+            args, res, 1, std::multiplies<CsInt>(), CsMathNoop<CsInt>()
         );
     });
     cs.new_command("-", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
-            args, res, 0, ostd::Subtract<CsInt>(), ostd::Negate<CsInt>()
+            args, res, 0, std::minus<CsInt>(), std::negate<CsInt>()
         );
     });
 
     cs.new_command("^", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
-            args, res, 0, ostd::BitXor<CsInt>(), [](CsInt val) { return ~val; }
+            args, res, 0, std::bit_xor<CsInt>(), [](CsInt val) { return ~val; }
         );
     });
     cs.new_command("~", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
-            args, res, 0, ostd::BitXor<CsInt>(), [](CsInt val) { return ~val; }
+            args, res, 0, std::bit_xor<CsInt>(), [](CsInt val) { return ~val; }
         );
     });
     cs.new_command("&", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
-            args, res, 0, ostd::BitAnd<CsInt>(), CsMathNoop<CsInt>()
+            args, res, 0, std::bit_and<CsInt>(), CsMathNoop<CsInt>()
         );
     });
     cs.new_command("|", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsInt>(
-            args, res, 0, ostd::BitOr<CsInt>(), CsMathNoop<CsInt>()
+            args, res, 0, std::bit_or<CsInt>(), CsMathNoop<CsInt>()
         );
     });
 
@@ -325,17 +327,17 @@ void cs_init_lib_math(CsState &cs) {
 
     cs.new_command("+f", "f1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsFloat>(
-            args, res, 0, ostd::Add<CsFloat>(), CsMathNoop<CsFloat>()
+            args, res, 0, std::plus<CsFloat>(), CsMathNoop<CsFloat>()
         );
     });
     cs.new_command("*f", "f1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsFloat>(
-            args, res, 1, ostd::Multiply<CsFloat>(), CsMathNoop<CsFloat>()
+            args, res, 1, std::multiplies<CsFloat>(), CsMathNoop<CsFloat>()
         );
     });
     cs.new_command("-f", "f1V", [](auto &, auto args, auto &res) {
         cs_mathop<CsFloat>(
-            args, res, 0, ostd::Subtract<CsFloat>(), ostd::Negate<CsFloat>()
+            args, res, 0, std::minus<CsFloat>(), std::negate<CsFloat>()
         );
     });
 
@@ -389,41 +391,41 @@ void cs_init_lib_math(CsState &cs) {
     });
 
     cs.new_command("=", "i1V", [](auto &, auto args, auto &res) {
-        cs_cmpop<CsInt>(args, res, ostd::Equal<CsInt>());
+        cs_cmpop<CsInt>(args, res, std::equal_to<CsInt>());
     });
     cs.new_command("!=", "i1V", [](auto &, auto args, auto &res) {
-        cs_cmpop<CsInt>(args, res, ostd::NotEqual<CsInt>());
+        cs_cmpop<CsInt>(args, res, std::not_equal_to<CsInt>());
     });
     cs.new_command("<", "i1V", [](auto &, auto args, auto &res) {
-        cs_cmpop<CsInt>(args, res, ostd::Less<CsInt>());
+        cs_cmpop<CsInt>(args, res, std::less<CsInt>());
     });
     cs.new_command(">", "i1V", [](auto &, auto args, auto &res) {
-        cs_cmpop<CsInt>(args, res, ostd::Greater<CsInt>());
+        cs_cmpop<CsInt>(args, res, std::greater<CsInt>());
     });
     cs.new_command("<=", "i1V", [](auto &, auto args, auto &res) {
-        cs_cmpop<CsInt>(args, res, ostd::LessEqual<CsInt>());
+        cs_cmpop<CsInt>(args, res, std::less_equal<CsInt>());
     });
     cs.new_command(">=", "i1V", [](auto &, auto args, auto &res) {
-        cs_cmpop<CsInt>(args, res, ostd::GreaterEqual<CsInt>());
+        cs_cmpop<CsInt>(args, res, std::greater_equal<CsInt>());
     });
 
     cs.new_command("=f", "f1V", [](auto &, auto args, auto &res) {
-        cs_cmpop<CsFloat>(args, res, ostd::Equal<CsFloat>());
+        cs_cmpop<CsFloat>(args, res, std::equal_to<CsFloat>());
     });
     cs.new_command("!=f", "f1V", [](auto &, auto args, auto &res) {
-        cs_cmpop<CsFloat>(args, res, ostd::NotEqual<CsFloat>());
+        cs_cmpop<CsFloat>(args, res, std::not_equal_to<CsFloat>());
     });
     cs.new_command("<f", "f1V", [](auto &, auto args, auto &res) {
-        cs_cmpop<CsFloat>(args, res, ostd::Less<CsFloat>());
+        cs_cmpop<CsFloat>(args, res, std::less<CsFloat>());
     });
     cs.new_command(">f", "f1V", [](auto &, auto args, auto &res) {
-        cs_cmpop<CsFloat>(args, res, ostd::Greater<CsFloat>());
+        cs_cmpop<CsFloat>(args, res, std::greater<CsFloat>());
     });
     cs.new_command("<=f", "f1V", [](auto &, auto args, auto &res) {
-        cs_cmpop<CsFloat>(args, res, ostd::LessEqual<CsFloat>());
+        cs_cmpop<CsFloat>(args, res, std::less_equal<CsFloat>());
     });
     cs.new_command(">=f", "f1V", [](auto &, auto args, auto &res) {
-        cs_cmpop<CsFloat>(args, res, ostd::GreaterEqual<CsFloat>());
+        cs_cmpop<CsFloat>(args, res, std::greater_equal<CsFloat>());
     });
 }
 

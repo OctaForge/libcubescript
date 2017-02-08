@@ -1,4 +1,4 @@
-#include <ostd/functional.hh>
+#include <functional>
 
 #include "cubescript/cubescript.hh"
 
@@ -144,25 +144,25 @@ void cs_init_lib_string(CsState &cs) {
     });
 
     cs.new_command("strcmp", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, ostd::Equal<ostd::ConstCharRange>());
+        cs_strgcmp(args, res, std::equal_to<ostd::ConstCharRange>());
     });
     cs.new_command("=s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, ostd::Equal<ostd::ConstCharRange>());
+        cs_strgcmp(args, res, std::equal_to<ostd::ConstCharRange>());
     });
     cs.new_command("!=s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, ostd::NotEqual<ostd::ConstCharRange>());
+        cs_strgcmp(args, res, std::not_equal_to<ostd::ConstCharRange>());
     });
     cs.new_command("<s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, ostd::Less<ostd::ConstCharRange>());
+        cs_strgcmp(args, res, std::less<ostd::ConstCharRange>());
     });
     cs.new_command(">s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, ostd::Greater<ostd::ConstCharRange>());
+        cs_strgcmp(args, res, std::greater<ostd::ConstCharRange>());
     });
     cs.new_command("<=s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, ostd::LessEqual<ostd::ConstCharRange>());
+        cs_strgcmp(args, res, std::less_equal<ostd::ConstCharRange>());
     });
     cs.new_command(">=s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, ostd::GreaterEqual<ostd::ConstCharRange>());
+        cs_strgcmp(args, res, std::greater_equal<ostd::ConstCharRange>());
     });
 
     cs.new_command("strreplace", "ssss", [](auto &, auto args, auto &res) {

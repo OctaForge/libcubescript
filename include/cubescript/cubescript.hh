@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #include <optional>
+#include <functional>
 
 #include "cubescript_conf.hh"
 
@@ -16,7 +17,6 @@
 #include <ostd/range.hh>
 #include <ostd/utility.hh>
 #include <ostd/io.hh>
-#include <ostd/functional.hh>
 #include <ostd/format.hh>
 
 namespace cscript {
