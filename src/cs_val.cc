@@ -150,9 +150,10 @@ CsFloat CsValue::force_float() {
         case CsValueType::String:
         case CsValueType::Macro:
         case CsValueType::Cstring:
-            rf = cs_parse_float(
-                ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len)
-            );
+            rf = cs_parse_float(ostd::ConstCharRange(
+                csv_get<char const *>(p_stor),
+                csv_get<char const *>(p_stor) + p_len
+            ));
             break;
         case CsValueType::Float:
             return csv_get<CsFloat>(p_stor);
@@ -172,9 +173,10 @@ CsInt CsValue::force_int() {
         case CsValueType::String:
         case CsValueType::Macro:
         case CsValueType::Cstring:
-            ri = cs_parse_int(
-                ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len)
-            );
+            ri = cs_parse_int(ostd::ConstCharRange(
+                csv_get<char const *>(p_stor),
+                csv_get<char const *>(p_stor) + p_len
+            ));
             break;
         case CsValueType::Int:
             return csv_get<CsInt>(p_stor);
@@ -196,15 +198,24 @@ ostd::ConstCharRange CsValue::force_str() {
             break;
         case CsValueType::Macro:
         case CsValueType::Cstring:
-            rs = ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len);
+            rs = ostd::ConstCharRange(
+                csv_get<char const *>(p_stor),
+                csv_get<char const *>(p_stor) + p_len
+            );
             break;
         case CsValueType::String:
-            return ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len);
+            return ostd::ConstCharRange(
+                csv_get<char const *>(p_stor),
+                csv_get<char const *>(p_stor) + p_len
+            );
         default:
             break;
     }
     set_str(std::move(rs));
-    return ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len);
+    return ostd::ConstCharRange(
+        csv_get<char const *>(p_stor),
+        csv_get<char const *>(p_stor) + p_len
+    );
 }
 
 CsInt CsValue::get_int() const {
@@ -216,9 +227,10 @@ CsInt CsValue::get_int() const {
         case CsValueType::String:
         case CsValueType::Macro:
         case CsValueType::Cstring:
-            return cs_parse_int(
-                ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len)
-            );
+            return cs_parse_int(ostd::ConstCharRange(
+                csv_get<char const *>(p_stor),
+                csv_get<char const *>(p_stor) + p_len
+            ));
         default:
             break;
     }
@@ -234,9 +246,10 @@ CsFloat CsValue::get_float() const {
         case CsValueType::String:
         case CsValueType::Macro:
         case CsValueType::Cstring:
-            return cs_parse_float(
-                ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len)
-            );
+            return cs_parse_float(ostd::ConstCharRange(
+                csv_get<char const *>(p_stor),
+                csv_get<char const *>(p_stor) + p_len
+            ));
         default:
             break;
     }
@@ -278,7 +291,10 @@ ostd::ConstCharRange CsValue::get_strr() const {
         case CsValueType::String:
         case CsValueType::Macro:
         case CsValueType::Cstring:
-            return ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len);
+            return ostd::ConstCharRange(
+                csv_get<char const *>(p_stor),
+                csv_get<char const *>(p_stor)+ p_len
+            );
         default:
             break;
     }
@@ -348,9 +364,10 @@ bool CsValue::get_bool() const {
         case CsValueType::String:
         case CsValueType::Macro:
         case CsValueType::Cstring:
-            return cs_get_bool(
-                ostd::ConstCharRange(csv_get<char const *>(p_stor), p_len)
-            );
+            return cs_get_bool(ostd::ConstCharRange(
+                csv_get<char const *>(p_stor),
+                csv_get<char const *>(p_stor) + p_len
+            ));
         default:
             return false;
     }

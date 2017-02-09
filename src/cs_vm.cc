@@ -115,7 +115,7 @@ ostd::ConstCharRange CsErrorException::save_msg(
     GenState *gs = cs.p_pstate;
     if (gs) {
         /* we can attach line number */
-        ostd::CharRange r(cs.p_errbuf, sizeof(cs.p_errbuf));
+        ostd::CharRange r(cs.p_errbuf, cs.p_errbuf + sizeof(cs.p_errbuf));
         std::ptrdiff_t sz = -1;
         if (!gs->src_name.empty()) {
             sz = ostd::format(r, "%s:%d: %s", gs->src_name, gs->current_line, msg);
@@ -123,11 +123,11 @@ ostd::ConstCharRange CsErrorException::save_msg(
             sz = ostd::format(r, "%d: %s", gs->current_line, msg);
         }
         if (sz > 0) {
-            return ostd::ConstCharRange(cs.p_errbuf, sz);
+            return ostd::ConstCharRange(cs.p_errbuf, cs.p_errbuf + sz);
         }
     }
     memcpy(cs.p_errbuf, msg.data(), msg.size());
-    return ostd::ConstCharRange(cs.p_errbuf, msg.size());
+    return ostd::ConstCharRange(cs.p_errbuf, cs.p_errbuf + msg.size());
 }
 
 static void bcode_ref(uint32_t *code) {
@@ -768,7 +768,8 @@ static uint32_t *runcode(CsState &cs, uint32_t *code, CsValue &result) {
             case CsCodeMacro: {
                 uint32_t len = op >> 8;
                 args[numargs++].set_macro(ostd::ConstCharRange(
-                    reinterpret_cast<char const *>(code), len
+                    reinterpret_cast<char const *>(code),
+                    reinterpret_cast<char const *>(code) + len
                 ));
                 code += len / sizeof(uint32_t) + 1;
                 continue;
@@ -777,7 +778,8 @@ static uint32_t *runcode(CsState &cs, uint32_t *code, CsValue &result) {
             case CsCodeVal | CsRetString: {
                 uint32_t len = op >> 8;
                 args[numargs++].set_str(CsString{
-                    reinterpret_cast<char const *>(code), len
+                    reinterpret_cast<char const *>(code),
+                    reinterpret_cast<char const *>(code) + len
                 });
                 code += len / sizeof(uint32_t) + 1;
                 continue;
@@ -1825,7 +1827,7 @@ static bool cs_run_file(
     }
     buf[len] = '\0';
 
-    cs_run(cs, fname, ostd::ConstCharRange(buf.get(), len), ret);
+    cs_run(cs, fname, ostd::ConstCharRange(buf.get(), buf.get() + len), ret);
     return true;
 }
 

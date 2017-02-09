@@ -531,12 +531,13 @@ struct CsErrorException {
     {
         char fbuf[512];
         auto ret = ostd::format(
-            ostd::CharRange(fbuf, sizeof(fbuf)), msg, std::forward<A>(args)...
+            ostd::CharRange(fbuf, fbuf + sizeof(fbuf)), msg,
+            std::forward<A>(args)...
         );
         if ((ret < 0) || (size_t(ret) > sizeof(fbuf))) {
             p_errmsg = save_msg(cs, msg);
         } else {
-            p_errmsg = save_msg(cs, ostd::CharRange(fbuf, ret));
+            p_errmsg = save_msg(cs, ostd::CharRange(fbuf, fbuf + ret));
         }
         p_stack = save_stack(cs);
     }

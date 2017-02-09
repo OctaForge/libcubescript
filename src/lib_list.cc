@@ -479,7 +479,7 @@ end:
         char const *qend = !quote.empty() ? &quote[quote.size()] : list;
         CsString buf;
         if (qend > list) {
-            buf += ostd::ConstCharRange(list, qend - list);
+            buf += ostd::ConstCharRange(list, qend);
         }
         if (!vals.empty()) {
             if (!buf.empty()) {

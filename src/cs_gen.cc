@@ -207,7 +207,7 @@ static inline void compileunescapestr(GenState &gs, bool macro = false) {
     );
     size_t bufs = (gs.code.capacity() - gs.code.size()) * sizeof(uint32_t);
     char *buf = new char[bufs + 1];
-    auto writer = ostd::CharRange(buf, bufs);
+    auto writer = ostd::CharRange(buf, buf + bufs);
     size_t len = util::unescape_string(writer, str);
     memset(&buf[len], 0, sizeof(uint32_t) - len % sizeof(uint32_t));
     gs.code.back() |= len << 8;
