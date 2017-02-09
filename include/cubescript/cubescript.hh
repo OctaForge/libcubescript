@@ -6,12 +6,12 @@
 
 #include <optional>
 #include <functional>
+#include <type_traits>
 
 #include "cubescript_conf.hh"
 
 #include <ostd/platform.hh>
 #include <ostd/types.hh>
-#include <ostd/type_traits.hh>
 #include <ostd/string.hh>
 #include <ostd/vector.hh>
 #include <ostd/range.hh>
@@ -23,9 +23,9 @@ namespace cscript {
 
 using CsString = std::string;
 
-static_assert(ostd::IsIntegral<CsInt>, "CsInt must be integral");
-static_assert(ostd::IsSigned<CsInt>, "CsInt must be signed");
-static_assert(ostd::IsFloatingPoint<CsFloat>, "CsFloat must be floating point");
+static_assert(std::is_integral_v<CsInt>, "CsInt must be integral");
+static_assert(std::is_signed_v<CsInt>, "CsInt must be signed");
+static_assert(std::is_floating_point_v<CsFloat>, "CsFloat must be floating point");
 
 enum {
     CsIdfPersist    = 1 << 0,
@@ -108,7 +108,7 @@ struct OSTD_EXPORT CsValue {
     bool code_is_empty() const;
 
 private:
-    ostd::AlignedUnion<1, CsInt, CsFloat, void *> p_stor;
+    std::aligned_union_t<1, CsInt, CsFloat, void *> p_stor;
     size_t p_len;
     CsValueType p_type;
 };

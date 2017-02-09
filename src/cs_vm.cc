@@ -2,7 +2,7 @@
 #include "cs_vm.hh"
 #include "cs_util.hh"
 
-#include <ostd/limits.hh>
+#include <limits>
 
 namespace cscript {
 
@@ -322,7 +322,7 @@ static inline void callcommand(
                     if (rep) {
                         break;
                     }
-                    args[i].set_int(ostd::NumericLimitMin<CsInt>);
+                    args[i].set_int(std::numeric_limits<CsInt>::min());
                     fakeargs++;
                 } else {
                     args[i].force_int();

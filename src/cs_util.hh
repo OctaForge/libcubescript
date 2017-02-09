@@ -1,9 +1,10 @@
 #ifndef LIBCUBESCRIPT_CS_UTIL_HH
 #define LIBCUBESCRIPT_CS_UTIL_HH
 
+#include <type_traits>
+
 #include <ostd/string.hh>
 #include <ostd/utility.hh>
-#include <ostd/type_traits.hh>
 #include <ostd/unordered_map.hh>
 
 namespace cscript {
@@ -29,7 +30,7 @@ struct CsScopeExit {
     ~CsScopeExit() {
         func();
     }
-    ostd::Decay<F> func;
+    std::decay_t<F> func;
 };
 
 template<typename F1, typename F2>
