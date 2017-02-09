@@ -531,14 +531,15 @@ bool CsState::have_ident(ostd::ConstCharRange name) {
 }
 
 CsIdentRange CsState::get_idents() {
-    return CsIdentRange(p_state->identmap.data(), p_state->identmap.size());
+    return CsIdentRange(
+        p_state->identmap.data(),
+        p_state->identmap.data() + p_state->identmap.size()
+    );
 }
 
 CsConstIdentRange CsState::get_idents() const {
-    return CsConstIdentRange(
-        const_cast<CsIdent const **>(p_state->identmap.data()),
-        p_state->identmap.size()
-    );
+    auto ptr = const_cast<CsIdent const **>(p_state->identmap.data());
+    return CsConstIdentRange(ptr, ptr + p_state->identmap.size());
 }
 
 CsIvar *CsState::new_ivar(

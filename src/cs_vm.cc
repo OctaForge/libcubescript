@@ -431,7 +431,7 @@ static inline void callcommand(
                 cscript::util::tvals_concat(buf, ostd::iter(args, i), " ");
                 CsValue tv;
                 tv.set_str(std::move(buf.get()));
-                CsCommandInternal::call(cs, id, CsValueRange(&tv, 1), res);
+                CsCommandInternal::call(cs, id, CsValueRange(&tv, &tv + 1), res);
                 return;
             }
             case 'V':
@@ -450,7 +450,7 @@ static inline void callcommand(
         }
     }
     ++i;
-    CsCommandInternal::call(cs, id, CsValueRange(args, i), res);
+    CsCommandInternal::call(cs, id, CsValueRange(args, args + i), res);
 }
 
 static uint32_t *runcode(CsState &cs, uint32_t *code, CsValue &result);
@@ -1339,10 +1339,9 @@ static uint32_t *runcode(CsState &cs, uint32_t *code, CsValue &result) {
                 );
                 int offset = numargs - id->get_num_args();
                 result.force_null();
-                CsCommandInternal::call(
-                    cs, id, CsValueRange(args + offset, id->get_num_args()),
-                    result
-                );
+                CsCommandInternal::call(cs, id, CsValueRange(
+                    args + offset, args + offset + id->get_num_args()
+                ), result);
                 force_arg(result, op & CsCodeRetMask);
                 numargs = offset;
                 continue;
@@ -1380,7 +1379,7 @@ static uint32_t *runcode(CsState &cs, uint32_t *code, CsValue &result) {
                     );
                     CsValue tv;
                     tv.set_str(std::move(buf.get()));
-                    CsCommandInternal::call(cs, id, CsValueRange(&tv, 1), result);
+                    CsCommandInternal::call(cs, id, CsValueRange(&tv, &tv + 1), result);
                 }
                 force_arg(result, op & CsCodeRetMask);
                 numargs = offset;
