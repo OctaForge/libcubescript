@@ -27,6 +27,10 @@ static_assert(std::is_integral_v<CsInt>, "CsInt must be integral");
 static_assert(std::is_signed_v<CsInt>, "CsInt must be signed");
 static_assert(std::is_floating_point_v<CsFloat>, "CsFloat must be floating point");
 
+struct cs_internal_error: public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
 enum {
     CsIdfPersist    = 1 << 0,
     CsIdfOverride   = 1 << 1,
@@ -529,15 +533,15 @@ struct CsErrorException {
     CsErrorException(CsState &cs, ostd::ConstCharRange msg, A &&...args):
         p_errmsg(), p_stack(cs)
     {
-        char fbuf[512];
-        auto ret = ostd::format(
-            ostd::CharRange(fbuf, fbuf + sizeof(fbuf)), msg,
-            std::forward<A>(args)...
-        );
-        if ((ret < 0) || (size_t(ret) > sizeof(fbuf))) {
-            p_errmsg = save_msg(cs, msg);
-        } else {
+        try {
+            char fbuf[512];
+            auto ret = ostd::format(
+                ostd::CharRange(fbuf, fbuf + sizeof(fbuf)), msg,
+                std::forward<A>(args)...
+            );
             p_errmsg = save_msg(cs, ostd::CharRange(fbuf, fbuf + ret));
+        } catch (...) {
+            p_errmsg = save_msg(cs, msg);
         }
         p_stack = save_stack(cs);
     }
@@ -716,16 +720,24 @@ private:
     };
 
     template<typename R>
-    inline std::ptrdiff_t format_int(R &&writer, CsInt val) {
-        return ostd::format(std::forward<R>(writer), IntFormat, val);
+    inline std::size_t format_int(R &&writer, CsInt val) {
+        try {
+            return ostd::format(std::forward<R>(writer), IntFormat, val);
+        } catch (ostd::format_error const &e) {
+            throw cs_internal_error{e.what()};
+        }
     }
 
     template<typename R>
-    inline std::ptrdiff_t format_float(R &&writer, CsFloat val) {
-        return ostd::format(
-            std::forward<R>(writer),
-            (val == CsInt(val)) ? RoundFloatFormat : FloatFormat, val
-        );
+    inline std::size_t format_float(R &&writer, CsFloat val) {
+        try {
+            return ostd::format(
+                std::forward<R>(writer),
+                (val == CsInt(val)) ? RoundFloatFormat : FloatFormat, val
+            );
+        } catch (ostd::format_error const &e) {
+            throw cs_internal_error{e.what()};
+        }
     }
 
     template<typename R>
@@ -778,16 +790,15 @@ private:
         size_t ret = 0;
         auto nd = st.get();
         while (nd) {
-            auto rt = ostd::format(
-                writer,
-                ((nd->index == 1) && st.gap())
-                    ? "  ..%d) %s" : "  %d) %s",
-                nd->index, nd->id->get_name()
-            );
-            if (rt > 0) {
-                ret += size_t(rt);
-            } else {
-                return ret;
+            try {
+                ret += ostd::format(
+                    writer,
+                    ((nd->index == 1) && st.gap())
+                        ? "  ..%d) %s" : "  %d) %s",
+                    nd->index, nd->id->get_name()
+                );
+            } catch (ostd::format_error const &e) {
+                throw cs_internal_error{e.what()};
             }
             nd = nd->next;
             if (nd) {

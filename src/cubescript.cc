@@ -224,15 +224,19 @@ void CsIvar::set_value(CsInt val) {
 CsString CsIvar::to_printable() const {
     CsInt i = p_storage;
     auto app = ostd::appender<CsString>();
-    if (!(get_flags() & CsIdfHex) || (i < 0)) {
-        format(app, IvarFormat, get_name(), i);
-    } else if (p_maxval == 0xFFFFFF) {
-        format(
-            app, IvarHexColorFormat, get_name(),
-            i, (i >> 16) & 0xFF, (i >> 8) & 0xFF, i & 0xFF
-        );
-    } else {
-        format(app, IvarHexFormat, get_name(), i);
+    try {
+        if (!(get_flags() & CsIdfHex) || (i < 0)) {
+            format(app, IvarFormat, get_name(), i);
+        } else if (p_maxval == 0xFFFFFF) {
+            format(
+                app, IvarHexColorFormat, get_name(),
+                i, (i >> 16) & 0xFF, (i >> 8) & 0xFF, i & 0xFF
+            );
+        } else {
+            format(app, IvarHexFormat, get_name(), i);
+        }
+    } catch (ostd::format_error const &e) {
+        throw cs_internal_error{e.what()};
     }
     return std::move(app.get());
 }
@@ -254,7 +258,13 @@ void CsFvar::set_value(CsFloat val) {
 CsString CsFvar::to_printable() const {
     CsFloat f = p_storage;
     auto app = ostd::appender<CsString>();
-    format(app, (f == CsInt(f)) ? FvarRoundFormat : FvarFormat, get_name(), f);
+    try {
+        format(
+            app, (f == CsInt(f)) ? FvarRoundFormat : FvarFormat, get_name(), f
+        );
+    } catch (ostd::format_error const &e) {
+        throw cs_internal_error{e.what()};
+    }
     return std::move(app.get());
 }
 
@@ -268,10 +278,14 @@ void CsSvar::set_value(CsString val) {
 CsString CsSvar::to_printable() const {
     ostd::ConstCharRange s = p_storage;
     auto app = ostd::appender<CsString>();
-    if (ostd::find(s, '"').empty()) {
-        format(app, SvarFormat, get_name(), s);
-    } else {
-        format(app, SvarQuotedFormat, get_name(), s);
+    try {
+        if (ostd::find(s, '"').empty()) {
+            format(app, SvarFormat, get_name(), s);
+        } else {
+            format(app, SvarQuotedFormat, get_name(), s);
+        }
+    } catch (ostd::format_error const &e) {
+        throw cs_internal_error{e.what()};
     }
     return std::move(app.get());
 }
@@ -307,13 +321,19 @@ CsState::CsState(CsAllocCb func, void *data):
         new_ident(static_cast<char const *>(buf), CsIdfArg);
     }
     CsIdent *id = new_ident("//dummy");
-    assert(id->get_index() == DummyIdx);
+    if (id->get_index() != DummyIdx) {
+        throw cs_internal_error{"invalid dummy index"};
+    }
 
     id = new_ivar("numargs", MaxArguments, 0, 0);
-    assert(id->get_index() == NumargsIdx);
+    if (id->get_index() != NumargsIdx) {
+        throw cs_internal_error{"invalid numargs index"};
+    }
 
     id = new_ivar("dbgalias", 0, 1000, 4);
-    assert(id->get_index() == DbgaliasIdx);
+    if (id->get_index() != DbgaliasIdx) {
+        throw cs_internal_error{"invalid dbgalias index"};
+    }
 
     new_command("do", "e", [](auto &cs, auto args, auto &res) {
         cs.run(args[0].get_code(), res);

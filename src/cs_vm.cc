@@ -115,16 +115,19 @@ ostd::ConstCharRange CsErrorException::save_msg(
     GenState *gs = cs.p_pstate;
     if (gs) {
         /* we can attach line number */
-        ostd::CharRange r(cs.p_errbuf, cs.p_errbuf + sizeof(cs.p_errbuf));
-        std::ptrdiff_t sz = -1;
-        if (!gs->src_name.empty()) {
-            sz = ostd::format(r, "%s:%d: %s", gs->src_name, gs->current_line, msg);
-        } else {
-            sz = ostd::format(r, "%d: %s", gs->current_line, msg);
+        std::size_t sz = 0;
+        try {
+            ostd::CharRange r(cs.p_errbuf, cs.p_errbuf + sizeof(cs.p_errbuf));
+            if (!gs->src_name.empty()) {
+                sz = ostd::format(r, "%s:%d: %s", gs->src_name, gs->current_line, msg);
+            } else {
+                sz = ostd::format(r, "%d: %s", gs->current_line, msg);
+            }
+        } catch (ostd::format_error const &e) {
+            memcpy(cs.p_errbuf, msg.data(), msg.size());
+            sz = msg.size();
         }
-        if (sz > 0) {
-            return ostd::ConstCharRange(cs.p_errbuf, cs.p_errbuf + sz);
-        }
+        return ostd::ConstCharRange(cs.p_errbuf, cs.p_errbuf + sz);
     }
     memcpy(cs.p_errbuf, msg.data(), msg.size());
     return ostd::ConstCharRange(cs.p_errbuf, cs.p_errbuf + msg.size());

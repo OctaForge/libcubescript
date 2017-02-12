@@ -123,10 +123,14 @@ void cs_init_lib_string(CsState &cs) {
 
     cs.new_command("tohex", "ii", [](auto &, auto args, auto &res) {
         auto r = ostd::appender<CsString>();
-        ostd::format(
-            r, "0x%.*X", ostd::max(args[1].get_int(), CsInt(1)),
-            args[0].get_int()
-        );
+        try {
+            ostd::format(
+                r, "0x%.*X", ostd::max(args[1].get_int(), CsInt(1)),
+                args[0].get_int()
+            );
+        } catch (ostd::format_error const &e) {
+            throw cs_internal_error{e.what()};
+        }
         res.set_str(std::move(r.get()));
     });
 
