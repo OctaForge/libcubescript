@@ -588,19 +588,19 @@ namespace util {
         for (; !str.empty(); str.pop_front()) {
             switch (str.front()) {
                 case '\n':
-                    ret += writer.put_n("^n", 2);
+                    ret += ostd::range_put_n(writer, "^n", 2);
                     break;
                 case '\t':
-                    ret += writer.put_n("^t", 2);
+                    ret += ostd::range_put_n(writer, "^t", 2);
                     break;
                 case '\f':
-                    ret += writer.put_n("^f", 2);
+                    ret += ostd::range_put_n(writer, "^f", 2);
                     break;
                 case '"':
-                    ret += writer.put_n("^\"", 2);
+                    ret += ostd::range_put_n(writer, "^\"", 2);
                     break;
                 case '^':
-                    ret += writer.put_n("^^", 2);
+                    ret += ostd::range_put_n(writer, "^^", 2);
                     break;
                 default:
                     ret += writer.put(str.front());
@@ -690,7 +690,7 @@ namespace util {
             if (!p_quote.empty() && (*p_quote == '"')) {
                 return unescape_string(std::forward<R>(writer), p_item);
             } else {
-                return writer.put_n(p_item.data(), p_item.size());
+                return ostd::range_put_n(writer, p_item.data(), p_item.size());
             }
         }
 
@@ -771,7 +771,7 @@ private:
                 case cs_value_type::Cstring:
                 case cs_value_type::Macro: {
                     auto sv = vals[i].get_strr();
-                    ret += writer.put_n(sv.data(), sv.size());
+                    ret += ostd::range_put_n(writer, sv.data(), sv.size());
                     break;
                 }
                 default:
@@ -780,7 +780,7 @@ private:
             if (i == (vals.size() - 1)) {
                 break;
             }
-            ret += writer.put_n(sep.data(), sep.size());
+            ret += ostd::range_put_n(writer, sep.data(), sep.size());
         }
         return ret;
     }

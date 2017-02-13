@@ -431,7 +431,9 @@ end:
                 (p.get_raw_item(true).front() == '"')) {
                 util::unescape_string(buf, p.get_raw_item());
             } else {
-                buf.put_n(p.get_raw_item().data(), p.get_raw_item().size());
+                ostd::range_put_n(
+                    buf, p.get_raw_item().data(), p.get_raw_item().size()
+                );
             }
             if ((n + 1) < len) {
                 if ((len > 2) || conj.empty()) {
@@ -439,7 +441,7 @@ end:
                 }
                 if ((n + 2 == len) && !conj.empty()) {
                     buf.put(' ');
-                    buf.put_n(conj.data(), conj.size());
+                    ostd::range_put_n(buf, conj.data(), conj.size());
                 }
                 buf.put(' ');
             }
