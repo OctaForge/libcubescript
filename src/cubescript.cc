@@ -3,14 +3,14 @@
 
 namespace cscript {
 
-CsString intstr(CsInt v) {
-    auto app = ostd::appender<CsString>();
+cs_string intstr(cs_int v) {
+    auto app = ostd::appender<cs_string>();
     cscript::util::format_int(app, v);
     return std::move(app.get());
 }
 
-CsString floatstr(CsFloat v) {
-    auto app = ostd::appender<CsString>();
+cs_string floatstr(cs_float v) {
+    auto app = ostd::appender<cs_string>();
     cscript::util::format_float(app, v);
     return std::move(app.get());
 }
@@ -30,202 +30,202 @@ bool cs_check_num(ostd::ConstCharRange s) {
     }
 }
 
-CsIdent::CsIdent(CsIdentType tp, ostd::ConstCharRange nm, int fl):
+cs_ident::cs_ident(cs_ident_type tp, ostd::ConstCharRange nm, int fl):
     p_name(nm), p_type(int(tp)), p_flags(fl)
 {}
 
-CsVar::CsVar(CsIdentType tp, ostd::ConstCharRange name, CsVarCb f, int fl):
-    CsIdent(tp, name, fl), cb_var(std::move(f))
+cs_var::cs_var(cs_ident_type tp, ostd::ConstCharRange name, cs_var_cb f, int fl):
+    cs_ident(tp, name, fl), cb_var(std::move(f))
 {}
 
-CsIvar::CsIvar(
-    ostd::ConstCharRange name, CsInt m, CsInt x, CsInt v, CsVarCb f, int fl
+cs_ivar::cs_ivar(
+    ostd::ConstCharRange name, cs_int m, cs_int x, cs_int v, cs_var_cb f, int fl
 ):
-    CsVar(CsIdentType::Ivar, name, std::move(f), fl | ((m > x) ? CsIdfReadOnly : 0)),
+    cs_var(cs_ident_type::Ivar, name, std::move(f), fl | ((m > x) ? CS_IDF_READONLY : 0)),
     p_storage(v), p_minval(m), p_maxval(x), p_overrideval(0)
 {}
 
-CsFvar::CsFvar(
-    ostd::ConstCharRange name, CsFloat m, CsFloat x, CsFloat v, CsVarCb f, int fl
+cs_fvar::cs_fvar(
+    ostd::ConstCharRange name, cs_float m, cs_float x, cs_float v, cs_var_cb f, int fl
 ):
-    CsVar(CsIdentType::Fvar, name, std::move(f), fl | ((m > x) ? CsIdfReadOnly : 0)),
+    cs_var(cs_ident_type::Fvar, name, std::move(f), fl | ((m > x) ? CS_IDF_READONLY : 0)),
     p_storage(v), p_minval(m), p_maxval(x), p_overrideval(0)
 {}
 
-CsSvar::CsSvar(ostd::ConstCharRange name, CsString v, CsVarCb f, int fl):
-    CsVar(CsIdentType::Svar, name, std::move(f), fl),
+cs_svar::cs_svar(ostd::ConstCharRange name, cs_string v, cs_var_cb f, int fl):
+    cs_var(cs_ident_type::Svar, name, std::move(f), fl),
     p_storage(std::move(v)), p_overrideval()
 {}
 
-CsAlias::CsAlias(ostd::ConstCharRange name, CsString a, int fl):
-    CsIdent(CsIdentType::Alias, name, fl),
+cs_alias::cs_alias(ostd::ConstCharRange name, cs_string a, int fl):
+    cs_ident(cs_ident_type::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
     p_val.set_str(std::move(a));
 }
-CsAlias::CsAlias(ostd::ConstCharRange name, CsInt a, int fl):
-    CsIdent(CsIdentType::Alias, name, fl),
+cs_alias::cs_alias(ostd::ConstCharRange name, cs_int a, int fl):
+    cs_ident(cs_ident_type::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
     p_val.set_int(a);
 }
-CsAlias::CsAlias(ostd::ConstCharRange name, CsFloat a, int fl):
-    CsIdent(CsIdentType::Alias, name, fl),
+cs_alias::cs_alias(ostd::ConstCharRange name, cs_float a, int fl):
+    cs_ident(cs_ident_type::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
     p_val.set_float(a);
 }
-CsAlias::CsAlias(ostd::ConstCharRange name, int fl):
-    CsIdent(CsIdentType::Alias, name, fl),
+cs_alias::cs_alias(ostd::ConstCharRange name, int fl):
+    cs_ident(cs_ident_type::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
     p_val.set_null();
 }
-CsAlias::CsAlias(ostd::ConstCharRange name, CsValue v, int fl):
-    CsIdent(CsIdentType::Alias, name, fl),
+cs_alias::cs_alias(ostd::ConstCharRange name, cs_value v, int fl):
+    cs_ident(cs_ident_type::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val(std::move(v))
 {}
 
-CsCommand::CsCommand(
+cs_command::cs_command(
     ostd::ConstCharRange name, ostd::ConstCharRange args,
-    int nargs, CsCommandCb f
+    int nargs, cs_command_cb f
 ):
-    CsIdent(CsIdentType::Command, name, 0),
+    cs_ident(cs_ident_type::Command, name, 0),
     p_cargs(args), p_cb_cftv(std::move(f)), p_numargs(nargs)
 {}
 
-bool CsIdent::is_alias() const {
-    return get_type() == CsIdentType::Alias;
+bool cs_ident::is_alias() const {
+    return get_type() == cs_ident_type::Alias;
 }
 
-CsAlias *CsIdent::get_alias() {
+cs_alias *cs_ident::get_alias() {
     if (!is_alias()) {
         return nullptr;
     }
-    return static_cast<CsAlias *>(this);
+    return static_cast<cs_alias *>(this);
 }
 
-CsAlias const *CsIdent::get_alias() const {
+cs_alias const *cs_ident::get_alias() const {
     if (!is_alias()) {
         return nullptr;
     }
-    return static_cast<CsAlias const *>(this);
+    return static_cast<cs_alias const *>(this);
 }
 
-bool CsIdent::is_command() const {
-    return get_type() == CsIdentType::Command;
+bool cs_ident::is_command() const {
+    return get_type() == cs_ident_type::Command;
 }
 
-CsCommand *CsIdent::get_command() {
+cs_command *cs_ident::get_command() {
     if (!is_command()) {
         return nullptr;
     }
-    return static_cast<CsCommand *>(this);
+    return static_cast<cs_command *>(this);
 }
 
-CsCommand const *CsIdent::get_command() const {
+cs_command const *cs_ident::get_command() const {
     if (!is_command()) {
         return nullptr;
     }
-    return static_cast<CsCommand const *>(this);
+    return static_cast<cs_command const *>(this);
 }
 
-bool CsIdent::is_special() const {
-    return get_type() == CsIdentType::Special;
+bool cs_ident::is_special() const {
+    return get_type() == cs_ident_type::Special;
 }
 
-bool CsIdent::is_var() const {
-    CsIdentType tp = get_type();
-    return (tp >= CsIdentType::Ivar) && (tp <= CsIdentType::Svar);
+bool cs_ident::is_var() const {
+    cs_ident_type tp = get_type();
+    return (tp >= cs_ident_type::Ivar) && (tp <= cs_ident_type::Svar);
 }
 
-CsVar *CsIdent::get_var() {
+cs_var *cs_ident::get_var() {
     if (!is_var()) {
         return nullptr;
     }
-    return static_cast<CsVar *>(this);
+    return static_cast<cs_var *>(this);
 }
 
-CsVar const *CsIdent::get_var() const {
+cs_var const *cs_ident::get_var() const {
     if (!is_var()) {
         return nullptr;
     }
-    return static_cast<CsVar const *>(this);
+    return static_cast<cs_var const *>(this);
 }
 
-bool CsIdent::is_ivar() const {
-    return get_type() == CsIdentType::Ivar;
+bool cs_ident::is_ivar() const {
+    return get_type() == cs_ident_type::Ivar;
 }
 
-CsIvar *CsIdent::get_ivar() {
+cs_ivar *cs_ident::get_ivar() {
     if (!is_ivar()) {
         return nullptr;
     }
-    return static_cast<CsIvar *>(this);
+    return static_cast<cs_ivar *>(this);
 }
 
-CsIvar const *CsIdent::get_ivar() const {
+cs_ivar const *cs_ident::get_ivar() const {
     if (!is_ivar()) {
         return nullptr;
     }
-    return static_cast<CsIvar const *>(this);
+    return static_cast<cs_ivar const *>(this);
 }
 
-bool CsIdent::is_fvar() const {
-    return get_type() == CsIdentType::Fvar;
+bool cs_ident::is_fvar() const {
+    return get_type() == cs_ident_type::Fvar;
 }
 
-CsFvar *CsIdent::get_fvar() {
+cs_fvar *cs_ident::get_fvar() {
     if (!is_fvar()) {
         return nullptr;
     }
-    return static_cast<CsFvar *>(this);
+    return static_cast<cs_fvar *>(this);
 }
 
-CsFvar const *CsIdent::get_fvar() const {
+cs_fvar const *cs_ident::get_fvar() const {
     if (!is_fvar()) {
         return nullptr;
     }
-    return static_cast<CsFvar const *>(this);
+    return static_cast<cs_fvar const *>(this);
 }
 
-bool CsIdent::is_svar() const {
-    return get_type() == CsIdentType::Svar;
+bool cs_ident::is_svar() const {
+    return get_type() == cs_ident_type::Svar;
 }
 
-CsSvar *CsIdent::get_svar() {
+cs_svar *cs_ident::get_svar() {
     if (!is_svar()) {
         return nullptr;
     }
-    return static_cast<CsSvar *>(this);
+    return static_cast<cs_svar *>(this);
 }
 
-CsSvar const *CsIdent::get_svar() const {
+cs_svar const *cs_ident::get_svar() const {
     if (!is_svar()) {
         return nullptr;
     }
-    return static_cast<CsSvar const *>(this);
+    return static_cast<cs_svar const *>(this);
 }
 
-CsInt CsIvar::get_val_min() const {
+cs_int cs_ivar::get_val_min() const {
     return p_minval;
 }
-CsInt CsIvar::get_val_max() const {
+cs_int cs_ivar::get_val_max() const {
     return p_maxval;
 }
 
-CsInt CsIvar::get_value() const {
+cs_int cs_ivar::get_value() const {
     return p_storage;
 }
-void CsIvar::set_value(CsInt val) {
+void cs_ivar::set_value(cs_int val) {
     p_storage = val;
 }
 
-CsString CsIvar::to_printable() const {
-    CsInt i = p_storage;
-    auto app = ostd::appender<CsString>();
+cs_string cs_ivar::to_printable() const {
+    cs_int i = p_storage;
+    auto app = ostd::appender<cs_string>();
     try {
-        if (!(get_flags() & CsIdfHex) || (i < 0)) {
+        if (!(get_flags() & CS_IDF_HEX) || (i < 0)) {
             format(app, IvarFormat, get_name(), i);
         } else if (p_maxval == 0xFFFFFF) {
             format(
@@ -241,26 +241,26 @@ CsString CsIvar::to_printable() const {
     return std::move(app.get());
 }
 
-CsFloat CsFvar::get_val_min() const {
+cs_float cs_fvar::get_val_min() const {
     return p_minval;
 }
-CsFloat CsFvar::get_val_max() const {
+cs_float cs_fvar::get_val_max() const {
     return p_maxval;
 }
 
-CsFloat CsFvar::get_value() const {
+cs_float cs_fvar::get_value() const {
     return p_storage;
 }
-void CsFvar::set_value(CsFloat val) {
+void cs_fvar::set_value(cs_float val) {
     p_storage = val;
 }
 
-CsString CsFvar::to_printable() const {
-    CsFloat f = p_storage;
-    auto app = ostd::appender<CsString>();
+cs_string cs_fvar::to_printable() const {
+    cs_float f = p_storage;
+    auto app = ostd::appender<cs_string>();
     try {
         format(
-            app, (f == CsInt(f)) ? FvarRoundFormat : FvarFormat, get_name(), f
+            app, (f == cs_int(f)) ? FvarRoundFormat : FvarFormat, get_name(), f
         );
     } catch (ostd::format_error const &e) {
         throw cs_internal_error{e.what()};
@@ -268,16 +268,16 @@ CsString CsFvar::to_printable() const {
     return std::move(app.get());
 }
 
-ostd::ConstCharRange CsSvar::get_value() const {
+ostd::ConstCharRange cs_svar::get_value() const {
     return ostd::iter(p_storage);
 }
-void CsSvar::set_value(CsString val) {
+void cs_svar::set_value(cs_string val) {
     p_storage = std::move(val);
 }
 
-CsString CsSvar::to_printable() const {
+cs_string cs_svar::to_printable() const {
     ostd::ConstCharRange s = p_storage;
-    auto app = ostd::appender<CsString>();
+    auto app = ostd::appender<cs_string>();
     try {
         if (ostd::find(s, '"').empty()) {
             format(app, SvarFormat, get_name(), s);
@@ -290,27 +290,27 @@ CsString CsSvar::to_printable() const {
     return std::move(app.get());
 }
 
-ostd::ConstCharRange CsCommand::get_args() const {
+ostd::ConstCharRange cs_command::get_args() const {
     return p_cargs;
 }
 
-int CsCommand::get_num_args() const {
+int cs_command::get_num_args() const {
     return p_numargs;
 }
 
-void cs_init_lib_base(CsState &cs);
+void cs_init_lib_base(cs_state &cs);
 
-CsState::CsState(CsAllocCb func, void *data):
+cs_state::cs_state(cs_alloc_cb func, void *data):
     p_state(nullptr), p_callhook()
 {
     if (!func) {
         func = cs_default_alloc;
     }
     /* allocator is not set up yet, use func directly */
-    p_state = static_cast<CsSharedState *>(
-        func(data, nullptr, 0, sizeof(CsSharedState))
+    p_state = static_cast<cs_shared_state *>(
+        func(data, nullptr, 0, sizeof(cs_shared_state))
     );
-    new (p_state) CsSharedState();
+    new (p_state) cs_shared_state();
     /* set up allocator, from now we can call into alloc() */
     p_state->allocf = func;
     p_state->aptr = data;
@@ -318,9 +318,9 @@ CsState::CsState(CsAllocCb func, void *data):
     for (int i = 0; i < MaxArguments; ++i) {
         char buf[32];
         snprintf(buf, sizeof(buf), "arg%d", i + 1);
-        new_ident(static_cast<char const *>(buf), CsIdfArg);
+        new_ident(static_cast<char const *>(buf), CS_IDF_ARG);
     }
-    CsIdent *id = new_ident("//dummy");
+    cs_ident *id = new_ident("//dummy");
     if (id->get_index() != DummyIdx) {
         throw cs_internal_error{"invalid dummy index"};
     }
@@ -362,7 +362,7 @@ CsState::CsState(CsAllocCb func, void *data):
             res.set_int(1);
         } else {
             for (size_t i = 0; i < args.size(); ++i) {
-                CsBytecode *code = args[i].get_code();
+                cs_bcode *code = args[i].get_code();
                 if (code) {
                     cs.run(code, res);
                 } else {
@@ -380,7 +380,7 @@ CsState::CsState(CsAllocCb func, void *data):
             res.set_int(0);
         } else {
             for (size_t i = 0; i < args.size(); ++i) {
-                CsBytecode *code = args[i].get_code();
+                cs_bcode *code = args[i].get_code();
                 if (code) {
                     cs.run(code, res);
                 } else {
@@ -399,7 +399,7 @@ CsState::CsState(CsAllocCb func, void *data):
         if (cs.is_in_loop()) {
             throw CsBreakException();
         } else {
-            throw CsErrorException(cs, "no loop to break");
+            throw cs_error(cs, "no loop to break");
         }
     })->p_type = CsIdBreak;
 
@@ -407,72 +407,72 @@ CsState::CsState(CsAllocCb func, void *data):
         if (cs.is_in_loop()) {
             throw CsContinueException();
         } else {
-            throw CsErrorException(cs, "no loop to continue");
+            throw cs_error(cs, "no loop to continue");
         }
     })->p_type = CsIdContinue;
 
     cs_init_lib_base(*this);
 }
 
-CsState::~CsState() {
+cs_state::~cs_state() {
     if (!p_state) {
         return;
     }
     for (auto &p: p_state->idents) {
-        CsIdent *i = p.second;
-        CsAlias *a = i->get_alias();
+        cs_ident *i = p.second;
+        cs_alias *a = i->get_alias();
         if (a) {
             a->get_value().force_null();
-            CsAliasInternal::clean_code(a);
+            cs_aliasInternal::clean_code(a);
         }
         p_state->destroy(i);
     }
     p_state->destroy(p_state);
 }
 
-CsHookCb CsState::set_call_hook(CsHookCb func) {
+cs_hook_cb cs_state::set_call_hook(cs_hook_cb func) {
     auto hk = std::move(p_callhook);
     p_callhook = std::move(func);
     return hk;
 }
 
-CsHookCb const &CsState::get_call_hook() const {
+cs_hook_cb const &cs_state::get_call_hook() const {
     return p_callhook;
 }
 
-CsHookCb &CsState::get_call_hook() {
+cs_hook_cb &cs_state::get_call_hook() {
     return p_callhook;
 }
 
-void *CsState::alloc(void *ptr, size_t os, size_t ns) {
+void *cs_state::alloc(void *ptr, size_t os, size_t ns) {
     return p_state->alloc(ptr, os, ns);
 }
 
-void CsState::clear_override(CsIdent &id) {
-    if (!(id.get_flags() & CsIdfOverridden)) {
+void cs_state::clear_override(cs_ident &id) {
+    if (!(id.get_flags() & CS_IDF_OVERRIDDEN)) {
         return;
     }
     switch (id.get_type()) {
-        case CsIdentType::Alias: {
-            CsAlias &a = static_cast<CsAlias &>(id);
-            CsAliasInternal::clean_code(&a);
+        case cs_ident_type::Alias: {
+            cs_alias &a = static_cast<cs_alias &>(id);
+            cs_aliasInternal::clean_code(&a);
             a.get_value().set_str("");
             break;
         }
-        case CsIdentType::Ivar: {
-            CsIvar &iv = static_cast<CsIvar &>(id);
+        case cs_ident_type::Ivar: {
+            cs_ivar &iv = static_cast<cs_ivar &>(id);
             iv.set_value(iv.p_overrideval);
             iv.changed(*this);
             break;
         }
-        case CsIdentType::Fvar: {
-            CsFvar &fv = static_cast<CsFvar &>(id);
+        case cs_ident_type::Fvar: {
+            cs_fvar &fv = static_cast<cs_fvar &>(id);
             fv.set_value(fv.p_overrideval);
             fv.changed(*this);
             break;
         }
-        case CsIdentType::Svar: {
-            CsSvar &sv = static_cast<CsSvar &>(id);
+        case cs_ident_type::Svar: {
+            cs_svar &sv = static_cast<cs_svar &>(id);
             sv.set_value(sv.p_overrideval);
             sv.changed(*this);
             break;
@@ -480,16 +480,16 @@ void CsState::clear_override(CsIdent &id) {
         default:
             break;
     }
-    id.p_flags &= ~CsIdfOverridden;
+    id.p_flags &= ~CS_IDF_OVERRIDDEN;
 }
 
-void CsState::clear_overrides() {
+void cs_state::clear_overrides() {
     for (auto &p: p_state->idents) {
         clear_override(*(p.second));
     }
 }
 
-CsIdent *CsState::add_ident(CsIdent *id) {
+cs_ident *cs_state::add_ident(cs_ident *id) {
     if (!id) {
         return nullptr;
     }
@@ -499,27 +499,27 @@ CsIdent *CsState::add_ident(CsIdent *id) {
     return p_state->identmap.back();
 }
 
-CsIdent *CsState::new_ident(ostd::ConstCharRange name, int flags) {
-    CsIdent *id = get_ident(name);
+cs_ident *cs_state::new_ident(ostd::ConstCharRange name, int flags) {
+    cs_ident *id = get_ident(name);
     if (!id) {
         if (cs_check_num(name)) {
-            throw CsErrorException(
+            throw cs_error(
                 *this, "number %s is not a valid identifier name", name
             );
         }
-        id = add_ident(p_state->create<CsAlias>(name, flags));
+        id = add_ident(p_state->create<cs_alias>(name, flags));
     }
     return id;
 }
 
-CsIdent *CsState::force_ident(CsValue &v) {
+cs_ident *cs_state::force_ident(cs_value &v) {
     switch (v.get_type()) {
-        case CsValueType::Ident:
+        case cs_value_type::Ident:
             return v.get_ident();
-        case CsValueType::Macro:
-        case CsValueType::Cstring:
-        case CsValueType::String: {
-            CsIdent *id = new_ident(v.get_strr());
+        case cs_value_type::Macro:
+        case cs_value_type::Cstring:
+        case cs_value_type::String: {
+            cs_ident *id = new_ident(v.get_strr());
             v.set_ident(id);
             return id;
         }
@@ -530,7 +530,7 @@ CsIdent *CsState::force_ident(CsValue &v) {
     return p_state->identmap[DummyIdx];
 }
 
-CsIdent *CsState::get_ident(ostd::ConstCharRange name) {
+cs_ident *cs_state::get_ident(ostd::ConstCharRange name) {
     auto id = p_state->idents.find(name);
     if (id != p_state->idents.end()) {
         return id->second;
@@ -538,124 +538,124 @@ CsIdent *CsState::get_ident(ostd::ConstCharRange name) {
     return nullptr;
 }
 
-CsAlias *CsState::get_alias(ostd::ConstCharRange name) {
+cs_alias *cs_state::get_alias(ostd::ConstCharRange name) {
     auto id = get_ident(name);
     if (!id || !id->is_alias()) {
         return nullptr;
     }
-    return static_cast<CsAlias *>(id);
+    return static_cast<cs_alias *>(id);
 }
 
-bool CsState::have_ident(ostd::ConstCharRange name) {
+bool cs_state::have_ident(ostd::ConstCharRange name) {
     return p_state->idents.find(name) != p_state->idents.end();
 }
 
-CsIdentRange CsState::get_idents() {
-    return CsIdentRange(
+cs_ident_r cs_state::get_idents() {
+    return cs_ident_r(
         p_state->identmap.data(),
         p_state->identmap.data() + p_state->identmap.size()
     );
 }
 
-CsConstIdentRange CsState::get_idents() const {
-    auto ptr = const_cast<CsIdent const **>(p_state->identmap.data());
-    return CsConstIdentRange(ptr, ptr + p_state->identmap.size());
+cs_const_ident_r cs_state::get_idents() const {
+    auto ptr = const_cast<cs_ident const **>(p_state->identmap.data());
+    return cs_const_ident_r(ptr, ptr + p_state->identmap.size());
 }
 
-CsIvar *CsState::new_ivar(
-    ostd::ConstCharRange n, CsInt m, CsInt x, CsInt v, CsVarCb f, int flags
+cs_ivar *cs_state::new_ivar(
+    ostd::ConstCharRange n, cs_int m, cs_int x, cs_int v, cs_var_cb f, int flags
 ) {
     return add_ident(
-        p_state->create<CsIvar>(n, m, x, v, std::move(f), flags)
+        p_state->create<cs_ivar>(n, m, x, v, std::move(f), flags)
     )->get_ivar();
 }
 
-CsFvar *CsState::new_fvar(
-    ostd::ConstCharRange n, CsFloat m, CsFloat x, CsFloat v, CsVarCb f, int flags
+cs_fvar *cs_state::new_fvar(
+    ostd::ConstCharRange n, cs_float m, cs_float x, cs_float v, cs_var_cb f, int flags
 ) {
     return add_ident(
-        p_state->create<CsFvar>(n, m, x, v, std::move(f), flags)
+        p_state->create<cs_fvar>(n, m, x, v, std::move(f), flags)
     )->get_fvar();
 }
 
-CsSvar *CsState::new_svar(
-    ostd::ConstCharRange n, CsString v, CsVarCb f, int flags
+cs_svar *cs_state::new_svar(
+    ostd::ConstCharRange n, cs_string v, cs_var_cb f, int flags
 ) {
     return add_ident(
-        p_state->create<CsSvar>(n, std::move(v), std::move(f), flags)
+        p_state->create<cs_svar>(n, std::move(v), std::move(f), flags)
     )->get_svar();
 }
 
-void CsState::reset_var(ostd::ConstCharRange name) {
-    CsIdent *id = get_ident(name);
+void cs_state::reset_var(ostd::ConstCharRange name) {
+    cs_ident *id = get_ident(name);
     if (!id) {
-        throw CsErrorException(*this, "variable %s does not exist", name);
+        throw cs_error(*this, "variable %s does not exist", name);
     }
-    if (id->get_flags() & CsIdfReadOnly) {
-        throw CsErrorException(*this, "variable %s is read only", name);
+    if (id->get_flags() & CS_IDF_READONLY) {
+        throw cs_error(*this, "variable %s is read only", name);
     }
     clear_override(*id);
 }
 
-void CsState::touch_var(ostd::ConstCharRange name) {
-    CsIdent *id = get_ident(name);
+void cs_state::touch_var(ostd::ConstCharRange name) {
+    cs_ident *id = get_ident(name);
     if (id && id->is_var()) {
-        static_cast<CsVar *>(id)->changed(*this);
+        static_cast<cs_var *>(id)->changed(*this);
     }
 }
 
-void CsState::set_alias(ostd::ConstCharRange name, CsValue v) {
-    CsIdent *id = get_ident(name);
+void cs_state::set_alias(ostd::ConstCharRange name, cs_value v) {
+    cs_ident *id = get_ident(name);
     if (id) {
         switch (id->get_type()) {
-            case CsIdentType::Alias: {
-                CsAlias *a = static_cast<CsAlias *>(id);
+            case cs_ident_type::Alias: {
+                cs_alias *a = static_cast<cs_alias *>(id);
                 if (a->get_index() < MaxArguments) {
-                    CsAliasInternal::set_arg(a, *this, v);
+                    cs_aliasInternal::set_arg(a, *this, v);
                 } else {
-                    CsAliasInternal::set_alias(a, *this, v);
+                    cs_aliasInternal::set_alias(a, *this, v);
                 }
                 return;
             }
-            case CsIdentType::Ivar:
-                set_var_int_checked(static_cast<CsIvar *>(id), v.get_int());
+            case cs_ident_type::Ivar:
+                set_var_int_checked(static_cast<cs_ivar *>(id), v.get_int());
                 break;
-            case CsIdentType::Fvar:
-                set_var_float_checked(static_cast<CsFvar *>(id), v.get_float());
+            case cs_ident_type::Fvar:
+                set_var_float_checked(static_cast<cs_fvar *>(id), v.get_float());
                 break;
-            case CsIdentType::Svar:
-                set_var_str_checked(static_cast<CsSvar *>(id), v.get_str());
+            case cs_ident_type::Svar:
+                set_var_str_checked(static_cast<cs_svar *>(id), v.get_str());
                 break;
             default:
-                throw CsErrorException(
+                throw cs_error(
                     *this, "cannot redefine builtin %s with an alias",
                     id->get_name()
                 );
         }
     } else if (cs_check_num(name)) {
-        throw CsErrorException(*this, "cannot alias number %s", name);
+        throw cs_error(*this, "cannot alias number %s", name);
     } else {
-        add_ident(p_state->create<CsAlias>(name, std::move(v), identflags));
+        add_ident(p_state->create<cs_alias>(name, std::move(v), identflags));
     }
 }
 
-void CsState::print_var(CsVar *v) {
+void cs_state::print_var(cs_var *v) {
     ostd::writeln(v->to_printable());
 }
 
-void CsAlias::get_cstr(CsValue &v) const {
+void cs_alias::get_cstr(cs_value &v) const {
     switch (p_val.get_type()) {
-        case CsValueType::Macro:
+        case cs_value_type::Macro:
             v.set_macro(p_val.get_strr());
             break;
-        case CsValueType::String:
-        case CsValueType::Cstring:
+        case cs_value_type::String:
+        case cs_value_type::Cstring:
             v.set_cstr(p_val.get_strr());
             break;
-        case CsValueType::Int:
+        case cs_value_type::Int:
             v.set_str(intstr(p_val.get_int()));
             break;
-        case CsValueType::Float:
+        case cs_value_type::Float:
             v.set_str(floatstr(p_val.get_float()));
             break;
         default:
@@ -664,19 +664,19 @@ void CsAlias::get_cstr(CsValue &v) const {
     }
 }
 
-void CsAlias::get_cval(CsValue &v) const {
+void cs_alias::get_cval(cs_value &v) const {
     switch (p_val.get_type()) {
-        case CsValueType::Macro:
+        case cs_value_type::Macro:
             v.set_macro(p_val.get_strr());
             break;
-        case CsValueType::String:
-        case CsValueType::Cstring:
+        case cs_value_type::String:
+        case cs_value_type::Cstring:
             v.set_cstr(p_val.get_strr());
             break;
-        case CsValueType::Int:
+        case cs_value_type::Int:
             v.set_int(p_val.get_int());
             break;
-        case CsValueType::Float:
+        case cs_value_type::Float:
             v.set_float(p_val.get_float());
             break;
         default:
@@ -685,52 +685,52 @@ void CsAlias::get_cval(CsValue &v) const {
     }
 }
 
-CsIdentType CsIdent::get_type() const {
+cs_ident_type cs_ident::get_type() const {
     if (p_type > CsIdAlias) {
-        return CsIdentType::Special;
+        return cs_ident_type::Special;
     }
-    return CsIdentType(p_type);
+    return cs_ident_type(p_type);
 }
 
-ostd::ConstCharRange CsIdent::get_name() const {
+ostd::ConstCharRange cs_ident::get_name() const {
     return p_name;
 }
 
-int CsIdent::get_flags() const {
+int cs_ident::get_flags() const {
     return p_flags;
 }
 
-int CsIdent::get_index() const {
+int cs_ident::get_index() const {
     return p_index;
 }
 
 template<typename SF>
-static inline void cs_override_var(CsState &cs, CsVar *v, int &vflags, SF sf) {
-    if ((cs.identflags & CsIdfOverridden) || (vflags & CsIdfOverride)) {
-        if (vflags & CsIdfPersist) {
-            throw CsErrorException(
+static inline void cs_override_var(cs_state &cs, cs_var *v, int &vflags, SF sf) {
+    if ((cs.identflags & CS_IDF_OVERRIDDEN) || (vflags & CS_IDF_OVERRIDE)) {
+        if (vflags & CS_IDF_PERSIST) {
+            throw cs_error(
                 cs, "cannot override persistent variable '%s'", v->get_name()
             );
         }
-        if (!(vflags & CsIdfOverridden)) {
+        if (!(vflags & CS_IDF_OVERRIDDEN)) {
             sf();
-            vflags |= CsIdfOverridden;
+            vflags |= CS_IDF_OVERRIDDEN;
         }
     } else {
-        if (vflags & CsIdfOverridden) {
-            vflags &= ~CsIdfOverridden;
+        if (vflags & CS_IDF_OVERRIDDEN) {
+            vflags &= ~CS_IDF_OVERRIDDEN;
         }
     }
 }
 
-void CsState::set_var_int(
-    ostd::ConstCharRange name, CsInt v, bool dofunc, bool doclamp
+void cs_state::set_var_int(
+    ostd::ConstCharRange name, cs_int v, bool dofunc, bool doclamp
 ) {
-    CsIdent *id = get_ident(name);
+    cs_ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return;
     }
-    CsIvar *iv = static_cast<CsIvar *>(id);
+    cs_ivar *iv = static_cast<cs_ivar *>(id);
     cs_override_var(
         *this, iv, iv->p_flags,
         [&iv]() { iv->p_overrideval = iv->get_value(); }
@@ -745,14 +745,14 @@ void CsState::set_var_int(
     }
 }
 
-void CsState::set_var_float(
-    ostd::ConstCharRange name, CsFloat v, bool dofunc, bool doclamp
+void cs_state::set_var_float(
+    ostd::ConstCharRange name, cs_float v, bool dofunc, bool doclamp
 ) {
-    CsIdent *id = get_ident(name);
+    cs_ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return;
     }
-    CsFvar *fv = static_cast<CsFvar *>(id);
+    cs_fvar *fv = static_cast<cs_fvar *>(id);
     cs_override_var(
         *this, fv, fv->p_flags,
         [&fv]() { fv->p_overrideval = fv->get_value(); }
@@ -767,83 +767,83 @@ void CsState::set_var_float(
     }
 }
 
-void CsState::set_var_str(
+void cs_state::set_var_str(
     ostd::ConstCharRange name, ostd::ConstCharRange v, bool dofunc
 ) {
-    CsIdent *id = get_ident(name);
+    cs_ident *id = get_ident(name);
     if (!id || id->is_svar()) {
         return;
     }
-    CsSvar *sv = static_cast<CsSvar *>(id);
+    cs_svar *sv = static_cast<cs_svar *>(id);
     cs_override_var(
         *this, sv, sv->p_flags,
         [&sv]() { sv->p_overrideval = sv->get_value(); }
     );
-    sv->set_value(CsString{v});
+    sv->set_value(cs_string{v});
     if (dofunc) {
         sv->changed(*this);
     }
 }
 
-std::optional<CsInt> CsState::get_var_int(ostd::ConstCharRange name) {
-    CsIdent *id = get_ident(name);
+std::optional<cs_int> cs_state::get_var_int(ostd::ConstCharRange name) {
+    cs_ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return std::nullopt;
     }
-    return static_cast<CsIvar *>(id)->get_value();
+    return static_cast<cs_ivar *>(id)->get_value();
 }
 
-std::optional<CsFloat> CsState::get_var_float(ostd::ConstCharRange name) {
-    CsIdent *id = get_ident(name);
+std::optional<cs_float> cs_state::get_var_float(ostd::ConstCharRange name) {
+    cs_ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return std::nullopt;
     }
-    return static_cast<CsFvar *>(id)->get_value();
+    return static_cast<cs_fvar *>(id)->get_value();
 }
 
-std::optional<CsString> CsState::get_var_str(ostd::ConstCharRange name) {
-    CsIdent *id = get_ident(name);
+std::optional<cs_string> cs_state::get_var_str(ostd::ConstCharRange name) {
+    cs_ident *id = get_ident(name);
     if (!id || id->is_svar()) {
         return std::nullopt;
     }
-    return CsString(static_cast<CsSvar *>(id)->get_value());
+    return cs_string(static_cast<cs_svar *>(id)->get_value());
 }
 
-std::optional<CsInt> CsState::get_var_min_int(ostd::ConstCharRange name) {
-    CsIdent *id = get_ident(name);
+std::optional<cs_int> cs_state::get_var_min_int(ostd::ConstCharRange name) {
+    cs_ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return std::nullopt;
     }
-    return static_cast<CsIvar *>(id)->get_val_min();
+    return static_cast<cs_ivar *>(id)->get_val_min();
 }
 
-std::optional<CsInt> CsState::get_var_max_int(ostd::ConstCharRange name) {
-    CsIdent *id = get_ident(name);
+std::optional<cs_int> cs_state::get_var_max_int(ostd::ConstCharRange name) {
+    cs_ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return std::nullopt;
     }
-    return static_cast<CsIvar *>(id)->get_val_max();
+    return static_cast<cs_ivar *>(id)->get_val_max();
 }
 
-std::optional<CsFloat> CsState::get_var_min_float(ostd::ConstCharRange name) {
-    CsIdent *id = get_ident(name);
+std::optional<cs_float> cs_state::get_var_min_float(ostd::ConstCharRange name) {
+    cs_ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return std::nullopt;
     }
-    return static_cast<CsFvar *>(id)->get_val_min();
+    return static_cast<cs_fvar *>(id)->get_val_min();
 }
 
-std::optional<CsFloat> CsState::get_var_max_float(ostd::ConstCharRange name) {
-    CsIdent *id = get_ident(name);
+std::optional<cs_float> cs_state::get_var_max_float(ostd::ConstCharRange name) {
+    cs_ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return std::nullopt;
     }
-    return static_cast<CsFvar *>(id)->get_val_max();
+    return static_cast<cs_fvar *>(id)->get_val_max();
 }
 
-std::optional<CsString>
-CsState::get_alias_val(ostd::ConstCharRange name) {
-    CsAlias *a = get_alias(name);
+std::optional<cs_string>
+cs_state::get_alias_val(ostd::ConstCharRange name) {
+    cs_alias *a = get_alias(name);
     if (!a) {
         return std::nullopt;
     }
@@ -853,7 +853,7 @@ CsState::get_alias_val(ostd::ConstCharRange name) {
     return a->get_value().get_str();
 }
 
-CsInt cs_clamp_var(CsState &cs, CsIvar *iv, CsInt v) {
+cs_int cs_clamp_var(cs_state &cs, cs_ivar *iv, cs_int v) {
     if (v < iv->get_val_min()) {
         v = iv->get_val_min();
     } else if (v > iv->get_val_max()) {
@@ -861,9 +861,9 @@ CsInt cs_clamp_var(CsState &cs, CsIvar *iv, CsInt v) {
     } else {
         return v;
     }
-    throw CsErrorException(
+    throw cs_error(
         cs,
-        (iv->get_flags() & CsIdfHex)
+        (iv->get_flags() & CS_IDF_HEX)
             ? (
                 (iv->get_val_min() <= 255)
                     ? "valid range for '%s' is %d..0x%X"
@@ -874,9 +874,9 @@ CsInt cs_clamp_var(CsState &cs, CsIvar *iv, CsInt v) {
     );
 }
 
-void CsState::set_var_int_checked(CsIvar *iv, CsInt v) {
-    if (iv->get_flags() & CsIdfReadOnly) {
-        throw CsErrorException(
+void cs_state::set_var_int_checked(cs_ivar *iv, cs_int v) {
+    if (iv->get_flags() & CS_IDF_READONLY) {
+        throw cs_error(
             *this, "variable '%s' is read only", iv->get_name()
         );
     }
@@ -891,9 +891,9 @@ void CsState::set_var_int_checked(CsIvar *iv, CsInt v) {
     iv->changed(*this);
 }
 
-void CsState::set_var_int_checked(CsIvar *iv, CsValueRange args) {
-    CsInt v = args[0].force_int();
-    if ((iv->get_flags() & CsIdfHex) && (args.size() > 1)) {
+void cs_state::set_var_int_checked(cs_ivar *iv, cs_value_r args) {
+    cs_int v = args[0].force_int();
+    if ((iv->get_flags() & CS_IDF_HEX) && (args.size() > 1)) {
         v = (v << 16) | (args[1].force_int() << 8);
         if (args.size() > 2) {
             v |= args[2].force_int();
@@ -902,7 +902,7 @@ void CsState::set_var_int_checked(CsIvar *iv, CsValueRange args) {
     set_var_int_checked(iv, v);
 }
 
-CsFloat cs_clamp_fvar(CsState &cs, CsFvar *fv, CsFloat v) {
+cs_float cs_clamp_fvar(cs_state &cs, cs_fvar *fv, cs_float v) {
     if (v < fv->get_val_min()) {
         v = fv->get_val_min();
     } else if (v > fv->get_val_max()) {
@@ -910,16 +910,16 @@ CsFloat cs_clamp_fvar(CsState &cs, CsFvar *fv, CsFloat v) {
     } else {
         return v;
     }
-    throw CsErrorException(
+    throw cs_error(
         cs, "valid range for '%s' is %s..%s", floatstr(fv->get_val_min()),
         floatstr(fv->get_val_max())
     );
     return v;
 }
 
-void CsState::set_var_float_checked(CsFvar *fv, CsFloat v) {
-    if (fv->get_flags() & CsIdfReadOnly) {
-        throw CsErrorException(
+void cs_state::set_var_float_checked(cs_fvar *fv, cs_float v) {
+    if (fv->get_flags() & CS_IDF_READONLY) {
+        throw cs_error(
             *this, "variable '%s' is read only", fv->get_name()
         );
     }
@@ -934,9 +934,9 @@ void CsState::set_var_float_checked(CsFvar *fv, CsFloat v) {
     fv->changed(*this);
 }
 
-void CsState::set_var_str_checked(CsSvar *sv, ostd::ConstCharRange v) {
-    if (sv->get_flags() & CsIdfReadOnly) {
-        throw CsErrorException(
+void cs_state::set_var_str_checked(cs_svar *sv, ostd::ConstCharRange v) {
+    if (sv->get_flags() & CS_IDF_READONLY) {
+        throw cs_error(
             *this, "variable '%s' is read only", sv->get_name()
         );
     }
@@ -944,12 +944,12 @@ void CsState::set_var_str_checked(CsSvar *sv, ostd::ConstCharRange v) {
         *this, sv, sv->p_flags,
         [&sv]() { sv->p_overrideval = sv->get_value(); }
     );
-    sv->set_value(CsString{v});
+    sv->set_value(cs_string{v});
     sv->changed(*this);
 }
 
-CsCommand *CsState::new_command(
-    ostd::ConstCharRange name, ostd::ConstCharRange args, CsCommandCb func
+cs_command *cs_state::new_command(
+    ostd::ConstCharRange name, ostd::ConstCharRange args, cs_command_cb func
 ) {
     int nargs = 0;
     for (ostd::ConstCharRange fmt(args); !fmt.empty(); ++fmt) {
@@ -995,20 +995,20 @@ CsCommand *CsState::new_command(
                 return nullptr;
         }
     }
-    return static_cast<CsCommand *>(
-        add_ident(p_state->create<CsCommand>(name, args, nargs, std::move(func)))
+    return static_cast<cs_command *>(
+        add_ident(p_state->create<cs_command>(name, args, nargs, std::move(func)))
     );
 }
 
 static inline void cs_do_loop(
-    CsState &cs, CsIdent &id, CsInt offset, CsInt n, CsInt step,
-    CsBytecode *cond, CsBytecode *body
+    cs_state &cs, cs_ident &id, cs_int offset, cs_int n, cs_int step,
+    cs_bcode *cond, cs_bcode *body
 ) {
-    CsStackedValue idv{&id};
+    cs_stacked_value idv{&id};
     if (n <= 0 || !idv.has_alias()) {
         return;
     }
-    for (CsInt i = 0; i < n; ++i) {
+    for (cs_int i = 0; i < n; ++i) {
         idv.set_int(offset + i * step);
         idv.push();
         if (cond && !cs.run_bool(cond)) {
@@ -1026,18 +1026,18 @@ end:
 }
 
 static inline void cs_loop_conc(
-    CsState &cs, CsValue &res, CsIdent &id, CsInt offset, CsInt n,
-    CsInt step, CsBytecode *body, bool space
+    cs_state &cs, cs_value &res, cs_ident &id, cs_int offset, cs_int n,
+    cs_int step, cs_bcode *body, bool space
 ) {
-    CsStackedValue idv{&id};
+    cs_stacked_value idv{&id};
     if (n <= 0 || !idv.has_alias()) {
         return;
     }
-    CsString s;
-    for (CsInt i = 0; i < n; ++i) {
+    cs_string s;
+    for (cs_int i = 0; i < n; ++i) {
         idv.set_int(offset + i * step);
         idv.push();
-        CsValue v;
+        cs_value v;
         switch (cs.run_loop(body, v)) {
             case CsLoopState::Break:
                 goto end;
@@ -1055,34 +1055,34 @@ end:
     res.set_str(std::move(s));
 }
 
-void cs_init_lib_base(CsState &gcs) {
+void cs_init_lib_base(cs_state &gcs) {
     gcs.new_command("error", "s", [](auto &cs, auto args, auto &) {
-        throw CsErrorException(cs, args[0].get_strr());
+        throw cs_error(cs, args[0].get_strr());
     });
 
     gcs.new_command("pcall", "err", [](auto &cs, auto args, auto &ret) {
-        CsAlias *cret = args[1].get_ident()->get_alias(),
+        cs_alias *cret = args[1].get_ident()->get_alias(),
                 *css  = args[2].get_ident()->get_alias();
         if (!cret || !css) {
             ret.set_int(0);
             return;
         }
-        CsValue result, tback;
+        cs_value result, tback;
         bool rc = true;
         try {
             cs.run(args[0].get_code(), result);
-        } catch (CsErrorException const &e) {
-            result.set_str(CsString{e.what()});
+        } catch (cs_error const &e) {
+            result.set_str(cs_string{e.what()});
             if (e.get_stack().get()) {
-                auto app = ostd::appender<CsString>();
+                auto app = ostd::appender<cs_string>();
                 cscript::util::print_stack(app, e.get_stack());
                 tback.set_str(std::move(app.get()));
             }
             rc = false;
         }
         ret.set_int(rc);
-        CsAliasInternal::set_alias(cret, cs, result);
-        CsAliasInternal::set_alias(css, cs, tback);
+        cs_aliasInternal::set_alias(cret, cs, result);
+        cs_aliasInternal::set_alias(css, cs, tback);
     });
 
     gcs.new_command("?", "tTT", [](auto &, auto args, auto &res) {
@@ -1108,10 +1108,10 @@ void cs_init_lib_base(CsState &gcs) {
     });
 
     gcs.new_command("case", "ite2V", [](auto &cs, auto args, auto &res) {
-        CsInt val = args[0].get_int();
+        cs_int val = args[0].get_int();
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
-                (args[i].get_type() == CsValueType::Null) ||
+                (args[i].get_type() == cs_value_type::Null) ||
                 (args[i].get_int() == val)
             ) {
                 cs.run(args[i + 1].get_code(), res);
@@ -1121,10 +1121,10 @@ void cs_init_lib_base(CsState &gcs) {
     });
 
     gcs.new_command("casef", "fte2V", [](auto &cs, auto args, auto &res) {
-        CsFloat val = args[0].get_float();
+        cs_float val = args[0].get_float();
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
-                (args[i].get_type() == CsValueType::Null) ||
+                (args[i].get_type() == cs_value_type::Null) ||
                 (args[i].get_float() == val)
             ) {
                 cs.run(args[i + 1].get_code(), res);
@@ -1134,10 +1134,10 @@ void cs_init_lib_base(CsState &gcs) {
     });
 
     gcs.new_command("cases", "ste2V", [](auto &cs, auto args, auto &res) {
-        CsString val = args[0].get_str();
+        cs_string val = args[0].get_str();
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
-                (args[i].get_type() == CsValueType::Null) ||
+                (args[i].get_type() == cs_value_type::Null) ||
                 (args[i].get_str() == val)
             ) {
                 cs.run(args[i + 1].get_code(), res);
@@ -1147,7 +1147,7 @@ void cs_init_lib_base(CsState &gcs) {
     });
 
     gcs.new_command("pushif", "rTe", [](auto &cs, auto args, auto &res) {
-        CsStackedValue idv{args[0].get_ident()};
+        cs_stacked_value idv{args[0].get_ident()};
         if (!idv.has_alias() || (idv.get_alias()->get_index() < MaxArguments)) {
             return;
         }
@@ -1215,7 +1215,7 @@ void cs_init_lib_base(CsState &gcs) {
     });
 
     gcs.new_command("while", "ee", [](auto &cs, auto args, auto &) {
-        CsBytecode *cond = args[0].get_code(), *body = args[1].get_code();
+        cs_bcode *cond = args[0].get_code(), *body = args[1].get_code();
         while (cs.run_bool(cond)) {
             switch (cs.run_loop(body)) {
                 case CsLoopState::Break:
@@ -1291,7 +1291,7 @@ end:
     });
 
     gcs.new_command("push", "rTe", [](auto &cs, auto args, auto &res) {
-        CsStackedValue idv{args[0].get_ident()};
+        cs_stacked_value idv{args[0].get_ident()};
         if (!idv.has_alias() || (idv.get_alias()->get_index() < MaxArguments)) {
             return;
         }
@@ -1332,11 +1332,11 @@ end:
     });
 }
 
-void cs_init_lib_math(CsState &cs);
-void cs_init_lib_string(CsState &cs);
-void cs_init_lib_list(CsState &cs);
+void cs_init_lib_math(cs_state &cs);
+void cs_init_lib_string(cs_state &cs);
+void cs_init_lib_list(cs_state &cs);
 
-OSTD_EXPORT void CsState::init_libs(int libs) {
+OSTD_EXPORT void cs_state::init_libs(int libs) {
     if (libs & CsLibMath) {
         cs_init_lib_math(*this);
     }

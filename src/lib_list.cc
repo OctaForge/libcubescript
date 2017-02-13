@@ -9,31 +9,31 @@ template<typename T>
 struct CsArgVal;
 
 template<>
-struct CsArgVal<CsInt> {
-    static CsInt get(CsValue &tv) {
+struct CsArgVal<cs_int> {
+    static cs_int get(cs_value &tv) {
         return tv.get_int();
     }
 };
 
 template<>
-struct CsArgVal<CsFloat> {
-    static CsFloat get(CsValue &tv) {
+struct CsArgVal<cs_float> {
+    static cs_float get(cs_value &tv) {
         return tv.get_float();
     }
 };
 
 template<>
 struct CsArgVal<ostd::ConstCharRange> {
-    static ostd::ConstCharRange get(CsValue &tv) {
+    static ostd::ConstCharRange get(cs_value &tv) {
         return tv.get_strr();
     }
 };
 
 template<typename T, typename F>
 static inline void cs_list_find(
-    CsState &cs, CsValueRange args, CsValue &res, F cmp
+    cs_state &cs, cs_value_r args, cs_value &res, F cmp
 ) {
-    CsInt n = 0, skip = args[2].get_int();
+    cs_int n = 0, skip = args[2].get_int();
     T val = CsArgVal<T>::get(args[1]);
     for (util::ListParser p(cs, args[0].get_strr()); p.parse(); ++n) {
         if (cmp(p, val)) {
@@ -53,7 +53,7 @@ notfound:
 
 template<typename T, typename F>
 static inline void cs_list_assoc(
-    CsState &cs, CsValueRange args, CsValue &res, F cmp
+    cs_state &cs, cs_value_r args, cs_value &res, F cmp
 ) {
     T val = CsArgVal<T>::get(args[1]);
     for (util::ListParser p(cs, args[0].get_strr()); p.parse();) {
@@ -70,14 +70,14 @@ static inline void cs_list_assoc(
 }
 
 static void cs_loop_list_conc(
-    CsState &cs, CsValue &res, CsIdent *id, ostd::ConstCharRange list,
-    CsBytecode *body, bool space
+    cs_state &cs, cs_value &res, cs_ident *id, ostd::ConstCharRange list,
+    cs_bcode *body, bool space
 ) {
-    CsStackedValue idv{id};
+    cs_stacked_value idv{id};
     if (!idv.has_alias()) {
         return;
     }
-    CsString r;
+    cs_string r;
     int n = 0;
     for (util::ListParser p(cs, list); p.parse(); ++n) {
         idv.set_str(p.get_item());
@@ -85,7 +85,7 @@ static void cs_loop_list_conc(
         if (n && space) {
             r += ' ';
         }
-        CsValue v;
+        cs_value v;
         switch (cs.run_loop(body, v)) {
             case CsLoopState::Break:
                 goto end;
@@ -101,7 +101,7 @@ end:
 }
 
 int cs_list_includes(
-    CsState &cs, ostd::ConstCharRange list, ostd::ConstCharRange needle
+    cs_state &cs, ostd::ConstCharRange list, ostd::ConstCharRange needle
 ) {
     int offset = 0;
     for (util::ListParser p(cs, list); p.parse();) {
@@ -115,11 +115,11 @@ int cs_list_includes(
 
 template<bool PushList, bool Swap, typename F>
 static inline void cs_list_merge(
-    CsState &cs, CsValueRange args, CsValue &res, F cmp
+    cs_state &cs, cs_value_r args, cs_value &res, F cmp
 ) {
     ostd::ConstCharRange list = args[0].get_strr();
     ostd::ConstCharRange elems = args[1].get_strr();
-    CsString buf;
+    cs_string buf;
     if (PushList) {
         buf += list;
     }
@@ -137,23 +137,23 @@ static inline void cs_list_merge(
     res.set_str(std::move(buf));
 }
 
-static void cs_init_lib_list_sort(CsState &cs);
+static void cs_init_lib_list_sort(cs_state &cs);
 
-void cs_init_lib_list(CsState &gcs) {
+void cs_init_lib_list(cs_state &gcs) {
     gcs.new_command("listlen", "s", [](auto &cs, auto args, auto &res) {
-        res.set_int(CsInt(util::ListParser(cs, args[0].get_strr()).count()));
+        res.set_int(cs_int(util::ListParser(cs, args[0].get_strr()).count()));
     });
 
     gcs.new_command("at", "si1V", [](auto &cs, auto args, auto &res) {
         if (args.empty()) {
             return;
         }
-        CsString str = std::move(args[0].get_str());
+        cs_string str = std::move(args[0].get_str());
         util::ListParser p(cs, str);
         p.get_raw_item() = str;
         for (size_t i = 1; i < args.size(); ++i) {
             p.get_input() = str;
-            CsInt pos = args[i].get_int();
+            cs_int pos = args[i].get_int();
             for (; pos > 0; --pos) {
                 if (!p.parse()) {
                     break;
@@ -167,22 +167,22 @@ void cs_init_lib_list(CsState &gcs) {
     });
 
     gcs.new_command("sublist", "siiN", [](auto &cs, auto args, auto &res) {
-        CsInt skip    = args[1].get_int(),
+        cs_int skip    = args[1].get_int(),
               count   = args[2].get_int(),
               numargs = args[3].get_int();
 
-        CsInt offset = ostd::max(skip, CsInt(0)),
-              len = (numargs >= 3) ? ostd::max(count, CsInt(0)) : -1;
+        cs_int offset = ostd::max(skip, cs_int(0)),
+              len = (numargs >= 3) ? ostd::max(count, cs_int(0)) : -1;
 
         util::ListParser p(cs, args[0].get_strr());
-        for (CsInt i = 0; i < offset; ++i) {
+        for (cs_int i = 0; i < offset; ++i) {
             if (!p.parse()) break;
         }
         if (len < 0) {
             if (offset > 0) {
                 p.skip();
             }
-            res.set_str(CsString{p.get_input()});
+            res.set_str(cs_string{p.get_input()});
             return;
         }
 
@@ -193,11 +193,11 @@ void cs_init_lib_list(CsState &gcs) {
         }
         ostd::ConstCharRange quote = p.get_raw_item(true);
         char const *qend = !quote.empty() ? &quote[quote.size()] : list;
-        res.set_str(CsString{list, size_t(qend - list)});
+        res.set_str(cs_string{list, size_t(qend - list)});
     });
 
     gcs.new_command("listfind", "rse", [](auto &cs, auto args, auto &res) {
-        CsStackedValue idv{args[0].get_ident()};
+        cs_stacked_value idv{args[0].get_ident()};
         if (!idv.has_alias()) {
             res.set_int(-1);
             return;
@@ -206,10 +206,10 @@ void cs_init_lib_list(CsState &gcs) {
         int n = -1;
         for (util::ListParser p(cs, args[1].get_strr()); p.parse();) {
             ++n;
-            idv.set_str(CsString{p.get_raw_item()});
+            idv.set_str(cs_string{p.get_raw_item()});
             idv.push();
             if (cs.run_bool(body)) {
-                res.set_int(CsInt(n));
+                res.set_int(cs_int(n));
                 return;
             }
         }
@@ -217,7 +217,7 @@ void cs_init_lib_list(CsState &gcs) {
     });
 
     gcs.new_command("listassoc", "rse", [](auto &cs, auto args, auto &res) {
-        CsStackedValue idv{args[0].get_ident()};
+        cs_stacked_value idv{args[0].get_ident()};
         if (!idv.has_alias()) {
             return;
         }
@@ -225,7 +225,7 @@ void cs_init_lib_list(CsState &gcs) {
         int n = -1;
         for (util::ListParser p(cs, args[1].get_strr()); p.parse();) {
             ++n;
-            idv.set_str(CsString{p.get_raw_item()});
+            idv.set_str(cs_string{p.get_raw_item()});
             idv.push();
             if (cs.run_bool(body)) {
                 if (p.parse()) {
@@ -240,15 +240,15 @@ void cs_init_lib_list(CsState &gcs) {
     });
 
     gcs.new_command("listfind=", "i", [](auto &cs, auto args, auto &res) {
-        cs_list_find<CsInt>(
-            cs, args, res, [](const util::ListParser &p, CsInt val) {
+        cs_list_find<cs_int>(
+            cs, args, res, [](const util::ListParser &p, cs_int val) {
                 return cs_parse_int(p.get_raw_item()) == val;
             }
         );
     });
     gcs.new_command("listfind=f", "f", [](auto &cs, auto args, auto &res) {
-        cs_list_find<CsFloat>(
-            cs, args, res, [](const util::ListParser &p, CsFloat val) {
+        cs_list_find<cs_float>(
+            cs, args, res, [](const util::ListParser &p, cs_float val) {
                 return cs_parse_float(p.get_raw_item()) == val;
             }
         );
@@ -262,15 +262,15 @@ void cs_init_lib_list(CsState &gcs) {
     });
 
     gcs.new_command("listassoc=", "i", [](auto &cs, auto args, auto &res) {
-        cs_list_assoc<CsInt>(
-            cs, args, res, [](const util::ListParser &p, CsInt val) {
+        cs_list_assoc<cs_int>(
+            cs, args, res, [](const util::ListParser &p, cs_int val) {
                 return cs_parse_int(p.get_raw_item()) == val;
             }
         );
     });
     gcs.new_command("listassoc=f", "f", [](auto &cs, auto args, auto &res) {
-        cs_list_assoc<CsFloat>(
-            cs, args, res, [](const util::ListParser &p, CsFloat val) {
+        cs_list_assoc<cs_float>(
+            cs, args, res, [](const util::ListParser &p, cs_float val) {
                 return cs_parse_float(p.get_raw_item()) == val;
             }
         );
@@ -284,7 +284,7 @@ void cs_init_lib_list(CsState &gcs) {
     });
 
     gcs.new_command("looplist", "rse", [](auto &cs, auto args, auto &) {
-        CsStackedValue idv{args[0].get_ident()};
+        cs_stacked_value idv{args[0].get_ident()};
         if (!idv.has_alias()) {
             return;
         }
@@ -305,7 +305,7 @@ end:
     });
 
     gcs.new_command("looplist2", "rrse", [](auto &cs, auto args, auto &) {
-        CsStackedValue idv1{args[0].get_ident()}, idv2{args[1].get_ident()};
+        cs_stacked_value idv1{args[0].get_ident()}, idv2{args[1].get_ident()};
         if (!idv1.has_alias() || !idv2.has_alias()) {
             return;
         }
@@ -332,9 +332,9 @@ end:
     });
 
     gcs.new_command("looplist3", "rrrse", [](auto &cs, auto args, auto &) {
-        CsStackedValue idv1{args[0].get_ident()};
-        CsStackedValue idv2{args[1].get_ident()};
-        CsStackedValue idv3{args[2].get_ident()};
+        cs_stacked_value idv1{args[0].get_ident()};
+        cs_stacked_value idv2{args[1].get_ident()};
+        cs_stacked_value idv3{args[2].get_ident()};
         if (!idv1.has_alias() || !idv2.has_alias() || !idv3.has_alias()) {
             return;
         }
@@ -383,15 +383,15 @@ end:
     });
 
     gcs.new_command("listfilter", "rse", [](auto &cs, auto args, auto &res) {
-        CsStackedValue idv{args[0].get_ident()};
+        cs_stacked_value idv{args[0].get_ident()};
         if (!idv.has_alias()) {
             return;
         }
         auto body = args[2].get_code();
-        CsString r;
+        cs_string r;
         int n = 0;
         for (util::ListParser p(cs, args[1].get_strr()); p.parse(); ++n) {
-            idv.set_str(CsString{p.get_raw_item()});
+            idv.set_str(cs_string{p.get_raw_item()});
             idv.push();
             if (cs.run_bool(body)) {
                 if (r.size()) {
@@ -404,14 +404,14 @@ end:
     });
 
     gcs.new_command("listcount", "rse", [](auto &cs, auto args, auto &res) {
-        CsStackedValue idv{args[0].get_ident()};
+        cs_stacked_value idv{args[0].get_ident()};
         if (!idv.has_alias()) {
             return;
         }
         auto body = args[2].get_code();
         int n = 0, r = 0;
         for (util::ListParser p(cs, args[1].get_strr()); p.parse(); ++n) {
-            idv.set_str(CsString{p.get_raw_item()});
+            idv.set_str(cs_string{p.get_raw_item()});
             idv.push();
             if (cs.run_bool(body)) {
                 r++;
@@ -421,7 +421,7 @@ end:
     });
 
     gcs.new_command("prettylist", "ss", [](auto &cs, auto args, auto &res) {
-        auto buf = ostd::appender<CsString>();
+        auto buf = ostd::appender<cs_string>();
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange conj = args[1].get_strr();
         size_t len = util::ListParser(cs, s).count();
@@ -464,20 +464,20 @@ end:
     });
 
     gcs.new_command("listsplice", "ssii", [](auto &cs, auto args, auto &res) {
-        CsInt offset = ostd::max(args[2].get_int(), CsInt(0));
-        CsInt len    = ostd::max(args[3].get_int(), CsInt(0));
+        cs_int offset = ostd::max(args[2].get_int(), cs_int(0));
+        cs_int len    = ostd::max(args[3].get_int(), cs_int(0));
         ostd::ConstCharRange s = args[0].get_strr();
         ostd::ConstCharRange vals = args[1].get_strr();
         char const *list = s.data();
         util::ListParser p(cs, s);
-        for (CsInt i = 0; i < offset; ++i) {
+        for (cs_int i = 0; i < offset; ++i) {
             if (!p.parse()) {
                 break;
             }
         }
         ostd::ConstCharRange quote = p.get_raw_item(true);
         char const *qend = !quote.empty() ? &quote[quote.size()] : list;
-        CsString buf;
+        cs_string buf;
         if (qend > list) {
             buf += ostd::ConstCharRange(list, qend);
         }
@@ -487,7 +487,7 @@ end:
             }
             buf += vals;
         }
-        for (CsInt i = 0; i < len; ++i) {
+        for (cs_int i = 0; i < len; ++i) {
             if (!p.parse()) {
                 break;
             }
@@ -518,9 +518,9 @@ struct ListSortItem {
 };
 
 struct ListSortFun {
-    CsState &cs;
-    CsStackedValue &xv, &yv;
-    CsBytecode *body;
+    cs_state &cs;
+    cs_stacked_value &xv, &yv;
+    cs_bcode *body;
 
     bool operator()(ListSortItem const &xval, ListSortItem const &yval) {
         xv.set_cstr(xval.str);
@@ -532,14 +532,14 @@ struct ListSortFun {
 };
 
 static void cs_list_sort(
-    CsState &cs, CsValue &res, ostd::ConstCharRange list,
-    CsIdent *x, CsIdent *y, CsBytecode *body, CsBytecode *unique
+    cs_state &cs, cs_value &res, ostd::ConstCharRange list,
+    cs_ident *x, cs_ident *y, cs_bcode *body, cs_bcode *unique
 ) {
     if (x == y || !x->is_alias() || !y->is_alias()) {
         return;
     }
 
-    CsAlias *xa = static_cast<CsAlias *>(x), *ya = static_cast<CsAlias *>(y);
+    cs_alias *xa = static_cast<cs_alias *>(x), *ya = static_cast<cs_alias *>(y);
 
     CsVector<ListSortItem> items;
     size_t total = 0;
@@ -551,11 +551,11 @@ static void cs_list_sort(
     }
 
     if (items.empty()) {
-        res.set_str(CsString{list});
+        res.set_str(cs_string{list});
         return;
     }
 
-    CsStackedValue xval{xa}, yval{ya};
+    cs_stacked_value xval{xa}, yval{ya};
     xval.set_null();
     yval.set_null();
     xval.push();
@@ -603,7 +603,7 @@ static void cs_list_sort(
     xval.pop();
     yval.pop();
 
-    CsString sorted;
+    cs_string sorted;
     sorted.reserve(totaluniq + ostd::max(nuniq - 1, size_t(0)));
     for (size_t i = 0; i < items.size(); ++i) {
         ListSortItem &item = items[i];
@@ -618,7 +618,7 @@ static void cs_list_sort(
     res.set_str(std::move(sorted));
 }
 
-static void cs_init_lib_list_sort(CsState &gcs) {
+static void cs_init_lib_list_sort(cs_state &gcs) {
     gcs.new_command("sortlist", "srree", [](auto &cs, auto args, auto &res) {
         cs_list_sort(
             cs, res, args[0].get_strr(), args[1].get_ident(),

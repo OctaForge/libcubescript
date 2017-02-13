@@ -12,11 +12,11 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
-static CsState *rd_cs = nullptr;
+static cs_state *rd_cs = nullptr;
 
 static char *ln_complete_list(char const *buf, int state) {
     static ostd::ConstCharRange cmd;
-    static ostd::PointerRange<CsIdent *> itr;
+    static ostd::PointerRange<cs_ident *> itr;
 
     if (!state) {
         cmd = get_complete_cmd(buf);
@@ -24,7 +24,7 @@ static char *ln_complete_list(char const *buf, int state) {
     }
 
     for (; !itr.empty(); itr.pop_front()) {
-        CsIdent *id = itr.front();
+        cs_ident *id = itr.front();
         if (!id->is_command()) {
             continue;
         }
@@ -47,7 +47,7 @@ static char **ln_complete(char const *buf, int, int) {
 }
 
 void ln_hint() {
-    CsCommand *cmd = get_hint_cmd(*rd_cs, rl_line_buffer);
+    cs_command *cmd = get_hint_cmd(*rd_cs, rl_line_buffer);
     if (!cmd) {
         rl_redisplay();
         return;
@@ -63,13 +63,13 @@ void ln_hint() {
     rl_replace_line(old.data(), 0);
 }
 
-static void init_lineedit(CsState &cs, ostd::ConstCharRange) {
+static void init_lineedit(cs_state &cs, ostd::ConstCharRange) {
     rd_cs = &cs;
     rl_attempted_completion_function = ln_complete;
     rl_redisplay_function = ln_hint;
 }
 
-static std::optional<std::string> read_line(CsState &, CsSvar *pr) {
+static std::optional<std::string> read_line(cs_state &, cs_svar *pr) {
     auto line = readline(pr->get_value().data());
     if (!line) {
         return std::string();
@@ -79,7 +79,7 @@ static std::optional<std::string> read_line(CsState &, CsSvar *pr) {
     return std::move(ret);
 }
 
-static void add_history(CsState &, ostd::ConstCharRange line) {
+static void add_history(cs_state &, ostd::ConstCharRange line) {
     /* backed by std::string so it's terminated */
     add_history(line.data());
 }

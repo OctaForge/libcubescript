@@ -128,11 +128,11 @@ static inline void fill_cmd_args(std::string &writer, ostd::ConstCharRange args)
     }
 }
 
-static inline CsCommand *get_hint_cmd(CsState &cs, ostd::ConstCharRange buf) {
+static inline cs_command *get_hint_cmd(cs_state &cs, ostd::ConstCharRange buf) {
     ostd::ConstCharRange nextchars = "([;";
     auto lp = ostd::find_one_of(buf, nextchars);
     if (!lp.empty()) {
-        CsCommand *cmd = get_hint_cmd(cs, buf + 1);
+        cs_command *cmd = get_hint_cmd(cs, buf + 1);
         if (cmd) {
             return cmd;
         }
@@ -177,18 +177,18 @@ void print_version() {
     ostd::writeln(version);
 }
 
-static CsState *scs = nullptr;
+static cs_state *scs = nullptr;
 static void do_sigint(int n) {
     /* in case another SIGINT happens, terminate normally */
     signal(n, SIG_DFL);
-    scs->set_call_hook([](CsState &cs) {
+    scs->set_call_hook([](cs_state &cs) {
         cs.set_call_hook(nullptr);
-        throw cscript::CsErrorException(cs, "<execution interrupted>");
+        throw cscript::cs_error(cs, "<execution interrupted>");
     });
 }
 
-static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
-    CsValue ret;
+static bool do_call(cs_state &cs, ostd::ConstCharRange line, bool file = false) {
+    cs_value ret;
     scs = &cs;
     signal(SIGINT, do_sigint);
     try {
@@ -199,7 +199,7 @@ static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
         } else {
             cs.run(line, ret);
         }
-    } catch (cscript::CsErrorException const &e) {
+    } catch (cscript::cs_error const &e) {
         signal(SIGINT, SIG_DFL);
         scs = nullptr;
         ostd::ConstCharRange terr = e.what();
@@ -223,13 +223,13 @@ static bool do_call(CsState &cs, ostd::ConstCharRange line, bool file = false) {
     }
     signal(SIGINT, SIG_DFL);
     scs = nullptr;
-    if (ret.get_type() != CsValueType::Null) {
+    if (ret.get_type() != cs_value_type::Null) {
         ostd::writeln(ret.get_str());
     }
     return false;
 }
 
-static void do_tty(CsState &cs) {
+static void do_tty(cs_state &cs) {
     auto prompt = cs.new_svar("PROMPT", "> ");
     auto prompt2 = cs.new_svar("PROMPT2", ">> ");
 
@@ -270,14 +270,14 @@ static void do_tty(CsState &cs) {
 }
 
 int main(int argc, char **argv) {
-    CsState gcs;
+    cs_state gcs;
     gcs.init_libs();
 
     gcs.new_command("exec", "s", [](auto &cs, auto args, auto &) {
         auto file = args[0].get_strr();
         bool ret = cs.run_file(file);
         if (!ret) {
-            throw cscript::CsErrorException(
+            throw cscript::cs_error(
                 cs, "could not run file \"%s\"", file
             );
         }

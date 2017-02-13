@@ -7,19 +7,19 @@
 
 /* do not modify */
 namespace cscript {
-    struct CsState;
-    struct CsIdent;
-    struct CsValue;
+    struct cs_state;
+    struct cs_ident;
+    struct cs_value;
 
-    using CsValueRange      = ostd::PointerRange<CsValue>;
-    using CsIdentRange      = ostd::PointerRange<CsIdent *>;
-    using CsConstIdentRange = ostd::PointerRange<CsIdent const *>;
+    using cs_value_r       = ostd::PointerRange<cs_value>;
+    using cs_ident_r       = ostd::PointerRange<cs_ident *>;
+    using cs_const_ident_r = ostd::PointerRange<cs_ident const *>;
 }
 
 /* configurable section */
 namespace cscript {
-    using CsInt = int;
-    using CsFloat = float;
+    using cs_int = int;
+    using cs_float = float;
 
     /* probably don't want to change these, but if you use a custom allocation
      * function for your state, keep in mind potential heap allocations in
@@ -30,10 +30,10 @@ namespace cscript {
      * or move or something similar, you should be fine - but if you really
      * need to make sure, override this with your own type
      */
-    using CsVarCb     = std::function<void(CsState &, CsIdent &)>;
-    using CsCommandCb = std::function<void(CsState &, CsValueRange, CsValue &)>;
-    using CsHookCb    = std::function<void(CsState &)>;
-    using CsAllocCb   = void *(*)(void *, void *, size_t, size_t);
+    using cs_var_cb     = std::function<void(cs_state &, cs_ident &)>;
+    using cs_command_cb = std::function<void(cs_state &, cs_value_r, cs_value &)>;
+    using cs_hook_cb    = std::function<void(cs_state &)>;
+    using cs_alloc_cb   = void *(*)(void *, void *, size_t, size_t);
 
     constexpr auto const IntFormat = "%d";
     constexpr auto const FloatFormat = "%.7g";

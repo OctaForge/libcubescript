@@ -5,10 +5,10 @@
 
 #include <ostd/string.hh>
 
-static void init_lineedit(CsState &, ostd::ConstCharRange) {
+static void init_lineedit(cs_state &, ostd::ConstCharRange) {
 }
 
-static std::optional<std::string> read_line(CsState &, CsSvar *pr) {
+static std::optional<std::string> read_line(cs_state &, cs_svar *pr) {
     ostd::write(pr->get_value());
     std::string ret;
     /* i really need to implement some sort of get_line for ostd streams */
@@ -18,7 +18,7 @@ static std::optional<std::string> read_line(CsState &, CsSvar *pr) {
     return std::move(ret);
 }
 
-static void add_history(CsState &, ostd::ConstCharRange) {
+static void add_history(cs_state &, ostd::ConstCharRange) {
 }
 
 #endif

@@ -14,7 +14,7 @@
 
 #include "linenoise.hh"
 
-static CsState *ln_cs = nullptr;
+static cs_state *ln_cs = nullptr;
 
 static void ln_complete(char const *buf, linenoiseCompletions *lc) {
     ostd::ConstCharRange cmd = get_complete_cmd(buf);
@@ -33,7 +33,7 @@ static void ln_complete(char const *buf, linenoiseCompletions *lc) {
 }
 
 static char *ln_hint(char const *buf, int *color, int *bold) {
-    CsCommand *cmd = get_hint_cmd(*ln_cs, buf);
+    cs_command *cmd = get_hint_cmd(*ln_cs, buf);
     if (!cmd) {
         return nullptr;
     }
@@ -51,7 +51,7 @@ static void ln_hint_free(void *hint) {
     delete[] static_cast<char *>(hint);
 }
 
-static void init_lineedit(CsState &cs, ostd::ConstCharRange) {
+static void init_lineedit(cs_state &cs, ostd::ConstCharRange) {
     /* sensible default history size */
     linenoiseHistorySetMaxLen(1000);
     ln_cs = &cs;
@@ -60,7 +60,7 @@ static void init_lineedit(CsState &cs, ostd::ConstCharRange) {
     linenoiseSetFreeHintsCallback(ln_hint_free);
 }
 
-static std::optional<std::string> read_line(CsState &, CsSvar *pr) {
+static std::optional<std::string> read_line(cs_state &, cs_svar *pr) {
     auto line = linenoise(pr->get_value().data());
     if (!line) {
         /* linenoise traps ctrl-c, detect it and let the user exit */
@@ -75,7 +75,7 @@ static std::optional<std::string> read_line(CsState &, CsSvar *pr) {
     return std::move(ret);
 }
 
-static void add_history(CsState &, ostd::ConstCharRange line) {
+static void add_history(cs_state &, ostd::ConstCharRange line) {
     /* backed by std::string so it's terminated */
     linenoiseHistoryAdd(line.data());
 }

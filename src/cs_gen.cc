@@ -8,7 +8,7 @@
 
 namespace cscript {
 
-ostd::ConstCharRange GenState::get_str() {
+ostd::ConstCharRange cs_gen_state::get_str() {
     size_t nl;
     ostd::ConstCharRange beg = source;
     source = util::parse_string(cs, source, nl);
@@ -17,9 +17,9 @@ ostd::ConstCharRange GenState::get_str() {
     return ret.slice(1, ret.size() - 1);
 }
 
-CsString GenState::get_str_dup(bool unescape) {
+cs_string cs_gen_state::get_str_dup(bool unescape) {
     auto str = get_str();
-    auto app = ostd::appender<CsString>();
+    auto app = ostd::appender<cs_string>();
     if (unescape) {
         util::unescape_string(app, str);
     } else {
@@ -28,7 +28,7 @@ CsString GenState::get_str_dup(bool unescape) {
     return std::move(app.get());
 }
 
-ostd::ConstCharRange GenState::read_macro_name() {
+ostd::ConstCharRange cs_gen_state::read_macro_name() {
     auto op = source;
     char c = current();
     if (!isalpha(c) && (c != '_')) {
@@ -40,7 +40,7 @@ ostd::ConstCharRange GenState::read_macro_name() {
     return ostd::slice_until(op, source);
 }
 
-char GenState::skip_until(ostd::ConstCharRange chars) {
+char cs_gen_state::skip_until(ostd::ConstCharRange chars) {
     char c = current();
     while (c && ostd::find(chars, c).empty()) {
         next_char();
@@ -49,7 +49,7 @@ char GenState::skip_until(ostd::ConstCharRange chars) {
     return c;
 }
 
-char GenState::skip_until(char cf) {
+char cs_gen_state::skip_until(char cf) {
     char c = current();
     while (c && (c != cf)) {
         next_char();
@@ -62,7 +62,7 @@ static bool cs_is_hspace(char c) {
     return (c == ' ') || (c == '\t') || (c == '\r');
 }
 
-void GenState::skip_comments() {
+void cs_gen_state::skip_comments() {
     for (;;) {
         for (char c = current(); cs_is_hspace(c); c = current()) {
             next_char();
@@ -70,7 +70,7 @@ void GenState::skip_comments() {
         if (current() == '\\') {
             char c = current(1);
             if ((c != '\r') && (c != '\n')) {
-                throw CsErrorException(cs, "invalid line break");
+                throw cs_error(cs, "invalid line break");
             }
             /* skip backslash */
             next_char();
@@ -92,7 +92,7 @@ void GenState::skip_comments() {
     }
 }
 
-ostd::ConstCharRange GenState::get_word() {
+ostd::ConstCharRange cs_gen_state::get_word() {
     auto beg = source;
     source = util::parse_word(cs, source);
     return ostd::slice_until(beg, source);
@@ -106,22 +106,22 @@ static inline int cs_ret_code(int type, int def = 0) {
 }
 
 static void compilestatements(
-    GenState &gs, int rettype, int brak = '\0', int prevargs = 0
+    cs_gen_state &gs, int rettype, int brak = '\0', int prevargs = 0
 );
 static inline std::pair<ostd::ConstCharRange, size_t> compileblock(
-    GenState &gs, ostd::ConstCharRange p, size_t line,
+    cs_gen_state &gs, ostd::ConstCharRange p, size_t line,
     int rettype = CsRetNull, int brak = '\0'
 );
 
-void GenState::gen_int(ostd::ConstCharRange word) {
+void cs_gen_state::gen_int(ostd::ConstCharRange word) {
     gen_int(cs_parse_int(word));
 }
 
-void GenState::gen_float(ostd::ConstCharRange word) {
+void cs_gen_state::gen_float(ostd::ConstCharRange word) {
     gen_float(cs_parse_float(word));
 }
 
-void GenState::gen_value(int wordtype, ostd::ConstCharRange word, int line) {
+void cs_gen_state::gen_value(int wordtype, ostd::ConstCharRange word, int line) {
     switch (wordtype) {
         case CsValCany:
             if (!word.empty()) {
@@ -167,12 +167,12 @@ void GenState::gen_value(int wordtype, ostd::ConstCharRange word, int line) {
     }
 }
 
-static inline void compileblock(GenState &gs) {
+static inline void compileblock(cs_gen_state &gs) {
     gs.code.push_back(CsCodeEmpty);
 }
 
 static inline std::pair<ostd::ConstCharRange, size_t> compileblock(
-    GenState &gs, ostd::ConstCharRange p, size_t line, int rettype, int brak
+    cs_gen_state &gs, ostd::ConstCharRange p, size_t line, int rettype, int brak
 ) {
     size_t start = gs.code.size();
     gs.code.push_back(CsCodeBlock);
@@ -199,7 +199,7 @@ static inline std::pair<ostd::ConstCharRange, size_t> compileblock(
     return std::make_pair(p, retline);
 }
 
-static inline void compileunescapestr(GenState &gs, bool macro = false) {
+static inline void compileunescapestr(cs_gen_state &gs, bool macro = false) {
     auto str = gs.get_str();
     gs.code.push_back(macro ? CsCodeMacro : (CsCodeVal | CsRetString));
     gs.code.reserve(
@@ -217,12 +217,12 @@ static inline void compileunescapestr(GenState &gs, bool macro = false) {
 }
 
 static bool compilearg(
-    GenState &gs, int wordtype, int prevargs = MaxResults,
-    CsString *word = nullptr
+    cs_gen_state &gs, int wordtype, int prevargs = MaxResults,
+    cs_string *word = nullptr
 );
 
-static void compilelookup(GenState &gs, int ltype, int prevargs = MaxResults) {
-    CsString lookup;
+static void compilelookup(cs_gen_state &gs, int ltype, int prevargs = MaxResults) {
+    cs_string lookup;
     gs.next_char();
     switch (gs.current()) {
         case '(':
@@ -241,10 +241,10 @@ static void compilelookup(GenState &gs, int ltype, int prevargs = MaxResults) {
             lookup = gs.get_word();
             if (lookup.empty()) goto invalid;
 lookupid:
-            CsIdent *id = gs.cs.new_ident(lookup);
+            cs_ident *id = gs.cs.new_ident(lookup);
             if (id) {
                 switch (id->get_type()) {
-                    case CsIdentType::Ivar:
+                    case cs_ident_type::Ivar:
                         gs.code.push_back(
                             CsCodeIvar | cs_ret_code(ltype, CsRetInt) |
                                 (id->get_index() << 8)
@@ -261,7 +261,7 @@ lookupid:
                                 break;
                         }
                         return;
-                    case CsIdentType::Fvar:
+                    case cs_ident_type::Fvar:
                         gs.code.push_back(
                             CsCodeFvar | cs_ret_code(ltype, CsRetFloat) |
                                 (id->get_index() << 8)
@@ -278,7 +278,7 @@ lookupid:
                                 break;
                         }
                         return;
-                    case CsIdentType::Svar:
+                    case cs_ident_type::Svar:
                         switch (ltype) {
                             case CsValPop:
                                 return;
@@ -299,7 +299,7 @@ lookupid:
                                 break;
                         }
                         goto done;
-                    case CsIdentType::Alias:
+                    case cs_ident_type::Alias:
                         switch (ltype) {
                             case CsValPop:
                                 return;
@@ -333,12 +333,12 @@ lookupid:
                                 break;
                         }
                         goto done;
-                    case CsIdentType::Command: {
+                    case cs_ident_type::Command: {
                         int comtype = CsCodeCom, numargs = 0;
                         if (prevargs >= MaxResults) {
                             gs.code.push_back(CsCodeEnter);
                         }
-                        auto fmt = static_cast<CsCommand *>(id)->get_args();
+                        auto fmt = static_cast<cs_command *>(id)->get_args();
                         for (char c: fmt) {
                             switch (c) {
                                 case 'S':
@@ -354,7 +354,7 @@ lookupid:
                                     numargs++;
                                     break;
                                 case 'b':
-                                    gs.gen_int(std::numeric_limits<CsInt>::min());
+                                    gs.gen_int(std::numeric_limits<cs_int>::min());
                                     numargs++;
                                     break;
                                 case 'f':
@@ -478,7 +478,7 @@ invalid:
     }
 }
 
-static bool compileblockstr(GenState &gs, ostd::ConstCharRange str, bool macro) {
+static bool compileblockstr(cs_gen_state &gs, ostd::ConstCharRange str, bool macro) {
     int startc = gs.code.size();
     gs.code.push_back(macro ? CsCodeMacro : CsCodeVal | CsRetString);
     gs.code.reserve(gs.code.size() + str.size() / sizeof(uint32_t) + 1);
@@ -528,8 +528,8 @@ done:
     return true;
 }
 
-static bool compileblocksub(GenState &gs, int prevargs) {
-    CsString lookup;
+static bool compileblocksub(cs_gen_state &gs, int prevargs) {
+    cs_string lookup;
     switch (gs.current()) {
         case '(':
             if (!compilearg(gs, CsValCany, prevargs)) {
@@ -551,19 +551,19 @@ static bool compileblocksub(GenState &gs, int prevargs) {
                 return false;
             }
 lookupid:
-            CsIdent *id = gs.cs.new_ident(lookup);
+            cs_ident *id = gs.cs.new_ident(lookup);
             if (id) {
                 switch (id->get_type()) {
-                    case CsIdentType::Ivar:
+                    case cs_ident_type::Ivar:
                         gs.code.push_back(CsCodeIvar | (id->get_index() << 8));
                         goto done;
-                    case CsIdentType::Fvar:
+                    case cs_ident_type::Fvar:
                         gs.code.push_back(CsCodeFvar | (id->get_index() << 8));
                         goto done;
-                    case CsIdentType::Svar:
+                    case cs_ident_type::Svar:
                         gs.code.push_back(CsCodeSvarM | (id->get_index() << 8));
                         goto done;
-                    case CsIdentType::Alias:
+                    case cs_ident_type::Alias:
                         gs.code.push_back(
                             (id->get_index() < MaxArguments
                                 ? CsCodeLookupMarg
@@ -584,14 +584,14 @@ done:
     return true;
 }
 
-static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
+static void compileblockmain(cs_gen_state &gs, int wordtype, int prevargs) {
     char const *start = gs.source.data();
     size_t curline = gs.current_line;
     int concs = 0;
     for (int brak = 1; brak;) {
         switch (gs.skip_until("@\"/[]")) {
             case '\0':
-                throw CsErrorException(gs.cs, "missing \"]\"");
+                throw cs_error(gs.cs, "missing \"]\"");
                 return;
             case '\"':
                 gs.get_str();
@@ -620,7 +620,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
                 if (brak > level) {
                     continue;
                 } else if (brak < level) {
-                    throw CsErrorException(gs.cs, "too many @s");
+                    throw cs_error(gs.cs, "too many @s");
                     return;
                 }
                 if (!concs && prevargs >= MaxResults) {
@@ -752,7 +752,7 @@ static void compileblockmain(GenState &gs, int wordtype, int prevargs) {
 }
 
 static bool compilearg(
-    GenState &gs, int wordtype, int prevargs, CsString *word
+    cs_gen_state &gs, int wordtype, int prevargs, cs_string *word
 ) {
     gs.skip_comments();
     switch (gs.current()) {
@@ -883,7 +883,7 @@ static bool compilearg(
 }
 
 static void compile_cmd(
-    GenState &gs, CsCommand *id, bool &more, int rettype, int prevargs
+    cs_gen_state &gs, cs_command *id, bool &more, int rettype, int prevargs
 ) {
     int comtype = CsCodeCom, numargs = 0, fakeargs = 0;
     bool rep = false;
@@ -942,7 +942,7 @@ static void compile_cmd(
                     if (rep) {
                         break;
                     }
-                    gs.gen_int(std::numeric_limits<CsInt>::min());
+                    gs.gen_int(std::numeric_limits<cs_int>::min());
                     fakeargs++;
                 }
                 numargs++;
@@ -1086,7 +1086,7 @@ compilecomv:
     );
 }
 
-static void compile_alias(GenState &gs, CsAlias *id, bool &more, int prevargs) {
+static void compile_alias(cs_gen_state &gs, cs_alias *id, bool &more, int prevargs) {
     int numargs = 0;
     while (numargs < MaxArguments) {
         more = compilearg(gs, CsValAny, prevargs + numargs);
@@ -1101,7 +1101,7 @@ static void compile_alias(GenState &gs, CsAlias *id, bool &more, int prevargs) {
     );
 }
 
-static void compile_local(GenState &gs, bool &more, int prevargs) {
+static void compile_local(cs_gen_state &gs, bool &more, int prevargs) {
     int numargs = 0;
     if (more) {
         while (numargs < MaxArguments) {
@@ -1119,7 +1119,7 @@ static void compile_local(GenState &gs, bool &more, int prevargs) {
 }
 
 static void compile_do(
-    GenState &gs, bool &more, int prevargs, int rettype, int opcode
+    cs_gen_state &gs, bool &more, int prevargs, int rettype, int opcode
 ) {
     if (more) {
         more = compilearg(gs, CsValCode, prevargs);
@@ -1128,7 +1128,7 @@ static void compile_do(
 }
 
 static void compile_if(
-    GenState &gs, CsIdent *id, bool &more, int prevargs, int rettype
+    cs_gen_state &gs, cs_ident *id, bool &more, int prevargs, int rettype
 ) {
     if (more) {
         more = compilearg(gs, CsValCany, prevargs);
@@ -1192,7 +1192,7 @@ static void compile_if(
 }
 
 static void compile_and_or(
-    GenState &gs, CsIdent *id, bool &more, int prevargs, int rettype
+    cs_gen_state &gs, cs_ident *id, bool &more, int prevargs, int rettype
 ) {
     int numargs = 0;
     if (more) {
@@ -1250,8 +1250,8 @@ static void compile_and_or(
     }
 }
 
-static void compilestatements(GenState &gs, int rettype, int brak, int prevargs) {
-    CsString idname;
+static void compilestatements(cs_gen_state &gs, int rettype, int brak, int prevargs) {
+    cs_string idname;
     for (;;) {
         gs.skip_comments();
         idname.clear();
@@ -1275,10 +1275,10 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
                 case '\0':
                     gs.next_char();
                     if (!idname.empty()) {
-                        CsIdent *id = gs.cs.new_ident(idname);
+                        cs_ident *id = gs.cs.new_ident(idname);
                         if (id) {
                             switch (id->get_type()) {
-                                case CsIdentType::Alias:
+                                case cs_ident_type::Alias:
                                     more = compilearg(gs, CsValAny, prevargs);
                                     if (!more) {
                                         gs.gen_str();
@@ -1290,7 +1290,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
                                         ) | (id->get_index() << 8)
                                     );
                                     goto endstatement;
-                                case CsIdentType::Ivar:
+                                case cs_ident_type::Ivar:
                                     more = compilearg(gs, CsValInt, prevargs);
                                     if (!more) {
                                         gs.gen_int();
@@ -1299,7 +1299,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
                                         CsCodeIvar1 | (id->get_index() << 8)
                                     );
                                     goto endstatement;
-                                case CsIdentType::Fvar:
+                                case cs_ident_type::Fvar:
                                     more = compilearg(gs, CsValFloat, prevargs);
                                     if (!more) {
                                         gs.gen_float();
@@ -1308,7 +1308,7 @@ static void compilestatements(GenState &gs, int rettype, int brak, int prevargs)
                                         CsCodeFvar1 | (id->get_index() << 8)
                                     );
                                     goto endstatement;
-                                case CsIdentType::Svar:
+                                case cs_ident_type::Svar:
                                     more = compilearg(gs, CsValCstring, prevargs);
                                     if (!more) {
                                         gs.gen_str();
@@ -1343,7 +1343,7 @@ noid:
             }
             gs.code.push_back(CsCodeCallU | (numargs << 8));
         } else {
-            CsIdent *id = gs.cs.get_ident(idname);
+            cs_ident *id = gs.cs.get_ident(idname);
             if (!id) {
                 if (!cs_check_num(idname)) {
                     gs.gen_str(idname, true);
@@ -1353,7 +1353,7 @@ noid:
                     case CsValAny:
                     case CsValCany: {
                         ostd::ConstCharRange end = idname;
-                        CsInt val = cs_parse_int(end, &end);
+                        cs_int val = cs_parse_int(end, &end);
                         if (!end.empty()) {
                             gs.gen_str(idname, rettype == CsValCany);
                         } else {
@@ -1370,12 +1370,12 @@ noid:
                 switch (id->get_type_raw()) {
                     case CsIdAlias:
                         compile_alias(
-                            gs, static_cast<CsAlias *>(id), more, prevargs
+                            gs, static_cast<cs_alias *>(id), more, prevargs
                         );
                         break;
                     case CsIdCommand:
                         compile_cmd(
-                            gs, static_cast<CsCommand *>(id), more,
+                            gs, static_cast<cs_command *>(id), more,
                             rettype, prevargs
                         );
                         break;
@@ -1421,7 +1421,7 @@ noid:
                     case CsIdIvar:
                         if (!(more = compilearg(gs, CsValInt, prevargs))) {
                             gs.code.push_back(CsCodePrint | (id->get_index() << 8));
-                        } else if (!(id->get_flags() & CsIdfHex) || !(
+                        } else if (!(id->get_flags() & CS_IDF_HEX) || !(
                             more = compilearg(gs, CsValInt, prevargs + 1)
                         )) {
                             gs.code.push_back(CsCodeIvar1 | (id->get_index() << 8));
@@ -1470,7 +1470,7 @@ endstatement:
         switch (gs.skip_until(")];/\n")) {
             case '\0':
                 if (gs.current() != brak) {
-                    throw CsErrorException(gs.cs, "missing \"%c\"", char(brak));
+                    throw cs_error(gs.cs, "missing \"%c\"", char(brak));
                     return;
                 }
                 return;
@@ -1480,7 +1480,7 @@ endstatement:
                     gs.next_char();
                     return;
                 }
-                throw CsErrorException(gs.cs, "unexpected \"%c\"", gs.current());
+                throw cs_error(gs.cs, "unexpected \"%c\"", gs.current());
                 return;
             case '/':
                 gs.next_char();
@@ -1495,7 +1495,7 @@ endstatement:
     }
 }
 
-void GenState::gen_main(ostd::ConstCharRange s, int ret_type) {
+void cs_gen_state::gen_main(ostd::ConstCharRange s, int ret_type) {
     source = s;
     code.push_back(CsCodeStart);
     compilestatements(*this, CsValAny);

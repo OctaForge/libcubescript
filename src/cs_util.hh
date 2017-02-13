@@ -15,11 +15,11 @@ using CsMap = std::unordered_map<K, V>;
 template<typename T>
 using CsVector = std::vector<T>;
 
-CsInt cs_parse_int(
+cs_int cs_parse_int(
     ostd::ConstCharRange input, ostd::ConstCharRange *end = nullptr
 );
 
-CsFloat cs_parse_float(
+cs_float cs_parse_float(
     ostd::ConstCharRange input, ostd::ConstCharRange *end = nullptr
 );
 

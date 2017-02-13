@@ -22,7 +22,7 @@ static inline void p_set_end(
 }
 
 /* this function assumes the input is definitely a hex digit */
-static inline CsInt p_hexd_to_int(char c) {
+static inline cs_int p_hexd_to_int(char c) {
     if (c >= 97) { /* a-f */
         return (c - 'a') + 10;
     } else if (c >= 65) { /* A-F */
@@ -40,15 +40,15 @@ static inline bool p_check_neg(ostd::ConstCharRange &input) {
     return neg;
 }
 
-CsInt cs_parse_int(ostd::ConstCharRange input, ostd::ConstCharRange *end) {
+cs_int cs_parse_int(ostd::ConstCharRange input, ostd::ConstCharRange *end) {
     ostd::ConstCharRange orig = input;
     p_skip_white(input);
     if (input.empty()) {
         p_set_end(orig, end);
-        return CsInt(0);
+        return cs_int(0);
     }
     bool neg = p_check_neg(input);
-    CsInt ret = 0;
+    cs_int ret = 0;
     ostd::ConstCharRange past = input;
     if (input.size() >= 2) {
         ostd::ConstCharRange pfx = input.slice(0, 2);
@@ -87,7 +87,7 @@ done:
 }
 
 template<bool Hex, char e1 = Hex ? 'p' : 'e', char e2 = Hex ? 'P' : 'E'>
-static inline bool p_read_exp(ostd::ConstCharRange &input, CsInt &fn) {
+static inline bool p_read_exp(ostd::ConstCharRange &input, cs_int &fn) {
     if (input.empty()) {
         return true;
     }
@@ -102,7 +102,7 @@ static inline bool p_read_exp(ostd::ConstCharRange &input, CsInt &fn) {
     if (input.empty() || !isdigit(*input)) {
         return false;
     }
-    CsInt exp = 0;
+    cs_int exp = 0;
     while (!input.empty() && isdigit(*input)) {
         exp = exp * 10 + (*input - '0');
         ++input;
@@ -116,9 +116,9 @@ static inline bool p_read_exp(ostd::ConstCharRange &input, CsInt &fn) {
 
 template<bool Hex>
 static inline bool parse_gen_float(
-    ostd::ConstCharRange input, ostd::ConstCharRange *end, CsFloat &ret
+    ostd::ConstCharRange input, ostd::ConstCharRange *end, cs_float &ret
 ) {
-    auto read_digits = [&input](double r, CsInt &n) {
+    auto read_digits = [&input](double r, cs_int &n) {
         while (!input.empty() && (Hex ? isxdigit(*input) : isdigit(*input))) {
             if (Hex) {
                 r = r * 16.0 + double(p_hexd_to_int(*input));
@@ -130,7 +130,7 @@ static inline bool parse_gen_float(
         }
         return r;
     };
-    CsInt wn = 0, fn = 0;
+    cs_int wn = 0, fn = 0;
     double r = read_digits(0.0, wn);
     if (!input.empty() && (*input == '.')) {
         ++input;
@@ -145,22 +145,22 @@ static inline bool parse_gen_float(
         p_set_end(input, end);
     }
     if (Hex) {
-        ret = CsFloat(ldexp(r, fn * 4));
+        ret = cs_float(ldexp(r, fn * 4));
     } else {
-        ret = CsFloat(r * pow(10, fn));
+        ret = cs_float(r * pow(10, fn));
     }
     return true;
 }
 
-CsFloat cs_parse_float(ostd::ConstCharRange input, ostd::ConstCharRange *end) {
+cs_float cs_parse_float(ostd::ConstCharRange input, ostd::ConstCharRange *end) {
     ostd::ConstCharRange orig = input;
     p_skip_white(input);
     if (input.empty()) {
         p_set_end(orig, end);
-        return CsFloat(0);
+        return cs_float(0);
     }
     bool neg = p_check_neg(input);
-    CsFloat ret = CsFloat(0);
+    cs_float ret = cs_float(0);
     if (input.size() >= 2) {
         ostd::ConstCharRange pfx = input.slice(0, 2);
         if ((pfx == "0x") || (pfx == "0X")) {
@@ -185,7 +185,7 @@ done:
 
 namespace util {
     OSTD_EXPORT ostd::ConstCharRange parse_string(
-        CsState &cs, ostd::ConstCharRange str, size_t &nlines
+        cs_state &cs, ostd::ConstCharRange str, size_t &nlines
     ) {
         size_t nl = 0;
         nlines = nl;
@@ -228,7 +228,7 @@ namespace util {
 end:
         nlines = nl;
         if (str.empty() || (*str != '\"')) {
-            throw CsErrorException(
+            throw cs_error(
                 cs, "unfinished string '%s'", ostd::slice_until(orig, str)
             );
         }
@@ -236,7 +236,7 @@ end:
     }
 
     OSTD_EXPORT ostd::ConstCharRange parse_word(
-        CsState &cs, ostd::ConstCharRange str
+        cs_state &cs, ostd::ConstCharRange str
     ) {
         for (;;) {
             str = ostd::find_one_of(str, ostd::ConstCharRange("\"/;()[] \t\r\n"));
@@ -259,13 +259,13 @@ end:
                 case '[':
                     str = parse_word(cs, str + 1);
                     if (str.empty() || (*str != ']')) {
-                        throw CsErrorException(cs, "missing \"]\"");
+                        throw cs_error(cs, "missing \"]\"");
                     }
                     break;
                 case '(':
                     str = parse_word(cs, str + 1);
                     if (str.empty() || (*str != ')')) {
-                        throw CsErrorException(cs, "missing \")\"");
+                        throw cs_error(cs, "missing \")\"");
                     }
                     break;
                 case ']':
