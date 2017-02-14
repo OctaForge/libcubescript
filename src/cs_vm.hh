@@ -3,9 +3,9 @@
 
 #include "cubescript/cubescript.hh"
 
-#include <stdlib.h>
+#include <cstdlib>
+#include <array>
 
-#include <ostd/array.hh>
 #include <ostd/vector.hh>
 
 #include "cs_util.hh"
