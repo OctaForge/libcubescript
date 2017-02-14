@@ -1645,14 +1645,14 @@ void cs_state::run(cs_ident *id, cs_value_r args, cs_value &ret) {
             case cs_ident_type::Command:
                 if (nargs < static_cast<cs_command *>(id)->get_num_args()) {
                     cs_value buf[MaxArguments];
-                    memcpy(buf, args.data(), args.size() * sizeof(cs_value));
+                    memcpy(buf, &args[0], args.size() * sizeof(cs_value));
                     callcommand(
                         *this, static_cast<cs_command *>(id), buf, ret,
                         nargs, false
                     );
                 } else {
                     callcommand(
-                        *this, static_cast<cs_command *>(id), args.data(),
+                        *this, static_cast<cs_command *>(id), &args[0],
                         ret, nargs, false
                     );
                 }
@@ -1694,7 +1694,7 @@ void cs_state::run(cs_ident *id, cs_value_r args, cs_value &ret) {
                     break;
                 }
                 cs_call_alias(
-                    *this, a, args.data(), ret, nargs, nargs, 0, 0, CsRetNull
+                    *this, a, &args[0], ret, nargs, nargs, 0, 0, CsRetNull
                 );
                 break;
             }

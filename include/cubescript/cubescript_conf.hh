@@ -11,9 +11,9 @@ namespace cscript {
     struct cs_ident;
     struct cs_value;
 
-    using cs_value_r       = ostd::PointerRange<cs_value>;
-    using cs_ident_r       = ostd::PointerRange<cs_ident *>;
-    using cs_const_ident_r = ostd::PointerRange<cs_ident const *>;
+    using cs_value_r       = ostd::IteratorRange<cs_value *>;
+    using cs_ident_r       = ostd::IteratorRange<cs_ident **>;
+    using cs_const_ident_r = ostd::IteratorRange<cs_ident const **>;
 }
 
 /* configurable section */
