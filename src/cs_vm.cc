@@ -431,7 +431,7 @@ static inline void callcommand(
             case 'C': {
                 i = ostd::max(i + 1, numargs);
                 auto buf = ostd::appender<cs_string>();
-                cscript::util::tvals_concat(buf, ostd::iter(args, i), " ");
+                cscript::util::tvals_concat(buf, ostd::iter(args, args + i), " ");
                 cs_value tv;
                 tv.set_str(std::move(buf.get()));
                 cs_cmd_internal::call(cs, id, cs_value_r(&tv, &tv + 1), res);
@@ -439,7 +439,7 @@ static inline void callcommand(
             }
             case 'V':
                 i = ostd::max(i + 1, numargs);
-                cs_cmd_internal::call(cs, id, ostd::iter(args, i), res);
+                cs_cmd_internal::call(cs, id, ostd::iter(args, args + i), res);
                 return;
             case '1':
             case '2':
@@ -1359,9 +1359,9 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 );
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
                 result.force_null();
-                cs_cmd_internal::call(
-                    cs, id, ostd::iter(&args[offset], callargs), result
-                );
+                cs_cmd_internal::call(cs, id, ostd::iter(
+                    &args[offset], &args[offset + callargs]
+                ), result);
                 force_arg(result, op & CsCodeRetMask);
                 numargs = offset;
                 continue;
@@ -1377,9 +1377,9 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 result.force_null();
                 {
                     auto buf = ostd::appender<cs_string>();
-                    cscript::util::tvals_concat(
-                        buf, ostd::iter(&args[offset], callargs), " "
-                    );
+                    cscript::util::tvals_concat(buf, ostd::iter(
+                        &args[offset], &args[offset + callargs]
+                    ), " ");
                     cs_value tv;
                     tv.set_str(std::move(buf.get()));
                     cs_cmd_internal::call(cs, id, cs_value_r(&tv, &tv + 1), result);
@@ -1400,7 +1400,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 int numconc = op >> 8;
                 auto buf = ostd::appender<cs_string>();
                 cscript::util::tvals_concat(
-                    buf, ostd::iter(&args[numargs - numconc], numconc),
+                    buf, ostd::iter(&args[numargs - numconc], &args[numargs]),
                     ((op & CsCodeOpMask) == CsCodeConc) ? " " : ""
                 );
                 numargs = numargs - numconc;
@@ -1417,7 +1417,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 int numconc = op >> 8;
                 auto buf = ostd::appender<cs_string>();
                 cscript::util::tvals_concat(
-                    buf, ostd::iter(&args[numargs - numconc], numconc)
+                    buf, ostd::iter(&args[numargs - numconc], &args[numargs])
                 );
                 numargs = numargs - numconc;
                 result.set_str(std::move(buf.get()));
@@ -1550,7 +1550,7 @@ noid:
                         } else {
                             cs.set_var_int_checked(
                                 static_cast<cs_ivar *>(id),
-                                ostd::iter(&args[offset], callargs)
+                                ostd::iter(&args[offset], &args[offset + callargs])
                             );
                         }
                         numargs = offset - 1;
