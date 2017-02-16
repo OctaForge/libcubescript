@@ -17,12 +17,12 @@
 static cs_state *ln_cs = nullptr;
 
 static void ln_complete(char const *buf, linenoiseCompletions *lc) {
-    ostd::ConstCharRange cmd = get_complete_cmd(buf);
+    ostd::string_range cmd = get_complete_cmd(buf);
     for (auto id: ln_cs->get_idents()) {
         if (!id->is_command()) {
             continue;
         }
-        ostd::ConstCharRange idname = id->get_name();
+        ostd::string_range idname = id->get_name();
         if (idname.size() <= cmd.size()) {
             continue;
         }
@@ -51,7 +51,7 @@ static void ln_hint_free(void *hint) {
     delete[] static_cast<char *>(hint);
 }
 
-static void init_lineedit(cs_state &cs, ostd::ConstCharRange) {
+static void init_lineedit(cs_state &cs, ostd::string_range) {
     /* sensible default history size */
     linenoiseHistorySetMaxLen(1000);
     ln_cs = &cs;
@@ -75,7 +75,7 @@ static std::optional<std::string> read_line(cs_state &, cs_svar *pr) {
     return std::move(ret);
 }
 
-static void add_history(cs_state &, ostd::ConstCharRange line) {
+static void add_history(cs_state &, ostd::string_range line) {
     /* backed by std::string so it's terminated */
     linenoiseHistoryAdd(line.data());
 }

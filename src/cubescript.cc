@@ -15,7 +15,7 @@ cs_string floatstr(cs_float v) {
     return std::move(app.get());
 }
 
-bool cs_check_num(ostd::ConstCharRange s) {
+bool cs_check_num(ostd::string_range s) {
     if (isdigit(s[0])) {
         return true;
     }
@@ -30,64 +30,64 @@ bool cs_check_num(ostd::ConstCharRange s) {
     }
 }
 
-cs_ident::cs_ident(cs_ident_type tp, ostd::ConstCharRange nm, int fl):
+cs_ident::cs_ident(cs_ident_type tp, ostd::string_range nm, int fl):
     p_name(nm), p_type(int(tp)), p_flags(fl)
 {}
 
-cs_var::cs_var(cs_ident_type tp, ostd::ConstCharRange name, cs_var_cb f, int fl):
+cs_var::cs_var(cs_ident_type tp, ostd::string_range name, cs_var_cb f, int fl):
     cs_ident(tp, name, fl), cb_var(std::move(f))
 {}
 
 cs_ivar::cs_ivar(
-    ostd::ConstCharRange name, cs_int m, cs_int x, cs_int v, cs_var_cb f, int fl
+    ostd::string_range name, cs_int m, cs_int x, cs_int v, cs_var_cb f, int fl
 ):
     cs_var(cs_ident_type::Ivar, name, std::move(f), fl | ((m > x) ? CS_IDF_READONLY : 0)),
     p_storage(v), p_minval(m), p_maxval(x), p_overrideval(0)
 {}
 
 cs_fvar::cs_fvar(
-    ostd::ConstCharRange name, cs_float m, cs_float x, cs_float v, cs_var_cb f, int fl
+    ostd::string_range name, cs_float m, cs_float x, cs_float v, cs_var_cb f, int fl
 ):
     cs_var(cs_ident_type::Fvar, name, std::move(f), fl | ((m > x) ? CS_IDF_READONLY : 0)),
     p_storage(v), p_minval(m), p_maxval(x), p_overrideval(0)
 {}
 
-cs_svar::cs_svar(ostd::ConstCharRange name, cs_string v, cs_var_cb f, int fl):
+cs_svar::cs_svar(ostd::string_range name, cs_string v, cs_var_cb f, int fl):
     cs_var(cs_ident_type::Svar, name, std::move(f), fl),
     p_storage(std::move(v)), p_overrideval()
 {}
 
-cs_alias::cs_alias(ostd::ConstCharRange name, cs_string a, int fl):
+cs_alias::cs_alias(ostd::string_range name, cs_string a, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
     p_val.set_str(std::move(a));
 }
-cs_alias::cs_alias(ostd::ConstCharRange name, cs_int a, int fl):
+cs_alias::cs_alias(ostd::string_range name, cs_int a, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
     p_val.set_int(a);
 }
-cs_alias::cs_alias(ostd::ConstCharRange name, cs_float a, int fl):
+cs_alias::cs_alias(ostd::string_range name, cs_float a, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
     p_val.set_float(a);
 }
-cs_alias::cs_alias(ostd::ConstCharRange name, int fl):
+cs_alias::cs_alias(ostd::string_range name, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr)
 {
     p_val.set_null();
 }
-cs_alias::cs_alias(ostd::ConstCharRange name, cs_value v, int fl):
+cs_alias::cs_alias(ostd::string_range name, cs_value v, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val(std::move(v))
 {}
 
 cs_command::cs_command(
-    ostd::ConstCharRange name, ostd::ConstCharRange args,
+    ostd::string_range name, ostd::string_range args,
     int nargs, cs_command_cb f
 ):
     cs_ident(cs_ident_type::Command, name, 0),
@@ -268,7 +268,7 @@ cs_string cs_fvar::to_printable() const {
     return std::move(app.get());
 }
 
-ostd::ConstCharRange cs_svar::get_value() const {
+ostd::string_range cs_svar::get_value() const {
     return ostd::iter(p_storage);
 }
 void cs_svar::set_value(cs_string val) {
@@ -276,7 +276,7 @@ void cs_svar::set_value(cs_string val) {
 }
 
 cs_string cs_svar::to_printable() const {
-    ostd::ConstCharRange s = p_storage;
+    ostd::string_range s = p_storage;
     auto app = ostd::appender<cs_string>();
     try {
         if (ostd::find(s, '"').empty()) {
@@ -290,7 +290,7 @@ cs_string cs_svar::to_printable() const {
     return std::move(app.get());
 }
 
-ostd::ConstCharRange cs_command::get_args() const {
+ostd::string_range cs_command::get_args() const {
     return p_cargs;
 }
 
@@ -499,7 +499,7 @@ cs_ident *cs_state::add_ident(cs_ident *id) {
     return p_state->identmap.back();
 }
 
-cs_ident *cs_state::new_ident(ostd::ConstCharRange name, int flags) {
+cs_ident *cs_state::new_ident(ostd::string_range name, int flags) {
     cs_ident *id = get_ident(name);
     if (!id) {
         if (cs_check_num(name)) {
@@ -530,7 +530,7 @@ cs_ident *cs_state::force_ident(cs_value &v) {
     return p_state->identmap[DummyIdx];
 }
 
-cs_ident *cs_state::get_ident(ostd::ConstCharRange name) {
+cs_ident *cs_state::get_ident(ostd::string_range name) {
     auto id = p_state->idents.find(name);
     if (id != p_state->idents.end()) {
         return id->second;
@@ -538,7 +538,7 @@ cs_ident *cs_state::get_ident(ostd::ConstCharRange name) {
     return nullptr;
 }
 
-cs_alias *cs_state::get_alias(ostd::ConstCharRange name) {
+cs_alias *cs_state::get_alias(ostd::string_range name) {
     auto id = get_ident(name);
     if (!id || !id->is_alias()) {
         return nullptr;
@@ -546,7 +546,7 @@ cs_alias *cs_state::get_alias(ostd::ConstCharRange name) {
     return static_cast<cs_alias *>(id);
 }
 
-bool cs_state::have_ident(ostd::ConstCharRange name) {
+bool cs_state::have_ident(ostd::string_range name) {
     return p_state->idents.find(name) != p_state->idents.end();
 }
 
@@ -563,7 +563,7 @@ cs_const_ident_r cs_state::get_idents() const {
 }
 
 cs_ivar *cs_state::new_ivar(
-    ostd::ConstCharRange n, cs_int m, cs_int x, cs_int v, cs_var_cb f, int flags
+    ostd::string_range n, cs_int m, cs_int x, cs_int v, cs_var_cb f, int flags
 ) {
     return add_ident(
         p_state->create<cs_ivar>(n, m, x, v, std::move(f), flags)
@@ -571,7 +571,7 @@ cs_ivar *cs_state::new_ivar(
 }
 
 cs_fvar *cs_state::new_fvar(
-    ostd::ConstCharRange n, cs_float m, cs_float x, cs_float v, cs_var_cb f, int flags
+    ostd::string_range n, cs_float m, cs_float x, cs_float v, cs_var_cb f, int flags
 ) {
     return add_ident(
         p_state->create<cs_fvar>(n, m, x, v, std::move(f), flags)
@@ -579,14 +579,14 @@ cs_fvar *cs_state::new_fvar(
 }
 
 cs_svar *cs_state::new_svar(
-    ostd::ConstCharRange n, cs_string v, cs_var_cb f, int flags
+    ostd::string_range n, cs_string v, cs_var_cb f, int flags
 ) {
     return add_ident(
         p_state->create<cs_svar>(n, std::move(v), std::move(f), flags)
     )->get_svar();
 }
 
-void cs_state::reset_var(ostd::ConstCharRange name) {
+void cs_state::reset_var(ostd::string_range name) {
     cs_ident *id = get_ident(name);
     if (!id) {
         throw cs_error(*this, "variable %s does not exist", name);
@@ -597,14 +597,14 @@ void cs_state::reset_var(ostd::ConstCharRange name) {
     clear_override(*id);
 }
 
-void cs_state::touch_var(ostd::ConstCharRange name) {
+void cs_state::touch_var(ostd::string_range name) {
     cs_ident *id = get_ident(name);
     if (id && id->is_var()) {
         static_cast<cs_var *>(id)->changed(*this);
     }
 }
 
-void cs_state::set_alias(ostd::ConstCharRange name, cs_value v) {
+void cs_state::set_alias(ostd::string_range name, cs_value v) {
     cs_ident *id = get_ident(name);
     if (id) {
         switch (id->get_type()) {
@@ -692,7 +692,7 @@ cs_ident_type cs_ident::get_type() const {
     return cs_ident_type(p_type);
 }
 
-ostd::ConstCharRange cs_ident::get_name() const {
+ostd::string_range cs_ident::get_name() const {
     return p_name;
 }
 
@@ -724,7 +724,7 @@ static inline void cs_override_var(cs_state &cs, cs_var *v, int &vflags, SF sf) 
 }
 
 void cs_state::set_var_int(
-    ostd::ConstCharRange name, cs_int v, bool dofunc, bool doclamp
+    ostd::string_range name, cs_int v, bool dofunc, bool doclamp
 ) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
@@ -746,7 +746,7 @@ void cs_state::set_var_int(
 }
 
 void cs_state::set_var_float(
-    ostd::ConstCharRange name, cs_float v, bool dofunc, bool doclamp
+    ostd::string_range name, cs_float v, bool dofunc, bool doclamp
 ) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
@@ -768,7 +768,7 @@ void cs_state::set_var_float(
 }
 
 void cs_state::set_var_str(
-    ostd::ConstCharRange name, ostd::ConstCharRange v, bool dofunc
+    ostd::string_range name, ostd::string_range v, bool dofunc
 ) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_svar()) {
@@ -785,7 +785,7 @@ void cs_state::set_var_str(
     }
 }
 
-std::optional<cs_int> cs_state::get_var_int(ostd::ConstCharRange name) {
+std::optional<cs_int> cs_state::get_var_int(ostd::string_range name) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return std::nullopt;
@@ -793,7 +793,7 @@ std::optional<cs_int> cs_state::get_var_int(ostd::ConstCharRange name) {
     return static_cast<cs_ivar *>(id)->get_value();
 }
 
-std::optional<cs_float> cs_state::get_var_float(ostd::ConstCharRange name) {
+std::optional<cs_float> cs_state::get_var_float(ostd::string_range name) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return std::nullopt;
@@ -801,7 +801,7 @@ std::optional<cs_float> cs_state::get_var_float(ostd::ConstCharRange name) {
     return static_cast<cs_fvar *>(id)->get_value();
 }
 
-std::optional<cs_string> cs_state::get_var_str(ostd::ConstCharRange name) {
+std::optional<cs_string> cs_state::get_var_str(ostd::string_range name) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_svar()) {
         return std::nullopt;
@@ -809,7 +809,7 @@ std::optional<cs_string> cs_state::get_var_str(ostd::ConstCharRange name) {
     return cs_string(static_cast<cs_svar *>(id)->get_value());
 }
 
-std::optional<cs_int> cs_state::get_var_min_int(ostd::ConstCharRange name) {
+std::optional<cs_int> cs_state::get_var_min_int(ostd::string_range name) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return std::nullopt;
@@ -817,7 +817,7 @@ std::optional<cs_int> cs_state::get_var_min_int(ostd::ConstCharRange name) {
     return static_cast<cs_ivar *>(id)->get_val_min();
 }
 
-std::optional<cs_int> cs_state::get_var_max_int(ostd::ConstCharRange name) {
+std::optional<cs_int> cs_state::get_var_max_int(ostd::string_range name) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return std::nullopt;
@@ -825,7 +825,7 @@ std::optional<cs_int> cs_state::get_var_max_int(ostd::ConstCharRange name) {
     return static_cast<cs_ivar *>(id)->get_val_max();
 }
 
-std::optional<cs_float> cs_state::get_var_min_float(ostd::ConstCharRange name) {
+std::optional<cs_float> cs_state::get_var_min_float(ostd::string_range name) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return std::nullopt;
@@ -833,7 +833,7 @@ std::optional<cs_float> cs_state::get_var_min_float(ostd::ConstCharRange name) {
     return static_cast<cs_fvar *>(id)->get_val_min();
 }
 
-std::optional<cs_float> cs_state::get_var_max_float(ostd::ConstCharRange name) {
+std::optional<cs_float> cs_state::get_var_max_float(ostd::string_range name) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return std::nullopt;
@@ -842,7 +842,7 @@ std::optional<cs_float> cs_state::get_var_max_float(ostd::ConstCharRange name) {
 }
 
 std::optional<cs_string>
-cs_state::get_alias_val(ostd::ConstCharRange name) {
+cs_state::get_alias_val(ostd::string_range name) {
     cs_alias *a = get_alias(name);
     if (!a) {
         return std::nullopt;
@@ -934,7 +934,7 @@ void cs_state::set_var_float_checked(cs_fvar *fv, cs_float v) {
     fv->changed(*this);
 }
 
-void cs_state::set_var_str_checked(cs_svar *sv, ostd::ConstCharRange v) {
+void cs_state::set_var_str_checked(cs_svar *sv, ostd::string_range v) {
     if (sv->get_flags() & CS_IDF_READONLY) {
         throw cs_error(
             *this, "variable '%s' is read only", sv->get_name()
@@ -949,10 +949,10 @@ void cs_state::set_var_str_checked(cs_svar *sv, ostd::ConstCharRange v) {
 }
 
 cs_command *cs_state::new_command(
-    ostd::ConstCharRange name, ostd::ConstCharRange args, cs_command_cb func
+    ostd::string_range name, ostd::string_range args, cs_command_cb func
 ) {
     int nargs = 0;
-    for (ostd::ConstCharRange fmt(args); !fmt.empty(); ++fmt) {
+    for (ostd::string_range fmt(args); !fmt.empty(); ++fmt) {
         switch (*fmt) {
             case 'i':
             case 'b':

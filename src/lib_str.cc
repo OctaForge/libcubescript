@@ -14,8 +14,8 @@ static inline void cs_strgcmp(cs_value_r args, cs_value &res, F cfunc) {
         }
     } else {
         val = cfunc(
-            !args.empty() ? args[0].get_strr() : ostd::ConstCharRange(),
-            ostd::ConstCharRange()
+            !args.empty() ? args[0].get_strr() : ostd::string_range(),
+            ostd::string_range()
         );
     }
     res.set_int(cs_int(val));
@@ -23,8 +23,8 @@ static inline void cs_strgcmp(cs_value_r args, cs_value &res, F cfunc) {
 
 void cs_init_lib_string(cs_state &cs) {
     cs.new_command("strstr", "ss", [](auto &, auto args, auto &res) {
-        ostd::ConstCharRange a = args[0].get_strr(), b = args[1].get_strr();
-        ostd::ConstCharRange s = a;
+        ostd::string_range a = args[0].get_strr(), b = args[1].get_strr();
+        ostd::string_range s = a;
         for (cs_int i = 0; b.size() <= s.size(); ++i) {
             if (b == s.slice(0, b.size())) {
                 res.set_int(i);
@@ -40,7 +40,7 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("strcode", "si", [](auto &, auto args, auto &res) {
-        ostd::ConstCharRange str = args[0].get_strr();
+        ostd::string_range str = args[0].get_strr();
         cs_int i = args[1].get_int();
         if (i >= cs_int(str.size())) {
             res.set_int(0);
@@ -99,7 +99,7 @@ void cs_init_lib_string(cs_state &cs) {
         }
         cs_string s;
         cs_string fs = args[0].get_str();
-        ostd::ConstCharRange f = ostd::iter(fs);
+        ostd::string_range f = ostd::iter(fs);
         while (!f.empty()) {
             char c = *f;
             ++f;
@@ -135,7 +135,7 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("substr", "siiN", [](auto &, auto args, auto &res) {
-        ostd::ConstCharRange s = args[0].get_strr();
+        ostd::string_range s = args[0].get_strr();
         cs_int start = args[1].get_int(), count = args[2].get_int();
         cs_int numargs = args[3].get_int();
         cs_int len = cs_int(s.size()), offset = ostd::clamp(start, cs_int(0), len);
@@ -148,30 +148,30 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("strcmp", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, std::equal_to<ostd::ConstCharRange>());
+        cs_strgcmp(args, res, std::equal_to<ostd::string_range>());
     });
     cs.new_command("=s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, std::equal_to<ostd::ConstCharRange>());
+        cs_strgcmp(args, res, std::equal_to<ostd::string_range>());
     });
     cs.new_command("!=s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, std::not_equal_to<ostd::ConstCharRange>());
+        cs_strgcmp(args, res, std::not_equal_to<ostd::string_range>());
     });
     cs.new_command("<s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, std::less<ostd::ConstCharRange>());
+        cs_strgcmp(args, res, std::less<ostd::string_range>());
     });
     cs.new_command(">s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, std::greater<ostd::ConstCharRange>());
+        cs_strgcmp(args, res, std::greater<ostd::string_range>());
     });
     cs.new_command("<=s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, std::less_equal<ostd::ConstCharRange>());
+        cs_strgcmp(args, res, std::less_equal<ostd::string_range>());
     });
     cs.new_command(">=s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, std::greater_equal<ostd::ConstCharRange>());
+        cs_strgcmp(args, res, std::greater_equal<ostd::string_range>());
     });
 
     cs.new_command("strreplace", "ssss", [](auto &, auto args, auto &res) {
-        ostd::ConstCharRange s = args[0].get_strr();
-        ostd::ConstCharRange oldval = args[1].get_strr(),
+        ostd::string_range s = args[0].get_strr();
+        ostd::string_range oldval = args[1].get_strr(),
                              newval = args[2].get_strr(),
                              newval2 = args[3].get_strr();
         if (newval2.empty()) {
@@ -183,8 +183,8 @@ void cs_init_lib_string(cs_state &cs) {
             return;
         }
         for (size_t i = 0;; ++i) {
-            ostd::ConstCharRange found;
-            ostd::ConstCharRange trys = s;
+            ostd::string_range found;
+            ostd::string_range trys = s;
             for (; oldval.size() <= trys.size(); ++trys) {
                 if (trys.slice(0, oldval.size()) == oldval) {
                     found = trys;
@@ -204,8 +204,8 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("strsplice", "ssii", [](auto &, auto args, auto &res) {
-        ostd::ConstCharRange s = args[0].get_strr();
-        ostd::ConstCharRange vals = args[1].get_strr();
+        ostd::string_range s = args[0].get_strr();
+        ostd::string_range vals = args[1].get_strr();
         cs_int skip   = args[2].get_int(),
               count  = args[3].get_int();
         cs_int offset = ostd::clamp(skip, cs_int(0), cs_int(s.size())),

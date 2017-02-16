@@ -15,7 +15,7 @@
 static cs_state *rd_cs = nullptr;
 
 static char *ln_complete_list(char const *buf, int state) {
-    static ostd::ConstCharRange cmd;
+    static ostd::string_range cmd;
     static ostd::PointerRange<cs_ident *> itr;
 
     if (!state) {
@@ -28,7 +28,7 @@ static char *ln_complete_list(char const *buf, int state) {
         if (!id->is_command()) {
             continue;
         }
-        ostd::ConstCharRange idname = id->get_name();
+        ostd::string_range idname = id->get_name();
         if (idname.size() <= cmd.size()) {
             continue;
         }
@@ -63,7 +63,7 @@ void ln_hint() {
     rl_replace_line(old.data(), 0);
 }
 
-static void init_lineedit(cs_state &cs, ostd::ConstCharRange) {
+static void init_lineedit(cs_state &cs, ostd::string_range) {
     rd_cs = &cs;
     rl_attempted_completion_function = ln_complete;
     rl_redisplay_function = ln_hint;
@@ -79,7 +79,7 @@ static std::optional<std::string> read_line(cs_state &, cs_svar *pr) {
     return std::move(ret);
 }
 
-static void add_history(cs_state &, ostd::ConstCharRange line) {
+static void add_history(cs_state &, ostd::string_range line) {
     /* backed by std::string so it's terminated */
     add_history(line.data());
 }

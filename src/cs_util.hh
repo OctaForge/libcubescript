@@ -16,11 +16,11 @@ template<typename T>
 using CsVector = std::vector<T>;
 
 cs_int cs_parse_int(
-    ostd::ConstCharRange input, ostd::ConstCharRange *end = nullptr
+    ostd::string_range input, ostd::string_range *end = nullptr
 );
 
 cs_float cs_parse_float(
-    ostd::ConstCharRange input, ostd::ConstCharRange *end = nullptr
+    ostd::string_range input, ostd::string_range *end = nullptr
 );
 
 template<typename F>

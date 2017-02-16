@@ -8,12 +8,12 @@
 
 namespace cscript {
 
-ostd::ConstCharRange cs_gen_state::get_str() {
+ostd::string_range cs_gen_state::get_str() {
     size_t nl;
-    ostd::ConstCharRange beg = source;
+    ostd::string_range beg = source;
     source = util::parse_string(cs, source, nl);
     current_line += nl - 1;
-    ostd::ConstCharRange ret = ostd::slice_until(beg, source);
+    ostd::string_range ret = ostd::slice_until(beg, source);
     return ret.slice(1, ret.size() - 1);
 }
 
@@ -28,7 +28,7 @@ cs_string cs_gen_state::get_str_dup(bool unescape) {
     return std::move(app.get());
 }
 
-ostd::ConstCharRange cs_gen_state::read_macro_name() {
+ostd::string_range cs_gen_state::read_macro_name() {
     auto op = source;
     char c = current();
     if (!isalpha(c) && (c != '_')) {
@@ -40,7 +40,7 @@ ostd::ConstCharRange cs_gen_state::read_macro_name() {
     return ostd::slice_until(op, source);
 }
 
-char cs_gen_state::skip_until(ostd::ConstCharRange chars) {
+char cs_gen_state::skip_until(ostd::string_range chars) {
     char c = current();
     while (c && ostd::find(chars, c).empty()) {
         next_char();
@@ -92,7 +92,7 @@ void cs_gen_state::skip_comments() {
     }
 }
 
-ostd::ConstCharRange cs_gen_state::get_word() {
+ostd::string_range cs_gen_state::get_word() {
     auto beg = source;
     source = util::parse_word(cs, source);
     return ostd::slice_until(beg, source);
@@ -108,20 +108,20 @@ static inline int cs_ret_code(int type, int def = 0) {
 static void compilestatements(
     cs_gen_state &gs, int rettype, int brak = '\0', int prevargs = 0
 );
-static inline std::pair<ostd::ConstCharRange, size_t> compileblock(
-    cs_gen_state &gs, ostd::ConstCharRange p, size_t line,
+static inline std::pair<ostd::string_range, size_t> compileblock(
+    cs_gen_state &gs, ostd::string_range p, size_t line,
     int rettype = CsRetNull, int brak = '\0'
 );
 
-void cs_gen_state::gen_int(ostd::ConstCharRange word) {
+void cs_gen_state::gen_int(ostd::string_range word) {
     gen_int(cs_parse_int(word));
 }
 
-void cs_gen_state::gen_float(ostd::ConstCharRange word) {
+void cs_gen_state::gen_float(ostd::string_range word) {
     gen_float(cs_parse_float(word));
 }
 
-void cs_gen_state::gen_value(int wordtype, ostd::ConstCharRange word, int line) {
+void cs_gen_state::gen_value(int wordtype, ostd::string_range word, int line) {
     switch (wordtype) {
         case CsValCany:
             if (!word.empty()) {
@@ -171,15 +171,15 @@ static inline void compileblock(cs_gen_state &gs) {
     gs.code.push_back(CsCodeEmpty);
 }
 
-static inline std::pair<ostd::ConstCharRange, size_t> compileblock(
-    cs_gen_state &gs, ostd::ConstCharRange p, size_t line, int rettype, int brak
+static inline std::pair<ostd::string_range, size_t> compileblock(
+    cs_gen_state &gs, ostd::string_range p, size_t line, int rettype, int brak
 ) {
     size_t start = gs.code.size();
     gs.code.push_back(CsCodeBlock);
     gs.code.push_back(CsCodeOffset | ((start + 2) << 8));
     size_t retline = line;
     if (p) {
-        ostd::ConstCharRange op = gs.source;
+        ostd::string_range op = gs.source;
         size_t oldline = gs.current_line;
         gs.source = p;
         gs.current_line = line;
@@ -207,7 +207,7 @@ static inline void compileunescapestr(cs_gen_state &gs, bool macro = false) {
     );
     size_t bufs = (gs.code.capacity() - gs.code.size()) * sizeof(uint32_t);
     char *buf = new char[bufs + 1];
-    auto writer = ostd::CharRange(buf, buf + bufs);
+    auto writer = ostd::char_range(buf, buf + bufs);
     size_t len = util::unescape_string(writer, str);
     memset(&buf[len], 0, sizeof(uint32_t) - len % sizeof(uint32_t));
     gs.code.back() |= len << 8;
@@ -346,7 +346,7 @@ lookupid:
                                     numargs++;
                                     break;
                                 case 's':
-                                    gs.gen_str(ostd::ConstCharRange(), true);
+                                    gs.gen_str(ostd::string_range(), true);
                                     numargs++;
                                     break;
                                 case 'i':
@@ -478,7 +478,7 @@ invalid:
     }
 }
 
-static bool compileblockstr(cs_gen_state &gs, ostd::ConstCharRange str, bool macro) {
+static bool compileblockstr(cs_gen_state &gs, ostd::string_range str, bool macro) {
     int startc = gs.code.size();
     gs.code.push_back(macro ? CsCodeMacro : CsCodeVal | CsRetString);
     gs.code.reserve(gs.code.size() + str.size() / sizeof(uint32_t) + 1);
@@ -486,7 +486,7 @@ static bool compileblockstr(cs_gen_state &gs, ostd::ConstCharRange str, bool mac
     int len = 0;
     while (!str.empty()) {
         char const *p = str.data();
-        str = ostd::find_one_of(str, ostd::ConstCharRange("\r/\"@]"));
+        str = ostd::find_one_of(str, ostd::string_range("\r/\"@]"));
         memcpy(&buf[len], p, str.data() - p);
         len += str.data() - p;
         if (str.empty()) {
@@ -497,9 +497,9 @@ static bool compileblockstr(cs_gen_state &gs, ostd::ConstCharRange str, bool mac
                 str.pop_front();
                 break;
             case '\"': {
-                ostd::ConstCharRange start = str;
+                ostd::string_range start = str;
                 str = util::parse_string(gs.cs, str);
-                ostd::ConstCharRange strr = ostd::slice_until(start, str);
+                ostd::string_range strr = ostd::slice_until(start, str);
                 memcpy(&buf[len], strr.data(), strr.size());
                 len += strr.size();
                 break;
@@ -631,7 +631,7 @@ static void compileblockmain(cs_gen_state &gs, int wordtype, int prevargs) {
                     concs = 1;
                 }
                 if (compileblockstr(
-                    gs, ostd::ConstCharRange(start, esc), true
+                    gs, ostd::string_range(start, esc), true
                 )) {
                     concs++;
                 }
@@ -658,7 +658,7 @@ static void compileblockmain(cs_gen_state &gs, int wordtype, int prevargs) {
                     return;
                 case CsValCode:
                 case CsValCond: {
-                    auto ret = compileblock(gs, ostd::ConstCharRange(
+                    auto ret = compileblock(gs, ostd::string_range(
                         start, gs.source.data() + gs.source.size()
                     ), curline, CsRetNull, ']');
                     gs.source = ret.first;
@@ -666,7 +666,7 @@ static void compileblockmain(cs_gen_state &gs, int wordtype, int prevargs) {
                     return;
                 }
                 case CsValIdent:
-                    gs.gen_ident(ostd::ConstCharRange(start, gs.source.data() - 1));
+                    gs.gen_ident(ostd::string_range(start, gs.source.data() - 1));
                     return;
             }
         }
@@ -677,12 +677,12 @@ static void compileblockmain(cs_gen_state &gs, int wordtype, int prevargs) {
             case CsValCany:
             case CsValCond:
                 compileblockstr(
-                    gs, ostd::ConstCharRange(start, gs.source.data() - 1), true
+                    gs, ostd::string_range(start, gs.source.data() - 1), true
                 );
                 break;
             default:
                 compileblockstr(
-                    gs, ostd::ConstCharRange(start, gs.source.data() - 1), concs > 0
+                    gs, ostd::string_range(start, gs.source.data() - 1), concs > 0
                 );
                 break;
         }
@@ -728,7 +728,7 @@ static void compileblockmain(cs_gen_state &gs, int wordtype, int prevargs) {
         case CsValCstring:
         case CsValCany:
             if (!concs && gs.source.data() - 1 <= start) {
-                gs.gen_str(ostd::ConstCharRange(), true);
+                gs.gen_str(ostd::string_range(), true);
             }
             break;
         case CsValString:
@@ -902,7 +902,7 @@ static void compile_cmd(
                     if (rep) {
                         break;
                     }
-                    gs.gen_str(ostd::ConstCharRange(), *fmt == 's');
+                    gs.gen_str(ostd::string_range(), *fmt == 's');
                     fakeargs++;
                 } else if (fmt.size() == 1) {
                     int numconc = 1;
@@ -1352,7 +1352,7 @@ noid:
                 switch (rettype) {
                     case CsValAny:
                     case CsValCany: {
-                        ostd::ConstCharRange end = idname;
+                        ostd::string_range end = idname;
                         cs_int val = cs_parse_int(end, &end);
                         if (!end.empty()) {
                             gs.gen_str(idname, rettype == CsValCany);
@@ -1495,7 +1495,7 @@ endstatement:
     }
 }
 
-void cs_gen_state::gen_main(ostd::ConstCharRange s, int ret_type) {
+void cs_gen_state::gen_main(ostd::string_range s, int ret_type) {
     source = s;
     code.push_back(CsCodeStart);
     compilestatements(*this, CsValAny);

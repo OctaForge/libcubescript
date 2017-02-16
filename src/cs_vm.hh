@@ -95,7 +95,7 @@ enum {
 };
 
 struct cs_shared_state {
-    CsMap<ostd::ConstCharRange, cs_ident *> idents;
+    CsMap<ostd::string_range, cs_ident *> idents;
     CsVector<cs_ident *> identmap;
     cs_alloc_cb allocf;
     void *aptr;
@@ -148,9 +148,9 @@ struct cs_gen_state {
     cs_gen_state *prevps;
     bool parsing = true;
     CsVector<uint32_t> code;
-    ostd::ConstCharRange source;
+    ostd::string_range source;
     size_t current_line;
-    ostd::ConstCharRange src_name;
+    ostd::string_range src_name;
 
     cs_gen_state() = delete;
     cs_gen_state(cs_state &csr):
@@ -172,12 +172,12 @@ struct cs_gen_state {
         parsing = false;
     }
 
-    ostd::ConstCharRange get_str();
+    ostd::string_range get_str();
     cs_string get_str_dup(bool unescape = true);
 
-    ostd::ConstCharRange get_word();
+    ostd::string_range get_word();
 
-    void gen_str(ostd::ConstCharRange word, bool macro = false) {
+    void gen_str(ostd::string_range word, bool macro = false) {
         if (word.size() <= 3 && !macro) {
             uint32_t op = CsCodeValInt | CsRetString;
             for (size_t i = 0; i < word.size(); ++i) {
@@ -225,7 +225,7 @@ struct cs_gen_state {
         }
     }
 
-    void gen_int(ostd::ConstCharRange word);
+    void gen_int(ostd::string_range word);
 
     void gen_float(cs_float f = 0.0f) {
         if (cs_int(f) == f && f >= -0x800000 && f <= 0x7FFFFF) {
@@ -241,7 +241,7 @@ struct cs_gen_state {
         }
     }
 
-    void gen_float(ostd::ConstCharRange word);
+    void gen_float(ostd::string_range word);
 
     void gen_ident(cs_ident *id) {
         code.push_back(
@@ -256,16 +256,16 @@ struct cs_gen_state {
         gen_ident(cs.p_state->identmap[DummyIdx]);
     }
 
-    void gen_ident(ostd::ConstCharRange word) {
+    void gen_ident(ostd::string_range word) {
         gen_ident(cs.new_ident(word));
     }
 
     void gen_value(
-        int wordtype, ostd::ConstCharRange word = ostd::ConstCharRange(),
+        int wordtype, ostd::string_range word = ostd::string_range(),
         int line = 0
     );
 
-    void gen_main(ostd::ConstCharRange s, int ret_type = CsValAny);
+    void gen_main(ostd::string_range s, int ret_type = CsValAny);
 
     void next_char() {
         if (source.empty()) {
@@ -284,9 +284,9 @@ struct cs_gen_state {
         return source[ahead];
     }
 
-    ostd::ConstCharRange read_macro_name();
+    ostd::string_range read_macro_name();
 
-    char skip_until(ostd::ConstCharRange chars);
+    char skip_until(ostd::string_range chars);
     char skip_until(char cf);
 
     void skip_comments();
@@ -295,7 +295,7 @@ struct cs_gen_state {
 cs_string intstr(cs_int v);
 cs_string floatstr(cs_float v);
 
-bool cs_check_num(ostd::ConstCharRange s);
+bool cs_check_num(ostd::string_range s);
 
 static inline void bcode_incr(uint32_t *bc) {
     *bc += 0x100;

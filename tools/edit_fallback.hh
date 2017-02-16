@@ -5,7 +5,7 @@
 
 #include <ostd/string.hh>
 
-static void init_lineedit(cs_state &, ostd::ConstCharRange) {
+static void init_lineedit(cs_state &, ostd::string_range) {
 }
 
 static std::optional<std::string> read_line(cs_state &, cs_svar *pr) {
@@ -18,7 +18,7 @@ static std::optional<std::string> read_line(cs_state &, cs_svar *pr) {
     return std::move(ret);
 }
 
-static void add_history(cs_state &, ostd::ConstCharRange) {
+static void add_history(cs_state &, ostd::string_range) {
 }
 
 #endif

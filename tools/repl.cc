@@ -10,7 +10,7 @@
 
 using namespace cscript;
 
-ostd::ConstCharRange version = "CubeScript 0.0.1";
+ostd::string_range version = "CubeScript 0.0.1";
 
 /* util */
 
@@ -28,9 +28,9 @@ static bool stdin_is_tty() {
 
 /* line editing support */
 
-static inline ostd::ConstCharRange get_complete_cmd(ostd::ConstCharRange buf) {
-    ostd::ConstCharRange not_allowed = "\"/;()[] \t\r\n\0";
-    ostd::ConstCharRange found = ostd::find_one_of(buf, not_allowed);
+static inline ostd::string_range get_complete_cmd(ostd::string_range buf) {
+    ostd::string_range not_allowed = "\"/;()[] \t\r\n\0";
+    ostd::string_range found = ostd::find_one_of(buf, not_allowed);
     while (!found.empty()) {
         ++found;
         buf = found;
@@ -39,7 +39,7 @@ static inline ostd::ConstCharRange get_complete_cmd(ostd::ConstCharRange buf) {
     return buf;
 }
 
-static inline ostd::ConstCharRange get_arg_type(char arg) {
+static inline ostd::string_range get_arg_type(char arg) {
     switch (arg) {
         case 'i':
             return "int";
@@ -71,7 +71,7 @@ static inline ostd::ConstCharRange get_arg_type(char arg) {
     return "illegal";
 }
 
-static inline void fill_cmd_args(std::string &writer, ostd::ConstCharRange args) {
+static inline void fill_cmd_args(std::string &writer, ostd::string_range args) {
     char variadic = '\0';
     int nrep = 0;
     if (!args.empty() && ((args.back() == 'V') || (args.back() == 'C'))) {
@@ -128,8 +128,8 @@ static inline void fill_cmd_args(std::string &writer, ostd::ConstCharRange args)
     }
 }
 
-static inline cs_command *get_hint_cmd(cs_state &cs, ostd::ConstCharRange buf) {
-    ostd::ConstCharRange nextchars = "([;";
+static inline cs_command *get_hint_cmd(cs_state &cs, ostd::string_range buf) {
+    ostd::string_range nextchars = "([;";
     auto lp = ostd::find_one_of(buf, nextchars);
     if (!lp.empty()) {
         cs_command *cmd = get_hint_cmd(cs, buf + 1);
@@ -140,8 +140,8 @@ static inline cs_command *get_hint_cmd(cs_state &cs, ostd::ConstCharRange buf) {
     while (!buf.empty() && isspace(buf.front())) {
         ++buf;
     }
-    ostd::ConstCharRange spaces = " \t\r\n";
-    ostd::ConstCharRange s = ostd::find_one_of(buf, spaces);
+    ostd::string_range spaces = " \t\r\n";
+    ostd::string_range s = ostd::find_one_of(buf, spaces);
     if (!s.empty()) {
         buf = ostd::slice_until(buf, s);
     }
@@ -158,7 +158,7 @@ static inline cs_command *get_hint_cmd(cs_state &cs, ostd::ConstCharRange buf) {
 
 /* usage */
 
-void print_usage(ostd::ConstCharRange progname, bool err) {
+void print_usage(ostd::string_range progname, bool err) {
     auto &s = err ? ostd::err : ostd::out;
     s.writeln(
         "Usage: ", progname, " [options] [file]\n"
@@ -187,7 +187,7 @@ static void do_sigint(int n) {
     });
 }
 
-static bool do_call(cs_state &cs, ostd::ConstCharRange line, bool file = false) {
+static bool do_call(cs_state &cs, ostd::string_range line, bool file = false) {
     cs_value ret;
     scs = &cs;
     signal(SIGINT, do_sigint);
@@ -202,7 +202,7 @@ static bool do_call(cs_state &cs, ostd::ConstCharRange line, bool file = false) 
     } catch (cscript::cs_error const &e) {
         signal(SIGINT, SIG_DFL);
         scs = nullptr;
-        ostd::ConstCharRange terr = e.what();
+        ostd::string_range terr = e.what();
         auto col = ostd::find(terr, ':');
         bool is_lnum = false;
         if (!col.empty()) {

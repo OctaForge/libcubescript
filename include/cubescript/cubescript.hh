@@ -90,12 +90,12 @@ struct OSTD_EXPORT cs_value {
     void set_str(cs_string val);
     void set_null();
     void set_code(cs_bcode *val);
-    void set_cstr(ostd::ConstCharRange val);
+    void set_cstr(ostd::string_range val);
     void set_ident(cs_ident *val);
-    void set_macro(ostd::ConstCharRange val);
+    void set_macro(ostd::string_range val);
 
     cs_string get_str() const;
-    ostd::ConstCharRange get_strr() const;
+    ostd::string_range get_strr() const;
     cs_int get_int() const;
     cs_float get_float() const;
     cs_bcode *get_code() const;
@@ -107,7 +107,7 @@ struct OSTD_EXPORT cs_value {
     void force_null();
     cs_float force_float();
     cs_int force_int();
-    ostd::ConstCharRange force_str();
+    ostd::string_range force_str();
 
     bool code_is_empty() const;
 
@@ -152,7 +152,7 @@ struct OSTD_EXPORT cs_ident {
     cs_ident &operator=(cs_ident &&) = delete;
 
     cs_ident_type get_type() const;
-    ostd::ConstCharRange get_name() const;
+    ostd::string_range get_name() const;
     int get_flags() const;
     int get_index() const;
 
@@ -187,7 +187,7 @@ struct OSTD_EXPORT cs_ident {
     }
 
 protected:
-    cs_ident(cs_ident_type tp, ostd::ConstCharRange name, int flags = 0);
+    cs_ident(cs_ident_type tp, ostd::string_range name, int flags = 0);
 
     cs_string p_name;
     /* represents the cs_ident_type above, but internally it has a wider variety
@@ -204,7 +204,7 @@ struct OSTD_EXPORT cs_var: cs_ident {
     friend struct cs_shared_state;
 
 protected:
-    cs_var(cs_ident_type tp, ostd::ConstCharRange name, cs_var_cb func, int flags = 0);
+    cs_var(cs_ident_type tp, ostd::string_range name, cs_var_cb func, int flags = 0);
 
 private:
     cs_var_cb cb_var;
@@ -232,7 +232,7 @@ struct OSTD_EXPORT cs_ivar: cs_var {
 
 private:
     cs_ivar(
-        ostd::ConstCharRange n, cs_int m, cs_int x, cs_int v, cs_var_cb f, int flags
+        ostd::string_range n, cs_int m, cs_int x, cs_int v, cs_var_cb f, int flags
     );
 
     cs_int p_storage, p_minval, p_maxval, p_overrideval;
@@ -252,7 +252,7 @@ struct OSTD_EXPORT cs_fvar: cs_var {
 
 private:
     cs_fvar(
-        ostd::ConstCharRange n, cs_float m, cs_float x, cs_float v,
+        ostd::string_range n, cs_float m, cs_float x, cs_float v,
         cs_var_cb f, int flags
     );
 
@@ -263,13 +263,13 @@ struct OSTD_EXPORT cs_svar: cs_var {
     friend struct cs_state;
     friend struct cs_shared_state;
 
-    ostd::ConstCharRange get_value() const;
+    ostd::string_range get_value() const;
     void set_value(cs_string val);
 
     cs_string to_printable() const final;
 
 private:
-    cs_svar(ostd::ConstCharRange n, cs_string v, cs_var_cb f, int flags);
+    cs_svar(ostd::string_range n, cs_string v, cs_var_cb f, int flags);
 
     cs_string p_storage, p_overrideval;
 };
@@ -290,11 +290,11 @@ struct OSTD_EXPORT cs_alias: cs_ident {
     void get_cstr(cs_value &v) const;
     void get_cval(cs_value &v) const;
 private:
-    cs_alias(ostd::ConstCharRange n, cs_string a, int flags);
-    cs_alias(ostd::ConstCharRange n, cs_int a, int flags);
-    cs_alias(ostd::ConstCharRange n, cs_float a, int flags);
-    cs_alias(ostd::ConstCharRange n, int flags);
-    cs_alias(ostd::ConstCharRange n, cs_value v, int flags);
+    cs_alias(ostd::string_range n, cs_string a, int flags);
+    cs_alias(ostd::string_range n, cs_int a, int flags);
+    cs_alias(ostd::string_range n, cs_float a, int flags);
+    cs_alias(ostd::string_range n, int flags);
+    cs_alias(ostd::string_range n, cs_value v, int flags);
 
     cs_bcode *p_acode;
     cs_ident_stack *p_astack;
@@ -306,12 +306,12 @@ struct cs_command: cs_ident {
     friend struct cs_shared_state;
     friend struct cs_cmd_internal;
 
-    ostd::ConstCharRange get_args() const;
+    ostd::string_range get_args() const;
     int get_num_args() const;
 
 private:
     cs_command(
-        ostd::ConstCharRange name, ostd::ConstCharRange args,
+        ostd::string_range name, ostd::string_range args,
         int numargs, cs_command_cb func
     );
 
@@ -362,58 +362,58 @@ struct OSTD_EXPORT cs_state {
     void clear_override(cs_ident &id);
     void clear_overrides();
 
-    cs_ident *new_ident(ostd::ConstCharRange name, int flags = CS_IDF_UNKNOWN);
+    cs_ident *new_ident(ostd::string_range name, int flags = CS_IDF_UNKNOWN);
     cs_ident *force_ident(cs_value &v);
 
     cs_ivar *new_ivar(
-        ostd::ConstCharRange n, cs_int m, cs_int x, cs_int v,
+        ostd::string_range n, cs_int m, cs_int x, cs_int v,
         cs_var_cb f = cs_var_cb(), int flags = 0
     );
     cs_fvar *new_fvar(
-        ostd::ConstCharRange n, cs_float m, cs_float x, cs_float v,
+        ostd::string_range n, cs_float m, cs_float x, cs_float v,
         cs_var_cb f = cs_var_cb(), int flags = 0
     );
     cs_svar *new_svar(
-        ostd::ConstCharRange n, cs_string v,
+        ostd::string_range n, cs_string v,
         cs_var_cb f = cs_var_cb(), int flags = 0
     );
 
     cs_command *new_command(
-        ostd::ConstCharRange name, ostd::ConstCharRange args, cs_command_cb func
+        ostd::string_range name, ostd::string_range args, cs_command_cb func
     );
 
-    cs_ident *get_ident(ostd::ConstCharRange name);
-    cs_alias *get_alias(ostd::ConstCharRange name);
-    bool have_ident(ostd::ConstCharRange name);
+    cs_ident *get_ident(ostd::string_range name);
+    cs_alias *get_alias(ostd::string_range name);
+    bool have_ident(ostd::string_range name);
 
     cs_ident_r get_idents();
     cs_const_ident_r get_idents() const;
 
-    void reset_var(ostd::ConstCharRange name);
-    void touch_var(ostd::ConstCharRange name);
+    void reset_var(ostd::string_range name);
+    void touch_var(ostd::string_range name);
 
     cs_string run_str(cs_bcode *code);
-    cs_string run_str(ostd::ConstCharRange code);
+    cs_string run_str(ostd::string_range code);
     cs_string run_str(cs_ident *id, cs_value_r args);
 
     cs_int run_int(cs_bcode *code);
-    cs_int run_int(ostd::ConstCharRange code);
+    cs_int run_int(ostd::string_range code);
     cs_int run_int(cs_ident *id, cs_value_r args);
 
     cs_float run_float(cs_bcode *code);
-    cs_float run_float(ostd::ConstCharRange code);
+    cs_float run_float(ostd::string_range code);
     cs_float run_float(cs_ident *id, cs_value_r args);
 
     bool run_bool(cs_bcode *code);
-    bool run_bool(ostd::ConstCharRange code);
+    bool run_bool(ostd::string_range code);
     bool run_bool(cs_ident *id, cs_value_r args);
 
     void run(cs_bcode *code, cs_value &ret);
-    void run(ostd::ConstCharRange code, cs_value &ret);
+    void run(ostd::string_range code, cs_value &ret);
     void run(cs_ident *id, cs_value_r args, cs_value &ret);
 
     void run(cs_bcode *code);
-    void run(ostd::ConstCharRange code);
+    void run(ostd::string_range code);
     void run(cs_ident *id, cs_value_r args);
 
     CsLoopState run_loop(cs_bcode *code, cs_value &ret);
@@ -423,43 +423,43 @@ struct OSTD_EXPORT cs_state {
         return p_inloop;
     }
 
-    std::optional<cs_string> run_file_str(ostd::ConstCharRange fname);
-    std::optional<cs_int> run_file_int(ostd::ConstCharRange fname);
-    std::optional<cs_float> run_file_float(ostd::ConstCharRange fname);
-    std::optional<bool> run_file_bool(ostd::ConstCharRange fname);
-    bool run_file(ostd::ConstCharRange fname, cs_value &ret);
-    bool run_file(ostd::ConstCharRange fname);
+    std::optional<cs_string> run_file_str(ostd::string_range fname);
+    std::optional<cs_int> run_file_int(ostd::string_range fname);
+    std::optional<cs_float> run_file_float(ostd::string_range fname);
+    std::optional<bool> run_file_bool(ostd::string_range fname);
+    bool run_file(ostd::string_range fname, cs_value &ret);
+    bool run_file(ostd::string_range fname);
 
-    void set_alias(ostd::ConstCharRange name, cs_value v);
+    void set_alias(ostd::string_range name, cs_value v);
 
     void set_var_int(
-        ostd::ConstCharRange name, cs_int v,
+        ostd::string_range name, cs_int v,
         bool dofunc = true, bool doclamp = true
     );
     void set_var_float(
-        ostd::ConstCharRange name, cs_float v,
+        ostd::string_range name, cs_float v,
         bool dofunc  = true, bool doclamp = true
     );
     void set_var_str(
-        ostd::ConstCharRange name, ostd::ConstCharRange v, bool dofunc = true
+        ostd::string_range name, ostd::string_range v, bool dofunc = true
     );
 
     void set_var_int_checked(cs_ivar *iv, cs_int v);
     void set_var_int_checked(cs_ivar *iv, cs_value_r args);
     void set_var_float_checked(cs_fvar *fv, cs_float v);
-    void set_var_str_checked(cs_svar *fv, ostd::ConstCharRange v);
+    void set_var_str_checked(cs_svar *fv, ostd::string_range v);
 
-    std::optional<cs_int> get_var_int(ostd::ConstCharRange name);
-    std::optional<cs_float> get_var_float(ostd::ConstCharRange name);
-    std::optional<cs_string> get_var_str(ostd::ConstCharRange name);
+    std::optional<cs_int> get_var_int(ostd::string_range name);
+    std::optional<cs_float> get_var_float(ostd::string_range name);
+    std::optional<cs_string> get_var_str(ostd::string_range name);
 
-    std::optional<cs_int> get_var_min_int(ostd::ConstCharRange name);
-    std::optional<cs_int> get_var_max_int(ostd::ConstCharRange name);
+    std::optional<cs_int> get_var_min_int(ostd::string_range name);
+    std::optional<cs_int> get_var_max_int(ostd::string_range name);
 
-    std::optional<cs_float> get_var_min_float(ostd::ConstCharRange name);
-    std::optional<cs_float> get_var_max_float(ostd::ConstCharRange name);
+    std::optional<cs_float> get_var_min_float(ostd::string_range name);
+    std::optional<cs_float> get_var_max_float(ostd::string_range name);
 
-    std::optional<cs_string> get_alias_val(ostd::ConstCharRange name);
+    std::optional<cs_string> get_alias_val(ostd::string_range name);
 
     virtual void print_var(cs_var *v);
 
@@ -510,7 +510,7 @@ struct cs_error {
         p_errmsg(v.p_errmsg), p_stack(std::move(v.p_stack))
     {}
 
-    ostd::ConstCharRange what() const {
+    ostd::string_range what() const {
         return p_errmsg;
     }
 
@@ -522,7 +522,7 @@ struct cs_error {
         return p_stack;
     }
 
-    cs_error(cs_state &cs, ostd::ConstCharRange msg):
+    cs_error(cs_state &cs, ostd::string_range msg):
         p_errmsg(), p_stack(cs)
     {
         p_errmsg = save_msg(cs, msg);
@@ -530,16 +530,16 @@ struct cs_error {
     }
 
     template<typename ...A>
-    cs_error(cs_state &cs, ostd::ConstCharRange msg, A &&...args):
+    cs_error(cs_state &cs, ostd::string_range msg, A &&...args):
         p_errmsg(), p_stack(cs)
     {
         try {
             char fbuf[512];
             auto ret = ostd::format(
-                ostd::CharRange(fbuf, fbuf + sizeof(fbuf)), msg,
+                ostd::char_range(fbuf, fbuf + sizeof(fbuf)), msg,
                 std::forward<A>(args)...
             );
-            p_errmsg = save_msg(cs, ostd::CharRange(fbuf, fbuf + ret));
+            p_errmsg = save_msg(cs, ostd::char_range(fbuf, fbuf + ret));
         } catch (...) {
             p_errmsg = save_msg(cs, msg);
         }
@@ -548,9 +548,9 @@ struct cs_error {
 
 private:
     cs_stack_state save_stack(cs_state &cs);
-    ostd::ConstCharRange save_msg(cs_state &cs, ostd::ConstCharRange v);
+    ostd::string_range save_msg(cs_state &cs, ostd::string_range v);
 
-    ostd::ConstCharRange p_errmsg;
+    ostd::string_range p_errmsg;
     cs_stack_state p_stack;
 };
 
@@ -582,7 +582,7 @@ private:
 
 namespace util {
     template<typename R>
-    inline size_t escape_string(R &&writer, ostd::ConstCharRange str) {
+    inline size_t escape_string(R &&writer, ostd::string_range str) {
         size_t ret = 2;
         writer.put('"');
         for (; !str.empty(); str.pop_front()) {
@@ -612,7 +612,7 @@ namespace util {
     }
 
     template<typename R>
-    inline size_t unescape_string(R &&writer, ostd::ConstCharRange str) {
+    inline size_t unescape_string(R &&writer, ostd::string_range str) {
         size_t ret = 0;
         for (; !str.empty(); str.pop_front()) {
             if (str.front() == '^') {
@@ -660,24 +660,24 @@ namespace util {
         return ret;
     }
 
-    OSTD_EXPORT ostd::ConstCharRange parse_string(
-        cs_state &cs, ostd::ConstCharRange str, size_t &nlines
+    OSTD_EXPORT ostd::string_range parse_string(
+        cs_state &cs, ostd::string_range str, size_t &nlines
     );
 
-    inline ostd::ConstCharRange parse_string(
-        cs_state &cs, ostd::ConstCharRange str
+    inline ostd::string_range parse_string(
+        cs_state &cs, ostd::string_range str
     ) {
         size_t nlines;
         return parse_string(cs, str, nlines);
     }
 
-    OSTD_EXPORT ostd::ConstCharRange parse_word(
-        cs_state &cs, ostd::ConstCharRange str
+    OSTD_EXPORT ostd::string_range parse_word(
+        cs_state &cs, ostd::string_range str
     );
 
     struct OSTD_EXPORT ListParser {
         ListParser() = delete;
-        ListParser(cs_state &cs, ostd::ConstCharRange src):
+        ListParser(cs_state &cs, ostd::string_range src):
             p_state(cs), p_input(src)
         {}
 
@@ -700,23 +700,23 @@ namespace util {
             return std::move(app.get());
         }
 
-        ostd::ConstCharRange &get_raw_item(bool quoted = false) {
+        ostd::string_range &get_raw_item(bool quoted = false) {
             return quoted ? p_quote : p_item;
         }
 
-        ostd::ConstCharRange const &get_raw_item(bool quoted = false) const {
+        ostd::string_range const &get_raw_item(bool quoted = false) const {
             return quoted ? p_quote : p_item;
         }
 
-        ostd::ConstCharRange &get_input() {
+        ostd::string_range &get_input() {
             return p_input;
         }
 
 private:
-        ostd::ConstCharRange p_quote = ostd::ConstCharRange();
-        ostd::ConstCharRange p_item = ostd::ConstCharRange();
+        ostd::string_range p_quote = ostd::string_range();
+        ostd::string_range p_item = ostd::string_range();
         cs_state &p_state;
-        ostd::ConstCharRange p_input;
+        ostd::string_range p_input;
     };
 
     template<typename R>
@@ -743,7 +743,7 @@ private:
     template<typename R>
     inline size_t tvals_concat(
         R &&writer, cs_value_r vals,
-        ostd::ConstCharRange sep = ostd::ConstCharRange()
+        ostd::string_range sep = ostd::string_range()
     ) {
         size_t ret = 0;
         for (size_t i = 0; i < vals.size(); ++i) {
