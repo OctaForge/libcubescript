@@ -1817,7 +1817,7 @@ static bool cs_run_file(
     std::unique_ptr<char[]> buf;
     size_t len;
 
-    ostd::FileStream f(fname, ostd::StreamMode::read);
+    ostd::file_stream f(fname, ostd::stream_mode::READ);
     if (!f.is_open()) {
         return false;
     }

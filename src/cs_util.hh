@@ -4,7 +4,6 @@
 #include <type_traits>
 
 #include <ostd/string.hh>
-#include <ostd/utility.hh>
 #include <ostd/unordered_map.hh>
 
 namespace cscript {

@@ -7,6 +7,7 @@
 #include <optional>
 #include <functional>
 #include <type_traits>
+#include <utility>
 
 #include "cubescript_conf.hh"
 
@@ -15,7 +16,6 @@
 #include <ostd/string.hh>
 #include <ostd/vector.hh>
 #include <ostd/range.hh>
-#include <ostd/utility.hh>
 #include <ostd/io.hh>
 #include <ostd/format.hh>
 
