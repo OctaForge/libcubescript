@@ -70,25 +70,25 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("escape", "s", [](auto &, auto args, auto &res) {
-        auto s = ostd::appender<cs_string>();
+        auto s = ostd::appender_range<cs_string>{};
         util::escape_string(s, args[0].get_strr());
         res.set_str(std::move(s.get()));
     });
 
     cs.new_command("unescape", "s", [](auto &, auto args, auto &res) {
-        auto s = ostd::appender<cs_string>();
+        auto s = ostd::appender_range<cs_string>{};
         util::unescape_string(s, args[0].get_strr());
         res.set_str(std::move(s.get()));
     });
 
     cs.new_command("concat", "V", [](auto &, auto args, auto &res) {
-        auto s = ostd::appender<cs_string>();
+        auto s = ostd::appender_range<cs_string>{};
         cscript::util::tvals_concat(s, args, " ");
         res.set_str(std::move(s.get()));
     });
 
     cs.new_command("concatword", "V", [](auto &, auto args, auto &res) {
-        auto s = ostd::appender<cs_string>();
+        auto s = ostd::appender_range<cs_string>{};
         cscript::util::tvals_concat(s, args);
         res.set_str(std::move(s.get()));
     });
@@ -122,7 +122,7 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("tohex", "ii", [](auto &, auto args, auto &res) {
-        auto r = ostd::appender<cs_string>();
+        auto r = ostd::appender_range<cs_string>{};
         try {
             ostd::format(
                 r, "0x%.*X", ostd::max(args[1].get_int(), cs_int(1)),

@@ -695,7 +695,7 @@ namespace util {
         }
 
         cs_string get_item() const {
-            auto app = ostd::appender<cs_string>();
+            auto app = ostd::appender_range<cs_string>{};
             get_item(app);
             return std::move(app.get());
         }
@@ -747,7 +747,6 @@ private:
     ) {
         size_t ret = 0;
         for (size_t i = 0; i < vals.size(); ++i) {
-            auto s = ostd::appender<cs_string>();
             switch (vals[i].get_type()) {
                 case cs_value_type::Int: {
                     auto r = format_int(

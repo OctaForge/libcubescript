@@ -19,7 +19,7 @@ ostd::string_range cs_gen_state::get_str() {
 
 cs_string cs_gen_state::get_str_dup(bool unescape) {
     auto str = get_str();
-    auto app = ostd::appender<cs_string>();
+    auto app = ostd::appender_range<cs_string>{};
     if (unescape) {
         util::unescape_string(app, str);
     } else {
