@@ -171,8 +171,8 @@ void cs_init_lib_list(cs_state &gcs) {
               count   = args[2].get_int(),
               numargs = args[3].get_int();
 
-        cs_int offset = ostd::max(skip, cs_int(0)),
-              len = (numargs >= 3) ? ostd::max(count, cs_int(0)) : -1;
+        cs_int offset = std::max(skip, cs_int(0)),
+              len = (numargs >= 3) ? std::max(count, cs_int(0)) : -1;
 
         util::ListParser p(cs, args[0].get_strr());
         for (cs_int i = 0; i < offset; ++i) {
@@ -466,8 +466,8 @@ end:
     });
 
     gcs.new_command("listsplice", "ssii", [](auto &cs, auto args, auto &res) {
-        cs_int offset = ostd::max(args[2].get_int(), cs_int(0));
-        cs_int len    = ostd::max(args[3].get_int(), cs_int(0));
+        cs_int offset = std::max(args[2].get_int(), cs_int(0));
+        cs_int len    = std::max(args[3].get_int(), cs_int(0));
         ostd::string_range s = args[0].get_strr();
         ostd::string_range vals = args[1].get_strr();
         char const *list = s.data();
@@ -606,7 +606,7 @@ static void cs_list_sort(
     yval.pop();
 
     cs_string sorted;
-    sorted.reserve(totaluniq + ostd::max(nuniq - 1, size_t(0)));
+    sorted.reserve(totaluniq + std::max(nuniq - 1, size_t(0)));
     for (size_t i = 0; i < items.size(); ++i) {
         ListSortItem &item = items[i];
         if (item.quote.empty()) {

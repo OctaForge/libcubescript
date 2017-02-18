@@ -736,7 +736,7 @@ void cs_state::set_var_int(
         [&iv]() { iv->p_overrideval = iv->get_value(); }
     );
     if (doclamp) {
-        iv->set_value(ostd::clamp(v, iv->get_val_min(), iv->get_val_max()));
+        iv->set_value(std::clamp(v, iv->get_val_min(), iv->get_val_max()));
     } else {
         iv->set_value(v);
     }
@@ -758,7 +758,7 @@ void cs_state::set_var_float(
         [&fv]() { fv->p_overrideval = fv->get_value(); }
     );
     if (doclamp) {
-        fv->set_value(ostd::clamp(v, fv->get_val_min(), fv->get_val_max()));
+        fv->set_value(std::clamp(v, fv->get_val_min(), fv->get_val_max()));
     } else {
         fv->set_value(v);
     }

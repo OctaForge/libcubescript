@@ -82,7 +82,7 @@ cs_stack_state cs_error::save_stack(cs_state &cs) {
         return cs_stack_state(cs, nullptr, false);
     }
     cs_stack_state_node *st = cs.p_state->create_array<cs_stack_state_node>(
-        ostd::min(total, dalias->get_value())
+        std::min(total, dalias->get_value())
     );
     cs_stack_state_node *ret = st, *nd = st;
     ++st;
@@ -429,7 +429,7 @@ static inline void callcommand(
                 args[i].set_int(cs_int(lookup ? -1 : i - fakeargs));
                 break;
             case 'C': {
-                i = ostd::max(i + 1, numargs);
+                i = std::max(i + 1, numargs);
                 auto buf = ostd::appender_range<cs_string>{};
                 cscript::util::tvals_concat(buf, ostd::iter(args, args + i), " ");
                 cs_value tv;
@@ -438,7 +438,7 @@ static inline void callcommand(
                 return;
             }
             case 'V':
-                i = ostd::max(i + 1, numargs);
+                i = std::max(i + 1, numargs);
                 cs_cmd_internal::call(cs, id, ostd::iter(args, args + i), res);
                 return;
             case '1':

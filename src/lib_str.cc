@@ -125,7 +125,7 @@ void cs_init_lib_string(cs_state &cs) {
         auto r = ostd::appender_range<cs_string>{};
         try {
             ostd::format(
-                r, "0x%.*X", ostd::max(args[1].get_int(), cs_int(1)),
+                r, "0x%.*X", std::max(args[1].get_int(), cs_int(1)),
                 args[0].get_int()
             );
         } catch (ostd::format_error const &e) {
@@ -138,11 +138,11 @@ void cs_init_lib_string(cs_state &cs) {
         ostd::string_range s = args[0].get_strr();
         cs_int start = args[1].get_int(), count = args[2].get_int();
         cs_int numargs = args[3].get_int();
-        cs_int len = cs_int(s.size()), offset = ostd::clamp(start, cs_int(0), len);
+        cs_int len = cs_int(s.size()), offset = std::clamp(start, cs_int(0), len);
         res.set_str(cs_string{
             &s[offset],
             (numargs >= 3)
-                ? size_t(ostd::clamp(count, cs_int(0), len - offset))
+                ? size_t(std::clamp(count, cs_int(0), len - offset))
                 : size_t(len - offset)
         });
     });
@@ -208,8 +208,8 @@ void cs_init_lib_string(cs_state &cs) {
         ostd::string_range vals = args[1].get_strr();
         cs_int skip   = args[2].get_int(),
               count  = args[3].get_int();
-        cs_int offset = ostd::clamp(skip, cs_int(0), cs_int(s.size())),
-              len    = ostd::clamp(count, cs_int(0), cs_int(s.size()) - offset);
+        cs_int offset = std::clamp(skip, cs_int(0), cs_int(s.size())),
+              len    = std::clamp(count, cs_int(0), cs_int(s.size()) - offset);
         cs_string p;
         p.reserve(s.size() - len + vals.size());
         if (offset) {
