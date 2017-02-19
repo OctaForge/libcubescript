@@ -583,23 +583,24 @@ private:
 namespace util {
     template<typename R>
     inline R &&escape_string(R &&writer, ostd::string_range str) {
+        using namespace ostd::string_literals;
         writer.put('"');
         for (; !str.empty(); str.pop_front()) {
             switch (str.front()) {
                 case '\n':
-                    writer = ostd::copy(ostd::string_range{"^n"}, writer);
+                    ostd::range_put_all(writer, "^n"_sr);
                     break;
                 case '\t':
-                    writer = ostd::copy(ostd::string_range{"^t"}, writer);
+                    ostd::range_put_all(writer, "^t"_sr);
                     break;
                 case '\f':
-                    writer = ostd::copy(ostd::string_range{"^f"}, writer);
+                    ostd::range_put_all(writer, "^f"_sr);
                     break;
                 case '"':
-                    writer = ostd::copy(ostd::string_range{"^\""}, writer);
+                    ostd::range_put_all(writer, "^\""_sr);
                     break;
                 case '^':
-                    writer = ostd::copy(ostd::string_range{"^^"}, writer);
+                    ostd::range_put_all(writer, "^^"_sr);
                     break;
                 default:
                     writer.put(str.front());
@@ -688,7 +689,7 @@ namespace util {
             if (!p_quote.empty() && (*p_quote == '"')) {
                 return unescape_string(std::forward<R>(writer), p_item);
             } else {
-                writer = ostd::copy(p_item, std::move(writer));
+                ostd::range_put_all(writer, p_item);
                 return std::forward<R>(writer);
             }
         }
@@ -759,7 +760,7 @@ private:
                 case cs_value_type::String:
                 case cs_value_type::Cstring:
                 case cs_value_type::Macro: {
-                    writer = ostd::copy(vals[i].get_strr(), writer);
+                    ostd::range_put_all(writer, vals[i].get_strr());
                     break;
                 }
                 default:
@@ -768,7 +769,7 @@ private:
             if (i == (vals.size() - 1)) {
                 break;
             }
-            writer = ostd::copy(sep, writer);
+            ostd::range_put_all(writer, sep);
         }
     }
 
