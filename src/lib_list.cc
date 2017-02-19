@@ -431,9 +431,7 @@ end:
                 (p.get_raw_item(true).front() == '"')) {
                 util::unescape_string(buf, p.get_raw_item());
             } else {
-                ostd::range_put_n(
-                    buf, p.get_raw_item().data(), p.get_raw_item().size()
-                );
+                buf = ostd::copy(p.get_raw_item(), std::move(buf));
             }
             if ((n + 1) < len) {
                 if ((len > 2) || conj.empty()) {
@@ -441,7 +439,7 @@ end:
                 }
                 if ((n + 2 == len) && !conj.empty()) {
                     buf.put(' ');
-                    ostd::range_put_n(buf, conj.data(), conj.size());
+                    buf = ostd::copy(conj, std::move(buf));
                 }
                 buf.put(' ');
             }

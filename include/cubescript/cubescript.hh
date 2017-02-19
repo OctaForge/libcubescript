@@ -536,9 +536,9 @@ struct cs_error {
         try {
             char fbuf[512];
             auto ret = ostd::format(
-                ostd::char_range(fbuf, fbuf + sizeof(fbuf)), msg,
-                std::forward<A>(args)...
-            );
+                ostd::range_counter(ostd::char_range(fbuf, fbuf + sizeof(fbuf))),
+                msg, std::forward<A>(args)...
+            ).get_written();
             p_errmsg = save_msg(cs, ostd::char_range(fbuf, fbuf + ret));
         } catch (...) {
             p_errmsg = save_msg(cs, msg);
@@ -582,38 +582,36 @@ private:
 
 namespace util {
     template<typename R>
-    inline size_t escape_string(R &&writer, ostd::string_range str) {
-        size_t ret = 2;
+    inline R &&escape_string(R &&writer, ostd::string_range str) {
         writer.put('"');
         for (; !str.empty(); str.pop_front()) {
             switch (str.front()) {
                 case '\n':
-                    ret += ostd::range_put_n(writer, "^n", 2);
+                    writer = ostd::copy(ostd::string_range{"^n"}, writer);
                     break;
                 case '\t':
-                    ret += ostd::range_put_n(writer, "^t", 2);
+                    writer = ostd::copy(ostd::string_range{"^t"}, writer);
                     break;
                 case '\f':
-                    ret += ostd::range_put_n(writer, "^f", 2);
+                    writer = ostd::copy(ostd::string_range{"^f"}, writer);
                     break;
                 case '"':
-                    ret += ostd::range_put_n(writer, "^\"", 2);
+                    writer = ostd::copy(ostd::string_range{"^\""}, writer);
                     break;
                 case '^':
-                    ret += ostd::range_put_n(writer, "^^", 2);
+                    writer = ostd::copy(ostd::string_range{"^^"}, writer);
                     break;
                 default:
-                    ret += writer.put(str.front());
+                    writer.put(str.front());
                     break;
             }
         }
         writer.put('"');
-        return ret;
+        return std::forward<R>(writer);
     }
 
     template<typename R>
-    inline size_t unescape_string(R &&writer, ostd::string_range str) {
-        size_t ret = 0;
+    inline R &&unescape_string(R &&writer, ostd::string_range str) {
         for (; !str.empty(); str.pop_front()) {
             if (str.front() == '^') {
                 str.pop_front();
@@ -622,22 +620,22 @@ namespace util {
                 }
                 switch (str.front()) {
                     case 'n':
-                        ret += writer.put('\n');
+                        writer.put('\n');
                         break;
                     case 't':
-                        ret += writer.put('\r');
+                        writer.put('\r');
                         break;
                     case 'f':
-                        ret += writer.put('\f');
+                        writer.put('\f');
                         break;
                     case '"':
-                        ret += writer.put('"');
+                        writer.put('"');
                         break;
                     case '^':
-                        ret += writer.put('^');
+                        writer.put('^');
                         break;
                     default:
-                        ret += writer.put(str.front());
+                        writer.put(str.front());
                         break;
                 }
             } else if (str.front() == '\\') {
@@ -652,12 +650,12 @@ namespace util {
                     }
                     continue;
                 }
-                ret += writer.put('\\');
+                writer.put('\\');
             } else {
-                ret += writer.put(str.front());
+                writer.put(str.front());
             }
         }
-        return ret;
+        return std::forward<R>(writer);
     }
 
     OSTD_EXPORT ostd::string_range parse_string(
@@ -686,18 +684,17 @@ namespace util {
         size_t count();
 
         template<typename R>
-        size_t get_item(R &&writer) const {
+        R &&get_item(R &&writer) const {
             if (!p_quote.empty() && (*p_quote == '"')) {
                 return unescape_string(std::forward<R>(writer), p_item);
             } else {
-                return ostd::range_put_n(writer, p_item.data(), p_item.size());
+                writer = ostd::copy(p_item, std::move(writer));
+                return std::forward<R>(writer);
             }
         }
 
         cs_string get_item() const {
-            auto app = ostd::appender_range<cs_string>{};
-            get_item(app);
-            return std::move(app.get());
+            return std::move(get_item(ostd::appender<cs_string>()).get());
         }
 
         ostd::string_range &get_raw_item(bool quoted = false) {
@@ -720,18 +717,18 @@ private:
     };
 
     template<typename R>
-    inline std::size_t format_int(R &&writer, cs_int val) {
+    inline void format_int(R &&writer, cs_int val) {
         try {
-            return ostd::format(std::forward<R>(writer), IntFormat, val);
+            ostd::format(std::forward<R>(writer), IntFormat, val);
         } catch (ostd::format_error const &e) {
             throw cs_internal_error{e.what()};
         }
     }
 
     template<typename R>
-    inline std::size_t format_float(R &&writer, cs_float val) {
+    inline void format_float(R &&writer, cs_float val) {
         try {
-            return ostd::format(
+            ostd::format(
                 std::forward<R>(writer),
                 (val == cs_int(val)) ? RoundFloatFormat : FloatFormat, val
             );
@@ -741,36 +738,28 @@ private:
     }
 
     template<typename R>
-    inline size_t tvals_concat(
+    inline void tvals_concat(
         R &&writer, cs_value_r vals,
         ostd::string_range sep = ostd::string_range()
     ) {
-        size_t ret = 0;
         for (size_t i = 0; i < vals.size(); ++i) {
             switch (vals[i].get_type()) {
                 case cs_value_type::Int: {
-                    auto r = format_int(
+                    format_int(
                         std::forward<R>(writer), vals[i].get_int()
                     );
-                    if (r > 0) {
-                        ret += size_t(r);
-                    }
                     break;
                 }
                 case cs_value_type::Float: {
-                    auto r = format_float(
+                    format_float(
                         std::forward<R>(writer), vals[i].get_float()
                     );
-                    if (r > 0) {
-                        ret += size_t(r);
-                    }
                     break;
                 }
                 case cs_value_type::String:
                 case cs_value_type::Cstring:
                 case cs_value_type::Macro: {
-                    auto sv = vals[i].get_strr();
-                    ret += ostd::range_put_n(writer, sv.data(), sv.size());
+                    writer = ostd::copy(vals[i].get_strr(), writer);
                     break;
                 }
                 default:
@@ -779,19 +768,17 @@ private:
             if (i == (vals.size() - 1)) {
                 break;
             }
-            ret += ostd::range_put_n(writer, sep.data(), sep.size());
+            writer = ostd::copy(sep, writer);
         }
-        return ret;
     }
 
     template<typename R>
-    inline size_t print_stack(R &&writer, cs_stack_state const &st) {
-        size_t ret = 0;
+    inline void print_stack(R &&writer, cs_stack_state const &st) {
         auto nd = st.get();
         while (nd) {
             try {
-                ret += ostd::format(
-                    writer,
+                ostd::format(
+                    std::forward<R>(writer),
                     ((nd->index == 1) && st.gap())
                         ? "  ..%d) %s" : "  %d) %s",
                     nd->index, nd->id->get_name()
@@ -801,10 +788,9 @@ private:
             }
             nd = nd->next;
             if (nd) {
-                ret += writer.put('\n');
+                writer.put('\n');
             }
         }
-        return ret;
     }
 } /* namespace util */
 

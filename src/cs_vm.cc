@@ -119,11 +119,16 @@ ostd::string_range cs_error::save_msg(
         try {
             ostd::char_range r(cs.p_errbuf, cs.p_errbuf + sizeof(cs.p_errbuf));
             if (!gs->src_name.empty()) {
-                sz = ostd::format(r, "%s:%d: %s", gs->src_name, gs->current_line, msg);
+                sz = ostd::format(
+                    ostd::range_counter(r), "%s:%d: %s", gs->src_name,
+                    gs->current_line, msg
+                ).get_written();
             } else {
-                sz = ostd::format(r, "%d: %s", gs->current_line, msg);
+                sz = ostd::format(
+                    ostd::range_counter(r), "%d: %s", gs->current_line, msg
+                ).get_written();
             }
-        } catch (ostd::format_error const &e) {
+        } catch (...) {
             memcpy(cs.p_errbuf, msg.data(), msg.size());
             sz = msg.size();
         }
@@ -1824,7 +1829,12 @@ static bool cs_run_file(
 
     len = f.size();
     buf = std::make_unique<char[]>(len + 1);
-    if (!buf || f.get(buf.get(), len) != len) {
+    if (!buf) {
+        return false;
+    }
+    try {
+        f.get(buf.get(), len);
+    } catch (...) {
         return false;
     }
     buf[len] = '\0';
