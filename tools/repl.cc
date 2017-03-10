@@ -159,7 +159,7 @@ static inline cs_command *get_hint_cmd(cs_state &cs, ostd::string_range buf) {
 /* usage */
 
 void print_usage(ostd::string_range progname, bool err) {
-    auto &s = err ? ostd::err : ostd::out;
+    auto &s = err ? ostd::cerr : ostd::cout;
     s.writeln(
         "Usage: ", progname, " [options] [file]\n"
         "Options:\n"
@@ -194,7 +194,7 @@ static bool do_call(cs_state &cs, ostd::string_range line, bool file = false) {
     try {
         if (file) {
             if (!cs.run_file(line, ret)) {
-                ostd::err.writeln("cannot read file: ", line);
+                ostd::cerr.writeln("cannot read file: ", line);
             }
         } else {
             cs.run(line, ret);
@@ -216,7 +216,7 @@ static bool do_call(cs_state &cs, ostd::string_range line, bool file = false) {
         }
         ostd::writeln(!is_lnum ? "stdin: " : "stdin:", e.what());
         if (e.get_stack().get()) {
-            cscript::util::print_stack(ostd::out.iter(), e.get_stack());
+            cscript::util::print_stack(ostd::cout.iter(), e.get_stack());
             ostd::write('\n');
         }
         return false;
@@ -370,7 +370,7 @@ endargs:
             return 0;
         } else {
             std::string str;
-            for (char c = '\0'; (c = ostd::in.getchar()) != EOF;) {
+            for (char c = '\0'; (c = ostd::cin.get_char()) != EOF;) {
                 str += c;
             }
             do_call(gcs, str);

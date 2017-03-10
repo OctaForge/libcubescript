@@ -4,7 +4,7 @@ LIBCS_CXXFLAGS = \
 	-std=c++1z -Wall -Wextra -Wshadow -Wold-style-cast -Iinclude -Isrc -g \
 	-fvisibility=hidden -I$(OSTD_PATH)
 
-LIBCS_LDFLAGS = -shared
+LIBCS_LDFLAGS = $(OSTD_PATH)/libostd.a
 
 LIBCS_OBJ = \
 	src/cubescript.o \
@@ -29,8 +29,9 @@ $(LIBCS_LIB): $(LIBCS_OBJ)
 	ar rcs $(LIBCS_LIB) $(LIBCS_OBJ)
 
 repl: $(LIBCS_LIB) tools/repl.cc tools/linenoise.cc tools/linenoise.hh
-	$(CXX) $(CXXFLAGS) $(LIBCS_CXXFLAGS) $(LDFLAGS) \
-	-DCS_REPL_USE_LINENOISE tools/linenoise.cc tools/repl.cc -o repl $(LIBCS_LIB)
+	$(CXX) $(CXXFLAGS) $(LIBCS_CXXFLAGS) \
+	-DCS_REPL_USE_LINENOISE tools/linenoise.cc tools/repl.cc \
+    $(LDFLAGS) $(LIBCS_LDFLAGS) -o repl $(LIBCS_LIB)
 
 clean:
 	rm -f $(LIBCS_LIB) $(LIBCS_OBJ) repl
