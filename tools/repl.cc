@@ -132,7 +132,7 @@ static inline cs_command *get_hint_cmd(cs_state &cs, ostd::string_range buf) {
     ostd::string_range nextchars = "([;";
     auto lp = ostd::find_one_of(buf, nextchars);
     if (!lp.empty()) {
-        cs_command *cmd = get_hint_cmd(cs, buf + 1);
+        cs_command *cmd = get_hint_cmd(cs, buf.slice(1, buf.size()));
         if (cmd) {
             return cmd;
         }
@@ -210,7 +210,7 @@ static bool do_call(cs_state &cs, ostd::string_range line, bool file = false) {
                 terr.slice(0, &col[0] - &terr[0]),
                 [](auto c) { return !isdigit(c); }
             ).empty();
-            terr = col + 2;
+            terr = col.slice(2, col.size());
         }
         if (!file && ((terr == "missing \"]\"") || (terr == "missing \")\""))) {
             return true;

@@ -53,7 +53,7 @@ cs_int cs_parse_int(ostd::string_range input, ostd::string_range *end) {
     if (input.size() >= 2) {
         ostd::string_range pfx = input.slice(0, 2);
         if ((pfx == "0x") || (pfx == "0X")) {
-            input += 2;
+            input = input.slice(2, input.size());
             past = input;
             while (!past.empty() && isxdigit(*past)) {
                 ret = ret * 16 + p_hexd_to_int(*past);
@@ -61,7 +61,7 @@ cs_int cs_parse_int(ostd::string_range input, ostd::string_range *end) {
             }
             goto done;
         } else if ((pfx == "0b") || (pfx == "0B")) {
-            input += 2;
+            input = input.slice(2, input.size());
             past = input;
             while (!past.empty() && ((*past == '0') || (*past == '1'))) {
                 ret = ret * 2 + (*past - '0');
@@ -164,7 +164,7 @@ cs_float cs_parse_float(ostd::string_range input, ostd::string_range *end) {
     if (input.size() >= 2) {
         ostd::string_range pfx = input.slice(0, 2);
         if ((pfx == "0x") || (pfx == "0X")) {
-            input += 2;
+            input = input.slice(2, input.size());
             if (!parse_gen_float<true>(input, end, ret)) {
                 p_set_end(orig, end);
                 return ret;
@@ -232,7 +232,8 @@ end:
                 cs, "unfinished string '%s'", slice_until(orig, str)
             );
         }
-        return str + 1;
+        str.pop_front();
+        return str;
     }
 
     OSTD_EXPORT ostd::string_range parse_word(
@@ -257,13 +258,15 @@ end:
                     }
                     break;
                 case '[':
-                    str = parse_word(cs, str + 1);
+                    str.pop_front();
+                    str = parse_word(cs, str);
                     if (str.empty() || (*str != ']')) {
                         throw cs_error(cs, "missing \"]\"");
                     }
                     break;
                 case '(':
-                    str = parse_word(cs, str + 1);
+                    str.pop_front();
+                    str = parse_word(cs, str);
                     if (str.empty() || (*str != ')')) {
                         throw cs_error(cs, "missing \")\"");
                     }

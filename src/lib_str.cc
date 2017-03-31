@@ -194,7 +194,7 @@ void cs_init_lib_string(cs_state &cs) {
             if (!found.empty()) {
                 buf += s.slice(0, &found[0] - &s[0]);
                 buf += (i & 1) ? newval2 : newval;
-                s = found + oldval.size();
+                s = found.slice(oldval.size(), found.size());
             } else {
                 buf += s;
                 res.set_str(std::move(buf));
