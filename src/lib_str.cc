@@ -192,7 +192,7 @@ void cs_init_lib_string(cs_state &cs) {
                 }
             }
             if (!found.empty()) {
-                buf += ostd::slice_until(s, found);
+                buf += s.slice(0, &found[0] - &s[0]);
                 buf += (i & 1) ? newval2 : newval;
                 s = found + oldval.size();
             } else {

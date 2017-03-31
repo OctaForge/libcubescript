@@ -143,7 +143,7 @@ static inline cs_command *get_hint_cmd(cs_state &cs, ostd::string_range buf) {
     ostd::string_range spaces = " \t\r\n";
     ostd::string_range s = ostd::find_one_of(buf, spaces);
     if (!s.empty()) {
-        buf = ostd::slice_until(buf, s);
+        buf = buf.slice(0, &s[0] - &buf[0]);
     }
     if (!buf.empty()) {
         auto cmd = cs.get_ident(buf);
@@ -207,7 +207,8 @@ static bool do_call(cs_state &cs, ostd::string_range line, bool file = false) {
         bool is_lnum = false;
         if (!col.empty()) {
             is_lnum = ostd::find_if(
-                ostd::slice_until(terr, col), [](auto c) { return !isdigit(c); }
+                terr.slice(0, &col[0] - &terr[0]),
+                [](auto c) { return !isdigit(c); }
             ).empty();
             terr = col + 2;
         }

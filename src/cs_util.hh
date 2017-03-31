@@ -38,6 +38,12 @@ inline void cs_do_and_cleanup(F1 &&dof, F2 &&clf) {
     dof();
 }
 
+inline ostd::string_range slice_until(
+    ostd::string_range s1, ostd::string_range s2
+) {
+    return s1.slice(0, &s2[0] - &s1[0]);
+}
+
 } /* namespace cscript */
 
 #endif /* LIBCUBESCRIPT_CS_UTIL_HH */
