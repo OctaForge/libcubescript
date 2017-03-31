@@ -982,7 +982,7 @@ cs_command *cs_state::new_command(
                     return nullptr;
                 }
                 if (nargs < MaxArguments) {
-                    fmt.push_front_n(*fmt - '0' + 1);
+                    fmt = ostd::string_range{&fmt[-int(*fmt) + '0' - 1], &fmt[fmt.size()]}
                 }
                 break;
             case 'C':
