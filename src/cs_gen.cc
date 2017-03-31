@@ -1066,8 +1066,8 @@ static void compile_cmd(
             case '3':
             case '4':
                 if (more && (numargs < MaxArguments)) {
-                    int numrep = *fmt - '0' + 1;
-                    fmt -= numrep;
+                    int numrep = -int(*fmt) + '0' - 1;
+                    fmt = ostd::string_range{&fmt[numrep], &fmt[fmt.size()]};
                     rep = true;
                 } else {
                     while (numargs > MaxArguments) {

@@ -75,7 +75,7 @@ cs_int cs_parse_int(ostd::string_range input, ostd::string_range *end) {
         ++past;
     }
 done:
-    if (past.equals_front(input)) {
+    if (&past[0] == &input[0]) {
         p_set_end(orig, end);
     } else {
         p_set_end(past, end);

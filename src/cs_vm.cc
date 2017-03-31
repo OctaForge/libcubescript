@@ -451,7 +451,9 @@ static inline void callcommand(
             case '3':
             case '4':
                 if (i + 1 < numargs) {
-                    fmt -= *fmt - '0' + 1;
+                    fmt = ostd::string_range{
+                        &fmt[-int(*fmt) + '0' - 1], &fmt[fmt.size()]
+                    };
                     rep = true;
                 }
                 break;
