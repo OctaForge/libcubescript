@@ -12,7 +12,6 @@
 #include "cubescript_conf.hh"
 
 #include <ostd/platform.hh>
-#include <ostd/types.hh>
 #include <ostd/string.hh>
 #include <ostd/vector.hh>
 #include <ostd/range.hh>

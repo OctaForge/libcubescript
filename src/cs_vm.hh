@@ -181,7 +181,9 @@ struct cs_gen_state {
         if (word.size() <= 3 && !macro) {
             uint32_t op = CsCodeValInt | CsRetString;
             for (size_t i = 0; i < word.size(); ++i) {
-                op |= uint32_t(ostd::byte(word[i])) << ((i + 1) * 8);
+                op |= uint32_t(
+                    static_cast<unsigned char>(word[i])
+                ) << ((i + 1) * 8);
             }
             code.push_back(op);
             return;

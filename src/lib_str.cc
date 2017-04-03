@@ -45,7 +45,7 @@ void cs_init_lib_string(cs_state &cs) {
         if (i >= cs_int(str.size())) {
             res.set_int(0);
         } else {
-            res.set_int(ostd::byte(str[i]));
+            res.set_int(static_cast<unsigned char>(str[i]));
         }
     });
 
