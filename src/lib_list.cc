@@ -421,7 +421,7 @@ end:
     });
 
     gcs.new_command("prettylist", "ss", [](auto &cs, auto args, auto &res) {
-        auto buf = ostd::appender_range<cs_string>{};
+        auto buf = ostd::appender<cs_string>();
         ostd::string_range s = args[0].get_strr();
         ostd::string_range conj = args[1].get_strr();
         size_t len = util::ListParser(cs, s).count();

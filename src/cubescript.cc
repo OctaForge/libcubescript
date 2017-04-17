@@ -4,13 +4,13 @@
 namespace cscript {
 
 cs_string intstr(cs_int v) {
-    auto app = ostd::appender_range<cs_string>{};
+    auto app = ostd::appender<cs_string>();
     cscript::util::format_int(app, v);
     return std::move(app.get());
 }
 
 cs_string floatstr(cs_float v) {
-    auto app = ostd::appender_range<cs_string>{};
+    auto app = ostd::appender<cs_string>();
     cscript::util::format_float(app, v);
     return std::move(app.get());
 }
@@ -223,7 +223,7 @@ void cs_ivar::set_value(cs_int val) {
 
 cs_string cs_ivar::to_printable() const {
     cs_int i = p_storage;
-    auto app = ostd::appender_range<cs_string>{};
+    auto app = ostd::appender<cs_string>();
     try {
         if (!(get_flags() & CS_IDF_HEX) || (i < 0)) {
             format(app, IvarFormat, get_name(), i);
@@ -257,7 +257,7 @@ void cs_fvar::set_value(cs_float val) {
 
 cs_string cs_fvar::to_printable() const {
     cs_float f = p_storage;
-    auto app = ostd::appender_range<cs_string>{};
+    auto app = ostd::appender<cs_string>();
     try {
         format(
             app, (f == cs_int(f)) ? FvarRoundFormat : FvarFormat, get_name(), f
@@ -277,7 +277,7 @@ void cs_svar::set_value(cs_string val) {
 
 cs_string cs_svar::to_printable() const {
     ostd::string_range s = p_storage;
-    auto app = ostd::appender_range<cs_string>{};
+    auto app = ostd::appender<cs_string>();
     try {
         if (ostd::find(s, '"').empty()) {
             format(app, SvarFormat, get_name(), s);
@@ -1074,7 +1074,7 @@ void cs_init_lib_base(cs_state &gcs) {
         } catch (cs_error const &e) {
             result.set_str(cs_string{e.what()});
             if (e.get_stack().get()) {
-                auto app = ostd::appender_range<cs_string>{};
+                auto app = ostd::appender<cs_string>();
                 cscript::util::print_stack(app, e.get_stack());
                 tback.set_str(std::move(app.get()));
             }

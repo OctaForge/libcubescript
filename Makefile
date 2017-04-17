@@ -1,4 +1,4 @@
-OSTD_PATH = ../octastd
+OSTD_PATH = ../libostd
 
 LIBCS_CXXFLAGS = \
 	-std=c++1z -Wall -Wextra -Wshadow -Wold-style-cast -Iinclude -Isrc -g \

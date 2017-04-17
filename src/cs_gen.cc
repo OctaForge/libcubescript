@@ -19,7 +19,7 @@ ostd::string_range cs_gen_state::get_str() {
 
 cs_string cs_gen_state::get_str_dup(bool unescape) {
     auto str = get_str();
-    auto app = ostd::appender_range<cs_string>{};
+    auto app = ostd::appender<cs_string>();
     if (unescape) {
         util::unescape_string(app, str);
     } else {
@@ -208,7 +208,7 @@ static inline void compileunescapestr(cs_gen_state &gs, bool macro = false) {
     size_t bufs = (gs.code.capacity() - gs.code.size()) * sizeof(uint32_t);
     char *buf = new char[bufs + 1];
     auto writer = ostd::char_range(buf, buf + bufs);
-    size_t len = util::unescape_string(ostd::range_counter(writer), str).get_written();
+    size_t len = util::unescape_string(ostd::counting_sink(writer), str).get_written();
     memset(&buf[len], 0, sizeof(uint32_t) - len % sizeof(uint32_t));
     gs.code.back() |= len << 8;
     uint32_t *ubuf = reinterpret_cast<uint32_t *>(buf);

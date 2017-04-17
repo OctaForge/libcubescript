@@ -535,7 +535,7 @@ struct cs_error {
         try {
             char fbuf[512];
             auto ret = ostd::format(
-                ostd::range_counter(ostd::char_range(fbuf, fbuf + sizeof(fbuf))),
+                ostd::counting_sink(ostd::char_range(fbuf, fbuf + sizeof(fbuf))),
                 msg, std::forward<A>(args)...
             ).get_written();
             p_errmsg = save_msg(cs, ostd::char_range(fbuf, fbuf + ret));
