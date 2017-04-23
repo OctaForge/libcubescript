@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <vector>
 #include <optional>
 #include <functional>
 #include <type_traits>
@@ -13,7 +14,6 @@
 
 #include <ostd/platform.hh>
 #include <ostd/string.hh>
-#include <ostd/vector.hh>
 #include <ostd/range.hh>
 #include <ostd/io.hh>
 #include <ostd/format.hh>

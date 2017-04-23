@@ -5,8 +5,7 @@
 
 #include <cstdlib>
 #include <array>
-
-#include <ostd/vector.hh>
+#include <vector>
 
 #include "cs_util.hh"
 

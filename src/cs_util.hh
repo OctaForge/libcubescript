@@ -2,9 +2,9 @@
 #define LIBCUBESCRIPT_CS_UTIL_HH
 
 #include <type_traits>
+#include <unordered_map>
 
 #include <ostd/string.hh>
-#include <ostd/unordered_map.hh>
 
 namespace cscript {
 
