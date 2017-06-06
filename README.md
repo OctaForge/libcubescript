@@ -78,12 +78,12 @@ appropriate type extensions.
 
 ## Building and usage
 
-The only dependency is OctaSTD:
+The only dependency is libostd:
 
-https://git.octaforge.org/tools/octastd.git/  
-https://github.com/OctaForge/OctaSTD
+https://git.octaforge.org/tools/libostd.git/
+https://github.com/OctaForge/libostd
 
-If OctaSTD can work on your system, so can libcubescript.
+If libostd can work on your system, so can libcubescript.
 
 The supplied Makefile builds a static library on Unix-like OSes. Link this
 library together with your application and everything should just work. It also
