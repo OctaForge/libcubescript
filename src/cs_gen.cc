@@ -13,7 +13,7 @@ ostd::string_range cs_gen_state::get_str() {
     ostd::string_range beg = source;
     source = util::parse_string(cs, source, nl);
     current_line += nl - 1;
-    ostd::string_range ret = slice_until(beg, source);
+    ostd::string_range ret = beg.slice(0, &source[0] - &beg[0]);
     return ret.slice(1, ret.size() - 1);
 }
 
@@ -37,7 +37,7 @@ ostd::string_range cs_gen_state::read_macro_name() {
     for (; isalnum(c) || (c == '_'); c = current()) {
         next_char();
     }
-    return slice_until(op, source);
+    return op.slice(0, &source[0] - &op[0]);
 }
 
 char cs_gen_state::skip_until(ostd::string_range chars) {
@@ -95,7 +95,7 @@ void cs_gen_state::skip_comments() {
 ostd::string_range cs_gen_state::get_word() {
     auto beg = source;
     source = util::parse_word(cs, source);
-    return slice_until(beg, source);
+    return beg.slice(0, &source[0] - &beg[0]);
 }
 
 static inline int cs_ret_code(int type, int def = 0) {
@@ -497,9 +497,9 @@ static bool compileblockstr(cs_gen_state &gs, ostd::string_range str, bool macro
                 str.pop_front();
                 break;
             case '\"': {
-                ostd::string_range start = str;
+                auto start = str;
                 str = util::parse_string(gs.cs, str);
-                ostd::string_range strr = slice_until(start, str);
+                auto strr = start.slice(0, &str[0] - &start[0]);
                 memcpy(&buf[len], strr.data(), strr.size());
                 len += strr.size();
                 break;

@@ -229,7 +229,7 @@ end:
         nlines = nl;
         if (str.empty() || (*str != '\"')) {
             throw cs_error(
-                cs, "unfinished string '%s'", slice_until(orig, str)
+                cs, "unfinished string '%s'", orig.slice(0, &str[0] - &orig[0])
             );
         }
         str.pop_front();
@@ -306,7 +306,7 @@ end:
             case '"':
                 p_quote = p_input;
                 p_input = parse_string(p_state, p_input);
-                p_quote = slice_until(p_quote, p_input);
+                p_quote = p_quote.slice(0, &p_input[0] - &p_quote[0]);
                 p_item = p_quote.slice(1, p_quote.size() - 1);
                 break;
             case '(':
@@ -351,9 +351,9 @@ end:
                     }
                 }
 endblock:
-                p_item = slice_until(p_item, p_input);
+                p_item = p_item.slice(0, &p_input[0] - &p_item[0]);
                 p_item.pop_back();
-                p_quote = slice_until(p_quote, p_input);
+                p_quote = p_quote.slice(0, &p_input[0] - &p_quote[0]);
                 break;
             }
             case ')':
@@ -361,7 +361,7 @@ endblock:
                 return false;
             default: {
                 ostd::string_range e = parse_word(p_state, p_input);
-                p_quote = p_item = slice_until(p_input, e);
+                p_quote = p_item = p_input.slice(0, &e[0] - &p_input[0]);
                 p_input = e;
                 break;
             }
