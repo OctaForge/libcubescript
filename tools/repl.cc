@@ -28,7 +28,7 @@ static bool stdin_is_tty() {
 
 /* line editing support */
 
-static inline ostd::string_range get_complete_cmd(ostd::string_range buf) {
+inline ostd::string_range get_complete_cmd(ostd::string_range buf) {
     ostd::string_range not_allowed = "\"/;()[] \t\r\n\0";
     ostd::string_range found = ostd::find_one_of(buf, not_allowed);
     while (!found.empty()) {
@@ -39,7 +39,7 @@ static inline ostd::string_range get_complete_cmd(ostd::string_range buf) {
     return buf;
 }
 
-static inline ostd::string_range get_arg_type(char arg) {
+inline ostd::string_range get_arg_type(char arg) {
     switch (arg) {
         case 'i':
             return "int";
@@ -71,7 +71,7 @@ static inline ostd::string_range get_arg_type(char arg) {
     return "illegal";
 }
 
-static inline void fill_cmd_args(std::string &writer, ostd::string_range args) {
+inline void fill_cmd_args(std::string &writer, ostd::string_range args) {
     char variadic = '\0';
     int nrep = 0;
     if (!args.empty() && ((args.back() == 'V') || (args.back() == 'C'))) {
@@ -128,7 +128,7 @@ static inline void fill_cmd_args(std::string &writer, ostd::string_range args) {
     }
 }
 
-static inline cs_command *get_hint_cmd(cs_state &cs, ostd::string_range buf) {
+inline cs_command *get_hint_cmd(cs_state &cs, ostd::string_range buf) {
     ostd::string_range nextchars = "([;";
     auto lp = ostd::find_one_of(buf, nextchars);
     if (!lp.empty()) {
