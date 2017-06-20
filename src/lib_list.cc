@@ -1,6 +1,6 @@
 #include <functional>
 
-#include "cubescript/cubescript.hh"
+#include <cubescript/cubescript.hh>
 #include "cs_util.hh"
 
 namespace cscript {

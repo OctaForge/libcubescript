@@ -4,7 +4,7 @@
 #include <functional>
 #include <algorithm>
 
-#include "cubescript/cubescript.hh"
+#include <cubescript/cubescript.hh>
 
 namespace cscript {
 
