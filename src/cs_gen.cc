@@ -1267,6 +1267,7 @@ static void compilestatements(cs_gen_state &gs, int rettype, int brak, int preva
                     if (gs.current(2) != '/') {
                         break;
                     }
+                    [[fallthrough]];
                 case ';':
                 case ' ':
                 case '\t':

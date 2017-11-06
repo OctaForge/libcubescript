@@ -500,7 +500,7 @@ static inline void cs_call_alias(
                 static_cast<cs_alias *>(cs.p_state->identmap[i])
             );
         }
-        int argmask = aliaslink.usedargs & (~0 << callargs);
+        int argmask = aliaslink.usedargs & int(~0U << callargs);
         for (; argmask; ++callargs) {
             if (argmask & (1 << callargs)) {
                 cs_aliasInternal::pop_arg(static_cast<cs_alias *>(
