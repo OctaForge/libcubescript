@@ -280,7 +280,7 @@ end:
         return str;
     }
 
-    void ListParser::skip() {
+    void list_parser::skip() {
         for (;;) {
             while (!p_input.empty()) {
                 char c = *p_input;
@@ -297,7 +297,7 @@ end:
         }
     }
 
-    bool ListParser::parse() {
+    bool list_parser::parse() {
         skip();
         if (p_input.empty()) {
             return false;
@@ -373,7 +373,7 @@ endblock:
         return true;
     }
 
-    size_t ListParser::count() {
+    size_t list_parser::count() {
         size_t ret = 0;
         while (parse()) {
             ++ret;

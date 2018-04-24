@@ -673,9 +673,9 @@ namespace util {
         cs_state &cs, ostd::string_range str
     );
 
-    struct OSTD_EXPORT ListParser {
-        ListParser() = delete;
-        ListParser(cs_state &cs, ostd::string_range src):
+    struct OSTD_EXPORT list_parser {
+        list_parser() = delete;
+        list_parser(cs_state &cs, ostd::string_range src):
             p_state(cs), p_input(src)
         {}
 
