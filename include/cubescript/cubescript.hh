@@ -673,6 +673,8 @@ namespace util {
         cs_state &cs, ostd::string_range str
     );
 
+    struct list_range;
+
     struct OSTD_EXPORT list_parser {
         list_parser() = delete;
         list_parser(cs_state &cs, ostd::string_range src):
@@ -709,12 +711,51 @@ namespace util {
             return p_input;
         }
 
+        list_range iter() noexcept;
+
 private:
         ostd::string_range p_quote = ostd::string_range();
         ostd::string_range p_item = ostd::string_range();
         cs_state &p_state;
         ostd::string_range p_input;
     };
+
+    struct list_range: ostd::input_range<list_range> {
+        using range_category = ostd::forward_range_tag;
+        using value_type     = ostd::string_range;
+        using reference      = ostd::string_range;
+        using size_type      = std::size_t;
+
+        list_range() = delete;
+
+        list_range(list_parser &p) noexcept: p_parser(&p) {
+            pop_front();
+        }
+
+        bool empty() const noexcept {
+            return !bool(p_item);
+        }
+
+        void pop_front() noexcept {
+            if (p_parser->parse()) {
+                p_item = p_parser->get_item();
+            } else {
+                p_item.reset();
+            }
+        }
+
+        ostd::string_range front() const noexcept {
+            return *p_item;
+        }
+
+    private:
+        list_parser *p_parser;
+        std::optional<cs_string> p_item{};
+    };
+
+    inline list_range list_parser::iter() noexcept {
+        return list_range{*this};
+    }
 
     template<typename R>
     inline void format_int(R &&writer, cs_int val) {
