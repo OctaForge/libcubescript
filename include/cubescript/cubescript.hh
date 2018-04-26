@@ -352,6 +352,32 @@ struct OSTD_EXPORT cs_state {
     cs_state(cs_alloc_cb func = cs_default_alloc, void *data = nullptr);
     virtual ~cs_state();
 
+    cs_state(cs_state const &) = delete;
+    cs_state(cs_state &&s) {
+        swap(s);
+    }
+
+    cs_state &operator=(cs_state const &) = delete;
+    cs_state &operator=(cs_state &&s) {
+        swap(s);
+        s.destroy();
+        return *this;
+    }
+
+    void destroy();
+
+    void swap(cs_state &s) {
+        std::swap(p_state, s.p_state);
+        std::swap(p_callstack, s.p_callstack);
+        std::swap(identflags, s.identflags);
+        std::swap(p_pstate, s.p_pstate);
+        std::swap(p_inloop, s.p_inloop);
+        std::swap(p_owner, s.p_owner);
+        std::swap(p_callhook, s.p_callhook);
+    }
+
+    cs_state new_thread();
+
     cs_hook_cb set_call_hook(cs_hook_cb func);
     cs_hook_cb const &get_call_hook() const;
     cs_hook_cb &get_call_hook();
@@ -463,12 +489,15 @@ struct OSTD_EXPORT cs_state {
     virtual void print_var(cs_var *v);
 
 private:
+    OSTD_LOCAL cs_state(cs_shared_state *s);
+
     cs_ident *add_ident(cs_ident *id);
 
-    void *alloc(void *ptr, size_t olds, size_t news);
+    OSTD_LOCAL void *alloc(void *ptr, size_t olds, size_t news);
 
     cs_gen_state *p_pstate = nullptr;
     int p_inloop = 0;
+    bool p_owner = false;
 
     char p_errbuf[512];
 
