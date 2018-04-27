@@ -9,10 +9,10 @@
 namespace cscript {
 
 template<typename K, typename V>
-using CsMap = std::unordered_map<K, V>;
+using cs_map = std::unordered_map<K, V>;
 
 template<typename T>
-using CsVector = std::vector<T>;
+using cs_vector = std::vector<T>;
 
 cs_int cs_parse_int(
     ostd::string_range input, ostd::string_range *end = nullptr

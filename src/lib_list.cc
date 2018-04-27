@@ -6,24 +6,24 @@
 namespace cscript {
 
 template<typename T>
-struct CsArgVal;
+struct cs_arg_val;
 
 template<>
-struct CsArgVal<cs_int> {
+struct cs_arg_val<cs_int> {
     static cs_int get(cs_value &tv) {
         return tv.get_int();
     }
 };
 
 template<>
-struct CsArgVal<cs_float> {
+struct cs_arg_val<cs_float> {
     static cs_float get(cs_value &tv) {
         return tv.get_float();
     }
 };
 
 template<>
-struct CsArgVal<ostd::string_range> {
+struct cs_arg_val<ostd::string_range> {
     static ostd::string_range get(cs_value &tv) {
         return tv.get_strr();
     }
@@ -34,7 +34,7 @@ static inline void cs_list_find(
     cs_state &cs, cs_value_r args, cs_value &res, F cmp
 ) {
     cs_int n = 0, skip = args[2].get_int();
-    T val = CsArgVal<T>::get(args[1]);
+    T val = cs_arg_val<T>::get(args[1]);
     for (util::list_parser p(cs, args[0].get_strr()); p.parse(); ++n) {
         if (cmp(p, val)) {
             res.set_int(n);
@@ -55,7 +55,7 @@ template<typename T, typename F>
 static inline void cs_list_assoc(
     cs_state &cs, cs_value_r args, cs_value &res, F cmp
 ) {
-    T val = CsArgVal<T>::get(args[1]);
+    T val = cs_arg_val<T>::get(args[1]);
     for (util::list_parser p(cs, args[0].get_strr()); p.parse();) {
         if (cmp(p, val)) {
             if (p.parse()) {
@@ -541,7 +541,7 @@ static void cs_list_sort(
 
     cs_alias *xa = static_cast<cs_alias *>(x), *ya = static_cast<cs_alias *>(y);
 
-    CsVector<ListSortItem> items;
+    cs_vector<ListSortItem> items;
     size_t total = 0;
 
     for (util::list_parser p(cs, list); p.parse();) {

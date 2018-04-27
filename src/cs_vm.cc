@@ -25,13 +25,13 @@ struct cs_cmd_internal {
 static inline void cs_push_alias(cs_ident *id, cs_ident_stack &st) {
     if (id->is_alias() && (id->get_index() >= MaxArguments)) {
         cs_value nv;
-        cs_aliasInternal::push_arg(static_cast<cs_alias *>(id), nv, st);
+        cs_alias_internal::push_arg(static_cast<cs_alias *>(id), nv, st);
     }
 }
 
 static inline void cs_pop_alias(cs_ident *id) {
     if (id->is_alias() && (id->get_index() >= MaxArguments)) {
-        cs_aliasInternal::pop_arg(static_cast<cs_alias *>(id));
+        cs_alias_internal::pop_arg(static_cast<cs_alias *>(id));
     }
 }
 
@@ -472,7 +472,7 @@ static inline void cs_call_alias(
     cs_ivar *anargs = static_cast<cs_ivar *>(cs.p_state->identmap[NumargsIdx]);
     cs_ident_stack argstack[MaxArguments];
     for(int i = 0; i < callargs; i++) {
-        cs_aliasInternal::push_arg(
+        cs_alias_internal::push_arg(
             static_cast<cs_alias *>(cs.p_state->identmap[i]),
             args[offset + i], argstack[i], false
         );
@@ -486,7 +486,7 @@ static inline void cs_call_alias(
     };
     cs.p_callstack = &aliaslink;
     uint32_t *codep = reinterpret_cast<uint32_t *>(
-        cs_aliasInternal::compile_code(a, cs)
+        cs_alias_internal::compile_code(a, cs)
     );
     bcode_incr(codep);
     cs_do_and_cleanup([&]() {
@@ -496,14 +496,14 @@ static inline void cs_call_alias(
         cs.p_callstack = aliaslink.next;
         cs.identflags = oldflags;
         for (int i = 0; i < callargs; i++) {
-            cs_aliasInternal::pop_arg(
+            cs_alias_internal::pop_arg(
                 static_cast<cs_alias *>(cs.p_state->identmap[i])
             );
         }
         int argmask = aliaslink.usedargs & int(~0U << callargs);
         for (; argmask; ++callargs) {
             if (argmask & (1 << callargs)) {
-                cs_aliasInternal::pop_arg(static_cast<cs_alias *>(
+                cs_alias_internal::pop_arg(static_cast<cs_alias *>(
                     cs.p_state->identmap[callargs])
                 );
                 argmask &= ~(1 << callargs);
@@ -970,7 +970,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 );
                 if (!cs_is_arg_used(cs, a)) {
                     cs_value nv;
-                    cs_aliasInternal::push_arg(
+                    cs_alias_internal::push_arg(
                         a, nv, cs.p_callstack->argstack[a->get_index()], false
                     );
                     cs.p_callstack->usedargs |= 1 << a->get_index();
@@ -990,7 +990,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 }
                 if ((id->get_index() < MaxArguments) && !cs_is_arg_used(cs, id)) {
                     cs_value nv;
-                    cs_aliasInternal::push_arg(
+                    cs_alias_internal::push_arg(
                         static_cast<cs_alias *>(id), nv,
                         cs.p_callstack->argstack[id->get_index()], false
                     );
@@ -1433,13 +1433,13 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
             }
 
             case CsCodeAlias:
-                cs_aliasInternal::set_alias(
+                cs_alias_internal::set_alias(
                     static_cast<cs_alias *>(cs.p_state->identmap[op >> 8]),
                     cs, args[--numargs]
                 );
                 continue;
             case CsCodeAliasArg:
-                cs_aliasInternal::set_arg(
+                cs_alias_internal::set_arg(
                     static_cast<cs_alias *>(cs.p_state->identmap[op >> 8]),
                     cs, args[--numargs]
                 );

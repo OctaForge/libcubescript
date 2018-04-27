@@ -94,8 +94,8 @@ enum {
 };
 
 struct cs_shared_state {
-    CsMap<ostd::string_range, cs_ident *> idents;
-    CsVector<cs_ident *> identmap;
+    cs_map<ostd::string_range, cs_ident *> idents;
+    cs_vector<cs_ident *> identmap;
     cs_alloc_cb allocf;
     void *aptr;
 
@@ -146,7 +146,7 @@ struct cs_gen_state {
     cs_state &cs;
     cs_gen_state *prevps;
     bool parsing = true;
-    CsVector<uint32_t> code;
+    cs_vector<uint32_t> code;
     ostd::string_range source;
     size_t current_line;
     ostd::string_range src_name;
@@ -316,7 +316,7 @@ static inline bool cs_is_arg_used(cs_state &cs, cs_ident *id) {
     return cs.p_callstack->usedargs & (1 << id->get_index());
 }
 
-struct cs_aliasInternal {
+struct cs_alias_internal {
     static void push_arg(
         cs_alias *a, cs_value &v, cs_ident_stack &st, bool um = true
     ) {
@@ -412,7 +412,7 @@ static void cs_do_args(cs_state &cs, F body) {
     int argmask1 = cs.p_callstack->usedargs;
     for (int i = 0; argmask1; argmask1 >>= 1, ++i) {
         if (argmask1 & 1) {
-            cs_aliasInternal::undo_arg(
+            cs_alias_internal::undo_arg(
                 static_cast<cs_alias *>(cs.p_state->identmap[i]), argstack[i]
             );
         }
@@ -432,7 +432,7 @@ static void cs_do_args(cs_state &cs, F body) {
         int argmask2 = cs.p_callstack->usedargs;
         for (int i = 0; argmask2; argmask2 >>= 1, ++i) {
             if (argmask2 & 1) {
-                cs_aliasInternal::redo_arg(
+                cs_alias_internal::redo_arg(
                     static_cast<cs_alias *>(cs.p_state->identmap[i]), argstack[i]
                 );
             }

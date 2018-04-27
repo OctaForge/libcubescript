@@ -12,10 +12,10 @@ static constexpr cs_float PI = 3.14159265358979f;
 static constexpr cs_float RAD = PI / 180.0f;
 
 template<typename T>
-struct CsMathVal;
+struct cs_math_val;
 
 template<>
-struct CsMathVal<cs_int> {
+struct cs_math_val<cs_int> {
     static cs_int get(cs_value &tv) {
         return tv.get_int();
     }
@@ -25,7 +25,7 @@ struct CsMathVal<cs_int> {
 };
 
 template<>
-struct CsMathVal<cs_float> {
+struct cs_math_val<cs_float> {
     static cs_float get(cs_value &tv) {
         return tv.get_float();
     }
@@ -35,7 +35,7 @@ struct CsMathVal<cs_float> {
 };
 
 template<typename T>
-struct CsMathNoop {
+struct cs_math_noop {
     T operator()(T arg) {
         return arg;
     }
@@ -48,26 +48,26 @@ static inline void cs_mathop(
 ) {
     T val;
     if (args.size() >= 2) {
-        val = binop(CsMathVal<T>::get(args[0]), CsMathVal<T>::get(args[1]));
+        val = binop(cs_math_val<T>::get(args[0]), cs_math_val<T>::get(args[1]));
         for (size_t i = 2; i < args.size(); ++i) {
-            val = binop(val, CsMathVal<T>::get(args[i]));
+            val = binop(val, cs_math_val<T>::get(args[i]));
         }
     } else {
-        val = unop(!args.empty() ? CsMathVal<T>::get(args[0]) : initval);
+        val = unop(!args.empty() ? cs_math_val<T>::get(args[0]) : initval);
     }
-    CsMathVal<T>::set(res, val);
+    cs_math_val<T>::set(res, val);
 }
 
 template<typename T, typename F>
 static inline void cs_cmpop(cs_value_r args, cs_value &res, F cmp) {
     bool val;
     if (args.size() >= 2) {
-        val = cmp(CsMathVal<T>::get(args[0]), CsMathVal<T>::get(args[1]));
+        val = cmp(cs_math_val<T>::get(args[0]), cs_math_val<T>::get(args[1]));
         for (size_t i = 2; (i < args.size()) && val; ++i) {
-            val = cmp(CsMathVal<T>::get(args[i - 1]), CsMathVal<T>::get(args[i]));
+            val = cmp(cs_math_val<T>::get(args[i - 1]), cs_math_val<T>::get(args[i]));
         }
     } else {
-        val = cmp(!args.empty() ? CsMathVal<T>::get(args[0]) : T(0), T(0));
+        val = cmp(!args.empty() ? cs_math_val<T>::get(args[0]) : T(0), T(0));
     }
     res.set_int(cs_int(val));
 }
@@ -169,11 +169,11 @@ void cs_init_lib_math(cs_state &cs) {
     });
 
     cs.new_command("+", "i1V", [](auto &, auto args, auto &res) {
-        cs_mathop<cs_int>(args, res, 0, std::plus<cs_int>(), CsMathNoop<cs_int>());
+        cs_mathop<cs_int>(args, res, 0, std::plus<cs_int>(), cs_math_noop<cs_int>());
     });
     cs.new_command("*", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<cs_int>(
-            args, res, 1, std::multiplies<cs_int>(), CsMathNoop<cs_int>()
+            args, res, 1, std::multiplies<cs_int>(), cs_math_noop<cs_int>()
         );
     });
     cs.new_command("-", "i1V", [](auto &, auto args, auto &res) {
@@ -194,12 +194,12 @@ void cs_init_lib_math(cs_state &cs) {
     });
     cs.new_command("&", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<cs_int>(
-            args, res, 0, std::bit_and<cs_int>(), CsMathNoop<cs_int>()
+            args, res, 0, std::bit_and<cs_int>(), cs_math_noop<cs_int>()
         );
     });
     cs.new_command("|", "i1V", [](auto &, auto args, auto &res) {
         cs_mathop<cs_int>(
-            args, res, 0, std::bit_or<cs_int>(), CsMathNoop<cs_int>()
+            args, res, 0, std::bit_or<cs_int>(), cs_math_noop<cs_int>()
         );
     });
 
@@ -247,7 +247,7 @@ void cs_init_lib_math(cs_state &cs) {
                 return (val2 < cs_int(sizeof(cs_int) * CHAR_BIT))
                     ? (val1 << std::max(val2, cs_int(0)))
                     : 0;
-            }, CsMathNoop<cs_int>()
+            }, cs_math_noop<cs_int>()
         );
     });
     cs.new_command(">>", "i1V", [](auto &, auto args, auto &res) {
@@ -256,18 +256,18 @@ void cs_init_lib_math(cs_state &cs) {
                 return val1 >> std::clamp(
                     val2, cs_int(0), cs_int(sizeof(cs_int) * CHAR_BIT)
                 );
-            }, CsMathNoop<cs_int>()
+            }, cs_math_noop<cs_int>()
         );
     });
 
     cs.new_command("+f", "f1V", [](auto &, auto args, auto &res) {
         cs_mathop<cs_float>(
-            args, res, 0, std::plus<cs_float>(), CsMathNoop<cs_float>()
+            args, res, 0, std::plus<cs_float>(), cs_math_noop<cs_float>()
         );
     });
     cs.new_command("*f", "f1V", [](auto &, auto args, auto &res) {
         cs_mathop<cs_float>(
-            args, res, 1, std::multiplies<cs_float>(), CsMathNoop<cs_float>()
+            args, res, 1, std::multiplies<cs_float>(), cs_math_noop<cs_float>()
         );
     });
     cs.new_command("-f", "f1V", [](auto &, auto args, auto &res) {
@@ -283,7 +283,7 @@ void cs_init_lib_math(cs_state &cs) {
                     return val1 / val2;
                 }
                 return cs_int(0);
-            }, CsMathNoop<cs_int>()
+            }, cs_math_noop<cs_int>()
         );
     });
     cs.new_command("mod", "i1V", [](auto &, auto args, auto &res) {
@@ -293,7 +293,7 @@ void cs_init_lib_math(cs_state &cs) {
                     return val1 % val2;
                 }
                 return cs_int(0);
-            }, CsMathNoop<cs_int>()
+            }, cs_math_noop<cs_int>()
         );
     });
     cs.new_command("divf", "f1V", [](auto &, auto args, auto &res) {
@@ -303,7 +303,7 @@ void cs_init_lib_math(cs_state &cs) {
                     return val1 / val2;
                 }
                 return cs_float(0);
-            }, CsMathNoop<cs_float>()
+            }, cs_math_noop<cs_float>()
         );
     });
     cs.new_command("modf", "f1V", [](auto &, auto args, auto &res) {
@@ -313,7 +313,7 @@ void cs_init_lib_math(cs_state &cs) {
                     return cs_float(fmod(val1, val2));
                 }
                 return cs_float(0);
-            }, CsMathNoop<cs_float>()
+            }, cs_math_noop<cs_float>()
         );
     });
 
@@ -321,7 +321,7 @@ void cs_init_lib_math(cs_state &cs) {
         cs_mathop<cs_float>(
             args, res, 0, [](cs_float val1, cs_float val2) {
                 return cs_float(pow(val1, val2));
-            }, CsMathNoop<cs_float>()
+            }, cs_math_noop<cs_float>()
         );
     });
 

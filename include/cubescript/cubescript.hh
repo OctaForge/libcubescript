@@ -276,7 +276,7 @@ private:
 struct OSTD_EXPORT cs_alias: cs_ident {
     friend struct cs_state;
     friend struct cs_shared_state;
-    friend struct cs_aliasInternal;
+    friend struct cs_alias_internal;
 
     cs_value const &get_value() const {
         return p_val;

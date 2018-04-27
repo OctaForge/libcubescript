@@ -416,7 +416,7 @@ bool cs_stacked_value::push() {
     if (!p_a) {
         return false;
     }
-    cs_aliasInternal::push_arg(p_a, *this, p_stack);
+    cs_alias_internal::push_arg(p_a, *this, p_stack);
     p_pushed = true;
     return true;
 }
@@ -425,7 +425,7 @@ bool cs_stacked_value::pop() {
     if (!p_pushed || !p_a) {
         return false;
     }
-    cs_aliasInternal::pop_arg(p_a);
+    cs_alias_internal::pop_arg(p_a);
     p_pushed = false;
     return true;
 }

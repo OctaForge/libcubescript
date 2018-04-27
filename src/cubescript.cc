@@ -428,7 +428,7 @@ OSTD_EXPORT void cs_state::destroy() {
         cs_alias *a = i->get_alias();
         if (a) {
             a->get_value().force_null();
-            cs_aliasInternal::clean_code(a);
+            cs_alias_internal::clean_code(a);
         }
         p_state->destroy(i);
     }
@@ -468,7 +468,7 @@ OSTD_EXPORT void cs_state::clear_override(cs_ident &id) {
     switch (id.get_type()) {
         case cs_ident_type::Alias: {
             cs_alias &a = static_cast<cs_alias &>(id);
-            cs_aliasInternal::clean_code(&a);
+            cs_alias_internal::clean_code(&a);
             a.get_value().set_str("");
             break;
         }
@@ -624,9 +624,9 @@ OSTD_EXPORT void cs_state::set_alias(ostd::string_range name, cs_value v) {
             case cs_ident_type::Alias: {
                 cs_alias *a = static_cast<cs_alias *>(id);
                 if (a->get_index() < MaxArguments) {
-                    cs_aliasInternal::set_arg(a, *this, v);
+                    cs_alias_internal::set_arg(a, *this, v);
                 } else {
-                    cs_aliasInternal::set_alias(a, *this, v);
+                    cs_alias_internal::set_alias(a, *this, v);
                 }
                 return;
             }
@@ -1103,8 +1103,8 @@ void cs_init_lib_base(cs_state &gcs) {
             rc = false;
         }
         ret.set_int(rc);
-        cs_aliasInternal::set_alias(cret, cs, result);
-        cs_aliasInternal::set_alias(css, cs, tback);
+        cs_alias_internal::set_alias(cret, cs, result);
+        cs_alias_internal::set_alias(css, cs, tback);
     });
 
     gcs.new_command("?", "tTT", [](auto &, auto args, auto &res) {
