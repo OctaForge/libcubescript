@@ -54,27 +54,19 @@ project is a part of the larger OctaForge umbrella.
 
 ## Threads and coroutines
 
-*(I've just begun working on this, so many things do not apply yet)*
+*(In progress)*
 
-Libcubescript aims to provide a degree of thread safety by introducing a concept
-of threads itself. A `CsState` essentially represents a thread - it contains a
-pointer to CubeScript global state plus any sort of local state and a call/alias
-stack. The main thread (i.e. the state created without any arguments) also owns
-the globals; child states (threads) merely point to them.
+Libcubescript supports integration with coroutines and threads by providing a
+concept of threads itself. You can create a thread (child state) using the
+main state and it will share global data with the main state, but it also
+has its own call stack.
 
-Thus, by creating a child state (thread) you get access to all globals (which
-is thread safe in the implementation) but you also get your own call/alias stack,
-error buffer and other things that would otherwise be unsafe to access. Thus,
-if you need to call into a single CubeScript from multiple threads, you simply
-create a main state within your main program thread and a child state per each
-spawned thread you want to use CubeScript from. Since they're isolated, there
-is no problem - and libcubescript can remain almost entirely lockless.
+The "global" state is thread safe, allowing concurrent access from multiple
+threads. The "local" state can be yielded as a part of the coroutine without
+affecting any other threads.
 
-Coroutines are a related concept in this case. We will reuse CubeScript threads
-for them - merely extending them with a way to save the current execution state
-and restore it later. The language itself (or rather, its standard library) will
-be extended with new commands to resume and yield coroutines, as well as the
-appropriate type extensions.
+This functionality is not exposed into the language itself, but it can be
+utilized in the outside native code.
 
 ## Building and usage
 
