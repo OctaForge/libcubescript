@@ -31,5 +31,5 @@ pkg.generate(
     name: 'libcubescript',
     filebase: 'libcubescript',
     url: 'https://git.octaforge.org/octaforge/libcubescript',
-    description: 'OctaForge C++ utility library'
+    description: 'An embeddable version of the CubeScript language'
 )
