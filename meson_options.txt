@@ -1,0 +1,11 @@
+option('readline',
+    type: 'boolean',
+    value: false,
+    description: 'Use GNU readline for the REPL'
+)
+
+option('linenoise',
+    type: 'boolean',
+    value: true,
+    description: 'Use linenoise for the REPL'
+)

@@ -1,0 +1,4 @@
+[wrap-git]
+directory = libostd
+url = https://git.octaforge.org/OctaForge/libostd.git
+revision = head

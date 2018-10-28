@@ -1,3 +1,4 @@
+subprojects/libostd
 *.o
 *.core
 *.so
