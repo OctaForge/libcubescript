@@ -350,7 +350,7 @@ static void freeCompletions(linenoiseCompletions *lc) {
 static int completeLine(struct linenoiseState *ls) {
     linenoiseCompletions lc = { 0, NULL };
     int nread, nwritten;
-    char c = 0;
+    signed char c = 0;
 
     completionCallback(ls->buf,&lc);
     if (lc.len == 0) {
@@ -793,9 +793,9 @@ static int linenoiseEdit(int stdin_fd, int stdout_fd, char *buf, size_t buflen, 
 
     if (write(l.ofd,prompt,l.plen) == -1) return -1;
     while(1) {
-        char c;
+        signed char c;
         int nread;
-        char seq[3];
+        signed char seq[3];
 
         nread = read(l.ifd,&c,1);
         if (nread <= 0) return l.len;

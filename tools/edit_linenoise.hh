@@ -72,7 +72,7 @@ inline std::optional<std::string> read_line(cs_state &, cs_svar *pr) {
     }
     std::string ret = line;
     linenoiseFree(line);
-    return std::move(ret);
+    return ret;
 }
 
 inline void add_history(cs_state &, ostd::string_range line) {

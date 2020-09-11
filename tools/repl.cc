@@ -371,7 +371,7 @@ endargs:
             return 0;
         } else {
             std::string str;
-            for (char c = '\0'; (c = ostd::cin.get_char()) != EOF;) {
+            for (signed char c = '\0'; (c = ostd::cin.get_char()) != EOF;) {
                 str += c;
             }
             do_call(gcs, str);
