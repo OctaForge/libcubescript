@@ -2,3 +2,6 @@ subprojects/libostd
 *.o
 *.core
 *.so
+build/
+.idea/
+.vscode/

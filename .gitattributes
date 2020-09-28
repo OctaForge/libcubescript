@@ -1,0 +1,12 @@
+*.py text eol=lf
+*.yml text eol=lf
+*.diff text eol=lf
+*.conf text eol=lf
+*.md text eol=lf
+*.cc text eol=lf
+*.hh text eol=lf
+*.txt text eol=lf
+*.build text eol=lf 
+*.gitattributes text eol=lf 
+*.gitignores text eol=lf 
+*.wrap text eol=lf 
