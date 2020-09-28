@@ -72,14 +72,23 @@ utilized in the outside native code.
 
 The only dependency is libostd:
 
-https://git.octaforge.org/tools/libostd.git/
+https://git.octaforge.org/OctaForge/libostd
+
 https://github.com/OctaForge/libostd
 
 If libostd can work on your system, so can libcubescript.
 
-The supplied Makefile builds a static library on Unix-like OSes. Link this
-library together with your application and everything should just work. It also
-builds the REPL.
+Libostd is built using Meson. Therefore, you need to install Meson and then
+you can compile it as usual. Typically, this will be something like
+
+~~~
+mkdir build && cd build
+meson ..
+meson compile
+~~~
+
+Link the libcubescript library together with your application and everything should just work.
+It also builds the REPL.
 
 The project also bundles the linenoise line editing library which has been modified
 to compile cleanly as C++ (with the same flags as libcubescript). It's used strictly
