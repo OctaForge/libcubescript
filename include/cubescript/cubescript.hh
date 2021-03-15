@@ -41,6 +41,8 @@ enum {
 };
 
 struct cs_bcode;
+struct cs_value;
+struct cs_shared_state;
 
 struct OSTD_EXPORT cs_bcode_ref {
     cs_bcode_ref():
@@ -67,6 +69,28 @@ private:
 };
 
 OSTD_EXPORT bool cs_code_is_empty(cs_bcode *code);
+
+struct OSTD_EXPORT cs_strref {
+    friend struct cs_value;
+
+    cs_strref() = delete;
+    cs_strref(cs_shared_state &cs, ostd::string_range str);
+
+    cs_strref(cs_strref const &ref);
+
+    ~cs_strref();
+
+    cs_strref &operator=(cs_strref const &ref);
+
+    operator ostd::string_range() const;
+
+private:
+    /* for internal use only */
+    cs_strref(char const *p, cs_shared_state &cs);
+
+    char const *p_str;
+    cs_shared_state *p_state;
+};
 
 enum class cs_value_type {
     Null = 0, Int, Float, String, Cstring, Code, Macro, Ident
@@ -121,7 +145,6 @@ struct cs_ident_stack {
     cs_ident_stack *next;
 };
 
-struct cs_shared_state;
 struct cs_error;
 struct cs_gen_state;
 
@@ -342,6 +365,7 @@ static inline void *cs_default_alloc(void *, void *p, size_t, size_t ns) {
 
 struct OSTD_EXPORT cs_state {
     friend struct cs_error;
+    friend struct cs_strman;
     friend struct cs_gen_state;
 
     cs_shared_state *p_state;

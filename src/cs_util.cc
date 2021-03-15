@@ -1,5 +1,6 @@
 #include <cubescript/cubescript.hh>
 #include "cs_util.hh"
+#include "cs_vm.hh"
 
 #include <ctype.h>
 #include <math.h>
@@ -181,6 +182,85 @@ done:
         return -ret;
     }
     return ret;
+}
+
+/* string manager */
+
+inline cs_strref_state *get_ref_state(char const *ptr) {
+    return const_cast<cs_strref_state *>(
+        reinterpret_cast<cs_strref_state const *>(ptr)
+    ) - 1;
+}
+
+char const *cs_strman::add(ostd::string_range str) {
+    /* if it already exists, nothing will happen */
+    auto p = counts.try_emplace(str, nullptr);
+    /* already present: just increment ref */
+    if (!p.second) {
+        auto *st = p.first->second;
+        /* having a null pointer is the same as non-existence */
+        if (st) {
+            ++st->refcount;
+            return reinterpret_cast<char const *>(st + 1);
+        }
+    }
+    /* not present: allocate brand new data */
+    auto ss = str.size();
+    auto mem = cstate->alloc(nullptr, 0, ss + sizeof(cs_strref_state) + 1);
+    /*if (!mem) {
+        cstate->panic();
+    }*/
+    /* write length and refcount, store it */
+    auto *sst = static_cast<cs_strref_state *>(mem);
+    sst->length = ss;
+    sst->refcount = 1;
+    p.first->second = sst;
+    /* write string data */
+    auto *strp = reinterpret_cast<char *>(sst + 1);
+    memcpy(strp, str.data(), ss);
+    /* terminated for best compatibility */
+    strp[ss] = '\0';
+    return strp;
+}
+
+char const *cs_strman::ref(char const *ptr) {
+    auto *ss = get_ref_state(ptr);
+    ++ss->refcount;
+    return ptr;
+}
+
+void cs_strman::unref(char const *ptr) {
+    auto *ss = get_ref_state(ptr);
+    if (!--ss->refcount) {
+        /* refcount zero, so ditch it
+         * this path is a little slow...
+         */
+        auto sr = ostd::string_range{ptr, ptr + ss->length};
+        auto it = counts.find(sr);
+        if (it == counts.end()) {
+            /* internal error: this should *never* happen */
+            //cstate->panic();
+        }
+        /* dealloc */
+        cstate->alloc(ss, ss->length + sizeof(cs_strref_state) + 1, 0);
+        /* set to null, which is okay
+         * we keep the value around, in case the string ever reappears
+         */
+        it->second = nullptr;
+    }
+}
+
+char const *cs_strman::find(ostd::string_range str) const {
+    auto it = counts.find(str);
+    if (it == counts.end()) {
+        return nullptr;
+    }
+    return reinterpret_cast<char const *>(it->second + 1);
+}
+
+ostd::string_range cs_strman::get(char const *ptr) const {
+    auto *ss = get_ref_state(ptr);
+    return ostd::string_range{ptr, ptr + ss->length};
 }
 
 namespace util {

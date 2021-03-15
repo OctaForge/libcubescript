@@ -97,6 +97,7 @@ struct cs_shared_state {
     cs_map<ostd::string_range, cs_ident *> idents;
     cs_vector<cs_ident *> identmap;
     cs_alloc_cb allocf;
+    cs_strman *strman;
     void *aptr;
 
     void *alloc(void *ptr, size_t os, size_t ns) {

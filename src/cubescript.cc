@@ -315,6 +315,7 @@ cs_state::cs_state(cs_alloc_cb func, void *data):
     /* set up allocator, from now we can call into alloc() */
     p_state->allocf = func;
     p_state->aptr = data;
+    p_state->strman = p_state->create<cs_strman>(p_state);
 
     for (int i = 0; i < MaxArguments; ++i) {
         char buf[32];
@@ -432,6 +433,7 @@ OSTD_EXPORT void cs_state::destroy() {
         }
         p_state->destroy(i);
     }
+    p_state->destroy(p_state->strman);
     p_state->destroy(p_state);
 }
 
