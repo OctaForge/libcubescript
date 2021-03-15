@@ -1,6 +1,6 @@
 project('libcubescript', ['cpp'],
     version: '0.1.0',
-    default_options: ['buildtype=plain', 'cpp_std=c++17'],
+    default_options: ['buildtype=plain', 'cpp_std=c++2a'],
     meson_version: '>=0.46'
 )
 
