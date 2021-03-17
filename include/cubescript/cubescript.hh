@@ -322,7 +322,6 @@ struct OSTD_EXPORT cs_alias: cs_ident {
         return p_val;
     }
 
-    void get_cstr(cs_value &v) const;
     void get_cval(cs_value &v) const;
 private:
     cs_alias(cs_state &cs, ostd::string_range n, cs_string a, int flags);

@@ -659,23 +659,6 @@ OSTD_EXPORT void cs_state::print_var(cs_var *v) {
     ostd::writeln(v->to_printable());
 }
 
-void cs_alias::get_cstr(cs_value &v) const {
-    switch (p_val.get_type()) {
-        case cs_value_type::String:
-            v = p_val;
-            break;
-        case cs_value_type::Int:
-            v.set_str(intstr(p_val.get_int()));
-            break;
-        case cs_value_type::Float:
-            v.set_str(floatstr(p_val.get_float()));
-            break;
-        default:
-            v.set_str("");
-            break;
-    }
-}
-
 void cs_alias::get_cval(cs_value &v) const {
     switch (p_val.get_type()) {
         case cs_value_type::String:

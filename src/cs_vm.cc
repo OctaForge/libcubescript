@@ -457,7 +457,7 @@ static inline void callcommand(
                 auto buf = ostd::appender<cs_string>();
                 cscript::util::tvals_concat(buf, ostd::iter(args, args + i), " ");
                 cs_value tv{cs};
-                tv.set_str(std::move(buf.get()));
+                tv.set_str(buf.get());
                 cs_cmd_internal::call(cs, id, cs_value_r(&tv, &tv + 1), res);
                 return;
             }
@@ -792,7 +792,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
 
             case CsCodeVal | CsRetString: {
                 uint32_t len = op >> 8;
-                args[numargs++].set_str(cs_string{
+                args[numargs++].set_str(ostd::string_range{
                     reinterpret_cast<char const *>(code),
                     reinterpret_cast<char const *>(code) + len
                 });
@@ -845,7 +845,8 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 numargs++;
                 continue;
             case CsCodeDup | CsRetString:
-                args[numargs].set_str(args[numargs - 1].get_str());
+                args[numargs] = args[numargs - 1];
+                args[numargs].force_str();
                 numargs++;
                 continue;
 
@@ -1002,14 +1003,11 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 cs_value &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case CsIdAlias:
-                        arg.set_str(
-                            static_cast<cs_alias *>(id)->get_value().get_str()
-                        );
+                        arg = static_cast<cs_alias *>(id)->get_value();
+                        arg.force_str();
                         continue;
                     case CsIdSvar:
-                        arg.set_str(cs_string{
-                            static_cast<cs_svar *>(id)->get_value()
-                        });
+                        arg.set_str(static_cast<cs_svar *>(id)->get_value());
                         continue;
                     case CsIdIvar:
                         arg.set_str(
@@ -1029,16 +1027,16 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 }
             }
             case CsCodeLookup | CsRetString:
-                args[numargs++].set_str(
-                    cs_get_lookup_id(cs, op)->get_value().get_str()
-                );
+                args[numargs] = cs_get_lookup_id(cs, op)->get_value();
+                args[numargs++].force_str();
                 continue;
             case CsCodeLookupArg | CsRetString: {
                 cs_alias *a = cs_get_lookuparg_id(cs, op);
                 if (!a) {
                     args[numargs++].set_str("");
                 } else {
-                    args[numargs++].set_str(a->get_value().get_str());
+                    args[numargs] = a->get_value();
+                    args[numargs++].force_str();
                 }
                 continue;
             }
@@ -1138,9 +1136,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         static_cast<cs_alias *>(id)->get_value().get_val(arg);
                         continue;
                     case CsIdSvar:
-                        arg.set_str(cs_string{
-                            static_cast<cs_svar *>(id)->get_value()
-                        });
+                        arg.set_str(static_cast<cs_svar *>(id)->get_value());
                         continue;
                     case CsIdIvar:
                         arg.set_int(static_cast<cs_ivar *>(id)->get_value());
@@ -1175,7 +1171,8 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 cs_value &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
                     case CsIdAlias:
-                        static_cast<cs_alias *>(id)->get_cstr(arg);
+                        arg = static_cast<cs_alias *>(id)->get_value();
+                        arg.force_str();
                         continue;
                     case CsIdSvar:
                         arg.set_str(static_cast<cs_svar *>(id)->get_value());
@@ -1198,14 +1195,16 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 }
             }
             case CsCodeLookupM | CsRetString:
-                cs_get_lookup_id(cs, op)->get_cstr(args[numargs++]);
+                args[numargs] = cs_get_lookup_id(cs, op)->get_value();
+                args[numargs++].force_str();
                 continue;
             case CsCodeLookupMarg | CsRetString: {
                 cs_alias *a = cs_get_lookuparg_id(cs, op);
                 if (!a) {
                     args[numargs++].set_str("");
                 } else {
-                    a->get_cstr(args[numargs++]);
+                    args[numargs] = a->get_value();
+                    args[numargs++].force_str();
                 }
                 continue;
             }
@@ -1247,9 +1246,9 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
 
             case CsCodeSvar | CsRetString:
             case CsCodeSvar | CsRetNull:
-                args[numargs++].set_str(cs_string{static_cast<cs_svar *>(
+                args[numargs++].set_str(static_cast<cs_svar *>(
                     cs.p_state->identmap[op >> 8]
-                )->get_value()});
+                )->get_value());
                 continue;
             case CsCodeSvar | CsRetInt:
                 args[numargs++].set_int(cs_parse_int(static_cast<cs_svar *>(
@@ -1380,7 +1379,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         &args[offset], &args[offset + callargs]
                     ), " ");
                     cs_value tv{cs};
-                    tv.set_str(std::move(buf.get()));
+                    tv.set_str(buf.get());
                     cs_cmd_internal::call(cs, id, cs_value_r(&tv, &tv + 1), result);
                 }
                 force_arg(result, op & CsCodeRetMask);
@@ -1403,7 +1402,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                     ((op & CsCodeOpMask) == CsCodeConc) ? " " : ""
                 );
                 numargs = numargs - numconc;
-                args[numargs].set_str(std::move(buf.get()));
+                args[numargs].set_str(buf.get());
                 force_arg(args[numargs], op & CsCodeRetMask);
                 numargs++;
                 continue;
@@ -1419,7 +1418,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                     buf, ostd::iter(&args[numargs - numconc], &args[numargs])
                 );
                 numargs = numargs - numconc;
-                result.set_str(std::move(buf.get()));
+                result.set_str(buf.get());
                 force_arg(result, op & CsCodeRetMask);
                 continue;
             }
