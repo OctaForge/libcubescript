@@ -193,11 +193,10 @@ inline cs_strref_state *get_ref_state(char const *ptr) {
 }
 
 char const *cs_strman::add(ostd::string_range str) {
-    /* if it already exists, nothing will happen */
-    auto p = counts.try_emplace(str, nullptr);
+    auto it = counts.find(str);
     /* already present: just increment ref */
-    if (!p.second) {
-        auto *st = p.first->second;
+    if (it != counts.end()) {
+        auto *st = it->second;
         /* having a null pointer is the same as non-existence */
         if (st) {
             ++st->refcount;
@@ -207,19 +206,20 @@ char const *cs_strman::add(ostd::string_range str) {
     /* not present: allocate brand new data */
     auto ss = str.size();
     auto mem = cstate->alloc(nullptr, 0, ss + sizeof(cs_strref_state) + 1);
-    /*if (!mem) {
-        cstate->panic();
-    }*/
-    /* write length and refcount, store it */
+    if (!mem) {
+        throw cs_internal_error{"allocation failed"};
+    }
+    /* write length and refcount */
     auto *sst = static_cast<cs_strref_state *>(mem);
     sst->length = ss;
     sst->refcount = 1;
-    p.first->second = sst;
     /* write string data */
     auto *strp = reinterpret_cast<char *>(sst + 1);
     memcpy(strp, str.data(), ss);
     /* terminated for best compatibility */
     strp[ss] = '\0';
+    /* store it */
+    counts.emplace(ostd::string_range{strp, strp + ss}, sst);
     return strp;
 }
 
@@ -239,14 +239,12 @@ void cs_strman::unref(char const *ptr) {
         auto it = counts.find(sr);
         if (it == counts.end()) {
             /* internal error: this should *never* happen */
-            //cstate->panic();
+            throw cs_internal_error{"no refcount"};
         }
+        /* we're freeing the key */
+        counts.erase(it);
         /* dealloc */
         cstate->alloc(ss, ss->length + sizeof(cs_strref_state) + 1, 0);
-        /* set to null, which is okay
-         * we keep the value around, in case the string ever reappears
-         */
-        it->second = nullptr;
     }
 }
 

@@ -20,7 +20,9 @@ template<typename T>
 static inline void csv_cleanup(cs_value_type tv, T &stor) {
     switch (tv) {
         case cs_value_type::String:
-            delete[] csv_get<char *>(stor);
+        case cs_value_type::Macro:
+        case cs_value_type::Cstring:
+            reinterpret_cast<cs_strref *>(&stor)->~cs_strref();
             break;
         case cs_value_type::Code: {
             uint32_t *bcode = csv_get<uint32_t *>(stor);
@@ -68,7 +70,11 @@ cs_value &cs_value::operator=(cs_value const &v) {
         case cs_value_type::String:
         case cs_value_type::Cstring:
         case cs_value_type::Macro:
-            set_str(cs_string{csv_get<char const *>(v.p_stor), v.p_len});
+            p_type = cs_value_type::String;
+            p_len = v.p_len;
+            new (&p_stor) cs_strref{
+                *reinterpret_cast<cs_strref const *>(&v.p_stor)
+            };
             break;
         case cs_value_type::Code:
             set_code(cs_copy_code(v.get_code()));
@@ -106,11 +112,11 @@ void cs_value::set_float(cs_float val) {
 
 void cs_value::set_str(cs_string val) {
     csv_cleanup(p_type, p_stor);
+    new (&p_stor) cs_strref{
+        *state(), ostd::string_range{&val[0], &val[val.size()]
+    }};
     p_type = cs_value_type::String;
     p_len = val.size();
-    char *buf = new char[p_len + 1];
-    memcpy(buf, val.data(), p_len + 1);
-    csv_get<char *>(p_stor) = buf;
 }
 
 void cs_value::set_null() {
@@ -126,9 +132,9 @@ void cs_value::set_code(cs_bcode *val) {
 
 void cs_value::set_cstr(ostd::string_range val) {
     csv_cleanup(p_type, p_stor);
+    new (&p_stor) cs_strref{*state(), val};
     p_type = cs_value_type::Cstring;
     p_len = val.size();
-    csv_get<char const *>(p_stor) = val.data();
 }
 
 void cs_value::set_ident(cs_ident *val) {
@@ -139,9 +145,9 @@ void cs_value::set_ident(cs_ident *val) {
 
 void cs_value::set_macro(ostd::string_range val) {
     csv_cleanup(p_type, p_stor);
+    new (&p_stor) cs_strref{*state(), val};
     p_type = cs_value_type::Macro;
     p_len = val.size();
-    csv_get<char const *>(p_stor) = val.data();
 }
 
 void cs_value::force_null() {
@@ -316,9 +322,7 @@ void cs_value::get_val(cs_value &r) const {
         case cs_value_type::String:
         case cs_value_type::Macro:
         case cs_value_type::Cstring:
-            r.set_str(
-                cs_string{csv_get<char const *>(p_stor), p_len}
-            );
+            r = *this;
             break;
         case cs_value_type::Int:
             r.set_int(csv_get<cs_int>(p_stor));
