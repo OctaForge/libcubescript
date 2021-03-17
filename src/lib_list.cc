@@ -524,8 +524,8 @@ struct ListSortFun {
     cs_bcode *body;
 
     bool operator()(ListSortItem const &xval, ListSortItem const &yval) {
-        xv.set_cstr(xval.str);
-        yv.set_cstr(yval.str);
+        xv.set_str(xval.str);
+        yv.set_str(yval.str);
         xv.push();
         yv.push();
         return cs.run_bool(body);

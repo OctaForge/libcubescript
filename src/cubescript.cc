@@ -352,7 +352,7 @@ cs_state::cs_state(cs_alloc_cb func, void *data):
         cs.run((args[0].get_bool() ? args[1] : args[2]).get_code(), res);
     })->p_type = CsIdIf;
 
-    new_command("result", "T", [](auto &, auto args, auto &res) {
+    new_command("result", "t", [](auto &, auto args, auto &res) {
         res = std::move(args[0]);
     })->p_type = CsIdResult;
 
@@ -532,8 +532,6 @@ OSTD_EXPORT cs_ident *cs_state::force_ident(cs_value &v) {
     switch (v.get_type()) {
         case cs_value_type::Ident:
             return v.get_ident();
-        case cs_value_type::Macro:
-        case cs_value_type::Cstring:
         case cs_value_type::String: {
             cs_ident *id = new_ident(v.get_strr());
             v.set_ident(id);
@@ -663,12 +661,8 @@ OSTD_EXPORT void cs_state::print_var(cs_var *v) {
 
 void cs_alias::get_cstr(cs_value &v) const {
     switch (p_val.get_type()) {
-        case cs_value_type::Macro:
-            v.set_macro(p_val.get_strr());
-            break;
         case cs_value_type::String:
-        case cs_value_type::Cstring:
-            v.set_cstr(p_val.get_strr());
+            v = p_val;
             break;
         case cs_value_type::Int:
             v.set_str(intstr(p_val.get_int()));
@@ -677,19 +671,15 @@ void cs_alias::get_cstr(cs_value &v) const {
             v.set_str(floatstr(p_val.get_float()));
             break;
         default:
-            v.set_cstr("");
+            v.set_str("");
             break;
     }
 }
 
 void cs_alias::get_cval(cs_value &v) const {
     switch (p_val.get_type()) {
-        case cs_value_type::Macro:
-            v.set_macro(p_val.get_strr());
-            break;
         case cs_value_type::String:
-        case cs_value_type::Cstring:
-            v.set_cstr(p_val.get_strr());
+            v = p_val;
             break;
         case cs_value_type::Int:
             v.set_int(p_val.get_int());
@@ -989,7 +979,6 @@ OSTD_EXPORT cs_command *cs_state::new_command(
             case 'T':
             case 'E':
             case 'N':
-            case 'S':
             case 's':
             case 'e':
             case 'r':
@@ -1112,11 +1101,11 @@ void cs_init_lib_base(cs_state &gcs) {
         cs_alias_internal::set_alias(css, cs, tback);
     });
 
-    gcs.new_command("?", "tTT", [](auto &, auto args, auto &res) {
+    gcs.new_command("?", "ttt", [](auto &, auto args, auto &res) {
         if (args[0].get_bool()) {
-            res = std::move(args[1]);
+            res = args[1];
         } else {
-            res = std::move(args[2]);
+            res = args[2];
         }
     });
 
@@ -1173,13 +1162,13 @@ void cs_init_lib_base(cs_state &gcs) {
         }
     });
 
-    gcs.new_command("pushif", "rTe", [](auto &cs, auto args, auto &res) {
+    gcs.new_command("pushif", "rte", [](auto &cs, auto args, auto &res) {
         cs_stacked_value idv{cs, args[0].get_ident()};
         if (!idv.has_alias() || (idv.get_alias()->get_index() < MaxArguments)) {
             return;
         }
         if (args[1].get_bool()) {
-            idv = std::move(args[1]);
+            idv = args[1];
             idv.push();
             cs.run(args[2].get_code(), res);
         }
@@ -1317,12 +1306,12 @@ end:
         );
     });
 
-    gcs.new_command("push", "rTe", [](auto &cs, auto args, auto &res) {
+    gcs.new_command("push", "rte", [](auto &cs, auto args, auto &res) {
         cs_stacked_value idv{cs, args[0].get_ident()};
         if (!idv.has_alias() || (idv.get_alias()->get_index() < MaxArguments)) {
             return;
         }
-        idv = std::move(args[1]);
+        idv = args[1];
         idv.push();
         cs.run(args[2].get_code(), res);
     });
@@ -1331,8 +1320,8 @@ end:
         cs.reset_var(args[0].get_strr());
     });
 
-    gcs.new_command("alias", "sT", [](auto &cs, auto args, auto &) {
-        cs.set_alias(args[0].get_strr(), std::move(args[1]));
+    gcs.new_command("alias", "st", [](auto &cs, auto args, auto &) {
+        cs.set_alias(args[0].get_strr(), args[1]);
     });
 
     gcs.new_command("getvarmin", "s", [](auto &cs, auto args, auto &res) {

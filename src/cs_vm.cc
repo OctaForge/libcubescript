@@ -252,8 +252,6 @@ static inline uint32_t *forcecode(cs_state &cs, cs_value &v) {
 static inline void forcecond(cs_state &cs, cs_value &v) {
     switch (v.get_type()) {
         case cs_value_type::String:
-        case cs_value_type::Macro:
-        case cs_value_type::Cstring:
             if (!v.get_strr().empty()) {
                 forcecode(cs, v);
             } else {
@@ -297,7 +295,6 @@ static uint32_t *skipcode(uint32_t *code) {
     for (;;) {
         uint32_t op = *code++;
         switch (op & 0xFF) {
-            case CsCodeMacro:
             case CsCodeVal | CsRetString: {
                 uint32_t len = op >> 8;
                 code += len / sizeof(uint32_t) + 1;
@@ -391,23 +388,12 @@ static inline void callcommand(
                     args[i].force_float();
                 }
                 break;
-            case 'S':
-                if (++i >= numargs) {
-                    if (rep) {
-                        break;
-                    }
-                    args[i].set_str("");
-                    fakeargs++;
-                } else {
-                    args[i].force_str();
-                }
-                break;
             case 's':
                 if (++i >= numargs) {
                     if (rep) {
                         break;
                     }
-                    args[i].set_cstr("");
+                    args[i].set_str("");
                     fakeargs++;
                 } else {
                     args[i].force_str();
@@ -583,11 +569,7 @@ static inline cs_alias *cs_get_lookuparg_id(cs_state &cs, uint32_t op) {
 static inline int cs_get_lookupu_type(
     cs_state &cs, cs_value &arg, cs_ident *&id, uint32_t op
 ) {
-    if (
-        arg.get_type() != cs_value_type::String &&
-        arg.get_type() != cs_value_type::Macro &&
-        arg.get_type() != cs_value_type::Cstring
-    ) {
+    if (arg.get_type() != cs_value_type::String) {
         return -2; /* default case */
     }
     id = cs.get_ident(arg.get_strr());
@@ -808,16 +790,6 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 }
                 break;
 
-            case CsCodeMacro: {
-                uint32_t len = op >> 8;
-                args[numargs++].set_macro(ostd::string_range(
-                    reinterpret_cast<char const *>(code),
-                    reinterpret_cast<char const *>(code) + len
-                ));
-                code += len / sizeof(uint32_t) + 1;
-                continue;
-            }
-
             case CsCodeVal | CsRetString: {
                 uint32_t len = op >> 8;
                 args[numargs++].set_str(cs_string{
@@ -944,8 +916,6 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         gs.code.push_back(CsCodeExit);
                         break;
                     case cs_value_type::String:
-                    case cs_value_type::Macro:
-                    case cs_value_type::Cstring:
                         gs.code.reserve(64);
                         gs.gen_main(arg.get_strr());
                         break;
@@ -968,9 +938,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
             case CsCodeCond: {
                 cs_value &arg = args[numargs - 1];
                 switch (arg.get_type()) {
-                    case cs_value_type::String:
-                    case cs_value_type::Macro:
-                    case cs_value_type::Cstring: {
+                    case cs_value_type::String: {
                         ostd::string_range s = arg.get_strr();
                         if (!s.empty()) {
                             cs_gen_state gs(cs);
@@ -1014,11 +982,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
             case CsCodeIdentU: {
                 cs_value &arg = args[numargs - 1];
                 cs_ident *id = cs.p_state->identmap[DummyIdx];
-                if (
-                    arg.get_type() == cs_value_type::String ||
-                    arg.get_type() == cs_value_type::Macro ||
-                    arg.get_type() == cs_value_type::Cstring
-                ) {
+                if (arg.get_type() == cs_value_type::String) {
                     id = cs.new_ident(arg.get_strr());
                 }
                 if ((id->get_index() < MaxArguments) && !cs_is_arg_used(cs, id)) {
@@ -1214,7 +1178,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         static_cast<cs_alias *>(id)->get_cstr(arg);
                         continue;
                     case CsIdSvar:
-                        arg.set_cstr(static_cast<cs_svar *>(id)->get_value());
+                        arg.set_str(static_cast<cs_svar *>(id)->get_value());
                         continue;
                     case CsIdIvar:
                         arg.set_str(
@@ -1227,7 +1191,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         );
                         continue;
                     case CsIdUnknown:
-                        arg.set_cstr("");
+                        arg.set_str("");
                         continue;
                     default:
                         continue;
@@ -1239,7 +1203,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
             case CsCodeLookupMarg | CsRetString: {
                 cs_alias *a = cs_get_lookuparg_id(cs, op);
                 if (!a) {
-                    args[numargs++].set_cstr("");
+                    args[numargs++].set_str("");
                 } else {
                     a->get_cstr(args[numargs++]);
                 }
@@ -1253,7 +1217,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         static_cast<cs_alias *>(id)->get_cval(arg);
                         continue;
                     case CsIdSvar:
-                        arg.set_cstr(static_cast<cs_svar *>(id)->get_value());
+                        arg.set_str(static_cast<cs_svar *>(id)->get_value());
                         continue;
                     case CsIdIvar:
                         arg.set_int(static_cast<cs_ivar *>(id)->get_value());
@@ -1296,11 +1260,6 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 args[numargs++].set_float(cs_parse_float(static_cast<cs_svar *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value()));
-                continue;
-            case CsCodeSvarM:
-                args[numargs++].set_cstr(static_cast<cs_svar *>(
-                    cs.p_state->identmap[op >> 8]
-                )->get_value());
                 continue;
             case CsCodeSvar1:
                 cs.set_var_str_checked(
@@ -1528,11 +1487,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
             case CsCodeCallU | CsRetInt: {
                 int callargs = op >> 8, offset = numargs - callargs;
                 cs_value &idarg = args[offset - 1];
-                if (
-                    idarg.get_type() != cs_value_type::String &&
-                    idarg.get_type() != cs_value_type::Macro &&
-                    idarg.get_type() != cs_value_type::Cstring
-                ) {
+                if (idarg.get_type() != cs_value_type::String) {
 litval:
                     result = std::move(idarg);
                     force_arg(result, op & CsCodeRetMask);

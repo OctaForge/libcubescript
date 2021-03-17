@@ -94,7 +94,7 @@ private:
 };
 
 enum class cs_value_type {
-    Null = 0, Int, Float, String, Cstring, Code, Macro, Ident
+    Null = 0, Int, Float, String, Code, Ident
 };
 
 struct OSTD_EXPORT cs_value {
@@ -105,21 +105,17 @@ struct OSTD_EXPORT cs_value {
     cs_value(cs_shared_state &);
 
     cs_value(cs_value const &);
-    cs_value(cs_value &&);
 
     cs_value &operator=(cs_value const &);
-    cs_value &operator=(cs_value &&);
 
     cs_value_type get_type() const;
 
     void set_int(cs_int val);
     void set_float(cs_float val);
-    void set_str(cs_string val);
+    void set_str(ostd::string_range val);
     void set_null();
     void set_code(cs_bcode *val);
-    void set_cstr(ostd::string_range val);
     void set_ident(cs_ident *val);
-    void set_macro(ostd::string_range val);
 
     cs_string get_str() const;
     ostd::string_range get_strr() const;
@@ -868,9 +864,7 @@ private:
                     );
                     break;
                 }
-                case cs_value_type::String:
-                case cs_value_type::Cstring:
-                case cs_value_type::Macro: {
+                case cs_value_type::String: {
                     ostd::range_put_all(writer, vals[i].get_strr());
                     break;
                 }

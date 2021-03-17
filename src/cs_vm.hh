@@ -55,13 +55,11 @@ struct cs_valarray {
 
 enum {
     CsValNull = 0, CsValInt, CsValFloat, CsValString,
-    CsValAny, CsValCode, CsValMacro, CsValIdent, CsValCstring,
-    CsValCany, CsValWord, CsValPop, CsValCond
+    CsValAny, CsValCode, CsValIdent, CsValWord, CsValPop, CsValCond
 };
 
 static const int cs_valtypet[] = {
-    CsValNull, CsValInt, CsValFloat, CsValString,
-    CsValCstring, CsValCode, CsValMacro, CsValIdent
+    CsValNull, CsValInt, CsValFloat, CsValString, CsValCode, CsValIdent
 };
 
 static inline int cs_vtype_to_int(cs_value_type v) {
@@ -78,7 +76,6 @@ enum {
     CsCodeExit, CsCodeResultArg,
     CsCodeVal, CsCodeValInt,
     CsCodeDup,
-    CsCodeMacro,
     CsCodeBool,
     CsCodeBlock, CsCodeEmpty,
     CsCodeCompile, CsCodeCond,
@@ -87,7 +84,7 @@ enum {
     CsCodeIdent, CsCodeIdentU, CsCodeIdentArg,
     CsCodeCom, CsCodeComC, CsCodeComV,
     CsCodeConc, CsCodeConcW, CsCodeConcM,
-    CsCodeSvar, CsCodeSvarM, CsCodeSvar1,
+    CsCodeSvar, CsCodeSvar1,
     CsCodeIvar, CsCodeIvar1, CsCodeIvar2, CsCodeIvar3,
     CsCodeFvar, CsCodeFvar1,
     CsCodeLookup, CsCodeLookupU, CsCodeLookupArg,
@@ -199,8 +196,8 @@ struct cs_gen_state {
 
     ostd::string_range get_word();
 
-    void gen_str(ostd::string_range word, bool macro = false) {
-        if (word.size() <= 3 && !macro) {
+    void gen_str(ostd::string_range word) {
+        if (word.size() <= 3) {
             uint32_t op = CsCodeValInt | CsRetString;
             for (size_t i = 0; i < word.size(); ++i) {
                 op |= uint32_t(
@@ -210,9 +207,7 @@ struct cs_gen_state {
             code.push_back(op);
             return;
         }
-        code.push_back(
-            (macro ? CsCodeMacro : (CsCodeVal | CsRetString)) | (word.size() << 8)
-        );
+        code.push_back(CsCodeVal | CsRetString | (word.size() << 8));
         auto it = reinterpret_cast<uint32_t const *>(word.data());
         code.insert(
             code.end(), it, it + (word.size() / sizeof(uint32_t))

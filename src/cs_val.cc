@@ -20,8 +20,6 @@ template<typename T>
 static inline void csv_cleanup(cs_value_type tv, T &stor) {
     switch (tv) {
         case cs_value_type::String:
-        case cs_value_type::Macro:
-        case cs_value_type::Cstring:
             reinterpret_cast<cs_strref *>(&stor)->~cs_strref();
             break;
         case cs_value_type::Code: {
@@ -52,10 +50,6 @@ cs_value::cs_value(cs_value const &v): cs_value(*v.state()) {
     *this = v;
 }
 
-cs_value::cs_value(cs_value &&v): cs_value(*v.state()) {
-    *this = std::move(v);
-}
-
 cs_value &cs_value::operator=(cs_value const &v) {
     csv_cleanup(p_type, p_stor);
     p_type = cs_value_type::Null;
@@ -68,8 +62,6 @@ cs_value &cs_value::operator=(cs_value const &v) {
             p_stor = v.p_stor;
             break;
         case cs_value_type::String:
-        case cs_value_type::Cstring:
-        case cs_value_type::Macro:
             p_type = cs_value_type::String;
             p_len = v.p_len;
             new (&p_stor) cs_strref{
@@ -82,15 +74,6 @@ cs_value &cs_value::operator=(cs_value const &v) {
         default:
             break;
     }
-    return *this;
-}
-
-cs_value &cs_value::operator=(cs_value &&v) {
-    csv_cleanup(p_type, p_stor);
-    p_stor = v.p_stor;
-    p_type = v.p_type;
-    p_len = v.p_len;
-    v.p_type = cs_value_type::Null;
     return *this;
 }
 
@@ -110,11 +93,9 @@ void cs_value::set_float(cs_float val) {
     csv_get<cs_float>(p_stor) = val;
 }
 
-void cs_value::set_str(cs_string val) {
+void cs_value::set_str(ostd::string_range val) {
     csv_cleanup(p_type, p_stor);
-    new (&p_stor) cs_strref{
-        *state(), ostd::string_range{&val[0], &val[val.size()]
-    }};
+    new (&p_stor) cs_strref{*state(), val};
     p_type = cs_value_type::String;
     p_len = val.size();
 }
@@ -130,24 +111,10 @@ void cs_value::set_code(cs_bcode *val) {
     csv_get<cs_bcode *>(p_stor) = val;
 }
 
-void cs_value::set_cstr(ostd::string_range val) {
-    csv_cleanup(p_type, p_stor);
-    new (&p_stor) cs_strref{*state(), val};
-    p_type = cs_value_type::Cstring;
-    p_len = val.size();
-}
-
 void cs_value::set_ident(cs_ident *val) {
     csv_cleanup(p_type, p_stor);
     p_type = cs_value_type::Ident;
     csv_get<cs_ident *>(p_stor) = val;
-}
-
-void cs_value::set_macro(ostd::string_range val) {
-    csv_cleanup(p_type, p_stor);
-    new (&p_stor) cs_strref{*state(), val};
-    p_type = cs_value_type::Macro;
-    p_len = val.size();
 }
 
 void cs_value::force_null() {
@@ -164,8 +131,6 @@ cs_float cs_value::force_float() {
             rf = csv_get<cs_int>(p_stor);
             break;
         case cs_value_type::String:
-        case cs_value_type::Macro:
-        case cs_value_type::Cstring:
             rf = cs_parse_float(ostd::string_range(
                 csv_get<char const *>(p_stor),
                 csv_get<char const *>(p_stor) + p_len
@@ -187,8 +152,6 @@ cs_int cs_value::force_int() {
             ri = csv_get<cs_float>(p_stor);
             break;
         case cs_value_type::String:
-        case cs_value_type::Macro:
-        case cs_value_type::Cstring:
             ri = cs_parse_int(ostd::string_range(
                 csv_get<char const *>(p_stor),
                 csv_get<char const *>(p_stor) + p_len
@@ -212,13 +175,6 @@ ostd::string_range cs_value::force_str() {
         case cs_value_type::Int:
             rs = intstr(csv_get<cs_int>(p_stor));
             break;
-        case cs_value_type::Macro:
-        case cs_value_type::Cstring:
-            rs = ostd::string_range(
-                csv_get<char const *>(p_stor),
-                csv_get<char const *>(p_stor) + p_len
-            );
-            break;
         case cs_value_type::String:
             return ostd::string_range(
                 csv_get<char const *>(p_stor),
@@ -241,8 +197,6 @@ cs_int cs_value::get_int() const {
         case cs_value_type::Int:
             return csv_get<cs_int>(p_stor);
         case cs_value_type::String:
-        case cs_value_type::Macro:
-        case cs_value_type::Cstring:
             return cs_parse_int(ostd::string_range(
                 csv_get<char const *>(p_stor),
                 csv_get<char const *>(p_stor) + p_len
@@ -260,8 +214,6 @@ cs_float cs_value::get_float() const {
         case cs_value_type::Int:
             return cs_float(csv_get<cs_int>(p_stor));
         case cs_value_type::String:
-        case cs_value_type::Macro:
-        case cs_value_type::Cstring:
             return cs_parse_float(ostd::string_range(
                 csv_get<char const *>(p_stor),
                 csv_get<char const *>(p_stor) + p_len
@@ -289,8 +241,6 @@ cs_ident *cs_value::get_ident() const {
 cs_string cs_value::get_str() const {
     switch (get_type()) {
         case cs_value_type::String:
-        case cs_value_type::Macro:
-        case cs_value_type::Cstring:
             return cs_string{csv_get<char const *>(p_stor), p_len};
         case cs_value_type::Int:
             return intstr(csv_get<cs_int>(p_stor));
@@ -305,8 +255,6 @@ cs_string cs_value::get_str() const {
 ostd::string_range cs_value::get_strr() const {
     switch (get_type()) {
         case cs_value_type::String:
-        case cs_value_type::Macro:
-        case cs_value_type::Cstring:
             return ostd::string_range(
                 csv_get<char const *>(p_stor),
                 csv_get<char const *>(p_stor)+ p_len
@@ -320,8 +268,6 @@ ostd::string_range cs_value::get_strr() const {
 void cs_value::get_val(cs_value &r) const {
     switch (get_type()) {
         case cs_value_type::String:
-        case cs_value_type::Macro:
-        case cs_value_type::Cstring:
             r = *this;
             break;
         case cs_value_type::Int:
@@ -376,8 +322,6 @@ bool cs_value::get_bool() const {
         case cs_value_type::Int:
             return csv_get<cs_int>(p_stor) != 0;
         case cs_value_type::String:
-        case cs_value_type::Macro:
-        case cs_value_type::Cstring:
             return cs_get_bool(ostd::string_range(
                 csv_get<char const *>(p_stor),
                 csv_get<char const *>(p_stor) + p_len
