@@ -42,6 +42,7 @@ enum {
 
 struct cs_bcode;
 struct cs_value;
+struct cs_state;
 struct cs_shared_state;
 
 struct OSTD_EXPORT cs_bcode_ref {
@@ -88,8 +89,8 @@ private:
     /* for internal use only */
     cs_strref(char const *p, cs_shared_state &cs);
 
-    char const *p_str;
     cs_shared_state *p_state;
+    char const *p_str;
 };
 
 enum class cs_value_type {
@@ -97,14 +98,17 @@ enum class cs_value_type {
 };
 
 struct OSTD_EXPORT cs_value {
-    cs_value();
+    cs_value() = delete;
     ~cs_value();
+
+    cs_value(cs_state &);
+    cs_value(cs_shared_state &);
 
     cs_value(cs_value const &);
     cs_value(cs_value &&);
 
-    cs_value &operator=(cs_value const &v);
-    cs_value &operator=(cs_value &&v);
+    cs_value &operator=(cs_value const &);
+    cs_value &operator=(cs_value &&);
 
     cs_value_type get_type() const;
 
@@ -135,7 +139,22 @@ struct OSTD_EXPORT cs_value {
     bool code_is_empty() const;
 
 private:
-    std::aligned_union_t<1, cs_int, cs_float, void *> p_stor;
+    template<typename T>
+    struct stor_t {
+        cs_shared_state *state;
+        T val;
+    };
+
+    cs_shared_state *state() const {
+        return reinterpret_cast<stor_t<void *> const *>(&p_stor)->state;
+    }
+
+    std::aligned_union_t<1,
+        stor_t<cs_int>,
+        stor_t<cs_float>,
+        stor_t<void *>,
+        cs_strref
+    > p_stor;
     size_t p_len;
     cs_value_type p_type;
 };
@@ -143,6 +162,8 @@ private:
 struct cs_ident_stack {
     cs_value val_s;
     cs_ident_stack *next;
+
+    cs_ident_stack(cs_state &cs): val_s{cs}, next{nullptr} {}
 };
 
 struct cs_error;
@@ -308,11 +329,11 @@ struct OSTD_EXPORT cs_alias: cs_ident {
     void get_cstr(cs_value &v) const;
     void get_cval(cs_value &v) const;
 private:
-    cs_alias(ostd::string_range n, cs_string a, int flags);
-    cs_alias(ostd::string_range n, cs_int a, int flags);
-    cs_alias(ostd::string_range n, cs_float a, int flags);
-    cs_alias(ostd::string_range n, int flags);
-    cs_alias(ostd::string_range n, cs_value v, int flags);
+    cs_alias(cs_state &cs, ostd::string_range n, cs_string a, int flags);
+    cs_alias(cs_state &cs, ostd::string_range n, cs_int a, int flags);
+    cs_alias(cs_state &cs, ostd::string_range n, cs_float a, int flags);
+    cs_alias(cs_state &cs, ostd::string_range n, int flags);
+    cs_alias(cs_state &cs, ostd::string_range n, cs_value v, int flags);
 
     cs_bcode *p_acode;
     cs_ident_stack *p_astack;
@@ -362,6 +383,7 @@ static inline void *cs_default_alloc(void *, void *p, size_t, size_t ns) {
 struct OSTD_EXPORT cs_state {
     friend struct cs_error;
     friend struct cs_strman;
+    friend struct cs_value;
     friend struct cs_gen_state;
 
     cs_shared_state *p_state;
@@ -603,7 +625,7 @@ private:
 };
 
 struct OSTD_EXPORT cs_stacked_value: cs_value {
-    cs_stacked_value(cs_ident *id = nullptr);
+    cs_stacked_value(cs_state &cs, cs_ident *id = nullptr);
     ~cs_stacked_value();
 
     cs_stacked_value(cs_stacked_value const &) = delete;

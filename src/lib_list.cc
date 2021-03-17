@@ -73,7 +73,7 @@ static void cs_loop_list_conc(
     cs_state &cs, cs_value &res, cs_ident *id, ostd::string_range list,
     cs_bcode *body, bool space
 ) {
-    cs_stacked_value idv{id};
+    cs_stacked_value idv{cs, id};
     if (!idv.has_alias()) {
         return;
     }
@@ -85,7 +85,7 @@ static void cs_loop_list_conc(
         if (n && space) {
             r += ' ';
         }
-        cs_value v;
+        cs_value v{cs};
         switch (cs.run_loop(body, v)) {
             case CsLoopState::Break:
                 goto end;
@@ -197,7 +197,7 @@ void cs_init_lib_list(cs_state &gcs) {
     });
 
     gcs.new_command("listfind", "rse", [](auto &cs, auto args, auto &res) {
-        cs_stacked_value idv{args[0].get_ident()};
+        cs_stacked_value idv{cs, args[0].get_ident()};
         if (!idv.has_alias()) {
             res.set_int(-1);
             return;
@@ -217,7 +217,7 @@ void cs_init_lib_list(cs_state &gcs) {
     });
 
     gcs.new_command("listassoc", "rse", [](auto &cs, auto args, auto &res) {
-        cs_stacked_value idv{args[0].get_ident()};
+        cs_stacked_value idv{cs, args[0].get_ident()};
         if (!idv.has_alias()) {
             return;
         }
@@ -284,7 +284,7 @@ void cs_init_lib_list(cs_state &gcs) {
     });
 
     gcs.new_command("looplist", "rse", [](auto &cs, auto args, auto &) {
-        cs_stacked_value idv{args[0].get_ident()};
+        cs_stacked_value idv{cs, args[0].get_ident()};
         if (!idv.has_alias()) {
             return;
         }
@@ -305,7 +305,8 @@ end:
     });
 
     gcs.new_command("looplist2", "rrse", [](auto &cs, auto args, auto &) {
-        cs_stacked_value idv1{args[0].get_ident()}, idv2{args[1].get_ident()};
+        cs_stacked_value idv1{cs, args[0].get_ident()};
+        cs_stacked_value idv2{cs, args[1].get_ident()};
         if (!idv1.has_alias() || !idv2.has_alias()) {
             return;
         }
@@ -332,9 +333,9 @@ end:
     });
 
     gcs.new_command("looplist3", "rrrse", [](auto &cs, auto args, auto &) {
-        cs_stacked_value idv1{args[0].get_ident()};
-        cs_stacked_value idv2{args[1].get_ident()};
-        cs_stacked_value idv3{args[2].get_ident()};
+        cs_stacked_value idv1{cs, args[0].get_ident()};
+        cs_stacked_value idv2{cs, args[1].get_ident()};
+        cs_stacked_value idv3{cs, args[2].get_ident()};
         if (!idv1.has_alias() || !idv2.has_alias() || !idv3.has_alias()) {
             return;
         }
@@ -383,7 +384,7 @@ end:
     });
 
     gcs.new_command("listfilter", "rse", [](auto &cs, auto args, auto &res) {
-        cs_stacked_value idv{args[0].get_ident()};
+        cs_stacked_value idv{cs, args[0].get_ident()};
         if (!idv.has_alias()) {
             return;
         }
@@ -404,7 +405,7 @@ end:
     });
 
     gcs.new_command("listcount", "rse", [](auto &cs, auto args, auto &res) {
-        cs_stacked_value idv{args[0].get_ident()};
+        cs_stacked_value idv{cs, args[0].get_ident()};
         if (!idv.has_alias()) {
             return;
         }
@@ -555,7 +556,7 @@ static void cs_list_sort(
         return;
     }
 
-    cs_stacked_value xval{xa}, yval{ya};
+    cs_stacked_value xval{cs, xa}, yval{cs, ya};
     xval.set_null();
     yval.set_null();
     xval.push();

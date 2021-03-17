@@ -57,31 +57,32 @@ cs_svar::cs_svar(ostd::string_range name, cs_string v, cs_var_cb f, int fl):
     p_storage(std::move(v)), p_overrideval()
 {}
 
-cs_alias::cs_alias(ostd::string_range name, cs_string a, int fl):
+cs_alias::cs_alias(cs_state &cs, ostd::string_range name, cs_string a, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
-    p_acode(nullptr), p_astack(nullptr)
+    p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_str(std::move(a));
 }
-cs_alias::cs_alias(ostd::string_range name, cs_int a, int fl):
+cs_alias::cs_alias(cs_state &cs, ostd::string_range name, cs_int a, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
-    p_acode(nullptr), p_astack(nullptr)
+    p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_int(a);
 }
-cs_alias::cs_alias(ostd::string_range name, cs_float a, int fl):
+cs_alias::cs_alias(cs_state &cs, ostd::string_range name, cs_float a, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
-    p_acode(nullptr), p_astack(nullptr)
+    p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_float(a);
 }
-cs_alias::cs_alias(ostd::string_range name, int fl):
+cs_alias::cs_alias(cs_state &cs, ostd::string_range name, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
-    p_acode(nullptr), p_astack(nullptr)
+    p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_null();
 }
-cs_alias::cs_alias(ostd::string_range name, cs_value v, int fl):
+/* FIXME: use cs rather than val's cs */
+cs_alias::cs_alias(cs_state &, ostd::string_range name, cs_value v, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val(std::move(v))
 {}
@@ -522,7 +523,7 @@ OSTD_EXPORT cs_ident *cs_state::new_ident(ostd::string_range name, int flags) {
                 *this, "number %s is not a valid identifier name", name
             );
         }
-        id = add_ident(p_state->create<cs_alias>(name, flags));
+        id = add_ident(p_state->create<cs_alias>(*this, name, flags));
     }
     return id;
 }
@@ -650,7 +651,9 @@ OSTD_EXPORT void cs_state::set_alias(ostd::string_range name, cs_value v) {
     } else if (cs_check_num(name)) {
         throw cs_error(*this, "cannot alias number %s", name);
     } else {
-        add_ident(p_state->create<cs_alias>(name, std::move(v), identflags));
+        add_ident(p_state->create<cs_alias>(
+            *this, name, std::move(v), identflags
+        ));
     }
 }
 
@@ -1028,7 +1031,7 @@ static inline void cs_do_loop(
     cs_state &cs, cs_ident &id, cs_int offset, cs_int n, cs_int step,
     cs_bcode *cond, cs_bcode *body
 ) {
-    cs_stacked_value idv{&id};
+    cs_stacked_value idv{cs, &id};
     if (n <= 0 || !idv.has_alias()) {
         return;
     }
@@ -1053,7 +1056,7 @@ static inline void cs_loop_conc(
     cs_state &cs, cs_value &res, cs_ident &id, cs_int offset, cs_int n,
     cs_int step, cs_bcode *body, bool space
 ) {
-    cs_stacked_value idv{&id};
+    cs_stacked_value idv{cs, &id};
     if (n <= 0 || !idv.has_alias()) {
         return;
     }
@@ -1061,7 +1064,7 @@ static inline void cs_loop_conc(
     for (cs_int i = 0; i < n; ++i) {
         idv.set_int(offset + i * step);
         idv.push();
-        cs_value v;
+        cs_value v{cs};
         switch (cs.run_loop(body, v)) {
             case CsLoopState::Break:
                 goto end;
@@ -1091,7 +1094,7 @@ void cs_init_lib_base(cs_state &gcs) {
             ret.set_int(0);
             return;
         }
-        cs_value result, tback;
+        cs_value result{cs}, tback{cs};
         bool rc = true;
         try {
             cs.run(args[0].get_code(), result);
@@ -1171,7 +1174,7 @@ void cs_init_lib_base(cs_state &gcs) {
     });
 
     gcs.new_command("pushif", "rTe", [](auto &cs, auto args, auto &res) {
-        cs_stacked_value idv{args[0].get_ident()};
+        cs_stacked_value idv{cs, args[0].get_ident()};
         if (!idv.has_alias() || (idv.get_alias()->get_index() < MaxArguments)) {
             return;
         }
@@ -1315,7 +1318,7 @@ end:
     });
 
     gcs.new_command("push", "rTe", [](auto &cs, auto args, auto &res) {
-        cs_stacked_value idv{args[0].get_ident()};
+        cs_stacked_value idv{cs, args[0].get_ident()};
         if (!idv.has_alias() || (idv.get_alias()->get_index() < MaxArguments)) {
             return;
         }

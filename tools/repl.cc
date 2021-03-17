@@ -188,7 +188,7 @@ static void do_sigint(int n) {
 }
 
 static bool do_call(cs_state &cs, ostd::string_range line, bool file = false) {
-    cs_value ret;
+    cs_value ret{cs};
     scs = &cs;
     signal(SIGINT, do_sigint);
     try {

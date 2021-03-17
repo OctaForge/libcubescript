@@ -12,7 +12,7 @@ cs_strref::cs_strref(cs_shared_state &cs, ostd::string_range str):
     p_str = cs.strman->add(str);
 }
 
-cs_strref::cs_strref(cs_strref const &ref): p_str{ref.p_str}, p_state{ref.p_state}
+cs_strref::cs_strref(cs_strref const &ref): p_state{ref.p_state}, p_str{ref.p_str}
 {
     p_state->strman->ref(p_str);
 }
@@ -55,9 +55,9 @@ struct cs_cmd_internal {
     }
 };
 
-static inline void cs_push_alias(cs_ident *id, cs_ident_stack &st) {
+static inline void cs_push_alias(cs_state &cs, cs_ident *id, cs_ident_stack &st) {
     if (id->is_alias() && (id->get_index() >= MaxArguments)) {
-        cs_value nv;
+        cs_value nv{cs};
         cs_alias_internal::push_arg(static_cast<cs_alias *>(id), nv, st);
     }
 }
@@ -470,7 +470,7 @@ static inline void callcommand(
                 i = std::max(i + 1, numargs);
                 auto buf = ostd::appender<cs_string>();
                 cscript::util::tvals_concat(buf, ostd::iter(args, args + i), " ");
-                cs_value tv;
+                cs_value tv{cs};
                 tv.set_str(std::move(buf.get()));
                 cs_cmd_internal::call(cs, id, cs_value_r(&tv, &tv + 1), res);
                 return;
@@ -503,7 +503,7 @@ static inline void cs_call_alias(
     int callargs, int &nargs, int offset, int skip, uint32_t op
 ) {
     cs_ivar *anargs = static_cast<cs_ivar *>(cs.p_state->identmap[NumargsIdx]);
-    cs_ident_stack argstack[MaxArguments];
+    cs_valarray<cs_ident_stack, MaxArguments> argstack{cs};
     for(int i = 0; i < callargs; i++) {
         cs_alias_internal::push_arg(
             static_cast<cs_alias *>(cs.p_state->identmap[i]),
@@ -515,7 +515,7 @@ static inline void cs_call_alias(
     int oldflags = cs.identflags;
     cs.identflags |= a->get_flags()&CS_IDF_OVERRIDDEN;
     cs_identLink aliaslink = {
-        a, cs.p_callstack, (1<<callargs)-1, argstack
+        a, cs.p_callstack, (1<<callargs)-1, &argstack[0]
     };
     cs.p_callstack = &aliaslink;
     uint32_t *codep = reinterpret_cast<uint32_t *>(
@@ -609,8 +609,8 @@ static inline int cs_get_lookupu_type(
                 return CsIdFvar;
             case cs_ident_type::Command: {
                 arg.set_null();
-                cs_value buf[MaxArguments];
-                callcommand(cs, static_cast<cs_command *>(id), buf, arg, 0, true);
+                cs_valarray<cs_value, MaxArguments> buf{cs};
+                callcommand(cs, static_cast<cs_command *>(id), &buf[0], arg, 0, true);
                 force_arg(arg, op & CsCodeRetMask);
                 return -2; /* ignore */
             }
@@ -625,7 +625,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
     result.set_null();
     RunDepthRef level{cs}; /* incr and decr on scope exit */
     int numargs = 0;
-    cs_value args[MaxArguments + MaxResults];
+    cs_valarray<cs_value, MaxArguments + MaxResults> args{cs};
     auto &chook = cs.get_call_hook();
     if (chook) {
         chook(cs);
@@ -716,9 +716,9 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
 
             case CsCodeLocal: {
                 int numlocals = op >> 8, offset = numargs - numlocals;
-                cs_ident_stack locals[MaxArguments];
+                cs_valarray<cs_ident_stack, MaxArguments> locals{cs};
                 for (int i = 0; i < numlocals; ++i) {
-                    cs_push_alias(args[offset + i].get_ident(), locals[i]);
+                    cs_push_alias(cs, args[offset + i].get_ident(), locals[i]);
                 }
                 cs_do_and_cleanup([&]() {
                     code = runcode(cs, code, result);
@@ -1002,7 +1002,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                     cs.p_state->identmap[op >> 8]
                 );
                 if (!cs_is_arg_used(cs, a)) {
-                    cs_value nv;
+                    cs_value nv{cs};
                     cs_alias_internal::push_arg(
                         a, nv, cs.p_callstack->argstack[a->get_index()], false
                     );
@@ -1022,7 +1022,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                     id = cs.new_ident(arg.get_strr());
                 }
                 if ((id->get_index() < MaxArguments) && !cs_is_arg_used(cs, id)) {
-                    cs_value nv;
+                    cs_value nv{cs};
                     cs_alias_internal::push_arg(
                         static_cast<cs_alias *>(id), nv,
                         cs.p_callstack->argstack[id->get_index()], false
@@ -1383,7 +1383,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 int offset = numargs - id->get_num_args();
                 result.force_null();
                 cs_cmd_internal::call(cs, id, cs_value_r(
-                    args + offset, args + offset + id->get_num_args()
+                    &args[0] + offset, &args[0] + offset + id->get_num_args()
                 ), result);
                 force_arg(result, op & CsCodeRetMask);
                 numargs = offset;
@@ -1420,7 +1420,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                     cscript::util::tvals_concat(buf, ostd::iter(
                         &args[offset], &args[offset + callargs]
                     ), " ");
-                    cs_value tv;
+                    cs_value tv{cs};
                     tv.set_str(std::move(buf.get()));
                     cs_cmd_internal::call(cs, id, cs_value_r(&tv, &tv + 1), result);
                 }
@@ -1498,7 +1498,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                     );
                 }
                 cs_call_alias(
-                    cs, static_cast<cs_alias *>(id), args, result, callargs,
+                    cs, static_cast<cs_alias *>(id), &args[0], result, callargs,
                     numargs, offset, 0, op
                 );
                 continue;
@@ -1516,7 +1516,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                     continue;
                 }
                 cs_call_alias(
-                    cs, static_cast<cs_alias *>(id), args, result, callargs,
+                    cs, static_cast<cs_alias *>(id), &args[0], result, callargs,
                     numargs, offset, 0, op
                 );
                 continue;
@@ -1569,9 +1569,9 @@ noid:
                         numargs = offset - 1;
                         continue;
                     case CsIdLocal: {
-                        cs_ident_stack locals[MaxArguments];
+                        cs_valarray<cs_ident_stack, MaxArguments> locals{cs};
                         for (size_t j = 0; j < size_t(callargs); ++j) {
-                            cs_push_alias(cs.force_ident(
+                            cs_push_alias(cs, cs.force_ident(
                                 args[offset + j]
                             ), locals[j]);
                         }
@@ -1634,7 +1634,7 @@ noid:
                             goto noid;
                         }
                         cs_call_alias(
-                            cs, a, args, result, callargs, numargs,
+                            cs, a, &args[0], result, callargs, numargs,
                             offset, 1, op
                         );
                         continue;
@@ -1684,10 +1684,10 @@ void cs_state::run(cs_ident *id, cs_value_r args, cs_value &ret) {
             /* fallthrough */
             case cs_ident_type::Command:
                 if (nargs < static_cast<cs_command *>(id)->get_num_args()) {
-                    cs_value buf[MaxArguments];
-                    memcpy(buf, &args[0], args.size() * sizeof(cs_value));
+                    cs_valarray<cs_value, MaxArguments> buf{*this};
+                    memcpy(&buf[0], &args[0], args.size() * sizeof(cs_value));
                     callcommand(
-                        *this, static_cast<cs_command *>(id), buf, ret,
+                        *this, static_cast<cs_command *>(id), &buf[0], ret,
                         nargs, false
                     );
                 } else {
@@ -1743,89 +1743,89 @@ void cs_state::run(cs_ident *id, cs_value_r args, cs_value &ret) {
 }
 
 cs_string cs_state::run_str(cs_bcode *code) {
-    cs_value ret;
+    cs_value ret{*this};
     run(code, ret);
     return ret.get_str();
 }
 
 cs_string cs_state::run_str(ostd::string_range code) {
-    cs_value ret;
+    cs_value ret{*this};
     run(code, ret);
     return ret.get_str();
 }
 
 cs_string cs_state::run_str(cs_ident *id, cs_value_r args) {
-    cs_value ret;
+    cs_value ret{*this};
     run(id, args, ret);
     return ret.get_str();
 }
 
 cs_int cs_state::run_int(cs_bcode *code) {
-    cs_value ret;
+    cs_value ret{*this};
     run(code, ret);
     return ret.get_int();
 }
 
 cs_int cs_state::run_int(ostd::string_range code) {
-    cs_value ret;
+    cs_value ret{*this};
     run(code, ret);
     return ret.get_int();
 }
 
 cs_int cs_state::run_int(cs_ident *id, cs_value_r args) {
-    cs_value ret;
+    cs_value ret{*this};
     run(id, args, ret);
     return ret.get_int();
 }
 
 cs_float cs_state::run_float(cs_bcode *code) {
-    cs_value ret;
+    cs_value ret{*this};
     run(code, ret);
     return ret.get_float();
 }
 
 cs_float cs_state::run_float(ostd::string_range code) {
-    cs_value ret;
+    cs_value ret{*this};
     run(code, ret);
     return ret.get_float();
 }
 
 cs_float cs_state::run_float(cs_ident *id, cs_value_r args) {
-    cs_value ret;
+    cs_value ret{*this};
     run(id, args, ret);
     return ret.get_float();
 }
 
 bool cs_state::run_bool(cs_bcode *code) {
-    cs_value ret;
+    cs_value ret{*this};
     run(code, ret);
     return ret.get_bool();
 }
 
 bool cs_state::run_bool(ostd::string_range code) {
-    cs_value ret;
+    cs_value ret{*this};
     run(code, ret);
     return ret.get_bool();
 }
 
 bool cs_state::run_bool(cs_ident *id, cs_value_r args) {
-    cs_value ret;
+    cs_value ret{*this};
     run(id, args, ret);
     return ret.get_bool();
 }
 
 void cs_state::run(cs_bcode *code) {
-    cs_value ret;
+    cs_value ret{*this};
     run(code, ret);
 }
 
 void cs_state::run(ostd::string_range code) {
-    cs_value ret;
+    cs_value ret{*this};
     run(code, ret);
 }
 
 void cs_state::run(cs_ident *id, cs_value_r args) {
-    cs_value ret;
+    cs_value ret{*this};
     run(id, args, ret);
 }
 
@@ -1847,7 +1847,7 @@ CsLoopState cs_state::run_loop(cs_bcode *code, cs_value &ret) {
 }
 
 CsLoopState cs_state::run_loop(cs_bcode *code) {
-    cs_value ret;
+    cs_value ret{*this};
     return run_loop(code, ret);
 }
 
@@ -1879,7 +1879,7 @@ static bool cs_run_file(
 }
 
 std::optional<cs_string> cs_state::run_file_str(ostd::string_range fname) {
-    cs_value ret;
+    cs_value ret{*this};
     if (!cs_run_file(*this, fname, ret)) {
         return std::nullopt;
     }
@@ -1887,7 +1887,7 @@ std::optional<cs_string> cs_state::run_file_str(ostd::string_range fname) {
 }
 
 std::optional<cs_int> cs_state::run_file_int(ostd::string_range fname) {
-    cs_value ret;
+    cs_value ret{*this};
     if (!cs_run_file(*this, fname, ret)) {
         return std::nullopt;
     }
@@ -1895,7 +1895,7 @@ std::optional<cs_int> cs_state::run_file_int(ostd::string_range fname) {
 }
 
 std::optional<cs_float> cs_state::run_file_float(ostd::string_range fname) {
-    cs_value ret;
+    cs_value ret{*this};
     if (!cs_run_file(*this, fname, ret)) {
         return std::nullopt;
     }
@@ -1903,7 +1903,7 @@ std::optional<cs_float> cs_state::run_file_float(ostd::string_range fname) {
 }
 
 std::optional<bool> cs_state::run_file_bool(ostd::string_range fname) {
-    cs_value ret;
+    cs_value ret{*this};
     if (!cs_run_file(*this, fname, ret)) {
         return std::nullopt;
     }
@@ -1915,7 +1915,7 @@ bool cs_state::run_file(ostd::string_range fname, cs_value &ret) {
 }
 
 bool cs_state::run_file(ostd::string_range fname) {
-    cs_value ret;
+    cs_value ret{*this};
     if (!cs_run_file(*this, fname, ret)) {
         return false;
     }

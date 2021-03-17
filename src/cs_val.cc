@@ -4,10 +4,16 @@
 
 namespace cscript {
 
+template<typename T>
+struct stor_priv_t {
+    cs_shared_state *state;
+    T val;
+};
+
 template<typename T, typename U>
 static inline T &csv_get(U &stor) {
     /* ugly, but internal and unlikely to cause bugs */
-    return const_cast<T &>(reinterpret_cast<T const &>(stor));
+    return const_cast<T &>(reinterpret_cast<stor_priv_t<T> const &>(stor).val);
 }
 
 template<typename T>
@@ -28,19 +34,23 @@ static inline void csv_cleanup(cs_value_type tv, T &stor) {
     }
 }
 
-cs_value::cs_value():
+cs_value::cs_value(cs_state &st): cs_value(*st.p_state) {}
+
+cs_value::cs_value(cs_shared_state &st):
     p_stor(), p_len(0), p_type(cs_value_type::Null)
-{}
+{
+    reinterpret_cast<stor_priv_t<void *> *>(&p_stor)->state = &st;
+}
 
 cs_value::~cs_value() {
     csv_cleanup(p_type, p_stor);
 }
 
-cs_value::cs_value(cs_value const &v): cs_value() {
+cs_value::cs_value(cs_value const &v): cs_value(*v.state()) {
     *this = v;
 }
 
-cs_value::cs_value(cs_value &&v): cs_value() {
+cs_value::cs_value(cs_value &&v): cs_value(*v.state()) {
     *this = std::move(v);
 }
 
@@ -375,8 +385,8 @@ bool cs_value::get_bool() const {
 
 /* stacked value for easy stack management */
 
-cs_stacked_value::cs_stacked_value(cs_ident *id):
-    cs_value(), p_a(nullptr), p_stack(), p_pushed(false)
+cs_stacked_value::cs_stacked_value(cs_state &cs, cs_ident *id):
+    cs_value(cs), p_a(nullptr), p_stack{cs}, p_pushed(false)
 {
     set_alias(id);
 }

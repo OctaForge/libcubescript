@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <array>
 #include <vector>
+#include <type_traits>
 
 #include "cs_util.hh"
 
@@ -29,6 +30,27 @@ struct cs_identLink {
     cs_identLink *next;
     int usedargs;
     cs_ident_stack *argstack;
+};
+
+template<typename T, std::size_t N>
+struct cs_valarray {
+    cs_valarray(cs_state &cs) {
+        for (std::size_t i = 0; i < N; ++i) {
+            new (&stor[i]) T{cs};
+        }
+    }
+
+    ~cs_valarray() {
+        for (std::size_t i = 0; i < N; ++i) {
+            reinterpret_cast<T *>(&stor[i])->~T();
+        }
+    }
+
+    T &operator[](std::size_t i) {
+        return *reinterpret_cast<T *>(&stor[i]);
+    }
+
+    std::aligned_storage_t<sizeof(T), alignof(T)> stor[N];
 };
 
 enum {
@@ -409,7 +431,7 @@ static void cs_do_args(cs_state &cs, F body) {
         body();
         return;
     }
-    cs_ident_stack argstack[MaxArguments];
+    cs_valarray<cs_ident_stack, MaxArguments> argstack{cs};
     int argmask1 = cs.p_callstack->usedargs;
     for (int i = 0; argmask1; argmask1 >>= 1, ++i) {
         if (argmask1 & 1) {
