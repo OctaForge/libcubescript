@@ -92,6 +92,10 @@ struct OSTD_EXPORT cs_strref {
         return ostd::string_range{*this}.length();
     }
 
+    char const *data() const {
+        return ostd::string_range{*this}.data();
+    }
+
     bool operator==(cs_strref const &s) const;
 
 private:
@@ -234,9 +238,9 @@ struct OSTD_EXPORT cs_ident {
     }
 
 protected:
-    cs_ident(cs_ident_type tp, ostd::string_range name, int flags = 0);
+    cs_ident(cs_ident_type tp, cs_strref name, int flags = 0);
 
-    cs_string p_name;
+    cs_strref p_name;
     /* represents the cs_ident_type above, but internally it has a wider variety
      * of values, so it's an int here (maps to an internal enum)
      */
@@ -251,7 +255,7 @@ struct OSTD_EXPORT cs_var: cs_ident {
     friend struct cs_shared_state;
 
 protected:
-    cs_var(cs_ident_type tp, ostd::string_range name, cs_var_cb func, int flags = 0);
+    cs_var(cs_ident_type tp, cs_strref name, cs_var_cb func, int flags = 0);
 
 private:
     cs_var_cb cb_var;
@@ -279,7 +283,7 @@ struct OSTD_EXPORT cs_ivar: cs_var {
 
 private:
     cs_ivar(
-        ostd::string_range n, cs_int m, cs_int x, cs_int v, cs_var_cb f, int flags
+        cs_strref n, cs_int m, cs_int x, cs_int v, cs_var_cb f, int flags
     );
 
     cs_int p_storage, p_minval, p_maxval, p_overrideval;
@@ -299,7 +303,7 @@ struct OSTD_EXPORT cs_fvar: cs_var {
 
 private:
     cs_fvar(
-        ostd::string_range n, cs_float m, cs_float x, cs_float v,
+        cs_strref n, cs_float m, cs_float x, cs_float v,
         cs_var_cb f, int flags
     );
 
@@ -310,15 +314,15 @@ struct OSTD_EXPORT cs_svar: cs_var {
     friend struct cs_state;
     friend struct cs_shared_state;
 
-    ostd::string_range get_value() const;
-    void set_value(cs_string val);
+    cs_strref get_value() const;
+    void set_value(cs_strref val);
 
     cs_string to_printable() const final;
 
 private:
-    cs_svar(ostd::string_range n, cs_string v, cs_var_cb f, int flags);
+    cs_svar(cs_strref n, cs_strref v, cs_strref ov, cs_var_cb f, int flags);
 
-    cs_string p_storage, p_overrideval;
+    cs_strref p_storage, p_overrideval;
 };
 
 struct OSTD_EXPORT cs_alias: cs_ident {
@@ -332,12 +336,12 @@ struct OSTD_EXPORT cs_alias: cs_ident {
 
     void get_cval(cs_value &v) const;
 private:
-    cs_alias(cs_state &cs, ostd::string_range n, cs_strref a, int flags);
-    cs_alias(cs_state &cs, ostd::string_range n, ostd::string_range a, int flags);
-    cs_alias(cs_state &cs, ostd::string_range n, cs_int a, int flags);
-    cs_alias(cs_state &cs, ostd::string_range n, cs_float a, int flags);
-    cs_alias(cs_state &cs, ostd::string_range n, int flags);
-    cs_alias(cs_state &cs, ostd::string_range n, cs_value v, int flags);
+    cs_alias(cs_state &cs, cs_strref n, cs_strref a, int flags);
+    cs_alias(cs_state &cs, cs_strref n, ostd::string_range a, int flags);
+    cs_alias(cs_state &cs, cs_strref n, cs_int a, int flags);
+    cs_alias(cs_state &cs, cs_strref n, cs_float a, int flags);
+    cs_alias(cs_state &cs, cs_strref n, int flags);
+    cs_alias(cs_state &cs, cs_strref n, cs_value v, int flags);
 
     cs_bcode *p_acode;
     cs_ident_stack *p_astack;
@@ -353,12 +357,9 @@ struct cs_command: cs_ident {
     int get_num_args() const;
 
 private:
-    cs_command(
-        ostd::string_range name, ostd::string_range args,
-        int numargs, cs_command_cb func
-    );
+    cs_command(cs_strref name, cs_strref args, int numargs, cs_command_cb func);
 
-    cs_string p_cargs;
+    cs_strref p_cargs;
     cs_command_cb p_cb_cftv;
     int p_numargs;
 };
@@ -445,7 +446,7 @@ struct OSTD_EXPORT cs_state {
         cs_var_cb f = cs_var_cb(), int flags = 0
     );
     cs_svar *new_svar(
-        ostd::string_range n, cs_string v,
+        ostd::string_range n, ostd::string_range v,
         cs_var_cb f = cs_var_cb(), int flags = 0
     );
 

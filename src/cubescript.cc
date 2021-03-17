@@ -30,72 +30,71 @@ bool cs_check_num(ostd::string_range s) {
     }
 }
 
-cs_ident::cs_ident(cs_ident_type tp, ostd::string_range nm, int fl):
+cs_ident::cs_ident(cs_ident_type tp, cs_strref nm, int fl):
     p_name(nm), p_type(int(tp)), p_flags(fl)
 {}
 
-cs_var::cs_var(cs_ident_type tp, ostd::string_range name, cs_var_cb f, int fl):
+cs_var::cs_var(cs_ident_type tp, cs_strref name, cs_var_cb f, int fl):
     cs_ident(tp, name, fl), cb_var(std::move(f))
 {}
 
 cs_ivar::cs_ivar(
-    ostd::string_range name, cs_int m, cs_int x, cs_int v, cs_var_cb f, int fl
+    cs_strref name, cs_int m, cs_int x, cs_int v, cs_var_cb f, int fl
 ):
     cs_var(cs_ident_type::Ivar, name, std::move(f), fl | ((m > x) ? CS_IDF_READONLY : 0)),
     p_storage(v), p_minval(m), p_maxval(x), p_overrideval(0)
 {}
 
 cs_fvar::cs_fvar(
-    ostd::string_range name, cs_float m, cs_float x, cs_float v, cs_var_cb f, int fl
+    cs_strref name, cs_float m, cs_float x, cs_float v, cs_var_cb f, int fl
 ):
     cs_var(cs_ident_type::Fvar, name, std::move(f), fl | ((m > x) ? CS_IDF_READONLY : 0)),
     p_storage(v), p_minval(m), p_maxval(x), p_overrideval(0)
 {}
 
-cs_svar::cs_svar(ostd::string_range name, cs_string v, cs_var_cb f, int fl):
+cs_svar::cs_svar(cs_strref name, cs_strref v, cs_strref ov, cs_var_cb f, int fl):
     cs_var(cs_ident_type::Svar, name, std::move(f), fl),
-    p_storage(std::move(v)), p_overrideval()
+    p_storage{v}, p_overrideval{ov}
 {}
 
-cs_alias::cs_alias(cs_state &cs, ostd::string_range name, cs_strref a, int fl):
+cs_alias::cs_alias(cs_state &cs, cs_strref name, cs_strref a, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_str(a);
 }
-cs_alias::cs_alias(cs_state &cs, ostd::string_range name, ostd::string_range a, int fl):
+cs_alias::cs_alias(cs_state &cs, cs_strref name, ostd::string_range a, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_str(a);
 }
-cs_alias::cs_alias(cs_state &cs, ostd::string_range name, cs_int a, int fl):
+cs_alias::cs_alias(cs_state &cs, cs_strref name, cs_int a, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_int(a);
 }
-cs_alias::cs_alias(cs_state &cs, ostd::string_range name, cs_float a, int fl):
+cs_alias::cs_alias(cs_state &cs, cs_strref name, cs_float a, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_float(a);
 }
-cs_alias::cs_alias(cs_state &cs, ostd::string_range name, int fl):
+cs_alias::cs_alias(cs_state &cs, cs_strref name, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_null();
 }
 /* FIXME: use cs rather than val's cs */
-cs_alias::cs_alias(cs_state &, ostd::string_range name, cs_value v, int fl):
+cs_alias::cs_alias(cs_state &, cs_strref name, cs_value v, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
-    p_acode(nullptr), p_astack(nullptr), p_val(std::move(v))
+    p_acode(nullptr), p_astack(nullptr), p_val(v)
 {}
 
 cs_command::cs_command(
-    ostd::string_range name, ostd::string_range args,
-    int nargs, cs_command_cb f
+    cs_strref name, cs_strref args, int nargs, cs_command_cb f
 ):
     cs_ident(cs_ident_type::Command, name, 0),
     p_cargs(args), p_cb_cftv(std::move(f)), p_numargs(nargs)
@@ -275,11 +274,11 @@ cs_string cs_fvar::to_printable() const {
     return std::move(app.get());
 }
 
-ostd::string_range cs_svar::get_value() const {
-    return ostd::iter(p_storage);
+cs_strref cs_svar::get_value() const {
+    return p_storage;
 }
-void cs_svar::set_value(cs_string val) {
-    p_storage = std::move(val);
+void cs_svar::set_value(cs_strref val) {
+    p_storage = val;
 }
 
 cs_string cs_svar::to_printable() const {
@@ -529,7 +528,9 @@ OSTD_EXPORT cs_ident *cs_state::new_ident(ostd::string_range name, int flags) {
                 *this, "number %s is not a valid identifier name", name
             );
         }
-        id = add_ident(p_state->create<cs_alias>(*this, name, flags));
+        id = add_ident(p_state->create<cs_alias>(
+            *this, cs_strref{*p_state, name}, flags
+        ));
     }
     return id;
 }
@@ -585,25 +586,26 @@ OSTD_EXPORT cs_const_ident_r cs_state::get_idents() const {
 OSTD_EXPORT cs_ivar *cs_state::new_ivar(
     ostd::string_range n, cs_int m, cs_int x, cs_int v, cs_var_cb f, int flags
 ) {
-    return add_ident(
-        p_state->create<cs_ivar>(n, m, x, v, std::move(f), flags)
-    )->get_ivar();
+    return add_ident(p_state->create<cs_ivar>(
+        cs_strref{*p_state, n}, m, x, v, std::move(f), flags
+    ))->get_ivar();
 }
 
 OSTD_EXPORT cs_fvar *cs_state::new_fvar(
     ostd::string_range n, cs_float m, cs_float x, cs_float v, cs_var_cb f, int flags
 ) {
-    return add_ident(
-        p_state->create<cs_fvar>(n, m, x, v, std::move(f), flags)
-    )->get_fvar();
+    return add_ident(p_state->create<cs_fvar>(
+        cs_strref{*p_state, n}, m, x, v, std::move(f), flags
+    ))->get_fvar();
 }
 
 OSTD_EXPORT cs_svar *cs_state::new_svar(
-    ostd::string_range n, cs_string v, cs_var_cb f, int flags
+    ostd::string_range n, ostd::string_range v, cs_var_cb f, int flags
 ) {
-    return add_ident(
-        p_state->create<cs_svar>(n, std::move(v), std::move(f), flags)
-    )->get_svar();
+    return add_ident(p_state->create<cs_svar>(
+        cs_strref{*p_state, n}, cs_strref{*p_state, v},
+        cs_strref{*p_state, ""}, std::move(f), flags
+    ))->get_svar();
 }
 
 OSTD_EXPORT void cs_state::reset_var(ostd::string_range name) {
@@ -656,7 +658,7 @@ OSTD_EXPORT void cs_state::set_alias(ostd::string_range name, cs_value v) {
         throw cs_error(*this, "cannot alias number %s", name);
     } else {
         add_ident(p_state->create<cs_alias>(
-            *this, name, std::move(v), identflags
+            *this, cs_strref{*p_state, name}, std::move(v), identflags
         ));
     }
 }
@@ -776,7 +778,7 @@ OSTD_EXPORT void cs_state::set_var_str(
         *this, sv, sv->p_flags,
         [&sv]() { sv->p_overrideval = sv->get_value(); }
     );
-    sv->set_value(cs_string{v});
+    sv->set_value(cs_strref{*p_state, v});
     if (dofunc) {
         sv->changed(*this);
     }
@@ -950,7 +952,7 @@ OSTD_EXPORT void cs_state::set_var_str_checked(
         *this, sv, sv->p_flags,
         [&sv]() { sv->p_overrideval = sv->get_value(); }
     );
-    sv->set_value(cs_string{v});
+    sv->set_value(cs_strref{*p_state, v});
     sv->changed(*this);
 }
 
@@ -1000,9 +1002,10 @@ OSTD_EXPORT cs_command *cs_state::new_command(
                 return nullptr;
         }
     }
-    return static_cast<cs_command *>(
-        add_ident(p_state->create<cs_command>(name, args, nargs, std::move(func)))
-    );
+    return static_cast<cs_command *>(add_ident(p_state->create<cs_command>(
+        cs_strref{*p_state, name}, cs_strref{*p_state, args}, nargs,
+        std::move(func))
+    ));
 }
 
 static inline void cs_do_loop(
