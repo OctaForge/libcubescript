@@ -260,8 +260,6 @@ protected:
 private:
     cs_var_cb cb_var;
 
-    virtual cs_string to_printable() const = 0;
-
     void changed(cs_state &cs) {
         if (cb_var) {
             cb_var(cs, *this);
@@ -278,8 +276,6 @@ struct OSTD_EXPORT cs_ivar: cs_var {
 
     cs_int get_value() const;
     void set_value(cs_int val);
-
-    cs_string to_printable() const final;
 
 private:
     cs_ivar(
@@ -299,8 +295,6 @@ struct OSTD_EXPORT cs_fvar: cs_var {
     cs_float get_value() const;
     void set_value(cs_float val);
 
-    cs_string to_printable() const final;
-
 private:
     cs_fvar(
         cs_strref n, cs_float m, cs_float x, cs_float v,
@@ -316,8 +310,6 @@ struct OSTD_EXPORT cs_svar: cs_var {
 
     cs_strref get_value() const;
     void set_value(cs_strref val);
-
-    cs_string to_printable() const final;
 
 private:
     cs_svar(cs_strref n, cs_strref v, cs_strref ov, cs_var_cb f, int flags);
@@ -429,6 +421,9 @@ struct OSTD_EXPORT cs_state {
     cs_hook_cb const &get_call_hook() const;
     cs_hook_cb &get_call_hook();
 
+    cs_vprint_cb set_var_printer(cs_vprint_cb func);
+    cs_vprint_cb const &get_var_printer() const;
+
     void init_libs(int libs = CsLibAll);
 
     void clear_override(cs_ident &id);
@@ -533,7 +528,7 @@ struct OSTD_EXPORT cs_state {
 
     std::optional<cs_strref> get_alias_val(ostd::string_range name);
 
-    virtual void print_var(cs_var *v);
+    void print_var(cs_var const &v) const;
 
 private:
     OSTD_LOCAL cs_state(cs_shared_state *s);

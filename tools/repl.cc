@@ -187,6 +187,48 @@ static void do_sigint(int n) {
     });
 }
 
+/* an example of what var printer would look like in real usage */
+static void repl_print_var(cs_state const &cs, cs_var const &var) {
+    switch (var.get_type()) {
+        case cs_ident_type::Ivar: {
+            auto &iv = static_cast<cs_ivar const &>(var);
+            auto val = iv.get_value();
+            if (!(iv.get_flags() & CS_IDF_HEX) || (val < 0)) {
+                ostd::writefln("%s = %d", iv.get_name(), val);
+            } else if (iv.get_val_max() == 0xFFFFFF) {
+                ostd::writefln(
+                    "%s = 0x%.6X (%d, %d, %d)", iv.get_name(),
+                    val, (val >> 16) & 0xFF, (val >> 8) & 0xFF, val & 0xFF
+                );
+            } else {
+                ostd::writefln("%s = 0x%X", iv.get_name(), val);
+            }
+            break;
+        }
+        case cs_ident_type::Fvar: {
+            auto &fv = static_cast<cs_fvar const &>(var);
+            auto val = fv.get_value();
+            ostd::writefln(
+                (floor(val) == val) ? "%s = %.1f" : "%s = %.7g",
+                fv.get_name(), val
+            );
+            break;
+        }
+        case cs_ident_type::Svar: {
+            auto &sv = static_cast<cs_svar const &>(var);
+            auto val = ostd::string_range{sv.get_value()};
+            if (ostd::find(val, '"').empty()) {
+                ostd::writefln("%s = \"%s\"", sv.get_name(), val);
+            } else {
+                ostd::writefln("%s = [%s]", sv.get_name(), val);
+            }
+            break;
+        }
+        default:
+            break;
+    }
+}
+
 static bool do_call(cs_state &cs, ostd::string_range line, bool file = false) {
     cs_value ret{cs};
     scs = &cs;
@@ -272,6 +314,7 @@ static void do_tty(cs_state &cs) {
 
 int main(int argc, char **argv) {
     cs_state gcs;
+    gcs.set_var_printer(repl_print_var);
     gcs.init_libs();
 
     gcs.new_command("exec", "s", [](auto &cs, auto args, auto &) {

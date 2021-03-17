@@ -697,7 +697,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 args[numargs++] = std::move(result);
                 continue;
             case CsCodePrint:
-                cs.print_var(static_cast<cs_var *>(cs.p_state->identmap[op >> 8]));
+                cs.print_var(*static_cast<cs_var *>(cs.p_state->identmap[op >> 8]));
                 continue;
 
             case CsCodeLocal: {
@@ -1545,7 +1545,7 @@ noid:
                     }
                     case CsIdIvar:
                         if (callargs <= 0) {
-                            cs.print_var(static_cast<cs_var *>(id));
+                            cs.print_var(*static_cast<cs_var *>(id));
                         } else {
                             cs.set_var_int_checked(
                                 static_cast<cs_ivar *>(id),
@@ -1557,7 +1557,7 @@ noid:
                         continue;
                     case CsIdFvar:
                         if (callargs <= 0) {
-                            cs.print_var(static_cast<cs_var *>(id));
+                            cs.print_var(*static_cast<cs_var *>(id));
                         } else {
                             cs.set_var_float_checked(
                                 static_cast<cs_fvar *>(id),
@@ -1569,7 +1569,7 @@ noid:
                         continue;
                     case CsIdSvar:
                         if (callargs <= 0) {
-                            cs.print_var(static_cast<cs_var *>(id));
+                            cs.print_var(*static_cast<cs_var *>(id));
                         } else {
                             cs.set_var_str_checked(
                                 static_cast<cs_svar *>(id),
@@ -1659,14 +1659,14 @@ void cs_state::run(cs_ident *id, cs_value_r args, cs_value &ret) {
                 break;
             case cs_ident_type::Ivar:
                 if (args.empty()) {
-                    print_var(static_cast<cs_var *>(id));
+                    print_var(*static_cast<cs_var *>(id));
                 } else {
                     set_var_int_checked(static_cast<cs_ivar *>(id), args);
                 }
                 break;
             case cs_ident_type::Fvar:
                 if (args.empty()) {
-                    print_var(static_cast<cs_var *>(id));
+                    print_var(*static_cast<cs_var *>(id));
                 } else {
                     set_var_float_checked(
                         static_cast<cs_fvar *>(id), args[0].force_float()
@@ -1675,7 +1675,7 @@ void cs_state::run(cs_ident *id, cs_value_r args, cs_value &ret) {
                 break;
             case cs_ident_type::Svar:
                 if (args.empty()) {
-                    print_var(static_cast<cs_var *>(id));
+                    print_var(*static_cast<cs_var *>(id));
                 } else {
                     set_var_str_checked(
                         static_cast<cs_svar *>(id), args[0].force_str()

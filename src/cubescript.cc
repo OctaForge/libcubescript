@@ -227,26 +227,6 @@ void cs_ivar::set_value(cs_int val) {
     p_storage = val;
 }
 
-cs_string cs_ivar::to_printable() const {
-    cs_int i = p_storage;
-    auto app = ostd::appender<cs_string>();
-    try {
-        if (!(get_flags() & CS_IDF_HEX) || (i < 0)) {
-            format(app, IvarFormat, get_name(), i);
-        } else if (p_maxval == 0xFFFFFF) {
-            format(
-                app, IvarHexColorFormat, get_name(),
-                i, (i >> 16) & 0xFF, (i >> 8) & 0xFF, i & 0xFF
-            );
-        } else {
-            format(app, IvarHexFormat, get_name(), i);
-        }
-    } catch (ostd::format_error const &e) {
-        throw cs_internal_error{e.what()};
-    }
-    return std::move(app.get());
-}
-
 cs_float cs_fvar::get_val_min() const {
     return p_minval;
 }
@@ -261,39 +241,11 @@ void cs_fvar::set_value(cs_float val) {
     p_storage = val;
 }
 
-cs_string cs_fvar::to_printable() const {
-    cs_float f = p_storage;
-    auto app = ostd::appender<cs_string>();
-    try {
-        format(
-            app, (f == cs_int(f)) ? FvarRoundFormat : FvarFormat, get_name(), f
-        );
-    } catch (ostd::format_error const &e) {
-        throw cs_internal_error{e.what()};
-    }
-    return std::move(app.get());
-}
-
 cs_strref cs_svar::get_value() const {
     return p_storage;
 }
 void cs_svar::set_value(cs_strref val) {
     p_storage = val;
-}
-
-cs_string cs_svar::to_printable() const {
-    ostd::string_range s = p_storage;
-    auto app = ostd::appender<cs_string>();
-    try {
-        if (ostd::find(s, '"').empty()) {
-            format(app, SvarFormat, get_name(), s);
-        } else {
-            format(app, SvarQuotedFormat, get_name(), s);
-        }
-    } catch (ostd::format_error const &e) {
-        throw cs_internal_error{e.what()};
-    }
-    return std::move(app.get());
 }
 
 ostd::string_range cs_command::get_args() const {
@@ -322,6 +274,7 @@ cs_state::cs_state(cs_alloc_cb func, void *data):
     p_state->allocf = func;
     p_state->aptr = data;
     p_state->strman = p_state->create<cs_strman>(p_state);
+    p_state->varprintf = [](auto &, auto &) {};
 
     for (int i = 0; i < MaxArguments; ++i) {
         char buf[32];
@@ -463,6 +416,16 @@ OSTD_EXPORT cs_hook_cb const &cs_state::get_call_hook() const {
 
 OSTD_EXPORT cs_hook_cb &cs_state::get_call_hook() {
     return p_callhook;
+}
+
+OSTD_EXPORT cs_vprint_cb cs_state::set_var_printer(cs_vprint_cb func) {
+    auto fn = std::move(p_state->varprintf);
+    p_state->varprintf = std::move(func);
+    return fn;
+}
+
+OSTD_EXPORT cs_vprint_cb const &cs_state::get_var_printer() const {
+    return p_state->varprintf;
 }
 
 void *cs_state::alloc(void *ptr, size_t os, size_t ns) {
@@ -663,8 +626,8 @@ OSTD_EXPORT void cs_state::set_alias(ostd::string_range name, cs_value v) {
     }
 }
 
-OSTD_EXPORT void cs_state::print_var(cs_var *v) {
-    ostd::writeln(v->to_printable());
+OSTD_EXPORT void cs_state::print_var(cs_var const &v) const {
+    p_state->varprintf(*this, v);
 }
 
 void cs_alias::get_cval(cs_value &v) const {
