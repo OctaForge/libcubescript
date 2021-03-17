@@ -85,6 +85,8 @@ struct OSTD_EXPORT cs_strref {
 
     operator ostd::string_range() const;
 
+    bool operator==(cs_strref const &s) const;
+
 private:
     /* for internal use only */
     cs_strref(char const *p, cs_shared_state &cs);
@@ -113,11 +115,12 @@ struct OSTD_EXPORT cs_value {
     void set_int(cs_int val);
     void set_float(cs_float val);
     void set_str(ostd::string_range val);
+    void set_str(cs_strref const &val);
     void set_null();
     void set_code(cs_bcode *val);
     void set_ident(cs_ident *val);
 
-    cs_string get_str() const;
+    cs_strref get_str() const;
     ostd::string_range get_strr() const;
     cs_int get_int() const;
     cs_float get_float() const;
@@ -323,7 +326,8 @@ struct OSTD_EXPORT cs_alias: cs_ident {
 
     void get_cval(cs_value &v) const;
 private:
-    cs_alias(cs_state &cs, ostd::string_range n, cs_string a, int flags);
+    cs_alias(cs_state &cs, ostd::string_range n, cs_strref a, int flags);
+    cs_alias(cs_state &cs, ostd::string_range n, ostd::string_range a, int flags);
     cs_alias(cs_state &cs, ostd::string_range n, cs_int a, int flags);
     cs_alias(cs_state &cs, ostd::string_range n, cs_float a, int flags);
     cs_alias(cs_state &cs, ostd::string_range n, int flags);
@@ -453,9 +457,9 @@ struct OSTD_EXPORT cs_state {
     void reset_var(ostd::string_range name);
     void touch_var(ostd::string_range name);
 
-    cs_string run_str(cs_bcode *code);
-    cs_string run_str(ostd::string_range code);
-    cs_string run_str(cs_ident *id, cs_value_r args);
+    cs_strref run_str(cs_bcode *code);
+    cs_strref run_str(ostd::string_range code);
+    cs_strref run_str(cs_ident *id, cs_value_r args);
 
     cs_int run_int(cs_bcode *code);
     cs_int run_int(ostd::string_range code);
@@ -484,7 +488,7 @@ struct OSTD_EXPORT cs_state {
         return p_inloop;
     }
 
-    std::optional<cs_string> run_file_str(ostd::string_range fname);
+    std::optional<cs_strref> run_file_str(ostd::string_range fname);
     std::optional<cs_int> run_file_int(ostd::string_range fname);
     std::optional<cs_float> run_file_float(ostd::string_range fname);
     std::optional<bool> run_file_bool(ostd::string_range fname);
@@ -512,7 +516,7 @@ struct OSTD_EXPORT cs_state {
 
     std::optional<cs_int> get_var_int(ostd::string_range name);
     std::optional<cs_float> get_var_float(ostd::string_range name);
-    std::optional<cs_string> get_var_str(ostd::string_range name);
+    std::optional<cs_strref> get_var_str(ostd::string_range name);
 
     std::optional<cs_int> get_var_min_int(ostd::string_range name);
     std::optional<cs_int> get_var_max_int(ostd::string_range name);
@@ -520,7 +524,7 @@ struct OSTD_EXPORT cs_state {
     std::optional<cs_float> get_var_min_float(ostd::string_range name);
     std::optional<cs_float> get_var_max_float(ostd::string_range name);
 
-    std::optional<cs_string> get_alias_val(ostd::string_range name);
+    std::optional<cs_strref> get_alias_val(ostd::string_range name);
 
     virtual void print_var(cs_var *v);
 

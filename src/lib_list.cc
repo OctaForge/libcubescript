@@ -94,10 +94,10 @@ static void cs_loop_list_conc(
             default:
                 break;
         }
-        r += v.get_str();
+        r += ostd::string_range{v.get_str()};
     }
 end:
-    res.set_str(std::move(r));
+    res.set_str(r);
 }
 
 int cs_list_includes(
@@ -134,7 +134,7 @@ static inline void cs_list_merge(
             buf += p.get_raw_item(true);
         }
     }
-    res.set_str(std::move(buf));
+    res.set_str(buf);
 }
 
 static void cs_init_lib_list_sort(cs_state &cs);
@@ -148,7 +148,7 @@ void cs_init_lib_list(cs_state &gcs) {
         if (args.empty()) {
             return;
         }
-        cs_string str = std::move(args[0].get_str());
+        cs_strref str = args[0].get_str();
         util::list_parser p(cs, str);
         p.get_raw_item() = str;
         for (size_t i = 1; i < args.size(); ++i) {
@@ -401,7 +401,7 @@ end:
                 r += p.get_raw_item(true);
             }
         }
-        res.set_str(std::move(r));
+        res.set_str(r);
     });
 
     gcs.new_command("listcount", "rse", [](auto &cs, auto args, auto &res) {
@@ -445,7 +445,7 @@ end:
                 buf.put(' ');
             }
         }
-        res.set_str(std::move(buf.get()));
+        res.set_str(buf.get());
     });
 
     gcs.new_command("indexof", "ss", [](auto &cs, auto args, auto &res) {
@@ -507,7 +507,7 @@ end:
                     break;
             }
         }
-        res.set_str(std::move(buf));
+        res.set_str(buf);
     });
 
     cs_init_lib_list_sort(gcs);
@@ -616,7 +616,7 @@ static void cs_list_sort(
         }
         sorted += item.quote;
     }
-    res.set_str(std::move(sorted));
+    res.set_str(sorted);
 }
 
 static void cs_init_lib_list_sort(cs_state &gcs) {

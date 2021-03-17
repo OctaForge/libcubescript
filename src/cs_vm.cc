@@ -39,6 +39,10 @@ cs_strref::operator ostd::string_range() const {
     return p_state->strman->get(p_str);
 }
 
+bool cs_strref::operator==(cs_strref const &s) const {
+    return p_str == s.p_str;
+}
+
 struct cs_cmd_internal {
     static void call(
         cs_state &cs, cs_command *c, cs_value_r args, cs_value &ret
@@ -1696,19 +1700,19 @@ void cs_state::run(cs_ident *id, cs_value_r args, cs_value &ret) {
     }
 }
 
-cs_string cs_state::run_str(cs_bcode *code) {
+cs_strref cs_state::run_str(cs_bcode *code) {
     cs_value ret{*this};
     run(code, ret);
     return ret.get_str();
 }
 
-cs_string cs_state::run_str(ostd::string_range code) {
+cs_strref cs_state::run_str(ostd::string_range code) {
     cs_value ret{*this};
     run(code, ret);
     return ret.get_str();
 }
 
-cs_string cs_state::run_str(cs_ident *id, cs_value_r args) {
+cs_strref cs_state::run_str(cs_ident *id, cs_value_r args) {
     cs_value ret{*this};
     run(id, args, ret);
     return ret.get_str();
@@ -1832,7 +1836,7 @@ static bool cs_run_file(
     return true;
 }
 
-std::optional<cs_string> cs_state::run_file_str(ostd::string_range fname) {
+std::optional<cs_strref> cs_state::run_file_str(ostd::string_range fname) {
     cs_value ret{*this};
     if (!cs_run_file(*this, fname, ret)) {
         return std::nullopt;

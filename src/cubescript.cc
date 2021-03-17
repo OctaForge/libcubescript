@@ -57,11 +57,17 @@ cs_svar::cs_svar(ostd::string_range name, cs_string v, cs_var_cb f, int fl):
     p_storage(std::move(v)), p_overrideval()
 {}
 
-cs_alias::cs_alias(cs_state &cs, ostd::string_range name, cs_string a, int fl):
+cs_alias::cs_alias(cs_state &cs, ostd::string_range name, cs_strref a, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
-    p_val.set_str(std::move(a));
+    p_val.set_str(a);
+}
+cs_alias::cs_alias(cs_state &cs, ostd::string_range name, ostd::string_range a, int fl):
+    cs_ident(cs_ident_type::Alias, name, fl),
+    p_acode(nullptr), p_astack(nullptr), p_val{cs}
+{
+    p_val.set_str(a);
 }
 cs_alias::cs_alias(cs_state &cs, ostd::string_range name, cs_int a, int fl):
     cs_ident(cs_ident_type::Alias, name, fl),
@@ -794,13 +800,13 @@ cs_state::get_var_float(ostd::string_range name) {
     return static_cast<cs_fvar *>(id)->get_value();
 }
 
-OSTD_EXPORT std::optional<cs_string>
+OSTD_EXPORT std::optional<cs_strref>
 cs_state::get_var_str(ostd::string_range name) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_svar()) {
         return std::nullopt;
     }
-    return cs_string(static_cast<cs_svar *>(id)->get_value());
+    return cs_strref{*p_state, static_cast<cs_svar *>(id)->get_value()};
 }
 
 OSTD_EXPORT std::optional<cs_int>
@@ -839,7 +845,7 @@ cs_state::get_var_max_float(ostd::string_range name) {
     return static_cast<cs_fvar *>(id)->get_val_max();
 }
 
-OSTD_EXPORT std::optional<cs_string>
+OSTD_EXPORT std::optional<cs_strref>
 cs_state::get_alias_val(ostd::string_range name) {
     cs_alias *a = get_alias(name);
     if (!a) {
@@ -1048,10 +1054,10 @@ static inline void cs_loop_conc(
         if (space && i) {
             s += ' ';
         }
-        s += v.get_str();
+        s += ostd::string_range{v.get_str()};
     }
 end:
-    res.set_str(std::move(s));
+    res.set_str(s);
 }
 
 void cs_init_lib_base(cs_state &gcs) {
@@ -1071,11 +1077,11 @@ void cs_init_lib_base(cs_state &gcs) {
         try {
             cs.run(args[0].get_code(), result);
         } catch (cs_error const &e) {
-            result.set_str(cs_string{e.what()});
+            result.set_str(e.what());
             if (e.get_stack().get()) {
                 auto app = ostd::appender<cs_string>();
                 cscript::util::print_stack(app, e.get_stack());
-                tback.set_str(std::move(app.get()));
+                tback.set_str(app.get());
             }
             rc = false;
         }
@@ -1133,7 +1139,7 @@ void cs_init_lib_base(cs_state &gcs) {
     });
 
     gcs.new_command("cases", "ste2V", [](auto &cs, auto args, auto &res) {
-        cs_string val = args[0].get_str();
+        cs_strref val = args[0].get_str();
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
                 (args[i].get_type() == cs_value_type::Null) ||
@@ -1325,9 +1331,12 @@ end:
     });
 
     gcs.new_command("getalias", "s", [](auto &cs, auto args, auto &res) {
-        res.set_str(
-            std::move(cs.get_alias_val(args[0].get_strr()).value_or(""))
-        );
+        auto s0 = cs.get_alias_val(args[0].get_strr());
+        if (s0) {
+            res.set_str(*s0);
+        } else {
+            res.set_str("");
+        }
     });
 }
 

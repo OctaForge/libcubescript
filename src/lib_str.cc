@@ -54,43 +54,43 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("strlower", "s", [](auto &, auto args, auto &res) {
-        cs_string s = args[0].get_str();
+        cs_string s{ostd::string_range{args[0].get_str()}};
         for (auto i: ostd::range(s.size())) {
             s[i] = tolower(s[i]);
         }
-        res.set_str(std::move(s));
+        res.set_str(s);
     });
 
     cs.new_command("strupper", "s", [](auto &, auto args, auto &res) {
-        cs_string s = args[0].get_str();
+        cs_string s{ostd::string_range{args[0].get_str()}};
         for (auto i: ostd::range(s.size())) {
             s[i] = toupper(s[i]);
         }
-        res.set_str(std::move(s));
+        res.set_str(s);
     });
 
     cs.new_command("escape", "s", [](auto &, auto args, auto &res) {
         auto s = ostd::appender<cs_string>();
         util::escape_string(s, args[0].get_strr());
-        res.set_str(std::move(s.get()));
+        res.set_str(s.get());
     });
 
     cs.new_command("unescape", "s", [](auto &, auto args, auto &res) {
         auto s = ostd::appender<cs_string>();
         util::unescape_string(s, args[0].get_strr());
-        res.set_str(std::move(s.get()));
+        res.set_str(s.get());
     });
 
     cs.new_command("concat", "V", [](auto &, auto args, auto &res) {
         auto s = ostd::appender<cs_string>();
         cscript::util::tvals_concat(s, args, " ");
-        res.set_str(std::move(s.get()));
+        res.set_str(s.get());
     });
 
     cs.new_command("concatword", "V", [](auto &, auto args, auto &res) {
         auto s = ostd::appender<cs_string>();
         cscript::util::tvals_concat(s, args);
-        res.set_str(std::move(s.get()));
+        res.set_str(s.get());
     });
 
     cs.new_command("format", "V", [](auto &, auto args, auto &res) {
@@ -98,8 +98,8 @@ void cs_init_lib_string(cs_state &cs) {
             return;
         }
         cs_string s;
-        cs_string fs = args[0].get_str();
-        ostd::string_range f = ostd::iter(fs);
+        cs_strref fs = args[0].get_str();
+        ostd::string_range f{fs};
         while (!f.empty()) {
             char c = *f;
             ++f;
@@ -109,7 +109,7 @@ void cs_init_lib_string(cs_state &cs) {
                 if (ic >= '1' && ic <= '9') {
                     int i = ic - '0';
                     if (size_t(i) < args.size()) {
-                        s += args[i].get_str();
+                        s += ostd::string_range{args[i].get_str()};
                     }
                 } else {
                     s += ic;
@@ -118,7 +118,7 @@ void cs_init_lib_string(cs_state &cs) {
                 s += c;
             }
         }
-        res.set_str(std::move(s));
+        res.set_str(s);
     });
 
     cs.new_command("tohex", "ii", [](auto &, auto args, auto &res) {
@@ -131,7 +131,7 @@ void cs_init_lib_string(cs_state &cs) {
         } catch (ostd::format_error const &e) {
             throw cs_internal_error{e.what()};
         }
-        res.set_str(std::move(r.get()));
+        res.set_str(r.get());
     });
 
     cs.new_command("substr", "siiN", [](auto &, auto args, auto &res) {
@@ -197,7 +197,7 @@ void cs_init_lib_string(cs_state &cs) {
                 s = found.slice(oldval.size(), found.size());
             } else {
                 buf += s;
-                res.set_str(std::move(buf));
+                res.set_str(buf);
                 return;
             }
         }
@@ -221,7 +221,7 @@ void cs_init_lib_string(cs_state &cs) {
         if ((offset + len) < cs_int(s.size())) {
             p += s.slice(offset + len, s.size());
         }
-        res.set_str(std::move(p));
+        res.set_str(p);
     });
 }
 
