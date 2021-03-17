@@ -37,7 +37,7 @@ static inline void csv_cleanup(cs_value_type tv, T &stor) {
 cs_value::cs_value(cs_state &st): cs_value(*st.p_state) {}
 
 cs_value::cs_value(cs_shared_state &st):
-    p_stor(), p_len(0), p_type(cs_value_type::Null)
+    p_stor(), p_type(cs_value_type::Null)
 {
     reinterpret_cast<stor_priv_t<void *> *>(&p_stor)->state = &st;
 }
@@ -57,13 +57,11 @@ cs_value &cs_value::operator=(cs_value const &v) {
         case cs_value_type::Int:
         case cs_value_type::Float:
         case cs_value_type::Ident:
-            p_len = v.p_len;
             p_type = v.p_type;
             p_stor = v.p_stor;
             break;
         case cs_value_type::String:
             p_type = cs_value_type::String;
-            p_len = v.p_len;
             new (&p_stor) cs_strref{
                 *reinterpret_cast<cs_strref const *>(&v.p_stor)
             };
@@ -97,7 +95,6 @@ void cs_value::set_str(ostd::string_range val) {
     csv_cleanup(p_type, p_stor);
     new (&p_stor) cs_strref{*state(), val};
     p_type = cs_value_type::String;
-    p_len = val.size();
 }
 
 void cs_value::set_null() {
@@ -132,8 +129,7 @@ cs_float cs_value::force_float() {
             break;
         case cs_value_type::String:
             rf = cs_parse_float(ostd::string_range(
-                csv_get<char const *>(p_stor),
-                csv_get<char const *>(p_stor) + p_len
+                *reinterpret_cast<cs_strref const *>(&p_stor)
             ));
             break;
         case cs_value_type::Float:
@@ -153,8 +149,7 @@ cs_int cs_value::force_int() {
             break;
         case cs_value_type::String:
             ri = cs_parse_int(ostd::string_range(
-                csv_get<char const *>(p_stor),
-                csv_get<char const *>(p_stor) + p_len
+                *reinterpret_cast<cs_strref const *>(&p_stor)
             ));
             break;
         case cs_value_type::Int:
@@ -177,17 +172,13 @@ ostd::string_range cs_value::force_str() {
             break;
         case cs_value_type::String:
             return ostd::string_range(
-                csv_get<char const *>(p_stor),
-                csv_get<char const *>(p_stor) + p_len
+                *reinterpret_cast<cs_strref const *>(&p_stor)
             );
         default:
             break;
     }
     set_str(std::move(rs));
-    return ostd::string_range(
-        csv_get<char const *>(p_stor),
-        csv_get<char const *>(p_stor) + p_len
-    );
+    return ostd::string_range(*reinterpret_cast<cs_strref const *>(&p_stor));
 }
 
 cs_int cs_value::get_int() const {
@@ -198,8 +189,7 @@ cs_int cs_value::get_int() const {
             return csv_get<cs_int>(p_stor);
         case cs_value_type::String:
             return cs_parse_int(ostd::string_range(
-                csv_get<char const *>(p_stor),
-                csv_get<char const *>(p_stor) + p_len
+                *reinterpret_cast<cs_strref const *>(&p_stor)
             ));
         default:
             break;
@@ -215,8 +205,7 @@ cs_float cs_value::get_float() const {
             return cs_float(csv_get<cs_int>(p_stor));
         case cs_value_type::String:
             return cs_parse_float(ostd::string_range(
-                csv_get<char const *>(p_stor),
-                csv_get<char const *>(p_stor) + p_len
+                *reinterpret_cast<cs_strref const *>(&p_stor)
             ));
         default:
             break;
@@ -241,7 +230,9 @@ cs_ident *cs_value::get_ident() const {
 cs_string cs_value::get_str() const {
     switch (get_type()) {
         case cs_value_type::String:
-            return cs_string{csv_get<char const *>(p_stor), p_len};
+            return cs_string{ostd::string_range{
+                *reinterpret_cast<cs_strref const *>(&p_stor)
+            }};
         case cs_value_type::Int:
             return intstr(csv_get<cs_int>(p_stor));
         case cs_value_type::Float:
@@ -256,8 +247,7 @@ ostd::string_range cs_value::get_strr() const {
     switch (get_type()) {
         case cs_value_type::String:
             return ostd::string_range(
-                csv_get<char const *>(p_stor),
-                csv_get<char const *>(p_stor)+ p_len
+                *reinterpret_cast<cs_strref const *>(&p_stor)
             );
         default:
             break;
@@ -323,8 +313,7 @@ bool cs_value::get_bool() const {
             return csv_get<cs_int>(p_stor) != 0;
         case cs_value_type::String:
             return cs_get_bool(ostd::string_range(
-                csv_get<char const *>(p_stor),
-                csv_get<char const *>(p_stor) + p_len
+                *reinterpret_cast<cs_strref const *>(&p_stor)
             ));
         default:
             return false;

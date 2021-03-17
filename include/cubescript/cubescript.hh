@@ -151,7 +151,6 @@ private:
         stor_t<void *>,
         cs_strref
     > p_stor;
-    size_t p_len;
     cs_value_type p_type;
 };
 
