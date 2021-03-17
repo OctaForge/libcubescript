@@ -256,7 +256,7 @@ static inline uint32_t *forcecode(cs_state &cs, cs_value &v) {
 static inline void forcecond(cs_state &cs, cs_value &v) {
     switch (v.get_type()) {
         case cs_value_type::String:
-            if (!v.get_strr().empty()) {
+            if (!ostd::string_range{v.get_str()}.empty()) {
                 forcecode(cs, v);
             } else {
                 v.set_int(0);
@@ -576,7 +576,7 @@ static inline int cs_get_lookupu_type(
     if (arg.get_type() != cs_value_type::String) {
         return -2; /* default case */
     }
-    id = cs.get_ident(arg.get_strr());
+    id = cs.get_ident(arg.get_str());
     if (id) {
         switch(id->get_type()) {
             case cs_ident_type::Alias:
@@ -604,7 +604,7 @@ static inline int cs_get_lookupu_type(
                 return CsIdUnknown;
         }
     }
-    throw cs_error(cs, "unknown alias lookup: %s", arg.get_strr());
+    throw cs_error(cs, "unknown alias lookup: %s", arg.get_str());
 }
 
 static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
@@ -922,7 +922,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         break;
                     case cs_value_type::String:
                         gs.code.reserve(64);
-                        gs.gen_main(arg.get_strr());
+                        gs.gen_main(arg.get_str());
                         break;
                     default:
                         gs.code.reserve(8);
@@ -944,7 +944,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 cs_value &arg = args[numargs - 1];
                 switch (arg.get_type()) {
                     case cs_value_type::String: {
-                        ostd::string_range s = arg.get_strr();
+                        ostd::string_range s = arg.get_str();
                         if (!s.empty()) {
                             cs_gen_state gs(cs);
                             gs.code.reserve(64);
@@ -988,7 +988,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 cs_value &arg = args[numargs - 1];
                 cs_ident *id = cs.p_state->identmap[DummyIdx];
                 if (arg.get_type() == cs_value_type::String) {
-                    id = cs.new_ident(arg.get_strr());
+                    id = cs.new_ident(arg.get_str());
                 }
                 if ((id->get_index() < MaxArguments) && !cs_is_arg_used(cs, id)) {
                     cs_value nv{cs};
@@ -1267,7 +1267,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
             case CsCodeSvar1:
                 cs.set_var_str_checked(
                     static_cast<cs_svar *>(cs.p_state->identmap[op >> 8]),
-                    args[--numargs].get_strr()
+                    args[--numargs].get_str()
                 );
                 continue;
 
@@ -1497,16 +1497,17 @@ litval:
                     numargs = offset - 1;
                     continue;
                 }
-                cs_ident *id = cs.get_ident(idarg.get_strr());
+                auto idn = idarg.get_str();
+                cs_ident *id = cs.get_ident(idn);
                 if (!id) {
 noid:
-                    if (cs_check_num(idarg.get_strr())) {
+                    if (cs_check_num(idn)) {
                         goto litval;
                     }
                     result.force_null();
                     force_arg(result, op & CsCodeRetMask);
                     throw cs_error(
-                        cs, "unknown command: %s", idarg.get_strr()
+                        cs, "unknown command: %s", ostd::string_range{idn}
                     );
                 }
                 result.force_null();

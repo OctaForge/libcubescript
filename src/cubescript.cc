@@ -539,7 +539,7 @@ OSTD_EXPORT cs_ident *cs_state::force_ident(cs_value &v) {
         case cs_value_type::Ident:
             return v.get_ident();
         case cs_value_type::String: {
-            cs_ident *id = new_ident(v.get_strr());
+            cs_ident *id = new_ident(v.get_str());
             v.set_ident(id);
             return id;
         }
@@ -1062,7 +1062,7 @@ end:
 
 void cs_init_lib_base(cs_state &gcs) {
     gcs.new_command("error", "s", [](auto &cs, auto args, auto &) {
-        throw cs_error(cs, args[0].get_strr());
+        throw cs_error(cs, args[0].get_str());
     });
 
     gcs.new_command("pcall", "err", [](auto &cs, auto args, auto &ret) {
@@ -1306,32 +1306,32 @@ end:
     });
 
     gcs.new_command("resetvar", "s", [](auto &cs, auto args, auto &) {
-        cs.reset_var(args[0].get_strr());
+        cs.reset_var(args[0].get_str());
     });
 
     gcs.new_command("alias", "st", [](auto &cs, auto args, auto &) {
-        cs.set_alias(args[0].get_strr(), args[1]);
+        cs.set_alias(args[0].get_str(), args[1]);
     });
 
     gcs.new_command("getvarmin", "s", [](auto &cs, auto args, auto &res) {
-        res.set_int(cs.get_var_min_int(args[0].get_strr()).value_or(0));
+        res.set_int(cs.get_var_min_int(args[0].get_str()).value_or(0));
     });
     gcs.new_command("getvarmax", "s", [](auto &cs, auto args, auto &res) {
-        res.set_int(cs.get_var_max_int(args[0].get_strr()).value_or(0));
+        res.set_int(cs.get_var_max_int(args[0].get_str()).value_or(0));
     });
     gcs.new_command("getfvarmin", "s", [](auto &cs, auto args, auto &res) {
-        res.set_float(cs.get_var_min_float(args[0].get_strr()).value_or(0.0f));
+        res.set_float(cs.get_var_min_float(args[0].get_str()).value_or(0.0f));
     });
     gcs.new_command("getfvarmax", "s", [](auto &cs, auto args, auto &res) {
-        res.set_float(cs.get_var_max_float(args[0].get_strr()).value_or(0.0f));
+        res.set_float(cs.get_var_max_float(args[0].get_str()).value_or(0.0f));
     });
 
     gcs.new_command("identexists", "s", [](auto &cs, auto args, auto &res) {
-        res.set_int(cs.have_ident(args[0].get_strr()));
+        res.set_int(cs.have_ident(args[0].get_str()));
     });
 
     gcs.new_command("getalias", "s", [](auto &cs, auto args, auto &res) {
-        auto s0 = cs.get_alias_val(args[0].get_strr());
+        auto s0 = cs.get_alias_val(args[0].get_str());
         if (s0) {
             res.set_str(*s0);
         } else {

@@ -247,18 +247,6 @@ cs_strref cs_value::get_str() const {
     return cs_strref{*state(), ""};
 }
 
-ostd::string_range cs_value::get_strr() const {
-    switch (get_type()) {
-        case cs_value_type::String:
-            return ostd::string_range(
-                *reinterpret_cast<cs_strref const *>(&p_stor)
-            );
-        default:
-            break;
-    }
-    return ostd::string_range();
-}
-
 void cs_value::get_val(cs_value &r) const {
     switch (get_type()) {
         case cs_value_type::String:

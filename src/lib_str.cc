@@ -8,13 +8,13 @@ template<typename F>
 static inline void cs_strgcmp(cs_value_r args, cs_value &res, F cfunc) {
     bool val;
     if (args.size() >= 2) {
-        val = cfunc(args[0].get_strr(), args[1].get_strr());
+        val = cfunc(args[0].get_str(), args[1].get_str());
         for (size_t i = 2; (i < args.size()) && val; ++i) {
-            val = cfunc(args[i - 1].get_strr(), args[i].get_strr());
+            val = cfunc(args[i - 1].get_str(), args[i].get_str());
         }
     } else {
         val = cfunc(
-            !args.empty() ? args[0].get_strr() : ostd::string_range(),
+            !args.empty() ? args[0].get_str() : ostd::string_range(),
             ostd::string_range()
         );
     }
@@ -23,7 +23,7 @@ static inline void cs_strgcmp(cs_value_r args, cs_value &res, F cfunc) {
 
 void cs_init_lib_string(cs_state &cs) {
     cs.new_command("strstr", "ss", [](auto &, auto args, auto &res) {
-        ostd::string_range a = args[0].get_strr(), b = args[1].get_strr();
+        ostd::string_range a = args[0].get_str(), b = args[1].get_str();
         ostd::string_range s = a;
         for (cs_int i = 0; b.size() <= s.size(); ++i) {
             if (b == s.slice(0, b.size())) {
@@ -36,11 +36,11 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("strlen", "s", [](auto &, auto args, auto &res) {
-        res.set_int(cs_int(args[0].get_strr().size()));
+        res.set_int(cs_int(args[0].get_str().size()));
     });
 
     cs.new_command("strcode", "si", [](auto &, auto args, auto &res) {
-        ostd::string_range str = args[0].get_strr();
+        ostd::string_range str = args[0].get_str();
         cs_int i = args[1].get_int();
         if (i >= cs_int(str.size())) {
             res.set_int(0);
@@ -71,13 +71,13 @@ void cs_init_lib_string(cs_state &cs) {
 
     cs.new_command("escape", "s", [](auto &, auto args, auto &res) {
         auto s = ostd::appender<cs_string>();
-        util::escape_string(s, args[0].get_strr());
+        util::escape_string(s, args[0].get_str());
         res.set_str(s.get());
     });
 
     cs.new_command("unescape", "s", [](auto &, auto args, auto &res) {
         auto s = ostd::appender<cs_string>();
-        util::unescape_string(s, args[0].get_strr());
+        util::unescape_string(s, args[0].get_str());
         res.set_str(s.get());
     });
 
@@ -135,7 +135,7 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("substr", "siiN", [](auto &, auto args, auto &res) {
-        ostd::string_range s = args[0].get_strr();
+        ostd::string_range s = args[0].get_str();
         cs_int start = args[1].get_int(), count = args[2].get_int();
         cs_int numargs = args[3].get_int();
         cs_int len = cs_int(s.size()), offset = std::clamp(start, cs_int(0), len);
@@ -170,10 +170,10 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("strreplace", "ssss", [](auto &, auto args, auto &res) {
-        ostd::string_range s = args[0].get_strr();
-        ostd::string_range oldval = args[1].get_strr(),
-                             newval = args[2].get_strr(),
-                             newval2 = args[3].get_strr();
+        ostd::string_range s = args[0].get_str();
+        ostd::string_range oldval = args[1].get_str(),
+                             newval = args[2].get_str(),
+                             newval2 = args[3].get_str();
         if (newval2.empty()) {
             newval2 = newval;
         }
@@ -204,8 +204,8 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("strsplice", "ssii", [](auto &, auto args, auto &res) {
-        ostd::string_range s = args[0].get_strr();
-        ostd::string_range vals = args[1].get_strr();
+        ostd::string_range s = args[0].get_str();
+        ostd::string_range vals = args[1].get_str();
         cs_int skip   = args[2].get_int(),
               count  = args[3].get_int();
         cs_int offset = std::clamp(skip, cs_int(0), cs_int(s.size())),

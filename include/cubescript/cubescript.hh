@@ -85,6 +85,13 @@ struct OSTD_EXPORT cs_strref {
 
     operator ostd::string_range() const;
 
+    std::size_t size() const {
+        return ostd::string_range{*this}.size();
+    }
+    std::size_t length() const {
+        return ostd::string_range{*this}.length();
+    }
+
     bool operator==(cs_strref const &s) const;
 
 private:
@@ -121,7 +128,6 @@ struct OSTD_EXPORT cs_value {
     void set_ident(cs_ident *val);
 
     cs_strref get_str() const;
-    ostd::string_range get_strr() const;
     cs_int get_int() const;
     cs_float get_float() const;
     cs_bcode *get_code() const;
@@ -867,7 +873,9 @@ private:
                     break;
                 }
                 case cs_value_type::String: {
-                    ostd::range_put_all(writer, vals[i].get_strr());
+                    ostd::range_put_all(
+                        writer, ostd::string_range{vals[i].get_str()}
+                    );
                     break;
                 }
                 default:

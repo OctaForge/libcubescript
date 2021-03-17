@@ -275,7 +275,7 @@ int main(int argc, char **argv) {
     gcs.init_libs();
 
     gcs.new_command("exec", "s", [](auto &cs, auto args, auto &) {
-        auto file = args[0].get_strr();
+        auto file = args[0].get_str();
         bool ret = cs.run_file(file);
         if (!ret) {
             throw cscript::cs_error(
@@ -285,7 +285,7 @@ int main(int argc, char **argv) {
     });
 
     gcs.new_command("echo", "C", [](auto &, auto args, auto &) {
-        ostd::writeln(args[0].get_strr());
+        ostd::writeln(ostd::string_range{args[0].get_str()});
     });
 
     int firstarg = 0;
