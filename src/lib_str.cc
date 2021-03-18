@@ -2,6 +2,8 @@
 
 #include <cubescript/cubescript.hh>
 
+#include "cs_util.hh"
+
 namespace cscript {
 
 template<typename F>

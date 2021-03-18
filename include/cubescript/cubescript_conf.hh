@@ -37,9 +37,9 @@ namespace cscript {
     using cs_hook_cb    = std::function<void(cs_state &)>;
     using cs_alloc_cb   = void *(*)(void *, void *, size_t, size_t);
 
-    constexpr auto const IntFormat = "%d";
-    constexpr auto const FloatFormat = "%.7g";
-    constexpr auto const RoundFloatFormat = "%.1f";
+    constexpr auto const CS_INT_FORMAT = "%d";
+    constexpr auto const CS_FLOAT_FORMAT = "%.7g";
+    constexpr auto const CS_ROUND_FLOAT_FORMAT = "%.1f";
 } /* namespace cscript */
 
 #endif /* LIBCUBESCRIPT_CUBESCRIPT_CONF_HH */

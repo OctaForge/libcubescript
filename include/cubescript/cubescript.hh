@@ -19,8 +19,6 @@
 
 namespace cscript {
 
-using cs_string = std::string;
-
 static_assert(std::is_integral_v<cs_int>, "cs_int must be integral");
 static_assert(std::is_signed_v<cs_int>, "cs_int must be signed");
 static_assert(std::is_floating_point_v<cs_float>, "cs_float must be floating point");
@@ -761,7 +759,7 @@ namespace util {
     template<typename R>
     inline void format_int(R &&writer, cs_int val) {
         try {
-            ostd::format(std::forward<R>(writer), IntFormat, val);
+            ostd::format(std::forward<R>(writer), CS_INT_FORMAT, val);
         } catch (ostd::format_error const &e) {
             throw cs_internal_error{e.what()};
         }
@@ -772,7 +770,7 @@ namespace util {
         try {
             ostd::format(
                 std::forward<R>(writer),
-                (val == cs_int(val)) ? RoundFloatFormat : FloatFormat, val
+                (val == floor(val)) ? CS_ROUND_FLOAT_FORMAT : CS_FLOAT_FORMAT, val
             );
         } catch (ostd::format_error const &e) {
             throw cs_internal_error{e.what()};
