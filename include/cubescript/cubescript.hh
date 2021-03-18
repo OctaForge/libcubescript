@@ -761,27 +761,6 @@ namespace util {
     );
 
     template<typename R>
-    inline void format_int(R &&writer, cs_int val) {
-        try {
-            ostd::format(std::forward<R>(writer), CS_INT_FORMAT, val);
-        } catch (ostd::format_error const &e) {
-            throw cs_internal_error{e.what()};
-        }
-    }
-
-    template<typename R>
-    inline void format_float(R &&writer, cs_float val) {
-        try {
-            ostd::format(
-                std::forward<R>(writer),
-                (val == floor(val)) ? CS_ROUND_FLOAT_FORMAT : CS_FLOAT_FORMAT, val
-            );
-        } catch (ostd::format_error const &e) {
-            throw cs_internal_error{e.what()};
-        }
-    }
-
-    template<typename R>
     inline void print_stack(R &&writer, cs_stack_state const &st) {
         auto nd = st.get();
         while (nd) {

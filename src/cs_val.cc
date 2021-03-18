@@ -6,13 +6,23 @@ namespace cscript {
 
 static cs_string intstr(cs_int v) {
     auto app = ostd::appender<cs_string>();
-    cscript::util::format_int(app, v);
+    try {
+        ostd::format(app, CS_INT_FORMAT, v);
+    } catch (ostd::format_error const &e) {
+        throw cs_internal_error{e.what()};
+    }
     return std::move(app.get());
 }
 
 static cs_string floatstr(cs_float v) {
     auto app = ostd::appender<cs_string>();
-    cscript::util::format_float(app, v);
+    try {
+        ostd::format(
+            app, (v == floor(v)) ? CS_ROUND_FLOAT_FORMAT : CS_FLOAT_FORMAT, v
+        );
+    } catch (ostd::format_error const &e) {
+        throw cs_internal_error{e.what()};
+    }
     return std::move(app.get());
 }
 
