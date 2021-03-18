@@ -84,16 +84,12 @@ void cs_init_lib_string(cs_state &cs) {
         res.set_str(s.get());
     });
 
-    cs.new_command("concat", "V", [](auto &, auto args, auto &res) {
-        auto s = ostd::appender<cs_string>();
-        cscript::util::tvals_concat(s, args, " ");
-        res.set_str(s.get());
+    cs.new_command("concat", "V", [](auto &ccs, auto args, auto &res) {
+        res.set_str(value_list_concat(ccs, args, " "));
     });
 
-    cs.new_command("concatword", "V", [](auto &, auto args, auto &res) {
-        auto s = ostd::appender<cs_string>();
-        cscript::util::tvals_concat(s, args);
-        res.set_str(s.get());
+    cs.new_command("concatword", "V", [](auto &ccs, auto args, auto &res) {
+        res.set_str(value_list_concat(ccs, args));
     });
 
     cs.new_command("format", "V", [](auto &, auto args, auto &res) {

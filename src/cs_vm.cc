@@ -465,10 +465,8 @@ static inline void callcommand(
                 break;
             case 'C': {
                 i = std::max(i + 1, numargs);
-                auto buf = ostd::appender<cs_string>();
-                cscript::util::tvals_concat(buf, ostd::iter(args, args + i), " ");
                 cs_value tv{cs};
-                tv.set_str(buf.get());
+                tv.set_str(value_list_concat(cs, ostd::iter(args, args + i), " "));
                 cs_cmd_internal::call(cs, id, cs_value_r(&tv, &tv + 1), res);
                 return;
             }
@@ -1381,12 +1379,10 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
                 result.force_none();
                 {
-                    auto buf = ostd::appender<cs_string>();
-                    cscript::util::tvals_concat(buf, ostd::iter(
-                        &args[offset], &args[offset + callargs]
-                    ), " ");
                     cs_value tv{cs};
-                    tv.set_str(buf.get());
+                    tv.set_str(value_list_concat(cs, ostd::iter(
+                        &args[offset], &args[offset + callargs]
+                    ), " "));
                     cs_cmd_internal::call(cs, id, cs_value_r(&tv, &tv + 1), result);
                 }
                 force_arg(result, op & CS_CODE_RET_MASK);
@@ -1403,13 +1399,12 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
             case CS_CODE_CONC_W | CS_RET_FLOAT:
             case CS_CODE_CONC_W | CS_RET_INT: {
                 int numconc = op >> 8;
-                auto buf = ostd::appender<cs_string>();
-                cscript::util::tvals_concat(
-                    buf, ostd::iter(&args[numargs - numconc], &args[numargs]),
+                auto buf = value_list_concat(
+                    cs, ostd::iter(&args[numargs - numconc], &args[numargs]),
                     ((op & CS_CODE_OP_MASK) == CS_CODE_CONC) ? " " : ""
                 );
                 numargs = numargs - numconc;
-                args[numargs].set_str(buf.get());
+                args[numargs].set_str(buf);
                 force_arg(args[numargs], op & CS_CODE_RET_MASK);
                 numargs++;
                 continue;
@@ -1420,12 +1415,11 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
             case CS_CODE_CONC_M | CS_RET_FLOAT:
             case CS_CODE_CONC_M | CS_RET_INT: {
                 int numconc = op >> 8;
-                auto buf = ostd::appender<cs_string>();
-                cscript::util::tvals_concat(
-                    buf, ostd::iter(&args[numargs - numconc], &args[numargs])
+                auto buf = value_list_concat(
+                    cs, ostd::iter(&args[numargs - numconc], &args[numargs])
                 );
                 numargs = numargs - numconc;
-                result.set_str(buf.get());
+                result.set_str(buf);
                 force_arg(result, op & CS_CODE_RET_MASK);
                 continue;
             }

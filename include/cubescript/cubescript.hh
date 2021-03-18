@@ -662,6 +662,10 @@ OSTD_EXPORT std::size_t list_count(cs_list_parse_state &ps, cs_state &cs);
 OSTD_EXPORT cs_strref list_get_item(cs_list_parse_state &ps, cs_state &cs);
 OSTD_EXPORT void list_find_item(cs_list_parse_state &ps);
 
+OSTD_EXPORT cs_strref value_list_concat(
+    cs_state &cs, cs_value_r vals, ostd::string_range sep = ostd::string_range{}
+);
+
 namespace util {
     template<typename R>
     inline R &&escape_string(R &&writer, ostd::string_range str) {
@@ -774,41 +778,6 @@ namespace util {
             );
         } catch (ostd::format_error const &e) {
             throw cs_internal_error{e.what()};
-        }
-    }
-
-    template<typename R>
-    inline void tvals_concat(
-        R &&writer, cs_value_r vals,
-        ostd::string_range sep = ostd::string_range()
-    ) {
-        for (size_t i = 0; i < vals.size(); ++i) {
-            switch (vals[i].get_type()) {
-                case cs_value_type::INT: {
-                    format_int(
-                        std::forward<R>(writer), vals[i].get_int()
-                    );
-                    break;
-                }
-                case cs_value_type::FLOAT: {
-                    format_float(
-                        std::forward<R>(writer), vals[i].get_float()
-                    );
-                    break;
-                }
-                case cs_value_type::STRING: {
-                    ostd::range_put_all(
-                        writer, ostd::string_range{vals[i].get_str()}
-                    );
-                    break;
-                }
-                default:
-                    break;
-            }
-            if (i == (vals.size() - 1)) {
-                break;
-            }
-            ostd::range_put_all(writer, sep);
         }
     }
 
