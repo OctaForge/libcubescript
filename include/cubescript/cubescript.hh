@@ -75,6 +75,7 @@ struct OSTD_EXPORT cs_strref {
 
     cs_strref() = delete;
     cs_strref(cs_shared_state &cs, ostd::string_range str);
+    cs_strref(cs_state &cs, ostd::string_range str);
 
     cs_strref(cs_strref const &ref);
 
@@ -379,6 +380,7 @@ static inline void *cs_default_alloc(void *, void *p, size_t, size_t ns) {
 struct OSTD_EXPORT cs_state {
     friend struct cs_error;
     friend struct cs_strman;
+    friend struct cs_strref;
     friend struct cs_value;
     friend struct cs_gen_state;
 
@@ -649,6 +651,19 @@ private:
     bool p_pushed;
 };
 
+struct cs_list_parse_state {
+    cs_list_parse_state(ostd::string_range s = ostd::string_range{}): input{s} {}
+
+    ostd::string_range input{};
+    ostd::string_range item{};
+    ostd::string_range quoted_item{};
+};
+
+OSTD_EXPORT bool list_parse(cs_list_parse_state &ps, cs_state &cs);
+OSTD_EXPORT std::size_t list_count(cs_list_parse_state &ps, cs_state &cs);
+OSTD_EXPORT cs_strref list_get_item(cs_list_parse_state &ps, cs_state &cs);
+OSTD_EXPORT void list_find_item(cs_list_parse_state &ps);
+
 namespace util {
     template<typename R>
     inline R &&escape_string(R &&writer, ostd::string_range str) {
@@ -742,90 +757,6 @@ namespace util {
     OSTD_EXPORT ostd::string_range parse_word(
         cs_state &cs, ostd::string_range str
     );
-
-    struct list_range;
-
-    struct OSTD_EXPORT list_parser {
-        list_parser() = delete;
-        list_parser(cs_state &cs, ostd::string_range src):
-            p_state(cs), p_input(src)
-        {}
-
-        void skip();
-        bool parse();
-        size_t count();
-
-        template<typename R>
-        R &&get_item(R &&writer) const {
-            if (!p_quote.empty() && (*p_quote == '"')) {
-                return unescape_string(std::forward<R>(writer), p_item);
-            } else {
-                ostd::range_put_all(writer, p_item);
-                return std::forward<R>(writer);
-            }
-        }
-
-        cs_string get_item() const {
-            return std::move(get_item(ostd::appender<cs_string>()).get());
-        }
-
-        ostd::string_range &get_raw_item(bool quoted = false) {
-            return quoted ? p_quote : p_item;
-        }
-
-        ostd::string_range const &get_raw_item(bool quoted = false) const {
-            return quoted ? p_quote : p_item;
-        }
-
-        ostd::string_range &get_input() {
-            return p_input;
-        }
-
-        list_range iter() noexcept;
-
-private:
-        ostd::string_range p_quote = ostd::string_range();
-        ostd::string_range p_item = ostd::string_range();
-        cs_state &p_state;
-        ostd::string_range p_input;
-    };
-
-    struct list_range: ostd::input_range<list_range> {
-        using range_category = ostd::forward_range_tag;
-        using value_type     = ostd::string_range;
-        using reference      = ostd::string_range;
-        using size_type      = std::size_t;
-
-        list_range() = delete;
-
-        list_range(list_parser &p) noexcept: p_parser(&p) {
-            pop_front();
-        }
-
-        bool empty() const noexcept {
-            return !bool(p_item);
-        }
-
-        void pop_front() noexcept {
-            if (p_parser->parse()) {
-                p_item = p_parser->get_item();
-            } else {
-                p_item.reset();
-            }
-        }
-
-        ostd::string_range front() const noexcept {
-            return *p_item;
-        }
-
-    private:
-        list_parser *p_parser;
-        std::optional<cs_string> p_item{};
-    };
-
-    inline list_range list_parser::iter() noexcept {
-        return list_range{*this};
-    }
 
     template<typename R>
     inline void format_int(R &&writer, cs_int val) {

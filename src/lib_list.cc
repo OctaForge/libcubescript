@@ -35,13 +35,13 @@ static inline void cs_list_find(
 ) {
     cs_int n = 0, skip = args[2].get_int();
     T val = cs_arg_val<T>::get(args[1]);
-    for (util::list_parser p(cs, args[0].get_str()); p.parse(); ++n) {
+    for (cs_list_parse_state p{args[0].get_str()}; list_parse(p, cs); ++n) {
         if (cmp(p, val)) {
             res.set_int(n);
             return;
         }
         for (int i = 0; i < skip; ++i) {
-            if (!p.parse()) {
+            if (!list_parse(p, cs)) {
                 goto notfound;
             }
             ++n;
@@ -56,14 +56,14 @@ static inline void cs_list_assoc(
     cs_state &cs, cs_value_r args, cs_value &res, F cmp
 ) {
     T val = cs_arg_val<T>::get(args[1]);
-    for (util::list_parser p(cs, args[0].get_str()); p.parse();) {
+    for (cs_list_parse_state p{args[0].get_str()}; list_parse(p, cs);) {
         if (cmp(p, val)) {
-            if (p.parse()) {
-                res.set_str(p.get_item());
+            if (list_parse(p, cs)) {
+                res.set_str(list_get_item(p, cs));
             }
             return;
         }
-        if (!p.parse()) {
+        if (!list_parse(p, cs)) {
             break;
         }
     }
@@ -79,8 +79,8 @@ static void cs_loop_list_conc(
     }
     cs_string r;
     int n = 0;
-    for (util::list_parser p(cs, list); p.parse(); ++n) {
-        idv.set_str(p.get_item());
+    for (cs_list_parse_state p{list}; list_parse(p, cs); ++n) {
+        idv.set_str(list_get_item(p, cs));
         idv.push();
         if (n && space) {
             r += ' ';
@@ -104,8 +104,8 @@ int cs_list_includes(
     cs_state &cs, ostd::string_range list, ostd::string_range needle
 ) {
     int offset = 0;
-    for (util::list_parser p(cs, list); p.parse();) {
-        if (p.get_raw_item() == needle) {
+    for (cs_list_parse_state p{list}; list_parse(p, cs);) {
+        if (p.item == needle) {
             return offset;
         }
         ++offset;
@@ -126,12 +126,12 @@ static inline void cs_list_merge(
     if (Swap) {
         std::swap(list, elems);
     }
-    for (util::list_parser p(cs, list); p.parse();) {
-        if (cmp(cs_list_includes(cs, elems, p.get_raw_item()), 0)) {
+    for (cs_list_parse_state p{list}; list_parse(p, cs);) {
+        if (cmp(cs_list_includes(cs, elems, p.item), 0)) {
             if (!buf.empty()) {
                 buf += ' ';
             }
-            buf += p.get_raw_item(true);
+            buf += p.quoted_item;
         }
     }
     res.set_str(buf);
@@ -141,7 +141,8 @@ static void cs_init_lib_list_sort(cs_state &cs);
 
 void cs_init_lib_list(cs_state &gcs) {
     gcs.new_command("listlen", "s", [](auto &cs, auto args, auto &res) {
-        res.set_int(cs_int(util::list_parser(cs, args[0].get_str()).count()));
+        cs_list_parse_state p{args[0].get_str()};
+        res.set_int(cs_int(list_count(p, cs)));
     });
 
     gcs.new_command("at", "si1V", [](auto &cs, auto args, auto &res) {
@@ -149,51 +150,51 @@ void cs_init_lib_list(cs_state &gcs) {
             return;
         }
         cs_strref str = args[0].get_str();
-        util::list_parser p(cs, str);
-        p.get_raw_item() = str;
+        cs_list_parse_state p{str};
+        p.item = str;
         for (size_t i = 1; i < args.size(); ++i) {
-            p.get_input() = str;
+            p.input = str;
             cs_int pos = args[i].get_int();
             for (; pos > 0; --pos) {
-                if (!p.parse()) {
+                if (!list_parse(p, cs)) {
                     break;
                 }
             }
-            if (pos > 0 || !p.parse()) {
-                p.get_raw_item() = p.get_raw_item(true) = ostd::string_range();
+            if (pos > 0 || !list_parse(p, cs)) {
+                p.item = p.quoted_item = ostd::string_range();
             }
         }
-        res.set_str(p.get_item());
+        res.set_str(list_get_item(p, cs));
     });
 
     gcs.new_command("sublist", "siiN", [](auto &cs, auto args, auto &res) {
-        cs_int skip    = args[1].get_int(),
+        cs_int skip   = args[1].get_int(),
               count   = args[2].get_int(),
               numargs = args[3].get_int();
 
         cs_int offset = std::max(skip, cs_int(0)),
               len = (numargs >= 3) ? std::max(count, cs_int(0)) : -1;
 
-        util::list_parser p(cs, args[0].get_str());
+        cs_list_parse_state p{args[0].get_str()};
         for (cs_int i = 0; i < offset; ++i) {
-            if (!p.parse()) break;
+            if (!list_parse(p, cs)) break;
         }
         if (len < 0) {
             if (offset > 0) {
-                p.skip();
+                list_find_item(p);
             }
-            res.set_str(cs_string{p.get_input()});
+            res.set_str(cs_string{p.input});
             return;
         }
 
-        char const *list = p.get_input().data();
-        p.get_raw_item(true) = ostd::string_range();
-        if (len > 0 && p.parse()) {
-            while (--len > 0 && p.parse());
+        char const *list = p.input.data();
+        p.quoted_item = ostd::string_range();
+        if (len > 0 && list_parse(p, cs)) {
+            while (--len > 0 && list_parse(p, cs));
         }
-        ostd::string_range quote = p.get_raw_item(true);
+        ostd::string_range quote = p.quoted_item;
         char const *qend = !quote.empty() ? &quote[quote.size()] : list;
-        res.set_str(cs_string{list, size_t(qend - list)});
+        res.set_str(ostd::string_range{list, qend});
     });
 
     gcs.new_command("listfind", "rse", [](auto &cs, auto args, auto &res) {
@@ -204,9 +205,9 @@ void cs_init_lib_list(cs_state &gcs) {
         }
         auto body = args[2].get_code();
         int n = -1;
-        for (util::list_parser p(cs, args[1].get_str()); p.parse();) {
+        for (cs_list_parse_state p{args[1].get_str()}; list_parse(p, cs);) {
             ++n;
-            idv.set_str(cs_string{p.get_raw_item()});
+            idv.set_str(cs_string{p.item});
             idv.push();
             if (cs.run_bool(body)) {
                 res.set_int(cs_int(n));
@@ -223,17 +224,17 @@ void cs_init_lib_list(cs_state &gcs) {
         }
         auto body = args[2].get_code();
         int n = -1;
-        for (util::list_parser p(cs, args[1].get_str()); p.parse();) {
+        for (cs_list_parse_state p{args[1].get_str()}; list_parse(p, cs);) {
             ++n;
-            idv.set_str(cs_string{p.get_raw_item()});
+            idv.set_str(cs_string{p.item});
             idv.push();
             if (cs.run_bool(body)) {
-                if (p.parse()) {
-                    res.set_str(p.get_item());
+                if (list_parse(p, cs)) {
+                    res.set_str(list_get_item(p, cs));
                 }
                 break;
             }
-            if (!p.parse()) {
+            if (!list_parse(p, cs)) {
                 break;
             }
         }
@@ -241,44 +242,44 @@ void cs_init_lib_list(cs_state &gcs) {
 
     gcs.new_command("listfind=", "i", [](auto &cs, auto args, auto &res) {
         cs_list_find<cs_int>(
-            cs, args, res, [](const util::list_parser &p, cs_int val) {
-                return cs_parse_int(p.get_raw_item()) == val;
+            cs, args, res, [](cs_list_parse_state const &p, cs_int val) {
+                return cs_parse_int(p.item) == val;
             }
         );
     });
     gcs.new_command("listfind=f", "f", [](auto &cs, auto args, auto &res) {
         cs_list_find<cs_float>(
-            cs, args, res, [](const util::list_parser &p, cs_float val) {
-                return cs_parse_float(p.get_raw_item()) == val;
+            cs, args, res, [](cs_list_parse_state const &p, cs_float val) {
+                return cs_parse_float(p.item) == val;
             }
         );
     });
     gcs.new_command("listfind=s", "s", [](auto &cs, auto args, auto &res) {
         cs_list_find<ostd::string_range>(
-            cs, args, res, [](const util::list_parser &p, ostd::string_range val) {
-                return p.get_raw_item() == val;
+            cs, args, res, [](cs_list_parse_state const &p, ostd::string_range val) {
+                return p.item == val;
             }
         );
     });
 
     gcs.new_command("listassoc=", "i", [](auto &cs, auto args, auto &res) {
         cs_list_assoc<cs_int>(
-            cs, args, res, [](const util::list_parser &p, cs_int val) {
-                return cs_parse_int(p.get_raw_item()) == val;
+            cs, args, res, [](cs_list_parse_state const &p, cs_int val) {
+                return cs_parse_int(p.item) == val;
             }
         );
     });
     gcs.new_command("listassoc=f", "f", [](auto &cs, auto args, auto &res) {
         cs_list_assoc<cs_float>(
-            cs, args, res, [](const util::list_parser &p, cs_float val) {
-                return cs_parse_float(p.get_raw_item()) == val;
+            cs, args, res, [](cs_list_parse_state const &p, cs_float val) {
+                return cs_parse_float(p.item) == val;
             }
         );
     });
     gcs.new_command("listassoc=s", "s", [](auto &cs, auto args, auto &res) {
         cs_list_assoc<ostd::string_range>(
-            cs, args, res, [](const util::list_parser &p, ostd::string_range val) {
-                return p.get_raw_item() == val;
+            cs, args, res, [](cs_list_parse_state const &p, ostd::string_range val) {
+                return p.item == val;
             }
         );
     });
@@ -290,8 +291,8 @@ void cs_init_lib_list(cs_state &gcs) {
         }
         auto body = args[2].get_code();
         int n = 0;
-        for (util::list_parser p(cs, args[1].get_str()); p.parse(); ++n) {
-            idv.set_str(p.get_item());
+        for (cs_list_parse_state p{args[1].get_str()}; list_parse(p, cs); ++n) {
+            idv.set_str(list_get_item(p, cs));
             idv.push();
             switch (cs.run_loop(body)) {
                 case cs_loop_state::BREAK:
@@ -312,10 +313,10 @@ end:
         }
         auto body = args[3].get_code();
         int n = 0;
-        for (util::list_parser p(cs, args[2].get_str()); p.parse(); n += 2) {
-            idv1.set_str(p.get_item());
-            if (p.parse()) {
-                idv2.set_str(p.get_item());
+        for (cs_list_parse_state p{args[2].get_str()}; list_parse(p, cs); n += 2) {
+            idv1.set_str(list_get_item(p, cs));
+            if (list_parse(p, cs)) {
+                idv2.set_str(list_get_item(p, cs));
             } else {
                 idv2.set_str("");
             }
@@ -341,15 +342,15 @@ end:
         }
         auto body = args[4].get_code();
         int n = 0;
-        for (util::list_parser p(cs, args[3].get_str()); p.parse(); n += 3) {
-            idv1.set_str(p.get_item());
-            if (p.parse()) {
-                idv2.set_str(p.get_item());
+        for (cs_list_parse_state p{args[3].get_str()}; list_parse(p, cs); n += 3) {
+            idv1.set_str(list_get_item(p, cs));
+            if (list_parse(p, cs)) {
+                idv2.set_str(list_get_item(p, cs));
             } else {
                 idv2.set_str("");
             }
-            if (p.parse()) {
-                idv3.set_str(p.get_item());
+            if (list_parse(p, cs)) {
+                idv3.set_str(list_get_item(p, cs));
             } else {
                 idv3.set_str("");
             }
@@ -391,14 +392,14 @@ end:
         auto body = args[2].get_code();
         cs_string r;
         int n = 0;
-        for (util::list_parser p(cs, args[1].get_str()); p.parse(); ++n) {
-            idv.set_str(cs_string{p.get_raw_item()});
+        for (cs_list_parse_state p{args[1].get_str()}; list_parse(p, cs); ++n) {
+            idv.set_str(p.item);
             idv.push();
             if (cs.run_bool(body)) {
                 if (r.size()) {
                     r += ' ';
                 }
-                r += p.get_raw_item(true);
+                r += p.quoted_item;
             }
         }
         res.set_str(r);
@@ -411,8 +412,8 @@ end:
         }
         auto body = args[2].get_code();
         int n = 0, r = 0;
-        for (util::list_parser p(cs, args[1].get_str()); p.parse(); ++n) {
-            idv.set_str(cs_string{p.get_raw_item()});
+        for (cs_list_parse_state p{args[1].get_str()}; list_parse(p, cs); ++n) {
+            idv.set_str(p.item);
             idv.push();
             if (cs.run_bool(body)) {
                 r++;
@@ -425,14 +426,14 @@ end:
         auto buf = ostd::appender<cs_string>();
         ostd::string_range s = args[0].get_str();
         ostd::string_range conj = args[1].get_str();
-        size_t len = util::list_parser(cs, s).count();
+        cs_list_parse_state p{s};
+        size_t len = list_count(p, cs);
         size_t n = 0;
-        for (util::list_parser p(cs, s); p.parse(); ++n) {
-            if (!p.get_raw_item(true).empty() &&
-                (p.get_raw_item(true).front() == '"')) {
-                util::unescape_string(buf, p.get_raw_item());
+        for (p.input = s; list_parse(p, cs); ++n) {
+            if (!p.quoted_item.empty() && (p.quoted_item.front() == '"')) {
+                util::unescape_string(buf, p.item);
             } else {
-                ostd::range_put_all(buf, p.get_raw_item());
+                ostd::range_put_all(buf, p.item);
             }
             if ((n + 1) < len) {
                 if ((len > 2) || conj.empty()) {
@@ -470,13 +471,13 @@ end:
         ostd::string_range s = args[0].get_str();
         ostd::string_range vals = args[1].get_str();
         char const *list = s.data();
-        util::list_parser p(cs, s);
+        cs_list_parse_state p{s};
         for (cs_int i = 0; i < offset; ++i) {
-            if (!p.parse()) {
+            if (!list_parse(p, cs)) {
                 break;
             }
         }
-        ostd::string_range quote = p.get_raw_item(true);
+        ostd::string_range quote = p.quoted_item;
         char const *qend = !quote.empty() ? &quote[quote.size()] : list;
         cs_string buf;
         if (qend > list) {
@@ -489,13 +490,13 @@ end:
             buf += vals;
         }
         for (cs_int i = 0; i < len; ++i) {
-            if (!p.parse()) {
+            if (!list_parse(p, cs)) {
                 break;
             }
         }
-        p.skip();
-        if (!p.get_input().empty()) {
-            switch (p.get_input().front()) {
+        list_find_item(p);
+        if (!p.input.empty()) {
+            switch (p.input.front()) {
                 case ')':
                 case ']':
                     break;
@@ -503,7 +504,7 @@ end:
                     if (!buf.empty()) {
                         buf += ' ';
                     }
-                    buf += p.get_input();
+                    buf += p.input;
                     break;
             }
         }
@@ -545,14 +546,14 @@ static void cs_list_sort(
     cs_vector<ListSortItem> items;
     size_t total = 0;
 
-    for (util::list_parser p(cs, list); p.parse();) {
-        ListSortItem item = { p.get_raw_item(), p.get_raw_item(true) };
+    for (cs_list_parse_state p{list}; list_parse(p, cs);) {
+        ListSortItem item = { p.item, p.quoted_item };
         items.push_back(item);
         total += item.quote.size();
     }
 
     if (items.empty()) {
-        res.set_str(cs_string{list});
+        res.set_str(list);
         return;
     }
 

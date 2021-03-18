@@ -195,7 +195,7 @@ struct cs_gen_state {
     }
 
     ostd::string_range get_str();
-    cs_string get_str_dup(bool unescape = true);
+    cs_string get_str_dup();
 
     ostd::string_range get_word();
 

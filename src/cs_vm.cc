@@ -13,6 +13,12 @@ cs_strref::cs_strref(cs_shared_state &cs, ostd::string_range str):
     p_str = cs.strman->add(str);
 }
 
+cs_strref::cs_strref(cs_state &cs, ostd::string_range str):
+    p_state{cs.p_state}
+{
+    p_str = p_state->strman->add(str);
+}
+
 cs_strref::cs_strref(cs_strref const &ref): p_state{ref.p_state}, p_str{ref.p_str}
 {
     p_state->strman->ref(p_str);

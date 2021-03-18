@@ -357,107 +357,120 @@ end:
         }
         return str;
     }
-
-    void list_parser::skip() {
-        for (;;) {
-            while (!p_input.empty()) {
-                char c = *p_input;
-                if ((c == ' ') || (c == '\t') || (c == '\r') || (c == '\n')) {
-                    ++p_input;
-                } else {
-                    break;
-                }
-            }
-            if ((p_input.size() < 2) || (p_input[0] != '/') || (p_input[1] != '/')) {
-                break;
-            }
-            p_input = ostd::find(p_input, '\n');
-        }
-    }
-
-    bool list_parser::parse() {
-        skip();
-        if (p_input.empty()) {
-            return false;
-        }
-        switch (*p_input) {
-            case '"':
-                p_quote = p_input;
-                p_input = parse_string(p_state, p_input);
-                p_quote = p_quote.slice(0, &p_input[0] - &p_quote[0]);
-                p_item = p_quote.slice(1, p_quote.size() - 1);
-                break;
-            case '(':
-            case '[': {
-                p_quote = p_input;
-                ++p_input;
-                p_item = p_input;
-                char btype = *p_quote;
-                int brak = 1;
-                for (;;) {
-                    p_input = ostd::find_one_of(
-                        p_input, ostd::string_range("\"/;()[]")
-                    );
-                    if (p_input.empty()) {
-                        return true;
-                    }
-                    char c = *p_input;
-                    ++p_input;
-                    switch (c) {
-                        case '"':
-                            p_input = parse_string(p_state, p_input);
-                            break;
-                        case '/':
-                            if (!p_input.empty() && (*p_input == '/')) {
-                                p_input = ostd::find(p_input, '\n');
-                            }
-                            break;
-                        case '(':
-                        case '[':
-                            brak += (c == btype);
-                            break;
-                        case ')':
-                            if ((btype == '(') && (--brak <= 0)) {
-                                goto endblock;
-                            }
-                            break;
-                        case ']':
-                            if ((btype == '[') && (--brak <= 0)) {
-                                goto endblock;
-                            }
-                            break;
-                    }
-                }
-endblock:
-                p_item = p_item.slice(0, &p_input[0] - &p_item[0]);
-                p_item.pop_back();
-                p_quote = p_quote.slice(0, &p_input[0] - &p_quote[0]);
-                break;
-            }
-            case ')':
-            case ']':
-                return false;
-            default: {
-                ostd::string_range e = parse_word(p_state, p_input);
-                p_quote = p_item = p_input.slice(0, &e[0] - &p_input[0]);
-                p_input = e;
-                break;
-            }
-        }
-        skip();
-        if (!p_input.empty() && (*p_input == ';')) {
-            ++p_input;
-        }
-        return true;
-    }
-
-    size_t list_parser::count() {
-        size_t ret = 0;
-        while (parse()) {
-            ++ret;
-        }
-        return ret;
-    }
 } /* namespace util */
+
+OSTD_EXPORT bool list_parse(cs_list_parse_state &ps, cs_state &cs) {
+    list_find_item(ps);
+    if (ps.input.empty()) {
+        return false;
+    }
+    switch (*ps.input) {
+        case '"':
+            ps.quoted_item = ps.input;
+            ps.input = util::parse_string(cs, ps.input);
+            ps.quoted_item = ps.quoted_item.slice(
+                0, &ps.input[0] - &ps.quoted_item[0]
+            );
+            ps.item = ps.quoted_item.slice(1, ps.quoted_item.size() - 1);
+            break;
+        case '(':
+        case '[': {
+            ps.quoted_item = ps.input;
+            ++ps.input;
+            ps.item = ps.input;
+            char btype = *ps.quoted_item;
+            int brak = 1;
+            for (;;) {
+                ps.input = ostd::find_one_of(
+                    ps.input, ostd::string_range("\"/;()[]")
+                );
+                if (ps.input.empty()) {
+                    return true;
+                }
+                char c = *ps.input;
+                ++ps.input;
+                switch (c) {
+                    case '"':
+                        ps.input = util::parse_string(cs, ps.input);
+                        break;
+                    case '/':
+                        if (!ps.input.empty() && (*ps.input == '/')) {
+                            ps.input = ostd::find(ps.input, '\n');
+                        }
+                        break;
+                    case '(':
+                    case '[':
+                        brak += (c == btype);
+                        break;
+                    case ')':
+                        if ((btype == '(') && (--brak <= 0)) {
+                            goto endblock;
+                        }
+                        break;
+                    case ']':
+                        if ((btype == '[') && (--brak <= 0)) {
+                            goto endblock;
+                        }
+                        break;
+                }
+            }
+endblock:
+            ps.item = ps.item.slice(0, &ps.input[0] - &ps.item[0]);
+            ps.item.pop_back();
+            ps.quoted_item = ps.quoted_item.slice(
+                0, &ps.input[0] - &ps.quoted_item[0]
+            );
+            break;
+        }
+        case ')':
+        case ']':
+            return false;
+        default: {
+            ostd::string_range e = util::parse_word(cs, ps.input);
+            ps.quoted_item = ps.item = ps.input.slice(0, &e[0] - &ps.input[0]);
+            ps.input = e;
+            break;
+        }
+    }
+    list_find_item(ps);
+    if (!ps.input.empty() && (*ps.input == ';')) {
+        ++ps.input;
+    }
+    return true;
+}
+
+OSTD_EXPORT std::size_t list_count(cs_list_parse_state &ps, cs_state &cs) {
+    size_t ret = 0;
+    while (list_parse(ps, cs)) {
+        ++ret;
+    }
+    return ret;
+}
+
+OSTD_EXPORT cs_strref list_get_item(cs_list_parse_state &ps, cs_state &cs) {
+    if (!ps.quoted_item.empty() && (*ps.quoted_item == '"')) {
+        auto app = ostd::appender<cs_string>();
+        util::unescape_string(app, ps.item);
+        return cs_strref{cs, app.get()};
+    }
+    return cs_strref{cs, ps.item};
+}
+
+OSTD_EXPORT void list_find_item(cs_list_parse_state &ps) {
+    for (;;) {
+        while (!ps.input.empty()) {
+            char c = *ps.input;
+            if ((c == ' ') || (c == '\t') || (c == '\r') || (c == '\n')) {
+                ++ps.input;
+            } else {
+                break;
+            }
+        }
+        if ((ps.input.size() < 2) || (ps.input[0] != '/') || (ps.input[1] != '/')) {
+            break;
+        }
+        ps.input = ostd::find(ps.input, '\n');
+    }
+}
 
 } /* namespace cscript */
