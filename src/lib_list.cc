@@ -183,7 +183,7 @@ void cs_init_lib_list(cs_state &gcs) {
             if (offset > 0) {
                 list_find_item(p);
             }
-            res.set_str(cs_string{p.input});
+            res.set_str(p.input);
             return;
         }
 
@@ -207,7 +207,7 @@ void cs_init_lib_list(cs_state &gcs) {
         int n = -1;
         for (cs_list_parse_state p{args[1].get_str()}; list_parse(p, cs);) {
             ++n;
-            idv.set_str(cs_string{p.item});
+            idv.set_str(p.item);
             idv.push();
             if (cs.run_bool(body)) {
                 res.set_int(cs_int(n));
@@ -226,7 +226,7 @@ void cs_init_lib_list(cs_state &gcs) {
         int n = -1;
         for (cs_list_parse_state p{args[1].get_str()}; list_parse(p, cs);) {
             ++n;
-            idv.set_str(cs_string{p.item});
+            idv.set_str(p.item);
             idv.push();
             if (cs.run_bool(body)) {
                 if (list_parse(p, cs)) {

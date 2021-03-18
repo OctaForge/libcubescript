@@ -52,7 +52,8 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("codestr", "i", [](auto &, auto args, auto &res) {
-        res.set_str(cs_string(1, char(args[0].get_int())));
+        char const p[2] = { char(args[0].get_int()), '\0' };
+        res.set_str(ostd::string_range{static_cast<char const *>(p)});
     });
 
     cs.new_command("strlower", "s", [](auto &, auto args, auto &res) {
@@ -141,11 +142,11 @@ void cs_init_lib_string(cs_state &cs) {
         cs_int start = args[1].get_int(), count = args[2].get_int();
         cs_int numargs = args[3].get_int();
         cs_int len = cs_int(s.size()), offset = std::clamp(start, cs_int(0), len);
-        res.set_str(cs_string{
+        res.set_str(ostd::string_range{
             &s[offset],
-            (numargs >= 3)
+            &s[offset] + ((numargs >= 3)
                 ? size_t(std::clamp(count, cs_int(0), len - offset))
-                : size_t(len - offset)
+                : size_t(len - offset))
         });
     });
 
@@ -181,7 +182,7 @@ void cs_init_lib_string(cs_state &cs) {
         }
         cs_string buf;
         if (!oldval.size()) {
-            res.set_str(cs_string{s});
+            res.set_str(s);
             return;
         }
         for (size_t i = 0;; ++i) {
