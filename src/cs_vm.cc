@@ -2,6 +2,7 @@
 #include "cs_vm.hh"
 #include "cs_util.hh"
 
+#include <ostd/io.hh>
 #include <limits>
 
 namespace cscript {
@@ -1644,7 +1645,9 @@ void cs_state::run(cs_ident *id, cs_value_r args, cs_value &ret) {
             case cs_ident_type::Command:
                 if (nargs < static_cast<cs_command *>(id)->get_num_args()) {
                     cs_valarray<cs_value, MaxArguments> buf{*this};
-                    memcpy(&buf[0], &args[0], args.size() * sizeof(cs_value));
+                    for (std::size_t i = 0; i < args.size(); ++i) {
+                        buf[i] = args[i];
+                    }
                     callcommand(
                         *this, static_cast<cs_command *>(id), &buf[0], ret,
                         nargs, false
