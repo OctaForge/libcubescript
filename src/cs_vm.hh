@@ -314,9 +314,6 @@ struct cs_gen_state {
     void skip_comments();
 };
 
-cs_string intstr(cs_int v);
-cs_string floatstr(cs_float v);
-
 bool cs_check_num(ostd::string_range s);
 
 static inline void bcode_incr(uint32_t *bc) {

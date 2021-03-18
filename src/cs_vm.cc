@@ -1021,14 +1021,12 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         arg.set_str(static_cast<cs_svar *>(id)->get_value());
                         continue;
                     case CsIdIvar:
-                        arg.set_str(
-                            intstr(static_cast<cs_ivar *>(id)->get_value())
-                        );
+                        arg.set_int(static_cast<cs_ivar *>(id)->get_value());
+                        arg.force_str();
                         continue;
                     case CsIdFvar:
-                        arg.set_str(
-                            floatstr(static_cast<cs_fvar *>(id)->get_value())
-                        );
+                        arg.set_float(static_cast<cs_fvar *>(id)->get_value());
+                        arg.force_str();
                         continue;
                     case CsIdUnknown:
                         arg.set_str("");
@@ -1189,14 +1187,12 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         arg.set_str(static_cast<cs_svar *>(id)->get_value());
                         continue;
                     case CsIdIvar:
-                        arg.set_str(
-                            intstr(static_cast<cs_ivar *>(id)->get_value())
-                        );
+                        arg.set_int(static_cast<cs_ivar *>(id)->get_value());
+                        arg.force_str();
                         continue;
                     case CsIdFvar:
-                        arg.set_str(
-                            floatstr(static_cast<cs_fvar *>(id)->get_value())
-                        );
+                        arg.set_float(static_cast<cs_fvar *>(id)->get_value());
+                        arg.force_str();
                         continue;
                     case CsIdUnknown:
                         arg.set_str("");
@@ -1285,9 +1281,10 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 )->get_value());
                 continue;
             case CS_CODE_IVAR | CS_RET_STRING:
-                args[numargs++].set_str(intstr(static_cast<cs_ivar *>(
+                args[numargs].set_int(static_cast<cs_ivar *>(
                     cs.p_state->identmap[op >> 8]
-                )->get_value()));
+                )->get_value());
+                args[numargs++].force_str();
                 continue;
             case CS_CODE_IVAR | CS_RET_FLOAT:
                 args[numargs++].set_float(cs_float(static_cast<cs_ivar *>(
@@ -1324,11 +1321,10 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 )->get_value());
                 continue;
             case CS_CODE_FVAR | CS_RET_STRING:
-                args[numargs++].set_str(floatstr(
-                    static_cast<cs_fvar *>(
-                        cs.p_state->identmap[op >> 8]
-                    )->get_value()
-                ));
+                args[numargs].set_int(static_cast<cs_fvar *>(
+                    cs.p_state->identmap[op >> 8]
+                )->get_value());
+                args[numargs++].force_str();
                 continue;
             case CS_CODE_FVAR | CS_RET_INT:
                 args[numargs++].set_int(int(static_cast<cs_fvar *>(

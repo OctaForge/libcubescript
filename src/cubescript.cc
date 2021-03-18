@@ -3,18 +3,6 @@
 
 namespace cscript {
 
-cs_string intstr(cs_int v) {
-    auto app = ostd::appender<cs_string>();
-    cscript::util::format_int(app, v);
-    return std::move(app.get());
-}
-
-cs_string floatstr(cs_float v) {
-    auto app = ostd::appender<cs_string>();
-    cscript::util::format_float(app, v);
-    return std::move(app.get());
-}
-
 bool cs_check_num(ostd::string_range s) {
     if (isdigit(s[0])) {
         return true;
@@ -879,9 +867,12 @@ cs_float cs_clamp_fvar(cs_state &cs, cs_fvar *fv, cs_float v) {
     } else {
         return v;
     }
+    cs_value vmin{cs}, vmax{cs};
+    vmin.set_float(fv->get_val_min());
+    vmax.set_float(fv->get_val_max());
     throw cs_error(
-        cs, "valid range for '%s' is %s..%s", floatstr(fv->get_val_min()),
-        floatstr(fv->get_val_max())
+        cs, "valid range for '%s' is %s..%s", fv->get_name(),
+        vmin.force_str(), vmax.force_str()
     );
     return v;
 }

@@ -4,6 +4,18 @@
 
 namespace cscript {
 
+static cs_string intstr(cs_int v) {
+    auto app = ostd::appender<cs_string>();
+    cscript::util::format_int(app, v);
+    return std::move(app.get());
+}
+
+static cs_string floatstr(cs_float v) {
+    auto app = ostd::appender<cs_string>();
+    cscript::util::format_float(app, v);
+    return std::move(app.get());
+}
+
 template<typename T>
 struct stor_priv_t {
     cs_shared_state *state;
