@@ -113,7 +113,7 @@ cs_stack_state cs_error::save_stack(cs_state &cs) {
         return cs_stack_state(cs, nullptr, !!cs.p_callstack);
     }
     int total = 0, depth = 0;
-    for (cs_identLink *l = cs.p_callstack; l; l = l->next) {
+    for (cs_ident_link *l = cs.p_callstack; l; l = l->next) {
         total++;
     }
     if (!total) {
@@ -124,7 +124,7 @@ cs_stack_state cs_error::save_stack(cs_state &cs) {
     );
     cs_stack_state_node *ret = st, *nd = st;
     ++st;
-    for (cs_identLink *l = cs.p_callstack; l; l = l->next) {
+    for (cs_ident_link *l = cs.p_callstack; l; l = l->next) {
         ++depth;
         if (depth < dalias->get_value()) {
             nd->id = l->id;
@@ -180,15 +180,15 @@ static void bcode_ref(uint32_t *code) {
     if (!code) {
         return;
     }
-    if ((*code & CsCodeOpMask) == CsCodeStart) {
+    if ((*code & CS_CODE_OP_MASK) == CS_CODE_START) {
         bcode_incr(code);
         return;
     }
-    switch (code[-1]&CsCodeOpMask) {
-        case CsCodeStart:
+    switch (code[-1]&CS_CODE_OP_MASK) {
+        case CS_CODE_START:
             bcode_incr(&code[-1]);
             break;
-        case CsCodeOffset:
+        case CS_CODE_OFFSET:
             code -= std::ptrdiff_t(code[-1] >> 8);
             bcode_incr(code);
             break;
@@ -199,15 +199,15 @@ static void bcode_unref(uint32_t *code) {
     if (!code) {
         return;
     }
-    if ((*code & CsCodeOpMask) == CsCodeStart) {
+    if ((*code & CS_CODE_OP_MASK) == CS_CODE_START) {
         bcode_decr(code);
         return;
     }
-    switch (code[-1]&CsCodeOpMask) {
-        case CsCodeStart:
+    switch (code[-1]&CS_CODE_OP_MASK) {
+        case CS_CODE_START:
             bcode_decr(&code[-1]);
             break;
-        case CsCodeOffset:
+        case CS_CODE_OFFSET:
             code -= std::ptrdiff_t(code[-1] >> 8);
             bcode_decr(code);
             break;
@@ -256,7 +256,7 @@ static inline uint32_t *forcecode(cs_state &cs, cs_value &v) {
 
 static inline void forcecond(cs_state &cs, cs_value &v) {
     switch (v.get_type()) {
-        case cs_value_type::String:
+        case cs_value_type::STRING:
             if (!ostd::string_range{v.get_str()}.empty()) {
                 forcecode(cs, v);
             } else {
@@ -268,27 +268,27 @@ static inline void forcecond(cs_state &cs, cs_value &v) {
     }
 }
 
-static uint32_t emptyblock[CsValAny][2] = {
-    { CsCodeStart + 0x100, CsCodeExit | CsRetNull },
-    { CsCodeStart + 0x100, CsCodeExit | CsRetInt },
-    { CsCodeStart + 0x100, CsCodeExit | CsRetFloat },
-    { CsCodeStart + 0x100, CsCodeExit | CsRetString }
+static uint32_t emptyblock[CS_VAL_ANY][2] = {
+    { CS_CODE_START + 0x100, CS_CODE_EXIT | CS_RET_NULL },
+    { CS_CODE_START + 0x100, CS_CODE_EXIT | CS_RET_INT },
+    { CS_CODE_START + 0x100, CS_CODE_EXIT | CS_RET_FLOAT },
+    { CS_CODE_START + 0x100, CS_CODE_EXIT | CS_RET_STRING }
 };
 
 static inline void force_arg(cs_value &v, int type) {
     switch (type) {
-        case CsRetString:
-            if (v.get_type() != cs_value_type::String) {
+        case CS_RET_STRING:
+            if (v.get_type() != cs_value_type::STRING) {
                 v.force_str();
             }
             break;
-        case CsRetInt:
-            if (v.get_type() != cs_value_type::Int) {
+        case CS_RET_INT:
+            if (v.get_type() != cs_value_type::INT) {
                 v.force_int();
             }
             break;
-        case CsRetFloat:
-            if (v.get_type() != cs_value_type::Float) {
+        case CS_RET_FLOAT:
+            if (v.get_type() != cs_value_type::FLOAT) {
                 v.force_float();
             }
             break;
@@ -300,29 +300,29 @@ static uint32_t *skipcode(uint32_t *code) {
     for (;;) {
         uint32_t op = *code++;
         switch (op & 0xFF) {
-            case CsCodeVal | CsRetString: {
+            case CS_CODE_VAL | CS_RET_STRING: {
                 uint32_t len = op >> 8;
                 code += len / sizeof(uint32_t) + 1;
                 continue;
             }
-            case CsCodeBlock:
-            case CsCodeJump:
-            case CsCodeJumpB | CsCodeFlagTrue:
-            case CsCodeJumpB | CsCodeFlagFalse:
-            case CsCodeJumpResult | CsCodeFlagTrue:
-            case CsCodeJumpResult | CsCodeFlagFalse: {
+            case CS_CODE_BLOCK:
+            case CS_CODE_JUMP:
+            case CS_CODE_JUMP_B | CS_CODE_FLAG_TRUE:
+            case CS_CODE_JUMP_B | CS_CODE_FLAG_FALSE:
+            case CS_CODE_JUMP_RESULT | CS_CODE_FLAG_TRUE:
+            case CS_CODE_JUMP_RESULT | CS_CODE_FLAG_FALSE: {
                 uint32_t len = op >> 8;
                 code += len;
                 continue;
             }
-            case CsCodeEnter:
-            case CsCodeEnterResult:
+            case CS_CODE_ENTER:
+            case CS_CODE_ENTER_RESULT:
                 ++depth;
                 continue;
-            case CsCodeExit | CsRetNull:
-            case CsCodeExit | CsRetString:
-            case CsCodeExit | CsRetInt:
-            case CsCodeExit | CsRetFloat:
+            case CS_CODE_EXIT | CS_RET_NULL:
+            case CS_CODE_EXIT | CS_RET_STRING:
+            case CS_CODE_EXIT | CS_RET_INT:
+            case CS_CODE_EXIT | CS_RET_FLOAT:
                 if (depth <= 0) {
                     return code;
                 }
@@ -336,7 +336,7 @@ cs_bcode *cs_copy_code(cs_bcode *c) {
     uint32_t *bcode = reinterpret_cast<uint32_t *>(c);
     uint32_t *end = skipcode(bcode);
     uint32_t *dst = new uint32_t[end - bcode + 1];
-    *dst++ = CsCodeStart;
+    *dst++ = CS_CODE_START;
     memcpy(dst, bcode, (end - bcode) * sizeof(uint32_t));
     return reinterpret_cast<cs_bcode *>(dst);
 }
@@ -410,7 +410,7 @@ static inline void callcommand(
                     if (rep) {
                         break;
                     }
-                    args[i].set_null();
+                    args[i].set_none();
                     fakeargs++;
                 }
                 break;
@@ -419,7 +419,7 @@ static inline void callcommand(
                     if (rep) {
                         break;
                     }
-                    args[i].set_null();
+                    args[i].set_none();
                     fakeargs++;
                 } else {
                     forcecond(cs, args[i]);
@@ -431,7 +431,7 @@ static inline void callcommand(
                         break;
                     }
                     args[i].set_code(
-                        reinterpret_cast<cs_bcode *>(emptyblock[CsValNull] + 1)
+                        reinterpret_cast<cs_bcode *>(emptyblock[CS_VAL_NULL] + 1)
                     );
                     fakeargs++;
                 } else {
@@ -505,7 +505,7 @@ static inline void cs_call_alias(
     anargs->set_value(callargs);
     int oldflags = cs.identflags;
     cs.identflags |= a->get_flags()&CS_IDF_OVERRIDDEN;
-    cs_identLink aliaslink = {
+    cs_ident_link aliaslink = {
         a, cs.p_callstack, (1<<callargs)-1, &argstack[0]
     };
     cs.p_callstack = &aliaslink;
@@ -533,7 +533,7 @@ static inline void cs_call_alias(
                 argmask &= ~(1 << callargs);
             }
         }
-        force_arg(result, op & CsCodeRetMask);
+        force_arg(result, op & CS_CODE_RET_MASK);
         anargs->set_value(oldargs);
         nargs = offset - skip;
     });
@@ -574,13 +574,13 @@ static inline cs_alias *cs_get_lookuparg_id(cs_state &cs, uint32_t op) {
 static inline int cs_get_lookupu_type(
     cs_state &cs, cs_value &arg, cs_ident *&id, uint32_t op
 ) {
-    if (arg.get_type() != cs_value_type::String) {
+    if (arg.get_type() != cs_value_type::STRING) {
         return -2; /* default case */
     }
     id = cs.get_ident(arg.get_str());
     if (id) {
         switch(id->get_type()) {
-            case cs_ident_type::Alias:
+            case cs_ident_type::ALIAS:
                 if (id->get_flags() & CS_IDF_UNKNOWN) {
                     break;
                 }
@@ -588,17 +588,17 @@ static inline int cs_get_lookupu_type(
                     return CsIdUnknown;
                 }
                 return CsIdAlias;
-            case cs_ident_type::Svar:
+            case cs_ident_type::SVAR:
                 return CsIdSvar;
-            case cs_ident_type::Ivar:
+            case cs_ident_type::IVAR:
                 return CsIdIvar;
-            case cs_ident_type::Fvar:
+            case cs_ident_type::FVAR:
                 return CsIdFvar;
-            case cs_ident_type::Command: {
-                arg.set_null();
+            case cs_ident_type::COMMAND: {
+                arg.set_none();
                 cs_valarray<cs_value, MaxArguments> buf{cs};
                 callcommand(cs, static_cast<cs_command *>(id), &buf[0], arg, 0, true);
-                force_arg(arg, op & CsCodeRetMask);
+                force_arg(arg, op & CS_CODE_RET_MASK);
                 return -2; /* ignore */
             }
             default:
@@ -609,7 +609,7 @@ static inline int cs_get_lookupu_type(
 }
 
 static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
-    result.set_null();
+    result.set_none();
     RunDepthRef level{cs}; /* incr and decr on scope exit */
     int numargs = 0;
     cs_valarray<cs_value, MaxArguments + MaxResults> args{cs};
@@ -620,88 +620,88 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
     for (;;) {
         uint32_t op = *code++;
         switch (op & 0xFF) {
-            case CsCodeStart:
-            case CsCodeOffset:
+            case CS_CODE_START:
+            case CS_CODE_OFFSET:
                 continue;
 
-            case CsCodeNull | CsRetNull:
-                result.set_null();
+            case CS_CODE_NULL | CS_RET_NULL:
+                result.set_none();
                 continue;
-            case CsCodeNull | CsRetString:
+            case CS_CODE_NULL | CS_RET_STRING:
                 result.set_str("");
                 continue;
-            case CsCodeNull | CsRetInt:
+            case CS_CODE_NULL | CS_RET_INT:
                 result.set_int(0);
                 continue;
-            case CsCodeNull | CsRetFloat:
+            case CS_CODE_NULL | CS_RET_FLOAT:
                 result.set_float(0.0f);
                 continue;
 
-            case CsCodeFalse | CsRetString:
+            case CS_CODE_FALSE | CS_RET_STRING:
                 result.set_str("0");
                 continue;
-            case CsCodeFalse | CsRetNull:
-            case CsCodeFalse | CsRetInt:
+            case CS_CODE_FALSE | CS_RET_NULL:
+            case CS_CODE_FALSE | CS_RET_INT:
                 result.set_int(0);
                 continue;
-            case CsCodeFalse | CsRetFloat:
+            case CS_CODE_FALSE | CS_RET_FLOAT:
                 result.set_float(0.0f);
                 continue;
 
-            case CsCodeTrue | CsRetString:
+            case CS_CODE_TRUE | CS_RET_STRING:
                 result.set_str("1");
                 continue;
-            case CsCodeTrue | CsRetNull:
-            case CsCodeTrue | CsRetInt:
+            case CS_CODE_TRUE | CS_RET_NULL:
+            case CS_CODE_TRUE | CS_RET_INT:
                 result.set_int(1);
                 continue;
-            case CsCodeTrue | CsRetFloat:
+            case CS_CODE_TRUE | CS_RET_FLOAT:
                 result.set_float(1.0f);
                 continue;
 
-            case CsCodeNot | CsRetString:
+            case CS_CODE_NOT | CS_RET_STRING:
                 --numargs;
                 result.set_str(args[numargs].get_bool() ? "0" : "1");
                 continue;
-            case CsCodeNot | CsRetNull:
-            case CsCodeNot | CsRetInt:
+            case CS_CODE_NOT | CS_RET_NULL:
+            case CS_CODE_NOT | CS_RET_INT:
                 --numargs;
                 result.set_int(!args[numargs].get_bool());
                 continue;
-            case CsCodeNot | CsRetFloat:
+            case CS_CODE_NOT | CS_RET_FLOAT:
                 --numargs;
                 result.set_float(cs_float(!args[numargs].get_bool()));
                 continue;
 
-            case CsCodePop:
+            case CS_CODE_POP:
                 numargs -= 1;
                 continue;
-            case CsCodeEnter:
+            case CS_CODE_ENTER:
                 code = runcode(cs, code, args[numargs++]);
                 continue;
-            case CsCodeEnterResult:
+            case CS_CODE_ENTER_RESULT:
                 code = runcode(cs, code, result);
                 continue;
-            case CsCodeExit | CsRetString:
-            case CsCodeExit | CsRetInt:
-            case CsCodeExit | CsRetFloat:
-                force_arg(result, op & CsCodeRetMask);
+            case CS_CODE_EXIT | CS_RET_STRING:
+            case CS_CODE_EXIT | CS_RET_INT:
+            case CS_CODE_EXIT | CS_RET_FLOAT:
+                force_arg(result, op & CS_CODE_RET_MASK);
             /* fallthrough */
-            case CsCodeExit | CsRetNull:
+            case CS_CODE_EXIT | CS_RET_NULL:
                 return code;
-            case CsCodeResultArg | CsRetString:
-            case CsCodeResultArg | CsRetInt:
-            case CsCodeResultArg | CsRetFloat:
-                force_arg(result, op & CsCodeRetMask);
+            case CS_CODE_RESULT_ARG | CS_RET_STRING:
+            case CS_CODE_RESULT_ARG | CS_RET_INT:
+            case CS_CODE_RESULT_ARG | CS_RET_FLOAT:
+                force_arg(result, op & CS_CODE_RET_MASK);
             /* fallthrough */
-            case CsCodeResultArg | CsRetNull:
+            case CS_CODE_RESULT_ARG | CS_RET_NULL:
                 args[numargs++] = std::move(result);
                 continue;
-            case CsCodePrint:
+            case CS_CODE_PRINT:
                 cs.print_var(*static_cast<cs_var *>(cs.p_state->identmap[op >> 8]));
                 continue;
 
-            case CsCodeLocal: {
+            case CS_CODE_LOCAL: {
                 int numlocals = op >> 8, offset = numargs - numlocals;
                 cs_valarray<cs_ident_stack, MaxArguments> locals{cs};
                 for (int i = 0; i < numlocals; ++i) {
@@ -717,47 +717,47 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 return code;
             }
 
-            case CsCodeDoArgs | CsRetNull:
-            case CsCodeDoArgs | CsRetString:
-            case CsCodeDoArgs | CsRetInt:
-            case CsCodeDoArgs | CsRetFloat:
+            case CS_CODE_DO_ARGS | CS_RET_NULL:
+            case CS_CODE_DO_ARGS | CS_RET_STRING:
+            case CS_CODE_DO_ARGS | CS_RET_INT:
+            case CS_CODE_DO_ARGS | CS_RET_FLOAT:
                 cs_do_args(cs, [&]() {
                     cs.run(args[--numargs].get_code(), result);
-                    force_arg(result, op & CsCodeRetMask);
+                    force_arg(result, op & CS_CODE_RET_MASK);
                 });
                 continue;
             /* fallthrough */
-            case CsCodeDo | CsRetNull:
-            case CsCodeDo | CsRetString:
-            case CsCodeDo | CsRetInt:
-            case CsCodeDo | CsRetFloat:
+            case CS_CODE_DO | CS_RET_NULL:
+            case CS_CODE_DO | CS_RET_STRING:
+            case CS_CODE_DO | CS_RET_INT:
+            case CS_CODE_DO | CS_RET_FLOAT:
                 cs.run(args[--numargs].get_code(), result);
-                force_arg(result, op & CsCodeRetMask);
+                force_arg(result, op & CS_CODE_RET_MASK);
                 continue;
 
-            case CsCodeJump: {
+            case CS_CODE_JUMP: {
                 uint32_t len = op >> 8;
                 code += len;
                 continue;
             }
-            case CsCodeJumpB | CsCodeFlagTrue: {
+            case CS_CODE_JUMP_B | CS_CODE_FLAG_TRUE: {
                 uint32_t len = op >> 8;
                 if (args[--numargs].get_bool()) {
                     code += len;
                 }
                 continue;
             }
-            case CsCodeJumpB | CsCodeFlagFalse: {
+            case CS_CODE_JUMP_B | CS_CODE_FLAG_FALSE: {
                 uint32_t len = op >> 8;
                 if (!args[--numargs].get_bool()) {
                     code += len;
                 }
                 continue;
             }
-            case CsCodeJumpResult | CsCodeFlagTrue: {
+            case CS_CODE_JUMP_RESULT | CS_CODE_FLAG_TRUE: {
                 uint32_t len = op >> 8;
                 --numargs;
-                if (args[numargs].get_type() == cs_value_type::Code) {
+                if (args[numargs].get_type() == cs_value_type::CODE) {
                     cs.run(args[numargs].get_code(), result);
                 } else {
                     result = std::move(args[numargs]);
@@ -767,10 +767,10 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 }
                 continue;
             }
-            case CsCodeJumpResult | CsCodeFlagFalse: {
+            case CS_CODE_JUMP_RESULT | CS_CODE_FLAG_FALSE: {
                 uint32_t len = op >> 8;
                 --numargs;
-                if (args[numargs].get_type() == cs_value_type::Code) {
+                if (args[numargs].get_type() == cs_value_type::CODE) {
                     cs.run(args[numargs].get_code(), result);
                 } else {
                     result = std::move(args[numargs]);
@@ -780,14 +780,14 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 }
                 continue;
             }
-            case CsCodeBreak | CsCodeFlagFalse:
+            case CS_CODE_BREAK | CS_CODE_FLAG_FALSE:
                 if (cs.is_in_loop()) {
                     throw CsBreakException();
                 } else {
                     throw cs_error(cs, "no loop to break");
                 }
                 break;
-            case CsCodeBreak | CsCodeFlagTrue:
+            case CS_CODE_BREAK | CS_CODE_FLAG_TRUE:
                 if (cs.is_in_loop()) {
                     throw CsContinueException();
                 } else {
@@ -795,7 +795,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 }
                 break;
 
-            case CsCodeVal | CsRetString: {
+            case CS_CODE_VAL | CS_RET_STRING: {
                 uint32_t len = op >> 8;
                 args[numargs++].set_str(ostd::string_range{
                     reinterpret_cast<char const *>(code),
@@ -804,7 +804,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 code += len / sizeof(uint32_t) + 1;
                 continue;
             }
-            case CsCodeValInt | CsRetString: {
+            case CS_CODE_VAL_INT | CS_RET_STRING: {
                 char s[4] = {
                     char((op >> 8) & 0xFF),
                     char((op >> 16) & 0xFF),
@@ -814,88 +814,88 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 args[numargs++].set_str(static_cast<char const *>(s));
                 continue;
             }
-            case CsCodeVal | CsRetNull:
-            case CsCodeValInt | CsRetNull:
-                args[numargs++].set_null();
+            case CS_CODE_VAL | CS_RET_NULL:
+            case CS_CODE_VAL_INT | CS_RET_NULL:
+                args[numargs++].set_none();
                 continue;
-            case CsCodeVal | CsRetInt:
+            case CS_CODE_VAL | CS_RET_INT:
                 args[numargs++].set_int(
                     *reinterpret_cast<cs_int const *>(code)
                 );
                 code += CsTypeStorageSize<cs_int>;
                 continue;
-            case CsCodeValInt | CsRetInt:
+            case CS_CODE_VAL_INT | CS_RET_INT:
                 args[numargs++].set_int(cs_int(op) >> 8);
                 continue;
-            case CsCodeVal | CsRetFloat:
+            case CS_CODE_VAL | CS_RET_FLOAT:
                 args[numargs++].set_float(
                     *reinterpret_cast<cs_float const *>(code)
                 );
                 code += CsTypeStorageSize<cs_float>;
                 continue;
-            case CsCodeValInt | CsRetFloat:
+            case CS_CODE_VAL_INT | CS_RET_FLOAT:
                 args[numargs++].set_float(cs_float(cs_int(op) >> 8));
                 continue;
 
-            case CsCodeDup | CsRetNull:
+            case CS_CODE_DUP | CS_RET_NULL:
                 args[numargs - 1].get_val(args[numargs]);
                 numargs++;
                 continue;
-            case CsCodeDup | CsRetInt:
+            case CS_CODE_DUP | CS_RET_INT:
                 args[numargs].set_int(args[numargs - 1].get_int());
                 numargs++;
                 continue;
-            case CsCodeDup | CsRetFloat:
+            case CS_CODE_DUP | CS_RET_FLOAT:
                 args[numargs].set_float(args[numargs - 1].get_float());
                 numargs++;
                 continue;
-            case CsCodeDup | CsRetString:
+            case CS_CODE_DUP | CS_RET_STRING:
                 args[numargs] = args[numargs - 1];
                 args[numargs].force_str();
                 numargs++;
                 continue;
 
-            case CsCodeForce | CsRetString:
+            case CS_CODE_FORCE | CS_RET_STRING:
                 args[numargs - 1].force_str();
                 continue;
-            case CsCodeForce | CsRetInt:
+            case CS_CODE_FORCE | CS_RET_INT:
                 args[numargs - 1].force_int();
                 continue;
-            case CsCodeForce | CsRetFloat:
+            case CS_CODE_FORCE | CS_RET_FLOAT:
                 args[numargs - 1].force_float();
                 continue;
 
-            case CsCodeResult | CsRetNull:
+            case CS_CODE_RESULT | CS_RET_NULL:
                 result = std::move(args[--numargs]);
                 continue;
-            case CsCodeResult | CsRetString:
-            case CsCodeResult | CsRetInt:
-            case CsCodeResult | CsRetFloat:
+            case CS_CODE_RESULT | CS_RET_STRING:
+            case CS_CODE_RESULT | CS_RET_INT:
+            case CS_CODE_RESULT | CS_RET_FLOAT:
                 result = std::move(args[--numargs]);
-                force_arg(result, op & CsCodeRetMask);
+                force_arg(result, op & CS_CODE_RET_MASK);
                 continue;
 
-            case CsCodeEmpty | CsRetNull:
+            case CS_CODE_EMPTY | CS_RET_NULL:
                 args[numargs++].set_code(
-                    reinterpret_cast<cs_bcode *>(emptyblock[CsValNull] + 1)
+                    reinterpret_cast<cs_bcode *>(emptyblock[CS_VAL_NULL] + 1)
                 );
                 break;
-            case CsCodeEmpty | CsRetString:
+            case CS_CODE_EMPTY | CS_RET_STRING:
                 args[numargs++].set_code(
-                    reinterpret_cast<cs_bcode *>(emptyblock[CsValString] + 1)
+                    reinterpret_cast<cs_bcode *>(emptyblock[CS_VAL_STRING] + 1)
                 );
                 break;
-            case CsCodeEmpty | CsRetInt:
+            case CS_CODE_EMPTY | CS_RET_INT:
                 args[numargs++].set_code(
-                    reinterpret_cast<cs_bcode *>(emptyblock[CsValInt] + 1)
+                    reinterpret_cast<cs_bcode *>(emptyblock[CS_VAL_INT] + 1)
                 );
                 break;
-            case CsCodeEmpty | CsRetFloat:
+            case CS_CODE_EMPTY | CS_RET_FLOAT:
                 args[numargs++].set_code(
-                    reinterpret_cast<cs_bcode *>(emptyblock[CsValFloat] + 1)
+                    reinterpret_cast<cs_bcode *>(emptyblock[CS_VAL_FLOAT] + 1)
                 );
                 break;
-            case CsCodeBlock: {
+            case CS_CODE_BLOCK: {
                 uint32_t len = op >> 8;
                 args[numargs++].set_code(
                     reinterpret_cast<cs_bcode *>(code + 1)
@@ -903,34 +903,34 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 code += len;
                 continue;
             }
-            case CsCodeCompile: {
+            case CS_CODE_COMPILE: {
                 cs_value &arg = args[numargs - 1];
                 cs_gen_state gs(cs);
                 switch (arg.get_type()) {
-                    case cs_value_type::Int:
+                    case cs_value_type::INT:
                         gs.code.reserve(8);
-                        gs.code.push_back(CsCodeStart);
+                        gs.code.push_back(CS_CODE_START);
                         gs.gen_int(arg.get_int());
-                        gs.code.push_back(CsCodeResult);
-                        gs.code.push_back(CsCodeExit);
+                        gs.code.push_back(CS_CODE_RESULT);
+                        gs.code.push_back(CS_CODE_EXIT);
                         break;
-                    case cs_value_type::Float:
+                    case cs_value_type::FLOAT:
                         gs.code.reserve(8);
-                        gs.code.push_back(CsCodeStart);
+                        gs.code.push_back(CS_CODE_START);
                         gs.gen_float(arg.get_float());
-                        gs.code.push_back(CsCodeResult);
-                        gs.code.push_back(CsCodeExit);
+                        gs.code.push_back(CS_CODE_RESULT);
+                        gs.code.push_back(CS_CODE_EXIT);
                         break;
-                    case cs_value_type::String:
+                    case cs_value_type::STRING:
                         gs.code.reserve(64);
                         gs.gen_main(arg.get_str());
                         break;
                     default:
                         gs.code.reserve(8);
-                        gs.code.push_back(CsCodeStart);
+                        gs.code.push_back(CS_CODE_START);
                         gs.gen_null();
-                        gs.code.push_back(CsCodeResult);
-                        gs.code.push_back(CsCodeExit);
+                        gs.code.push_back(CS_CODE_RESULT);
+                        gs.code.push_back(CS_CODE_EXIT);
                         break;
                 }
                 gs.done();
@@ -941,10 +941,10 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 );
                 continue;
             }
-            case CsCodeCond: {
+            case CS_CODE_COND: {
                 cs_value &arg = args[numargs - 1];
                 switch (arg.get_type()) {
-                    case cs_value_type::String: {
+                    case cs_value_type::STRING: {
                         ostd::string_range s = arg.get_str();
                         if (!s.empty()) {
                             cs_gen_state gs(cs);
@@ -958,7 +958,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                             );
                             arg.set_code(reinterpret_cast<cs_bcode *>(cbuf + 1));
                         } else {
-                            arg.force_null();
+                            arg.force_none();
                         }
                         break;
                     }
@@ -968,10 +968,10 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 continue;
             }
 
-            case CsCodeIdent:
+            case CS_CODE_IDENT:
                 args[numargs++].set_ident(cs.p_state->identmap[op >> 8]);
                 continue;
-            case CsCodeIdentArg: {
+            case CS_CODE_IDENT_ARG: {
                 cs_alias *a = static_cast<cs_alias *>(
                     cs.p_state->identmap[op >> 8]
                 );
@@ -985,10 +985,10 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 args[numargs++].set_ident(a);
                 continue;
             }
-            case CsCodeIdentU: {
+            case CS_CODE_IDENT_U: {
                 cs_value &arg = args[numargs - 1];
                 cs_ident *id = cs.p_state->identmap[DummyIdx];
-                if (arg.get_type() == cs_value_type::String) {
+                if (arg.get_type() == cs_value_type::STRING) {
                     id = cs.new_ident(arg.get_str());
                 }
                 if ((id->get_index() < MaxArguments) && !cs_is_arg_used(cs, id)) {
@@ -1003,7 +1003,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 continue;
             }
 
-            case CsCodeLookupU | CsRetString: {
+            case CS_CODE_LOOKUP_U | CS_RET_STRING: {
                 cs_ident *id = nullptr;
                 cs_value &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
@@ -1031,11 +1031,11 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         continue;
                 }
             }
-            case CsCodeLookup | CsRetString:
+            case CS_CODE_LOOKUP | CS_RET_STRING:
                 args[numargs] = cs_get_lookup_id(cs, op)->get_value();
                 args[numargs++].force_str();
                 continue;
-            case CsCodeLookupArg | CsRetString: {
+            case CS_CODE_LOOKUP_ARG | CS_RET_STRING: {
                 cs_alias *a = cs_get_lookuparg_id(cs, op);
                 if (!a) {
                     args[numargs++].set_str("");
@@ -1045,7 +1045,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 }
                 continue;
             }
-            case CsCodeLookupU | CsRetInt: {
+            case CS_CODE_LOOKUP_U | CS_RET_INT: {
                 cs_ident *id = nullptr;
                 cs_value &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
@@ -1074,12 +1074,12 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         continue;
                 }
             }
-            case CsCodeLookup | CsRetInt:
+            case CS_CODE_LOOKUP | CS_RET_INT:
                 args[numargs++].set_int(
                     cs_get_lookup_id(cs, op)->get_value().get_int()
                 );
                 continue;
-            case CsCodeLookupArg | CsRetInt: {
+            case CS_CODE_LOOKUP_ARG | CS_RET_INT: {
                 cs_alias *a = cs_get_lookuparg_id(cs, op);
                 if (!a) {
                     args[numargs++].set_int(0);
@@ -1088,7 +1088,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 }
                 continue;
             }
-            case CsCodeLookupU | CsRetFloat: {
+            case CS_CODE_LOOKUP_U | CS_RET_FLOAT: {
                 cs_ident *id = nullptr;
                 cs_value &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
@@ -1119,12 +1119,12 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         continue;
                 }
             }
-            case CsCodeLookup | CsRetFloat:
+            case CS_CODE_LOOKUP | CS_RET_FLOAT:
                 args[numargs++].set_float(
                     cs_get_lookup_id(cs, op)->get_value().get_float()
                 );
                 continue;
-            case CsCodeLookupArg | CsRetFloat: {
+            case CS_CODE_LOOKUP_ARG | CS_RET_FLOAT: {
                 cs_alias *a = cs_get_lookuparg_id(cs, op);
                 if (!a) {
                     args[numargs++].set_float(cs_float(0));
@@ -1133,7 +1133,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 }
                 continue;
             }
-            case CsCodeLookupU | CsRetNull: {
+            case CS_CODE_LOOKUP_U | CS_RET_NULL: {
                 cs_ident *id = nullptr;
                 cs_value &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
@@ -1152,26 +1152,26 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         );
                         continue;
                     case CsIdUnknown:
-                        arg.set_null();
+                        arg.set_none();
                         continue;
                     default:
                         continue;
                 }
             }
-            case CsCodeLookup | CsRetNull:
+            case CS_CODE_LOOKUP | CS_RET_NULL:
                 cs_get_lookup_id(cs, op)->get_value().get_val(args[numargs++]);
                 continue;
-            case CsCodeLookupArg | CsRetNull: {
+            case CS_CODE_LOOKUP_ARG | CS_RET_NULL: {
                 cs_alias *a = cs_get_lookuparg_id(cs, op);
                 if (!a) {
-                    args[numargs++].set_null();
+                    args[numargs++].set_none();
                 } else {
                     a->get_value().get_val(args[numargs++]);
                 }
                 continue;
             }
 
-            case CsCodeLookupMu | CsRetString: {
+            case CS_CODE_LOOKUP_MU | CS_RET_STRING: {
                 cs_ident *id = nullptr;
                 cs_value &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
@@ -1199,11 +1199,11 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         continue;
                 }
             }
-            case CsCodeLookupM | CsRetString:
+            case CS_CODE_LOOKUP_M | CS_RET_STRING:
                 args[numargs] = cs_get_lookup_id(cs, op)->get_value();
                 args[numargs++].force_str();
                 continue;
-            case CsCodeLookupMarg | CsRetString: {
+            case CS_CODE_LOOKUP_MARG | CS_RET_STRING: {
                 cs_alias *a = cs_get_lookuparg_id(cs, op);
                 if (!a) {
                     args[numargs++].set_str("");
@@ -1213,7 +1213,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 }
                 continue;
             }
-            case CsCodeLookupMu | CsRetNull: {
+            case CS_CODE_LOOKUP_MU | CS_RET_NULL: {
                 cs_ident *id = nullptr;
                 cs_value &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
@@ -1230,71 +1230,71 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         arg.set_float(static_cast<cs_fvar *>(id)->get_value());
                         continue;
                     case CsIdUnknown:
-                        arg.set_null();
+                        arg.set_none();
                         continue;
                     default:
                         continue;
                 }
             }
-            case CsCodeLookupM | CsRetNull:
+            case CS_CODE_LOOKUP_M | CS_RET_NULL:
                 cs_get_lookup_id(cs, op)->get_cval(args[numargs++]);
                 continue;
-            case CsCodeLookupMarg | CsRetNull: {
+            case CS_CODE_LOOKUP_MARG | CS_RET_NULL: {
                 cs_alias *a = cs_get_lookuparg_id(cs, op);
                 if (!a) {
-                    args[numargs++].set_null();
+                    args[numargs++].set_none();
                 } else {
                     a->get_cval(args[numargs++]);
                 }
                 continue;
             }
 
-            case CsCodeSvar | CsRetString:
-            case CsCodeSvar | CsRetNull:
+            case CS_CODE_SVAR | CS_RET_STRING:
+            case CS_CODE_SVAR | CS_RET_NULL:
                 args[numargs++].set_str(static_cast<cs_svar *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value());
                 continue;
-            case CsCodeSvar | CsRetInt:
+            case CS_CODE_SVAR | CS_RET_INT:
                 args[numargs++].set_int(cs_parse_int(static_cast<cs_svar *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value()));
                 continue;
-            case CsCodeSvar | CsRetFloat:
+            case CS_CODE_SVAR | CS_RET_FLOAT:
                 args[numargs++].set_float(cs_parse_float(static_cast<cs_svar *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value()));
                 continue;
-            case CsCodeSvar1:
+            case CS_CODE_SVAR1:
                 cs.set_var_str_checked(
                     static_cast<cs_svar *>(cs.p_state->identmap[op >> 8]),
                     args[--numargs].get_str()
                 );
                 continue;
 
-            case CsCodeIvar | CsRetInt:
-            case CsCodeIvar | CsRetNull:
+            case CS_CODE_IVAR | CS_RET_INT:
+            case CS_CODE_IVAR | CS_RET_NULL:
                 args[numargs++].set_int(static_cast<cs_ivar *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value());
                 continue;
-            case CsCodeIvar | CsRetString:
+            case CS_CODE_IVAR | CS_RET_STRING:
                 args[numargs++].set_str(intstr(static_cast<cs_ivar *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value()));
                 continue;
-            case CsCodeIvar | CsRetFloat:
+            case CS_CODE_IVAR | CS_RET_FLOAT:
                 args[numargs++].set_float(cs_float(static_cast<cs_ivar *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value()));
                 continue;
-            case CsCodeIvar1:
+            case CS_CODE_IVAR1:
                 cs.set_var_int_checked(
                     static_cast<cs_ivar *>(cs.p_state->identmap[op >> 8]),
                     args[--numargs].get_int()
                 );
                 continue;
-            case CsCodeIvar2:
+            case CS_CODE_IVAR2:
                 numargs -= 2;
                 cs.set_var_int_checked(
                     static_cast<cs_ivar *>(cs.p_state->identmap[op >> 8]),
@@ -1302,7 +1302,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         | (args[numargs + 1].get_int() << 8)
                 );
                 continue;
-            case CsCodeIvar3:
+            case CS_CODE_IVAR3:
                 numargs -= 3;
                 cs.set_var_int_checked(
                     static_cast<cs_ivar *>(cs.p_state->identmap[op >> 8]),
@@ -1311,73 +1311,73 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         | (args[numargs + 2].get_int()));
                 continue;
 
-            case CsCodeFvar | CsRetFloat:
-            case CsCodeFvar | CsRetNull:
+            case CS_CODE_FVAR | CS_RET_FLOAT:
+            case CS_CODE_FVAR | CS_RET_NULL:
                 args[numargs++].set_float(static_cast<cs_fvar *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value());
                 continue;
-            case CsCodeFvar | CsRetString:
+            case CS_CODE_FVAR | CS_RET_STRING:
                 args[numargs++].set_str(floatstr(
                     static_cast<cs_fvar *>(
                         cs.p_state->identmap[op >> 8]
                     )->get_value()
                 ));
                 continue;
-            case CsCodeFvar | CsRetInt:
+            case CS_CODE_FVAR | CS_RET_INT:
                 args[numargs++].set_int(int(static_cast<cs_fvar *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value()));
                 continue;
-            case CsCodeFvar1:
+            case CS_CODE_FVAR1:
                 cs.set_var_float_checked(
                     static_cast<cs_fvar *>(cs.p_state->identmap[op >> 8]),
                     args[--numargs].get_float()
                 );
                 continue;
 
-            case CsCodeCom | CsRetNull:
-            case CsCodeCom | CsRetString:
-            case CsCodeCom | CsRetFloat:
-            case CsCodeCom | CsRetInt: {
+            case CS_CODE_COM | CS_RET_NULL:
+            case CS_CODE_COM | CS_RET_STRING:
+            case CS_CODE_COM | CS_RET_FLOAT:
+            case CS_CODE_COM | CS_RET_INT: {
                 cs_command *id = static_cast<cs_command *>(
                     cs.p_state->identmap[op >> 8]
                 );
                 int offset = numargs - id->get_num_args();
-                result.force_null();
+                result.force_none();
                 cs_cmd_internal::call(cs, id, cs_value_r(
                     &args[0] + offset, &args[0] + offset + id->get_num_args()
                 ), result);
-                force_arg(result, op & CsCodeRetMask);
+                force_arg(result, op & CS_CODE_RET_MASK);
                 numargs = offset;
                 continue;
             }
 
-            case CsCodeComV | CsRetNull:
-            case CsCodeComV | CsRetString:
-            case CsCodeComV | CsRetFloat:
-            case CsCodeComV | CsRetInt: {
+            case CS_CODE_COM_V | CS_RET_NULL:
+            case CS_CODE_COM_V | CS_RET_STRING:
+            case CS_CODE_COM_V | CS_RET_FLOAT:
+            case CS_CODE_COM_V | CS_RET_INT: {
                 cs_command *id = static_cast<cs_command *>(
                     cs.p_state->identmap[op >> 13]
                 );
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
-                result.force_null();
+                result.force_none();
                 cs_cmd_internal::call(cs, id, ostd::iter(
                     &args[offset], &args[offset + callargs]
                 ), result);
-                force_arg(result, op & CsCodeRetMask);
+                force_arg(result, op & CS_CODE_RET_MASK);
                 numargs = offset;
                 continue;
             }
-            case CsCodeComC | CsRetNull:
-            case CsCodeComC | CsRetString:
-            case CsCodeComC | CsRetFloat:
-            case CsCodeComC | CsRetInt: {
+            case CS_CODE_COM_C | CS_RET_NULL:
+            case CS_CODE_COM_C | CS_RET_STRING:
+            case CS_CODE_COM_C | CS_RET_FLOAT:
+            case CS_CODE_COM_C | CS_RET_INT: {
                 cs_command *id = static_cast<cs_command *>(
                     cs.p_state->identmap[op >> 13]
                 );
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
-                result.force_null();
+                result.force_none();
                 {
                     auto buf = ostd::appender<cs_string>();
                     cscript::util::tvals_concat(buf, ostd::iter(
@@ -1387,36 +1387,36 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                     tv.set_str(buf.get());
                     cs_cmd_internal::call(cs, id, cs_value_r(&tv, &tv + 1), result);
                 }
-                force_arg(result, op & CsCodeRetMask);
+                force_arg(result, op & CS_CODE_RET_MASK);
                 numargs = offset;
                 continue;
             }
 
-            case CsCodeConc | CsRetNull:
-            case CsCodeConc | CsRetString:
-            case CsCodeConc | CsRetFloat:
-            case CsCodeConc | CsRetInt:
-            case CsCodeConcW | CsRetNull:
-            case CsCodeConcW | CsRetString:
-            case CsCodeConcW | CsRetFloat:
-            case CsCodeConcW | CsRetInt: {
+            case CS_CODE_CONC | CS_RET_NULL:
+            case CS_CODE_CONC | CS_RET_STRING:
+            case CS_CODE_CONC | CS_RET_FLOAT:
+            case CS_CODE_CONC | CS_RET_INT:
+            case CS_CODE_CONC_W | CS_RET_NULL:
+            case CS_CODE_CONC_W | CS_RET_STRING:
+            case CS_CODE_CONC_W | CS_RET_FLOAT:
+            case CS_CODE_CONC_W | CS_RET_INT: {
                 int numconc = op >> 8;
                 auto buf = ostd::appender<cs_string>();
                 cscript::util::tvals_concat(
                     buf, ostd::iter(&args[numargs - numconc], &args[numargs]),
-                    ((op & CsCodeOpMask) == CsCodeConc) ? " " : ""
+                    ((op & CS_CODE_OP_MASK) == CS_CODE_CONC) ? " " : ""
                 );
                 numargs = numargs - numconc;
                 args[numargs].set_str(buf.get());
-                force_arg(args[numargs], op & CsCodeRetMask);
+                force_arg(args[numargs], op & CS_CODE_RET_MASK);
                 numargs++;
                 continue;
             }
 
-            case CsCodeConcM | CsRetNull:
-            case CsCodeConcM | CsRetString:
-            case CsCodeConcM | CsRetFloat:
-            case CsCodeConcM | CsRetInt: {
+            case CS_CODE_CONC_M | CS_RET_NULL:
+            case CS_CODE_CONC_M | CS_RET_STRING:
+            case CS_CODE_CONC_M | CS_RET_FLOAT:
+            case CS_CODE_CONC_M | CS_RET_INT: {
                 int numconc = op >> 8;
                 auto buf = ostd::appender<cs_string>();
                 cscript::util::tvals_concat(
@@ -1424,38 +1424,38 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 );
                 numargs = numargs - numconc;
                 result.set_str(buf.get());
-                force_arg(result, op & CsCodeRetMask);
+                force_arg(result, op & CS_CODE_RET_MASK);
                 continue;
             }
 
-            case CsCodeAlias:
+            case CS_CODE_ALIAS:
                 cs_alias_internal::set_alias(
                     static_cast<cs_alias *>(cs.p_state->identmap[op >> 8]),
                     cs, args[--numargs]
                 );
                 continue;
-            case CsCodeAliasArg:
+            case CS_CODE_ALIAS_ARG:
                 cs_alias_internal::set_arg(
                     static_cast<cs_alias *>(cs.p_state->identmap[op >> 8]),
                     cs, args[--numargs]
                 );
                 continue;
-            case CsCodeAliasU:
+            case CS_CODE_ALIAS_U:
                 numargs -= 2;
                 cs.set_alias(
                     args[numargs].get_str(), std::move(args[numargs + 1])
                 );
                 continue;
 
-            case CsCodeCall | CsRetNull:
-            case CsCodeCall | CsRetString:
-            case CsCodeCall | CsRetFloat:
-            case CsCodeCall | CsRetInt: {
-                result.force_null();
+            case CS_CODE_CALL | CS_RET_NULL:
+            case CS_CODE_CALL | CS_RET_STRING:
+            case CS_CODE_CALL | CS_RET_FLOAT:
+            case CS_CODE_CALL | CS_RET_INT: {
+                result.force_none();
                 cs_ident *id = cs.p_state->identmap[op >> 13];
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
                 if (id->get_flags() & CS_IDF_UNKNOWN) {
-                    force_arg(result, op & CsCodeRetMask);
+                    force_arg(result, op & CS_CODE_RET_MASK);
                     throw cs_error(
                         cs, "unknown command: %s", id->get_name()
                     );
@@ -1466,16 +1466,16 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 );
                 continue;
             }
-            case CsCodeCallArg | CsRetNull:
-            case CsCodeCallArg | CsRetString:
-            case CsCodeCallArg | CsRetFloat:
-            case CsCodeCallArg | CsRetInt: {
-                result.force_null();
+            case CS_CODE_CALL_ARG | CS_RET_NULL:
+            case CS_CODE_CALL_ARG | CS_RET_STRING:
+            case CS_CODE_CALL_ARG | CS_RET_FLOAT:
+            case CS_CODE_CALL_ARG | CS_RET_INT: {
+                result.force_none();
                 cs_ident *id = cs.p_state->identmap[op >> 13];
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
                 if (!cs_is_arg_used(cs, id)) {
                     numargs = offset;
-                    force_arg(result, op & CsCodeRetMask);
+                    force_arg(result, op & CS_CODE_RET_MASK);
                     continue;
                 }
                 cs_call_alias(
@@ -1485,16 +1485,16 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 continue;
             }
 
-            case CsCodeCallU | CsRetNull:
-            case CsCodeCallU | CsRetString:
-            case CsCodeCallU | CsRetFloat:
-            case CsCodeCallU | CsRetInt: {
+            case CS_CODE_CALL_U | CS_RET_NULL:
+            case CS_CODE_CALL_U | CS_RET_STRING:
+            case CS_CODE_CALL_U | CS_RET_FLOAT:
+            case CS_CODE_CALL_U | CS_RET_INT: {
                 int callargs = op >> 8, offset = numargs - callargs;
                 cs_value &idarg = args[offset - 1];
-                if (idarg.get_type() != cs_value_type::String) {
+                if (idarg.get_type() != cs_value_type::STRING) {
 litval:
                     result = std::move(idarg);
-                    force_arg(result, op & CsCodeRetMask);
+                    force_arg(result, op & CS_CODE_RET_MASK);
                     numargs = offset - 1;
                     continue;
                 }
@@ -1505,18 +1505,18 @@ noid:
                     if (cs_check_num(idn)) {
                         goto litval;
                     }
-                    result.force_null();
-                    force_arg(result, op & CsCodeRetMask);
+                    result.force_none();
+                    force_arg(result, op & CS_CODE_RET_MASK);
                     throw cs_error(
                         cs, "unknown command: %s", ostd::string_range{idn}
                     );
                 }
-                result.force_null();
+                result.force_none();
                 switch (id->get_type_raw()) {
                     default:
                         if (!cs_cmd_internal::has_cb(id)) {
                             numargs = offset - 1;
-                            force_arg(result, op & CsCodeRetMask);
+                            force_arg(result, op & CS_CODE_RET_MASK);
                             continue;
                         }
                     /* fallthrough */
@@ -1525,7 +1525,7 @@ noid:
                             cs, static_cast<cs_command *>(id), &args[offset],
                             result, callargs
                         );
-                        force_arg(result, op & CsCodeRetMask);
+                        force_arg(result, op & CS_CODE_RET_MASK);
                         numargs = offset - 1;
                         continue;
                     case CsIdLocal: {
@@ -1554,7 +1554,7 @@ noid:
                             );
                         }
                         numargs = offset - 1;
-                        force_arg(result, op & CsCodeRetMask);
+                        force_arg(result, op & CS_CODE_RET_MASK);
                         continue;
                     case CsIdFvar:
                         if (callargs <= 0) {
@@ -1566,7 +1566,7 @@ noid:
                             );
                         }
                         numargs = offset - 1;
-                        force_arg(result, op & CsCodeRetMask);
+                        force_arg(result, op & CS_CODE_RET_MASK);
                         continue;
                     case CsIdSvar:
                         if (callargs <= 0) {
@@ -1578,7 +1578,7 @@ noid:
                             );
                         }
                         numargs = offset - 1;
-                        force_arg(result, op & CsCodeRetMask);
+                        force_arg(result, op & CS_CODE_RET_MASK);
                         continue;
                     case CsIdAlias: {
                         cs_alias *a = static_cast<cs_alias *>(id);
@@ -1587,10 +1587,10 @@ noid:
                             !cs_is_arg_used(cs, a)
                         ) {
                             numargs = offset - 1;
-                            force_arg(result, op & CsCodeRetMask);
+                            force_arg(result, op & CS_CODE_RET_MASK);
                             continue;
                         }
-                        if (a->get_value().get_type() == cs_value_type::Null) {
+                        if (a->get_value().get_type() == cs_value_type::NONE) {
                             goto noid;
                         }
                         cs_call_alias(
@@ -1617,7 +1617,7 @@ static void cs_run(
     cs_gen_state gs(cs);
     gs.src_name = file;
     gs.code.reserve(64);
-    gs.gen_main(code, CsValAny);
+    gs.gen_main(code, CS_VAL_ANY);
     gs.done();
     uint32_t *cbuf = new uint32_t[gs.code.size()];
     memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(uint32_t));
@@ -1633,7 +1633,7 @@ void cs_state::run(ostd::string_range code, cs_value &ret) {
 
 void cs_state::run(cs_ident *id, cs_value_r args, cs_value &ret) {
     int nargs = int(args.size());
-    ret.set_null();
+    ret.set_none();
     RunDepthRef level{*this}; /* incr and decr on scope exit */
     if (id) {
         switch (id->get_type()) {
@@ -1642,7 +1642,7 @@ void cs_state::run(cs_ident *id, cs_value_r args, cs_value &ret) {
                     break;
                 }
             /* fallthrough */
-            case cs_ident_type::Command:
+            case cs_ident_type::COMMAND:
                 if (nargs < static_cast<cs_command *>(id)->get_num_args()) {
                     cs_valarray<cs_value, MaxArguments> buf{*this};
                     for (std::size_t i = 0; i < args.size(); ++i) {
@@ -1660,14 +1660,14 @@ void cs_state::run(cs_ident *id, cs_value_r args, cs_value &ret) {
                 }
                 nargs = 0;
                 break;
-            case cs_ident_type::Ivar:
+            case cs_ident_type::IVAR:
                 if (args.empty()) {
                     print_var(*static_cast<cs_var *>(id));
                 } else {
                     set_var_int_checked(static_cast<cs_ivar *>(id), args);
                 }
                 break;
-            case cs_ident_type::Fvar:
+            case cs_ident_type::FVAR:
                 if (args.empty()) {
                     print_var(*static_cast<cs_var *>(id));
                 } else {
@@ -1676,7 +1676,7 @@ void cs_state::run(cs_ident *id, cs_value_r args, cs_value &ret) {
                     );
                 }
                 break;
-            case cs_ident_type::Svar:
+            case cs_ident_type::SVAR:
                 if (args.empty()) {
                     print_var(*static_cast<cs_var *>(id));
                 } else {
@@ -1685,18 +1685,18 @@ void cs_state::run(cs_ident *id, cs_value_r args, cs_value &ret) {
                     );
                 }
                 break;
-            case cs_ident_type::Alias: {
+            case cs_ident_type::ALIAS: {
                 cs_alias *a = static_cast<cs_alias *>(id);
                 if (
                     (a->get_index() < MaxArguments) && !cs_is_arg_used(*this, a)
                 ) {
                     break;
                 }
-                if (a->get_value().get_type() == cs_value_type::Null) {
+                if (a->get_value().get_type() == cs_value_type::NONE) {
                     break;
                 }
                 cs_call_alias(
-                    *this, a, &args[0], ret, nargs, nargs, 0, 0, CsRetNull
+                    *this, a, &args[0], ret, nargs, nargs, 0, 0, CS_RET_NULL
                 );
                 break;
             }
@@ -1791,24 +1791,24 @@ void cs_state::run(cs_ident *id, cs_value_r args) {
     run(id, args, ret);
 }
 
-CsLoopState cs_state::run_loop(cs_bcode *code, cs_value &ret) {
+cs_loop_state cs_state::run_loop(cs_bcode *code, cs_value &ret) {
     ++p_inloop;
     try {
         run(code, ret);
     } catch (CsBreakException) {
         --p_inloop;
-        return CsLoopState::Break;
+        return cs_loop_state::BREAK;
     } catch (CsContinueException) {
         --p_inloop;
-        return CsLoopState::Continue;
+        return cs_loop_state::CONTINUE;
     } catch (...) {
         --p_inloop;
         throw;
     }
-    return CsLoopState::Normal;
+    return cs_loop_state::NORMAL;
 }
 
-CsLoopState cs_state::run_loop(cs_bcode *code) {
+cs_loop_state cs_state::run_loop(cs_bcode *code) {
     cs_value ret{*this};
     return run_loop(code, ret);
 }

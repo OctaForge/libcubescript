@@ -41,67 +41,67 @@ cs_var::cs_var(cs_ident_type tp, cs_strref name, cs_var_cb f, int fl):
 cs_ivar::cs_ivar(
     cs_strref name, cs_int m, cs_int x, cs_int v, cs_var_cb f, int fl
 ):
-    cs_var(cs_ident_type::Ivar, name, std::move(f), fl | ((m > x) ? CS_IDF_READONLY : 0)),
+    cs_var(cs_ident_type::IVAR, name, std::move(f), fl | ((m > x) ? CS_IDF_READONLY : 0)),
     p_storage(v), p_minval(m), p_maxval(x), p_overrideval(0)
 {}
 
 cs_fvar::cs_fvar(
     cs_strref name, cs_float m, cs_float x, cs_float v, cs_var_cb f, int fl
 ):
-    cs_var(cs_ident_type::Fvar, name, std::move(f), fl | ((m > x) ? CS_IDF_READONLY : 0)),
+    cs_var(cs_ident_type::FVAR, name, std::move(f), fl | ((m > x) ? CS_IDF_READONLY : 0)),
     p_storage(v), p_minval(m), p_maxval(x), p_overrideval(0)
 {}
 
 cs_svar::cs_svar(cs_strref name, cs_strref v, cs_strref ov, cs_var_cb f, int fl):
-    cs_var(cs_ident_type::Svar, name, std::move(f), fl),
+    cs_var(cs_ident_type::SVAR, name, std::move(f), fl),
     p_storage{v}, p_overrideval{ov}
 {}
 
 cs_alias::cs_alias(cs_state &cs, cs_strref name, cs_strref a, int fl):
-    cs_ident(cs_ident_type::Alias, name, fl),
+    cs_ident(cs_ident_type::ALIAS, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_str(a);
 }
 cs_alias::cs_alias(cs_state &cs, cs_strref name, ostd::string_range a, int fl):
-    cs_ident(cs_ident_type::Alias, name, fl),
+    cs_ident(cs_ident_type::ALIAS, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_str(a);
 }
 cs_alias::cs_alias(cs_state &cs, cs_strref name, cs_int a, int fl):
-    cs_ident(cs_ident_type::Alias, name, fl),
+    cs_ident(cs_ident_type::ALIAS, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_int(a);
 }
 cs_alias::cs_alias(cs_state &cs, cs_strref name, cs_float a, int fl):
-    cs_ident(cs_ident_type::Alias, name, fl),
+    cs_ident(cs_ident_type::ALIAS, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_float(a);
 }
 cs_alias::cs_alias(cs_state &cs, cs_strref name, int fl):
-    cs_ident(cs_ident_type::Alias, name, fl),
+    cs_ident(cs_ident_type::ALIAS, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
-    p_val.set_null();
+    p_val.set_none();
 }
 /* FIXME: use cs rather than val's cs */
 cs_alias::cs_alias(cs_state &, cs_strref name, cs_value v, int fl):
-    cs_ident(cs_ident_type::Alias, name, fl),
+    cs_ident(cs_ident_type::ALIAS, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val(v)
 {}
 
 cs_command::cs_command(
     cs_strref name, cs_strref args, int nargs, cs_command_cb f
 ):
-    cs_ident(cs_ident_type::Command, name, 0),
+    cs_ident(cs_ident_type::COMMAND, name, 0),
     p_cargs(args), p_cb_cftv(std::move(f)), p_numargs(nargs)
 {}
 
 bool cs_ident::is_alias() const {
-    return get_type() == cs_ident_type::Alias;
+    return get_type() == cs_ident_type::ALIAS;
 }
 
 cs_alias *cs_ident::get_alias() {
@@ -119,7 +119,7 @@ cs_alias const *cs_ident::get_alias() const {
 }
 
 bool cs_ident::is_command() const {
-    return get_type() == cs_ident_type::Command;
+    return get_type() == cs_ident_type::COMMAND;
 }
 
 cs_command *cs_ident::get_command() {
@@ -137,12 +137,12 @@ cs_command const *cs_ident::get_command() const {
 }
 
 bool cs_ident::is_special() const {
-    return get_type() == cs_ident_type::Special;
+    return get_type() == cs_ident_type::SPECIAL;
 }
 
 bool cs_ident::is_var() const {
     cs_ident_type tp = get_type();
-    return (tp >= cs_ident_type::Ivar) && (tp <= cs_ident_type::Svar);
+    return (tp >= cs_ident_type::IVAR) && (tp <= cs_ident_type::SVAR);
 }
 
 cs_var *cs_ident::get_var() {
@@ -160,7 +160,7 @@ cs_var const *cs_ident::get_var() const {
 }
 
 bool cs_ident::is_ivar() const {
-    return get_type() == cs_ident_type::Ivar;
+    return get_type() == cs_ident_type::IVAR;
 }
 
 cs_ivar *cs_ident::get_ivar() {
@@ -178,7 +178,7 @@ cs_ivar const *cs_ident::get_ivar() const {
 }
 
 bool cs_ident::is_fvar() const {
-    return get_type() == cs_ident_type::Fvar;
+    return get_type() == cs_ident_type::FVAR;
 }
 
 cs_fvar *cs_ident::get_fvar() {
@@ -196,7 +196,7 @@ cs_fvar const *cs_ident::get_fvar() const {
 }
 
 bool cs_ident::is_svar() const {
-    return get_type() == cs_ident_type::Svar;
+    return get_type() == cs_ident_type::SVAR;
 }
 
 cs_svar *cs_ident::get_svar() {
@@ -387,7 +387,7 @@ OSTD_EXPORT void cs_state::destroy() {
         cs_ident *i = p.second;
         cs_alias *a = i->get_alias();
         if (a) {
-            a->get_value().force_null();
+            a->get_value().force_none();
             cs_alias_internal::clean_code(a);
         }
         p_state->destroy(i);
@@ -437,25 +437,25 @@ OSTD_EXPORT void cs_state::clear_override(cs_ident &id) {
         return;
     }
     switch (id.get_type()) {
-        case cs_ident_type::Alias: {
+        case cs_ident_type::ALIAS: {
             cs_alias &a = static_cast<cs_alias &>(id);
             cs_alias_internal::clean_code(&a);
             a.get_value().set_str("");
             break;
         }
-        case cs_ident_type::Ivar: {
+        case cs_ident_type::IVAR: {
             cs_ivar &iv = static_cast<cs_ivar &>(id);
             iv.set_value(iv.p_overrideval);
             iv.changed(*this);
             break;
         }
-        case cs_ident_type::Fvar: {
+        case cs_ident_type::FVAR: {
             cs_fvar &fv = static_cast<cs_fvar &>(id);
             fv.set_value(fv.p_overrideval);
             fv.changed(*this);
             break;
         }
-        case cs_ident_type::Svar: {
+        case cs_ident_type::SVAR: {
             cs_svar &sv = static_cast<cs_svar &>(id);
             sv.set_value(sv.p_overrideval);
             sv.changed(*this);
@@ -500,9 +500,9 @@ OSTD_EXPORT cs_ident *cs_state::new_ident(ostd::string_range name, int flags) {
 
 OSTD_EXPORT cs_ident *cs_state::force_ident(cs_value &v) {
     switch (v.get_type()) {
-        case cs_value_type::Ident:
+        case cs_value_type::IDENT:
             return v.get_ident();
-        case cs_value_type::String: {
+        case cs_value_type::STRING: {
             cs_ident *id = new_ident(v.get_str());
             v.set_ident(id);
             return id;
@@ -593,7 +593,7 @@ OSTD_EXPORT void cs_state::set_alias(ostd::string_range name, cs_value v) {
     cs_ident *id = get_ident(name);
     if (id) {
         switch (id->get_type()) {
-            case cs_ident_type::Alias: {
+            case cs_ident_type::ALIAS: {
                 cs_alias *a = static_cast<cs_alias *>(id);
                 if (a->get_index() < MaxArguments) {
                     cs_alias_internal::set_arg(a, *this, v);
@@ -602,13 +602,13 @@ OSTD_EXPORT void cs_state::set_alias(ostd::string_range name, cs_value v) {
                 }
                 return;
             }
-            case cs_ident_type::Ivar:
+            case cs_ident_type::IVAR:
                 set_var_int_checked(static_cast<cs_ivar *>(id), v.get_int());
                 break;
-            case cs_ident_type::Fvar:
+            case cs_ident_type::FVAR:
                 set_var_float_checked(static_cast<cs_fvar *>(id), v.get_float());
                 break;
-            case cs_ident_type::Svar:
+            case cs_ident_type::SVAR:
                 set_var_str_checked(static_cast<cs_svar *>(id), v.get_str());
                 break;
             default:
@@ -632,24 +632,24 @@ OSTD_EXPORT void cs_state::print_var(cs_var const &v) const {
 
 void cs_alias::get_cval(cs_value &v) const {
     switch (p_val.get_type()) {
-        case cs_value_type::String:
+        case cs_value_type::STRING:
             v = p_val;
             break;
-        case cs_value_type::Int:
+        case cs_value_type::INT:
             v.set_int(p_val.get_int());
             break;
-        case cs_value_type::Float:
+        case cs_value_type::FLOAT:
             v.set_float(p_val.get_float());
             break;
         default:
-            v.set_null();
+            v.set_none();
             break;
     }
 }
 
 cs_ident_type cs_ident::get_type() const {
     if (p_type > CsIdAlias) {
-        return cs_ident_type::Special;
+        return cs_ident_type::SPECIAL;
     }
     return cs_ident_type(p_type);
 }
@@ -986,7 +986,7 @@ static inline void cs_do_loop(
             break;
         }
         switch (cs.run_loop(body)) {
-            case CsLoopState::Break:
+            case cs_loop_state::BREAK:
                 goto end;
             default: /* continue and normal */
                 break;
@@ -1010,9 +1010,9 @@ static inline void cs_loop_conc(
         idv.push();
         cs_value v{cs};
         switch (cs.run_loop(body, v)) {
-            case CsLoopState::Break:
+            case cs_loop_state::BREAK:
                 goto end;
-            case CsLoopState::Continue:
+            case cs_loop_state::CONTINUE:
                 continue;
             default:
                 break;
@@ -1082,7 +1082,7 @@ void cs_init_lib_base(cs_state &gcs) {
         cs_int val = args[0].get_int();
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
-                (args[i].get_type() == cs_value_type::Null) ||
+                (args[i].get_type() == cs_value_type::NONE) ||
                 (args[i].get_int() == val)
             ) {
                 cs.run(args[i + 1].get_code(), res);
@@ -1095,7 +1095,7 @@ void cs_init_lib_base(cs_state &gcs) {
         cs_float val = args[0].get_float();
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
-                (args[i].get_type() == cs_value_type::Null) ||
+                (args[i].get_type() == cs_value_type::NONE) ||
                 (args[i].get_float() == val)
             ) {
                 cs.run(args[i + 1].get_code(), res);
@@ -1108,7 +1108,7 @@ void cs_init_lib_base(cs_state &gcs) {
         cs_strref val = args[0].get_str();
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
-                (args[i].get_type() == cs_value_type::Null) ||
+                (args[i].get_type() == cs_value_type::NONE) ||
                 (args[i].get_str() == val)
             ) {
                 cs.run(args[i + 1].get_code(), res);
@@ -1189,7 +1189,7 @@ void cs_init_lib_base(cs_state &gcs) {
         cs_bcode *cond = args[0].get_code(), *body = args[1].get_code();
         while (cs.run_bool(cond)) {
             switch (cs.run_loop(body)) {
-                case CsLoopState::Break:
+                case cs_loop_state::BREAK:
                     goto end;
                 default: /* continue and normal */
                     break;
@@ -1311,13 +1311,13 @@ void cs_init_lib_string(cs_state &cs);
 void cs_init_lib_list(cs_state &cs);
 
 OSTD_EXPORT void cs_state::init_libs(int libs) {
-    if (libs & CsLibMath) {
+    if (libs & CS_LIB_MATH) {
         cs_init_lib_math(*this);
     }
-    if (libs & CsLibString) {
+    if (libs & CS_LIB_STRING) {
         cs_init_lib_string(*this);
     }
-    if (libs & CsLibList) {
+    if (libs & CS_LIB_LIST) {
         cs_init_lib_list(*this);
     }
 }

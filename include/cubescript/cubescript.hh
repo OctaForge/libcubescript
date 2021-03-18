@@ -106,7 +106,7 @@ private:
 };
 
 enum class cs_value_type {
-    Null = 0, Int, Float, String, Code, Ident
+    NONE = 0, INT, FLOAT, STRING, CODE, IDENT
 };
 
 struct OSTD_EXPORT cs_value {
@@ -126,7 +126,7 @@ struct OSTD_EXPORT cs_value {
     void set_float(cs_float val);
     void set_str(ostd::string_range val);
     void set_str(cs_strref const &val);
-    void set_null();
+    void set_none();
     void set_code(cs_bcode *val);
     void set_ident(cs_ident *val);
 
@@ -139,7 +139,7 @@ struct OSTD_EXPORT cs_value {
 
     bool get_bool() const;
 
-    void force_null();
+    void force_none();
     cs_float force_float();
     cs_int force_int();
     ostd::string_range force_str();
@@ -177,7 +177,7 @@ struct cs_error;
 struct cs_gen_state;
 
 enum class cs_ident_type {
-    Ivar = 0, Fvar, Svar, Command, Alias, Special
+    IVAR = 0, FVAR, SVAR, COMMAND, ALIAS, SPECIAL
 };
 
 struct cs_var;
@@ -355,17 +355,17 @@ private:
     int p_numargs;
 };
 
-struct cs_identLink;
+struct cs_ident_link;
 
 enum {
-    CsLibMath   = 1 << 0,
-    CsLibString = 1 << 1,
-    CsLibList   = 1 << 2,
-    CsLibAll    = 0b111
+    CS_LIB_MATH   = 1 << 0,
+    CS_LIB_STRING = 1 << 1,
+    CS_LIB_LIST   = 1 << 2,
+    CS_LIB_ALL    = 0b111
 };
 
-enum class CsLoopState {
-    Normal = 0, Break, Continue
+enum class cs_loop_state {
+    NORMAL = 0, BREAK, CONTINUE
 };
 
 static inline void *cs_default_alloc(void *, void *p, size_t, size_t ns) {
@@ -383,7 +383,7 @@ struct OSTD_EXPORT cs_state {
     friend struct cs_gen_state;
 
     cs_shared_state *p_state;
-    cs_identLink *p_callstack = nullptr;
+    cs_ident_link *p_callstack = nullptr;
 
     int identflags = 0;
 
@@ -423,7 +423,7 @@ struct OSTD_EXPORT cs_state {
     cs_vprint_cb set_var_printer(cs_vprint_cb func);
     cs_vprint_cb const &get_var_printer() const;
 
-    void init_libs(int libs = CsLibAll);
+    void init_libs(int libs = CS_LIB_ALL);
 
     void clear_override(cs_ident &id);
     void clear_overrides();
@@ -482,8 +482,8 @@ struct OSTD_EXPORT cs_state {
     void run(ostd::string_range code);
     void run(cs_ident *id, cs_value_r args);
 
-    CsLoopState run_loop(cs_bcode *code, cs_value &ret);
-    CsLoopState run_loop(cs_bcode *code);
+    cs_loop_state run_loop(cs_bcode *code, cs_value &ret);
+    cs_loop_state run_loop(cs_bcode *code);
 
     bool is_in_loop() const {
         return p_inloop;
@@ -855,19 +855,19 @@ private:
     ) {
         for (size_t i = 0; i < vals.size(); ++i) {
             switch (vals[i].get_type()) {
-                case cs_value_type::Int: {
+                case cs_value_type::INT: {
                     format_int(
                         std::forward<R>(writer), vals[i].get_int()
                     );
                     break;
                 }
-                case cs_value_type::Float: {
+                case cs_value_type::FLOAT: {
                     format_float(
                         std::forward<R>(writer), vals[i].get_float()
                     );
                     break;
                 }
-                case cs_value_type::String: {
+                case cs_value_type::STRING: {
                     ostd::range_put_all(
                         writer, ostd::string_range{vals[i].get_str()}
                     );

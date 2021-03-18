@@ -99,10 +99,10 @@ ostd::string_range cs_gen_state::get_word() {
 }
 
 static inline int cs_ret_code(int type, int def = 0) {
-    if (type >= CsValAny) {
-        return (type == CsValString) ? CsRetString : def;
+    if (type >= CS_VAL_ANY) {
+        return (type == CS_VAL_STRING) ? CS_RET_STRING : def;
     }
-    return type << CsCodeRet;
+    return type << CS_CODE_RET;
 }
 
 static void compilestatements(
@@ -110,7 +110,7 @@ static void compilestatements(
 );
 static inline std::pair<ostd::string_range, size_t> compileblock(
     cs_gen_state &gs, ostd::string_range p, size_t line,
-    int rettype = CsRetNull, int brak = '\0'
+    int rettype = CS_RET_NULL, int brak = '\0'
 );
 
 void cs_gen_state::gen_int(ostd::string_range word) {
@@ -123,33 +123,33 @@ void cs_gen_state::gen_float(ostd::string_range word) {
 
 void cs_gen_state::gen_value(int wordtype, ostd::string_range word, int line) {
     switch (wordtype) {
-        case CsValAny:
+        case CS_VAL_ANY:
             if (!word.empty()) {
                 gen_str(word);
             } else {
                 gen_null();
             }
             break;
-        case CsValString:
+        case CS_VAL_STRING:
             gen_str(word);
             break;
-        case CsValFloat:
+        case CS_VAL_FLOAT:
             gen_float(word);
             break;
-        case CsValInt:
+        case CS_VAL_INT:
             gen_int(word);
             break;
-        case CsValCond:
+        case CS_VAL_COND:
             if (!word.empty()) {
                 compileblock(*this, word, line);
             } else {
                 gen_null();
             }
             break;
-        case CsValCode:
+        case CS_VAL_CODE:
             compileblock(*this, word, line);
             break;
-        case CsValIdent:
+        case CS_VAL_IDENT:
             gen_ident(word);
             break;
         default:
@@ -158,40 +158,40 @@ void cs_gen_state::gen_value(int wordtype, ostd::string_range word, int line) {
 }
 
 static inline void compileblock(cs_gen_state &gs) {
-    gs.code.push_back(CsCodeEmpty);
+    gs.code.push_back(CS_CODE_EMPTY);
 }
 
 static inline std::pair<ostd::string_range, size_t> compileblock(
     cs_gen_state &gs, ostd::string_range p, size_t line, int rettype, int brak
 ) {
     size_t start = gs.code.size();
-    gs.code.push_back(CsCodeBlock);
-    gs.code.push_back(CsCodeOffset | ((start + 2) << 8));
+    gs.code.push_back(CS_CODE_BLOCK);
+    gs.code.push_back(CS_CODE_OFFSET | ((start + 2) << 8));
     size_t retline = line;
     if (p) {
         ostd::string_range op = gs.source;
         size_t oldline = gs.current_line;
         gs.source = p;
         gs.current_line = line;
-        compilestatements(gs, CsValAny, brak);
+        compilestatements(gs, CS_VAL_ANY, brak);
         p = gs.source;
         retline = gs.current_line;
         gs.source = op;
         gs.current_line = oldline;
     }
     if (gs.code.size() > start + 2) {
-        gs.code.push_back(CsCodeExit | rettype);
+        gs.code.push_back(CS_CODE_EXIT | rettype);
         gs.code[start] |= uint32_t(gs.code.size() - (start + 1)) << 8;
     } else {
         gs.code.resize(start);
-        gs.code.push_back(CsCodeEmpty | rettype);
+        gs.code.push_back(CS_CODE_EMPTY | rettype);
     }
     return std::make_pair(p, retline);
 }
 
 static inline void compileunescapestr(cs_gen_state &gs) {
     auto str = gs.get_str();
-    gs.code.push_back(CsCodeVal | CsRetString);
+    gs.code.push_back(CS_CODE_VAL | CS_RET_STRING);
     gs.code.reserve(
         gs.code.size() + str.size() / sizeof(uint32_t) + 1
     );
@@ -217,12 +217,12 @@ static void compilelookup(cs_gen_state &gs, int ltype, int prevargs = MaxResults
     switch (gs.current()) {
         case '(':
         case '[':
-            if (!compilearg(gs, CsValString, prevargs)) {
+            if (!compilearg(gs, CS_VAL_STRING, prevargs)) {
                 goto invalid;
             }
             break;
         case '$':
-            compilelookup(gs, CsValString, prevargs);
+            compilelookup(gs, CS_VAL_STRING, prevargs);
             break;
         case '\"':
             lookup = gs.get_str_dup();
@@ -234,88 +234,88 @@ lookupid:
             cs_ident *id = gs.cs.new_ident(lookup);
             if (id) {
                 switch (id->get_type()) {
-                    case cs_ident_type::Ivar:
+                    case cs_ident_type::IVAR:
                         gs.code.push_back(
-                            CsCodeIvar | cs_ret_code(ltype, CsRetInt) |
+                            CS_CODE_IVAR | cs_ret_code(ltype, CS_RET_INT) |
                                 (id->get_index() << 8)
                         );
                         switch (ltype) {
-                            case CsValPop:
+                            case CS_VAL_POP:
                                 gs.code.pop_back();
                                 break;
-                            case CsValCode:
-                                gs.code.push_back(CsCodeCompile);
+                            case CS_VAL_CODE:
+                                gs.code.push_back(CS_CODE_COMPILE);
                                 break;
-                            case CsValIdent:
-                                gs.code.push_back(CsCodeIdentU);
+                            case CS_VAL_IDENT:
+                                gs.code.push_back(CS_CODE_IDENT_U);
                                 break;
                         }
                         return;
-                    case cs_ident_type::Fvar:
+                    case cs_ident_type::FVAR:
                         gs.code.push_back(
-                            CsCodeFvar | cs_ret_code(ltype, CsRetFloat) |
+                            CS_CODE_FVAR | cs_ret_code(ltype, CS_RET_FLOAT) |
                                 (id->get_index() << 8)
                         );
                         switch (ltype) {
-                            case CsValPop:
+                            case CS_VAL_POP:
                                 gs.code.pop_back();
                                 break;
-                            case CsValCode:
-                                gs.code.push_back(CsCodeCompile);
+                            case CS_VAL_CODE:
+                                gs.code.push_back(CS_CODE_COMPILE);
                                 break;
-                            case CsValIdent:
-                                gs.code.push_back(CsCodeIdentU);
+                            case CS_VAL_IDENT:
+                                gs.code.push_back(CS_CODE_IDENT_U);
                                 break;
                         }
                         return;
-                    case cs_ident_type::Svar:
+                    case cs_ident_type::SVAR:
                         switch (ltype) {
-                            case CsValPop:
+                            case CS_VAL_POP:
                                 return;
                             default:
                                 gs.code.push_back(
-                                    CsCodeSvar | cs_ret_code(ltype, CsRetString) |
+                                    CS_CODE_SVAR | cs_ret_code(ltype, CS_RET_STRING) |
                                         (id->get_index() << 8)
                                 );
                                 break;
                         }
                         goto done;
-                    case cs_ident_type::Alias:
+                    case cs_ident_type::ALIAS:
                         switch (ltype) {
-                            case CsValPop:
+                            case CS_VAL_POP:
                                 return;
-                            case CsValCond:
+                            case CS_VAL_COND:
                                 gs.code.push_back(
                                     (id->get_index() < MaxArguments
-                                        ? CsCodeLookupMarg
-                                        : CsCodeLookupM
+                                        ? CS_CODE_LOOKUP_MARG
+                                        : CS_CODE_LOOKUP_M
                                     ) | (id->get_index() << 8)
                                 );
                                 break;
-                            case CsValCode:
-                            case CsValIdent:
+                            case CS_VAL_CODE:
+                            case CS_VAL_IDENT:
                                 gs.code.push_back(
                                     (id->get_index() < MaxArguments
-                                        ? CsCodeLookupMarg
-                                        : CsCodeLookupM
-                                    ) | CsRetString | (id->get_index() << 8)
+                                        ? CS_CODE_LOOKUP_MARG
+                                        : CS_CODE_LOOKUP_M
+                                    ) | CS_RET_STRING | (id->get_index() << 8)
                                 );
                                 break;
                             default:
                                 gs.code.push_back(
                                     (id->get_index() < MaxArguments
-                                        ? CsCodeLookupArg
-                                        : CsCodeLookup
-                                    ) | cs_ret_code(ltype, CsRetString) |
+                                        ? CS_CODE_LOOKUP_ARG
+                                        : CS_CODE_LOOKUP
+                                    ) | cs_ret_code(ltype, CS_RET_STRING) |
                                         (id->get_index() << 8)
                                 );
                                 break;
                         }
                         goto done;
-                    case cs_ident_type::Command: {
-                        int comtype = CsCodeCom, numargs = 0;
+                    case cs_ident_type::COMMAND: {
+                        int comtype = CS_CODE_COM, numargs = 0;
                         if (prevargs >= MaxResults) {
-                            gs.code.push_back(CsCodeEnter);
+                            gs.code.push_back(CS_CODE_ENTER);
                         }
                         auto fmt = static_cast<cs_command *>(id)->get_args();
                         for (char c: fmt) {
@@ -341,7 +341,7 @@ lookupid:
                                     numargs++;
                                     break;
                                 case 'F':
-                                    gs.code.push_back(CsCodeDup | CsRetFloat);
+                                    gs.code.push_back(CS_CODE_DUP | CS_RET_FLOAT);
                                     numargs++;
                                     break;
                                 case 'E':
@@ -367,10 +367,10 @@ lookupid:
                                     numargs++;
                                     break;
                                 case 'C':
-                                    comtype = CsCodeComC;
+                                    comtype = CS_CODE_COM_C;
                                     goto compilecomv;
                                 case 'V':
-                                    comtype = CsCodeComV;
+                                    comtype = CS_CODE_COM_V;
                                     goto compilecomv;
                                 case '1':
                                 case '2':
@@ -384,8 +384,8 @@ lookupid:
                         );
                         gs.code.push_back(
                             (prevargs >= MaxResults
-                                ? CsCodeExit
-                                : CsCodeResultArg
+                                ? CS_CODE_EXIT
+                                : CS_CODE_RESULT_ARG
                             ) | cs_ret_code(ltype)
                         );
                         goto done;
@@ -396,8 +396,8 @@ lookupid:
                         );
                         gs.code.push_back(
                             (prevargs >= MaxResults
-                                ? CsCodeExit
-                                : CsCodeResultArg
+                                ? CS_CODE_EXIT
+                                : CS_CODE_RESULT_ARG
                             ) | cs_ret_code(ltype)
                         );
                         goto done;
@@ -411,41 +411,41 @@ lookupid:
         }
     }
     switch (ltype) {
-        case CsValCond:
-            gs.code.push_back(CsCodeLookupMu);
+        case CS_VAL_COND:
+            gs.code.push_back(CS_CODE_LOOKUP_MU);
             break;
-        case CsValCode:
-        case CsValIdent:
-            gs.code.push_back(CsCodeLookupMu | CsRetString);
+        case CS_VAL_CODE:
+        case CS_VAL_IDENT:
+            gs.code.push_back(CS_CODE_LOOKUP_MU | CS_RET_STRING);
             break;
         default:
-            gs.code.push_back(CsCodeLookupU | cs_ret_code(ltype));
+            gs.code.push_back(CS_CODE_LOOKUP_U | cs_ret_code(ltype));
             break;
     }
 done:
     switch (ltype) {
-        case CsValPop:
-            gs.code.push_back(CsCodePop);
+        case CS_VAL_POP:
+            gs.code.push_back(CS_CODE_POP);
             break;
-        case CsValCode:
-            gs.code.push_back(CsCodeCompile);
+        case CS_VAL_CODE:
+            gs.code.push_back(CS_CODE_COMPILE);
             break;
-        case CsValCond:
-            gs.code.push_back(CsCodeCond);
+        case CS_VAL_COND:
+            gs.code.push_back(CS_CODE_COND);
             break;
-        case CsValIdent:
-            gs.code.push_back(CsCodeIdentU);
+        case CS_VAL_IDENT:
+            gs.code.push_back(CS_CODE_IDENT_U);
             break;
     }
     return;
 invalid:
     switch (ltype) {
-        case CsValPop:
+        case CS_VAL_POP:
             break;
-        case CsValNull:
-        case CsValAny:
-        case CsValWord:
-        case CsValCond:
+        case CS_VAL_NULL:
+        case CS_VAL_ANY:
+        case CS_VAL_WORD:
+        case CS_VAL_COND:
             gs.gen_null();
             break;
         default:
@@ -456,7 +456,7 @@ invalid:
 
 static bool compileblockstr(cs_gen_state &gs, ostd::string_range str) {
     int startc = gs.code.size();
-    gs.code.push_back(CsCodeVal | CsRetString);
+    gs.code.push_back(CS_CODE_VAL | CS_RET_STRING);
     gs.code.reserve(gs.code.size() + str.size() / sizeof(uint32_t) + 1);
     char *buf = new char[(str.size() / sizeof(uint32_t) + 1) * sizeof(uint32_t)];
     int len = 0;
@@ -508,15 +508,15 @@ static bool compileblocksub(cs_gen_state &gs, int prevargs) {
     cs_string lookup;
     switch (gs.current()) {
         case '(':
-            if (!compilearg(gs, CsValAny, prevargs)) {
+            if (!compilearg(gs, CS_VAL_ANY, prevargs)) {
                 return false;
             }
             break;
         case '[':
-            if (!compilearg(gs, CsValString, prevargs)) {
+            if (!compilearg(gs, CS_VAL_STRING, prevargs)) {
                 return false;
             }
-            gs.code.push_back(CsCodeLookupMu);
+            gs.code.push_back(CS_CODE_LOOKUP_MU);
             break;
         case '\"':
             lookup = gs.get_str_dup();
@@ -530,20 +530,20 @@ lookupid:
             cs_ident *id = gs.cs.new_ident(lookup);
             if (id) {
                 switch (id->get_type()) {
-                    case cs_ident_type::Ivar:
-                        gs.code.push_back(CsCodeIvar | (id->get_index() << 8));
+                    case cs_ident_type::IVAR:
+                        gs.code.push_back(CS_CODE_IVAR | (id->get_index() << 8));
                         goto done;
-                    case cs_ident_type::Fvar:
-                        gs.code.push_back(CsCodeFvar | (id->get_index() << 8));
+                    case cs_ident_type::FVAR:
+                        gs.code.push_back(CS_CODE_FVAR | (id->get_index() << 8));
                         goto done;
-                    case cs_ident_type::Svar:
-                        gs.code.push_back(CsCodeSvar | (id->get_index() << 8));
+                    case cs_ident_type::SVAR:
+                        gs.code.push_back(CS_CODE_SVAR | (id->get_index() << 8));
                         goto done;
-                    case cs_ident_type::Alias:
+                    case cs_ident_type::ALIAS:
                         gs.code.push_back(
                             (id->get_index() < MaxArguments
-                                ? CsCodeLookupMarg
-                                : CsCodeLookupM
+                                ? CS_CODE_LOOKUP_MARG
+                                : CS_CODE_LOOKUP_M
                             ) | (id->get_index() << 8)
                         );
                         goto done;
@@ -552,7 +552,7 @@ lookupid:
                 }
             }
             gs.gen_str(lookup);
-            gs.code.push_back(CsCodeLookupMu);
+            gs.code.push_back(CS_CODE_LOOKUP_MU);
 done:
             break;
         }
@@ -600,10 +600,10 @@ static void compileblockmain(cs_gen_state &gs, int wordtype, int prevargs) {
                     return;
                 }
                 if (!concs && prevargs >= MaxResults) {
-                    gs.code.push_back(CsCodeEnter);
+                    gs.code.push_back(CS_CODE_ENTER);
                 }
                 if (concs + 2 > MaxArguments) {
-                    gs.code.push_back(CsCodeConcW | CsRetString | (concs << 8));
+                    gs.code.push_back(CS_CODE_CONC_W | CS_RET_STRING | (concs << 8));
                     concs = 1;
                 }
                 if (compileblockstr(gs, ostd::string_range(start, esc))) {
@@ -628,18 +628,18 @@ static void compileblockmain(cs_gen_state &gs, int wordtype, int prevargs) {
     if (gs.source.data() - 1 > start) {
         if (!concs) {
             switch (wordtype) {
-                case CsValPop:
+                case CS_VAL_POP:
                     return;
-                case CsValCode:
-                case CsValCond: {
+                case CS_VAL_CODE:
+                case CS_VAL_COND: {
                     auto ret = compileblock(gs, ostd::string_range(
                         start, gs.source.data() + gs.source.size()
-                    ), curline, CsRetNull, ']');
+                    ), curline, CS_RET_NULL, ']');
                     gs.source = ret.first;
                     gs.current_line = ret.second;
                     return;
                 }
-                case CsValIdent:
+                case CS_VAL_IDENT:
                     gs.gen_ident(ostd::string_range(start, gs.source.data() - 1));
                     return;
             }
@@ -651,43 +651,43 @@ static void compileblockmain(cs_gen_state &gs, int wordtype, int prevargs) {
     }
     if (concs) {
         if (prevargs >= MaxResults) {
-            gs.code.push_back(CsCodeConcM | cs_ret_code(wordtype) | (concs << 8));
-            gs.code.push_back(CsCodeExit | cs_ret_code(wordtype));
+            gs.code.push_back(CS_CODE_CONC_M | cs_ret_code(wordtype) | (concs << 8));
+            gs.code.push_back(CS_CODE_EXIT | cs_ret_code(wordtype));
         } else {
-            gs.code.push_back(CsCodeConcW | cs_ret_code(wordtype) | (concs << 8));
+            gs.code.push_back(CS_CODE_CONC_W | cs_ret_code(wordtype) | (concs << 8));
         }
     }
     switch (wordtype) {
-        case CsValPop:
+        case CS_VAL_POP:
             if (concs || gs.source.data() - 1 > start) {
-                gs.code.push_back(CsCodePop);
+                gs.code.push_back(CS_CODE_POP);
             }
             break;
-        case CsValCond:
+        case CS_VAL_COND:
             if (!concs && gs.source.data() - 1 <= start) {
                 gs.gen_null();
             } else {
-                gs.code.push_back(CsCodeCond);
+                gs.code.push_back(CS_CODE_COND);
             }
             break;
-        case CsValCode:
+        case CS_VAL_CODE:
             if (!concs && gs.source.data() - 1 <= start) {
                 compileblock(gs);
             } else {
-                gs.code.push_back(CsCodeCompile);
+                gs.code.push_back(CS_CODE_COMPILE);
             }
             break;
-        case CsValIdent:
+        case CS_VAL_IDENT:
             if (!concs && gs.source.data() - 1 <= start) {
                 gs.gen_ident();
             } else {
-                gs.code.push_back(CsCodeIdentU);
+                gs.code.push_back(CS_CODE_IDENT_U);
             }
             break;
-        case CsValString:
-        case CsValNull:
-        case CsValAny:
-        case CsValWord:
+        case CS_VAL_STRING:
+        case CS_VAL_NULL:
+        case CS_VAL_ANY:
+        case CS_VAL_WORD:
             if (!concs && gs.source.data() - 1 <= start) {
                 gs.gen_str();
             }
@@ -697,7 +697,7 @@ static void compileblockmain(cs_gen_state &gs, int wordtype, int prevargs) {
                 if (gs.source.data() - 1 <= start) {
                     gs.gen_value(wordtype);
                 } else {
-                    gs.code.push_back(CsCodeForce | (wordtype << CsCodeRet));
+                    gs.code.push_back(CS_CODE_FORCE | (wordtype << CS_CODE_RET));
                 }
             }
             break;
@@ -711,10 +711,10 @@ static bool compilearg(
     switch (gs.current()) {
         case '\"':
             switch (wordtype) {
-                case CsValPop:
+                case CS_VAL_POP:
                     gs.get_str();
                     break;
-                case CsValCond: {
+                case CS_VAL_COND: {
                     size_t line = gs.current_line;
                     auto s = gs.get_str_dup();
                     if (!s.empty()) {
@@ -724,18 +724,18 @@ static bool compilearg(
                     }
                     break;
                 }
-                case CsValCode: {
+                case CS_VAL_CODE: {
                     auto s = gs.get_str_dup();
                     compileblock(gs);
                     break;
                 }
-                case CsValWord:
+                case CS_VAL_WORD:
                     if (word) {
                         *word = gs.get_str_dup();
                     }
                     break;
-                case CsValAny:
-                case CsValString:
+                case CS_VAL_ANY:
+                case CS_VAL_STRING:
                     compileunescapestr(gs);
                     break;
                 default: {
@@ -752,31 +752,31 @@ static bool compilearg(
         case '(':
             gs.next_char();
             if (prevargs >= MaxResults) {
-                gs.code.push_back(CsCodeEnter);
-                compilestatements(gs, CsValAny, ')');
-                gs.code.push_back(CsCodeExit | cs_ret_code(wordtype));
+                gs.code.push_back(CS_CODE_ENTER);
+                compilestatements(gs, CS_VAL_ANY, ')');
+                gs.code.push_back(CS_CODE_EXIT | cs_ret_code(wordtype));
             } else {
                 size_t start = gs.code.size();
-                compilestatements(gs, CsValAny, ')', prevargs);
+                compilestatements(gs, CS_VAL_ANY, ')', prevargs);
                 if (gs.code.size() > start) {
-                    gs.code.push_back(CsCodeResultArg | cs_ret_code(wordtype));
+                    gs.code.push_back(CS_CODE_RESULT_ARG | cs_ret_code(wordtype));
                 } else {
                     gs.gen_value(wordtype);
                     return true;
                 }
             }
             switch (wordtype) {
-                case CsValPop:
-                    gs.code.push_back(CsCodePop);
+                case CS_VAL_POP:
+                    gs.code.push_back(CS_CODE_POP);
                     break;
-                case CsValCond:
-                    gs.code.push_back(CsCodeCond);
+                case CS_VAL_COND:
+                    gs.code.push_back(CS_CODE_COND);
                     break;
-                case CsValCode:
-                    gs.code.push_back(CsCodeCompile);
+                case CS_VAL_CODE:
+                    gs.code.push_back(CS_CODE_COMPILE);
                     break;
-                case CsValIdent:
-                    gs.code.push_back(CsCodeIdentU);
+                case CS_VAL_IDENT:
+                    gs.code.push_back(CS_CODE_IDENT_U);
                     break;
             }
             return true;
@@ -786,10 +786,10 @@ static bool compilearg(
             return true;
         default:
             switch (wordtype) {
-                case CsValPop: {
+                case CS_VAL_POP: {
                     return !gs.get_word().empty();
                 }
-                case CsValCond: {
+                case CS_VAL_COND: {
                     size_t line = gs.current_line;
                     auto s = gs.get_word();
                     if (s.empty()) {
@@ -798,7 +798,7 @@ static bool compilearg(
                     compileblock(gs, s, line);
                     return true;
                 }
-                case CsValCode: {
+                case CS_VAL_CODE: {
                     size_t line = gs.current_line;
                     auto s = gs.get_word();
                     if (s.empty()) {
@@ -807,7 +807,7 @@ static bool compilearg(
                     compileblock(gs, s, line);
                     return true;
                 }
-                case CsValWord: {
+                case CS_VAL_WORD: {
                     auto w = gs.get_word();
                     if (word) {
                         *word = w;
@@ -830,14 +830,14 @@ static bool compilearg(
 static void compile_cmd(
     cs_gen_state &gs, cs_command *id, bool &more, int rettype, int prevargs
 ) {
-    int comtype = CsCodeCom, numargs = 0, fakeargs = 0;
+    int comtype = CS_CODE_COM, numargs = 0, fakeargs = 0;
     bool rep = false;
     auto fmt = id->get_args();
     for (; !fmt.empty(); ++fmt) {
         switch (*fmt) {
             case 's': /* string */
                 if (more) {
-                    more = compilearg(gs, CsValString, prevargs + numargs);
+                    more = compilearg(gs, CS_VAL_STRING, prevargs + numargs);
                 }
                 if (!more) {
                     if (rep) {
@@ -849,7 +849,7 @@ static void compile_cmd(
                     int numconc = 1;
                     while ((numargs + numconc) < MaxArguments) {
                         more = compilearg(
-                            gs, CsValString, prevargs + numargs + numconc
+                            gs, CS_VAL_STRING, prevargs + numargs + numconc
                         );
                         if (!more) {
                             break;
@@ -857,14 +857,14 @@ static void compile_cmd(
                         numconc++;
                     }
                     if (numconc > 1) {
-                        gs.code.push_back(CsCodeConc | CsRetString | (numconc << 8));
+                        gs.code.push_back(CS_CODE_CONC | CS_RET_STRING | (numconc << 8));
                     }
                 }
                 numargs++;
                 break;
             case 'i': /* integer */
                 if (more) {
-                    more = compilearg(gs, CsValInt, prevargs + numargs);
+                    more = compilearg(gs, CS_VAL_INT, prevargs + numargs);
                 }
                 if (!more) {
                     if (rep) {
@@ -877,7 +877,7 @@ static void compile_cmd(
                 break;
             case 'b': /* integer, INT_MIN default */
                 if (more) {
-                    more = compilearg(gs, CsValInt, prevargs + numargs);
+                    more = compilearg(gs, CS_VAL_INT, prevargs + numargs);
                 }
                 if (!more) {
                     if (rep) {
@@ -890,7 +890,7 @@ static void compile_cmd(
                 break;
             case 'f': /* float */
                 if (more) {
-                    more = compilearg(gs, CsValFloat, prevargs + numargs);
+                    more = compilearg(gs, CS_VAL_FLOAT, prevargs + numargs);
                 }
                 if (!more) {
                     if (rep) {
@@ -903,13 +903,13 @@ static void compile_cmd(
                 break;
             case 'F': /* float, prev-argument default */
                 if (more) {
-                    more = compilearg(gs, CsValFloat, prevargs + numargs);
+                    more = compilearg(gs, CS_VAL_FLOAT, prevargs + numargs);
                 }
                 if (!more) {
                     if (rep) {
                         break;
                     }
-                    gs.code.push_back(CsCodeDup | CsRetFloat);
+                    gs.code.push_back(CS_CODE_DUP | CS_RET_FLOAT);
                     fakeargs++;
                 }
                 numargs++;
@@ -917,7 +917,7 @@ static void compile_cmd(
             case 't': /* any arg */
                 if (more) {
                     more = compilearg(
-                        gs, CsValAny,
+                        gs, CS_VAL_ANY,
                         prevargs + numargs
                     );
                 }
@@ -932,7 +932,7 @@ static void compile_cmd(
                 break;
             case 'E': /* condition */
                 if (more) {
-                    more = compilearg(gs, CsValCond, prevargs + numargs);
+                    more = compilearg(gs, CS_VAL_COND, prevargs + numargs);
                 }
                 if (!more) {
                     if (rep) {
@@ -945,7 +945,7 @@ static void compile_cmd(
                 break;
             case 'e': /* code */
                 if (more) {
-                    more = compilearg(gs, CsValCode, prevargs + numargs);
+                    more = compilearg(gs, CS_VAL_CODE, prevargs + numargs);
                 }
                 if (!more) {
                     if (rep) {
@@ -958,7 +958,7 @@ static void compile_cmd(
                 break;
             case 'r': /* ident */
                 if (more) {
-                    more = compilearg(gs, CsValIdent, prevargs + numargs);
+                    more = compilearg(gs, CS_VAL_IDENT, prevargs + numargs);
                 }
                 if (!more) {
                     if (rep) {
@@ -978,10 +978,10 @@ static void compile_cmd(
                 numargs++;
                 break;
             case 'C': /* concatenated string */
-                comtype = CsCodeComC;
+                comtype = CS_CODE_COM_C;
                 if (more) {
                     while (numargs < MaxArguments) {
-                        more = compilearg(gs, CsValAny, prevargs + numargs);
+                        more = compilearg(gs, CS_VAL_ANY, prevargs + numargs);
                         if (!more) {
                             break;
                         }
@@ -990,10 +990,10 @@ static void compile_cmd(
                 }
                 goto compilecomv;
             case 'V': /* varargs */
-                comtype = CsCodeComV;
+                comtype = CS_CODE_COM_V;
                 if (more) {
                     while (numargs < MaxArguments) {
-                        more = compilearg(gs, CsValAny, prevargs + numargs);
+                        more = compilearg(gs, CS_VAL_ANY, prevargs + numargs);
                         if (!more) {
                             break;
                         }
@@ -1011,7 +1011,7 @@ static void compile_cmd(
                     rep = true;
                 } else {
                     while (numargs > MaxArguments) {
-                        gs.code.push_back(CsCodePop);
+                        gs.code.push_back(CS_CODE_POP);
                         --numargs;
                     }
                 }
@@ -1029,14 +1029,14 @@ compilecomv:
 static void compile_alias(cs_gen_state &gs, cs_alias *id, bool &more, int prevargs) {
     int numargs = 0;
     while (numargs < MaxArguments) {
-        more = compilearg(gs, CsValAny, prevargs + numargs);
+        more = compilearg(gs, CS_VAL_ANY, prevargs + numargs);
         if (!more) {
             break;
         }
         ++numargs;
     }
     gs.code.push_back(
-        (id->get_index() < MaxArguments ? CsCodeCallArg : CsCodeCall)
+        (id->get_index() < MaxArguments ? CS_CODE_CALL_ARG : CS_CODE_CALL)
             | (numargs << 8) | (id->get_index() << 13)
     );
 }
@@ -1045,7 +1045,7 @@ static void compile_local(cs_gen_state &gs, bool &more, int prevargs) {
     int numargs = 0;
     if (more) {
         while (numargs < MaxArguments) {
-            more = compilearg(gs, CsValIdent, prevargs + numargs);
+            more = compilearg(gs, CS_VAL_IDENT, prevargs + numargs);
             if (!more) {
                 break;
             }
@@ -1053,80 +1053,80 @@ static void compile_local(cs_gen_state &gs, bool &more, int prevargs) {
         }
     }
     if (more) {
-        while ((more = compilearg(gs, CsValPop)));
+        while ((more = compilearg(gs, CS_VAL_POP)));
     }
-    gs.code.push_back(CsCodeLocal | (numargs << 8));
+    gs.code.push_back(CS_CODE_LOCAL | (numargs << 8));
 }
 
 static void compile_do(
     cs_gen_state &gs, bool &more, int prevargs, int rettype, int opcode
 ) {
     if (more) {
-        more = compilearg(gs, CsValCode, prevargs);
+        more = compilearg(gs, CS_VAL_CODE, prevargs);
     }
-    gs.code.push_back((more ? opcode : CsCodeNull) | cs_ret_code(rettype));
+    gs.code.push_back((more ? opcode : CS_CODE_NULL) | cs_ret_code(rettype));
 }
 
 static void compile_if(
     cs_gen_state &gs, cs_ident *id, bool &more, int prevargs, int rettype
 ) {
     if (more) {
-        more = compilearg(gs, CsValAny, prevargs);
+        more = compilearg(gs, CS_VAL_ANY, prevargs);
     }
     if (!more) {
-        gs.code.push_back(CsCodeNull | cs_ret_code(rettype));
+        gs.code.push_back(CS_CODE_NULL | cs_ret_code(rettype));
     } else {
         int start1 = gs.code.size();
-        more = compilearg(gs, CsValCode, prevargs + 1);
+        more = compilearg(gs, CS_VAL_CODE, prevargs + 1);
         if (!more) {
-            gs.code.push_back(CsCodePop);
-            gs.code.push_back(CsCodeNull | cs_ret_code(rettype));
+            gs.code.push_back(CS_CODE_POP);
+            gs.code.push_back(CS_CODE_NULL | cs_ret_code(rettype));
         } else {
             int start2 = gs.code.size();
-            more = compilearg(gs, CsValCode, prevargs + 2);
+            more = compilearg(gs, CS_VAL_CODE, prevargs + 2);
             uint32_t inst1 = gs.code[start1];
-            uint32_t op1 = inst1 & ~CsCodeRetMask;
+            uint32_t op1 = inst1 & ~CS_CODE_RET_MASK;
             uint32_t len1 = start2 - (start1 + 1);
             if (!more) {
-                if (op1 == (CsCodeBlock | (len1 << 8))) {
-                    gs.code[start1] = (len1 << 8) | CsCodeJumpB | CsCodeFlagFalse;
-                    gs.code[start1 + 1] = CsCodeEnterResult;
+                if (op1 == (CS_CODE_BLOCK | (len1 << 8))) {
+                    gs.code[start1] = (len1 << 8) | CS_CODE_JUMP_B | CS_CODE_FLAG_FALSE;
+                    gs.code[start1 + 1] = CS_CODE_ENTER_RESULT;
                     gs.code[start1 + len1] = (
-                        gs.code[start1 + len1] & ~CsCodeRetMask
+                        gs.code[start1 + len1] & ~CS_CODE_RET_MASK
                     ) | cs_ret_code(rettype);
                     return;
                 }
                 compileblock(gs);
             } else {
                 uint32_t inst2 = gs.code[start2];
-                uint32_t op2 = inst2 & ~CsCodeRetMask;
+                uint32_t op2 = inst2 & ~CS_CODE_RET_MASK;
                 uint32_t len2 = gs.code.size() - (start2 + 1);
-                if (op2 == (CsCodeBlock | (len2 << 8))) {
-                    if (op1 == (CsCodeBlock | (len1 << 8))) {
+                if (op2 == (CS_CODE_BLOCK | (len2 << 8))) {
+                    if (op1 == (CS_CODE_BLOCK | (len1 << 8))) {
                         gs.code[start1] = ((start2 - start1) << 8)
-                            | CsCodeJumpB | CsCodeFlagFalse;
-                        gs.code[start1 + 1] = CsCodeEnterResult;
+                            | CS_CODE_JUMP_B | CS_CODE_FLAG_FALSE;
+                        gs.code[start1 + 1] = CS_CODE_ENTER_RESULT;
                         gs.code[start1 + len1] = (
-                            gs.code[start1 + len1] & ~CsCodeRetMask
+                            gs.code[start1 + len1] & ~CS_CODE_RET_MASK
                         ) | cs_ret_code(rettype);
-                        gs.code[start2] = (len2 << 8) | CsCodeJump;
-                        gs.code[start2 + 1] = CsCodeEnterResult;
+                        gs.code[start2] = (len2 << 8) | CS_CODE_JUMP;
+                        gs.code[start2 + 1] = CS_CODE_ENTER_RESULT;
                         gs.code[start2 + len2] = (
-                            gs.code[start2 + len2] & ~CsCodeRetMask
+                            gs.code[start2 + len2] & ~CS_CODE_RET_MASK
                         ) | cs_ret_code(rettype);
                         return;
-                    } else if (op1 == (CsCodeEmpty | (len1 << 8))) {
-                        gs.code[start1] = CsCodeNull | (inst2 & CsCodeRetMask);
-                        gs.code[start2] = (len2 << 8) | CsCodeJumpB | CsCodeFlagTrue;
-                        gs.code[start2 + 1] = CsCodeEnterResult;
+                    } else if (op1 == (CS_CODE_EMPTY | (len1 << 8))) {
+                        gs.code[start1] = CS_CODE_NULL | (inst2 & CS_CODE_RET_MASK);
+                        gs.code[start2] = (len2 << 8) | CS_CODE_JUMP_B | CS_CODE_FLAG_TRUE;
+                        gs.code[start2 + 1] = CS_CODE_ENTER_RESULT;
                         gs.code[start2 + len2] = (
-                            gs.code[start2 + len2] & ~CsCodeRetMask
+                            gs.code[start2 + len2] & ~CS_CODE_RET_MASK
                         ) | cs_ret_code(rettype);
                         return;
                     }
                 }
             }
-            gs.code.push_back(CsCodeCom | cs_ret_code(rettype) | (id->get_index() << 8));
+            gs.code.push_back(CS_CODE_COM | cs_ret_code(rettype) | (id->get_index() << 8));
         }
     }
 }
@@ -1136,24 +1136,24 @@ static void compile_and_or(
 ) {
     int numargs = 0;
     if (more) {
-        more = compilearg(gs, CsValCond, prevargs);
+        more = compilearg(gs, CS_VAL_COND, prevargs);
     }
     if (!more) {
         gs.code.push_back(
-            ((id->get_type_raw() == CsIdAnd) ? CsCodeTrue : CsCodeFalse)
+            ((id->get_type_raw() == CsIdAnd) ? CS_CODE_TRUE : CS_CODE_FALSE)
                 | cs_ret_code(rettype)
         );
     } else {
         numargs++;
         int start = gs.code.size(), end = start;
         while (numargs < MaxArguments) {
-            more = compilearg(gs, CsValCond, prevargs + numargs);
+            more = compilearg(gs, CS_VAL_COND, prevargs + numargs);
             if (!more) {
                 break;
             }
             numargs++;
-            if ((gs.code[end] & ~CsCodeRetMask) != (
-                CsCodeBlock | (uint32_t(gs.code.size() - (end + 1)) << 8)
+            if ((gs.code[end] & ~CS_CODE_RET_MASK) != (
+                CS_CODE_BLOCK | (uint32_t(gs.code.size() - (end + 1)) << 8)
             )) {
                 break;
             }
@@ -1161,28 +1161,28 @@ static void compile_and_or(
         }
         if (more) {
             while (numargs < MaxArguments) {
-                more = compilearg(gs, CsValCond, prevargs + numargs);
+                more = compilearg(gs, CS_VAL_COND, prevargs + numargs);
                 if (!more) {
                     break;
                 }
                 numargs++;
             }
             gs.code.push_back(
-                CsCodeComV | cs_ret_code(rettype) |
+                CS_CODE_COM_V | cs_ret_code(rettype) |
                     (numargs << 8) | (id->get_index() << 13)
             );
         } else {
             uint32_t op = (id->get_type_raw() == CsIdAnd)
-                ? (CsCodeJumpResult | CsCodeFlagFalse)
-                : (CsCodeJumpResult | CsCodeFlagTrue);
+                ? (CS_CODE_JUMP_RESULT | CS_CODE_FLAG_FALSE)
+                : (CS_CODE_JUMP_RESULT | CS_CODE_FLAG_TRUE);
             gs.code.push_back(op);
             end = gs.code.size();
             while ((start + 1) < end) {
                 uint32_t len = gs.code[start] >> 8;
                 gs.code[start] = ((end - (start + 1)) << 8) | op;
-                gs.code[start + 1] = CsCodeEnter;
+                gs.code[start + 1] = CS_CODE_ENTER;
                 gs.code[start + len] = (
-                    gs.code[start + len] & ~CsCodeRetMask
+                    gs.code[start + len] & ~CS_CODE_RET_MASK
                 ) | cs_ret_code(rettype);
                 start += len + 1;
             }
@@ -1196,7 +1196,7 @@ static void compilestatements(cs_gen_state &gs, int rettype, int brak, int preva
         gs.skip_comments();
         idname.clear();
         size_t curline = gs.current_line;
-        bool more = compilearg(gs, CsValWord, prevargs, &idname);
+        bool more = compilearg(gs, CS_VAL_WORD, prevargs, &idname);
         if (!more) {
             goto endstatement;
         }
@@ -1219,43 +1219,43 @@ static void compilestatements(cs_gen_state &gs, int rettype, int brak, int preva
                         cs_ident *id = gs.cs.new_ident(idname);
                         if (id) {
                             switch (id->get_type()) {
-                                case cs_ident_type::Alias:
-                                    more = compilearg(gs, CsValAny, prevargs);
+                                case cs_ident_type::ALIAS:
+                                    more = compilearg(gs, CS_VAL_ANY, prevargs);
                                     if (!more) {
                                         gs.gen_str();
                                     }
                                     gs.code.push_back(
                                         (id->get_index() < MaxArguments
-                                            ? CsCodeAliasArg
-                                            : CsCodeAlias
+                                            ? CS_CODE_ALIAS_ARG
+                                            : CS_CODE_ALIAS
                                         ) | (id->get_index() << 8)
                                     );
                                     goto endstatement;
-                                case cs_ident_type::Ivar:
-                                    more = compilearg(gs, CsValInt, prevargs);
+                                case cs_ident_type::IVAR:
+                                    more = compilearg(gs, CS_VAL_INT, prevargs);
                                     if (!more) {
                                         gs.gen_int();
                                     }
                                     gs.code.push_back(
-                                        CsCodeIvar1 | (id->get_index() << 8)
+                                        CS_CODE_IVAR1 | (id->get_index() << 8)
                                     );
                                     goto endstatement;
-                                case cs_ident_type::Fvar:
-                                    more = compilearg(gs, CsValFloat, prevargs);
+                                case cs_ident_type::FVAR:
+                                    more = compilearg(gs, CS_VAL_FLOAT, prevargs);
                                     if (!more) {
                                         gs.gen_float();
                                     }
                                     gs.code.push_back(
-                                        CsCodeFvar1 | (id->get_index() << 8)
+                                        CS_CODE_FVAR1 | (id->get_index() << 8)
                                     );
                                     goto endstatement;
-                                case cs_ident_type::Svar:
-                                    more = compilearg(gs, CsValString, prevargs);
+                                case cs_ident_type::SVAR:
+                                    more = compilearg(gs, CS_VAL_STRING, prevargs);
                                     if (!more) {
                                         gs.gen_str();
                                     }
                                     gs.code.push_back(
-                                        CsCodeSvar1 | (id->get_index() << 8)
+                                        CS_CODE_SVAR1 | (id->get_index() << 8)
                                     );
                                     goto endstatement;
                                 default:
@@ -1264,11 +1264,11 @@ static void compilestatements(cs_gen_state &gs, int rettype, int brak, int preva
                         }
                         gs.gen_str(idname);
                     }
-                    more = compilearg(gs, CsValAny);
+                    more = compilearg(gs, CS_VAL_ANY);
                     if (!more) {
                         gs.gen_str();
                     }
-                    gs.code.push_back(CsCodeAliasU);
+                    gs.code.push_back(CS_CODE_ALIAS_U);
                     goto endstatement;
             }
         }
@@ -1276,13 +1276,13 @@ static void compilestatements(cs_gen_state &gs, int rettype, int brak, int preva
 noid:
             int numargs = 0;
             while (numargs < MaxArguments) {
-                more = compilearg(gs, CsValAny, prevargs + numargs);
+                more = compilearg(gs, CS_VAL_ANY, prevargs + numargs);
                 if (!more) {
                     break;
                 }
                 ++numargs;
             }
-            gs.code.push_back(CsCodeCallU | (numargs << 8));
+            gs.code.push_back(CS_CODE_CALL_U | (numargs << 8));
         } else {
             cs_ident *id = gs.cs.get_ident(idname);
             if (!id) {
@@ -1291,7 +1291,7 @@ noid:
                     goto noid;
                 }
                 switch (rettype) {
-                    case CsValAny: {
+                    case CS_VAL_ANY: {
                         ostd::string_range end = idname;
                         cs_int val = cs_parse_int(end, &end);
                         if (!end.empty()) {
@@ -1305,7 +1305,7 @@ noid:
                         gs.gen_value(rettype, idname, curline);
                         break;
                 }
-                gs.code.push_back(CsCodeResult);
+                gs.code.push_back(CS_CODE_RESULT);
             } else {
                 switch (id->get_type_raw()) {
                     case CsIdAlias:
@@ -1323,35 +1323,35 @@ noid:
                         compile_local(gs, more, prevargs);
                         break;
                     case CsIdDo:
-                        compile_do(gs, more, prevargs, rettype, CsCodeDo);
+                        compile_do(gs, more, prevargs, rettype, CS_CODE_DO);
                         break;
                     case CsIdDoArgs:
-                        compile_do(gs, more, prevargs, rettype, CsCodeDoArgs);
+                        compile_do(gs, more, prevargs, rettype, CS_CODE_DO_ARGS);
                         break;
                     case CsIdIf:
                         compile_if(gs, id, more, prevargs, rettype);
                         break;
                     case CsIdBreak:
-                        gs.code.push_back(CsCodeBreak | CsCodeFlagFalse);
+                        gs.code.push_back(CS_CODE_BREAK | CS_CODE_FLAG_FALSE);
                         break;
                     case CsIdContinue:
-                        gs.code.push_back(CsCodeBreak | CsCodeFlagTrue);
+                        gs.code.push_back(CS_CODE_BREAK | CS_CODE_FLAG_TRUE);
                         break;
                     case CsIdResult:
                         if (more) {
-                            more = compilearg(gs, CsValAny, prevargs);
+                            more = compilearg(gs, CS_VAL_ANY, prevargs);
                         }
                         gs.code.push_back(
-                            (more ? CsCodeResult : CsCodeNull) |
+                            (more ? CS_CODE_RESULT : CS_CODE_NULL) |
                                 cs_ret_code(rettype)
                         );
                         break;
                     case CsIdNot:
                         if (more) {
-                            more = compilearg(gs, CsValAny, prevargs);
+                            more = compilearg(gs, CS_VAL_ANY, prevargs);
                         }
                         gs.code.push_back(
-                            (more ? CsCodeNot : CsCodeTrue) | cs_ret_code(rettype)
+                            (more ? CS_CODE_NOT : CS_CODE_TRUE) | cs_ret_code(rettype)
                         );
                         break;
                     case CsIdAnd:
@@ -1359,45 +1359,45 @@ noid:
                         compile_and_or(gs, id, more, prevargs, rettype);
                         break;
                     case CsIdIvar:
-                        if (!(more = compilearg(gs, CsValInt, prevargs))) {
-                            gs.code.push_back(CsCodePrint | (id->get_index() << 8));
+                        if (!(more = compilearg(gs, CS_VAL_INT, prevargs))) {
+                            gs.code.push_back(CS_CODE_PRINT | (id->get_index() << 8));
                         } else if (!(id->get_flags() & CS_IDF_HEX) || !(
-                            more = compilearg(gs, CsValInt, prevargs + 1)
+                            more = compilearg(gs, CS_VAL_INT, prevargs + 1)
                         )) {
-                            gs.code.push_back(CsCodeIvar1 | (id->get_index() << 8));
+                            gs.code.push_back(CS_CODE_IVAR1 | (id->get_index() << 8));
                         } else if (!(
-                            more = compilearg(gs, CsValInt, prevargs + 2)
+                            more = compilearg(gs, CS_VAL_INT, prevargs + 2)
                         )) {
-                            gs.code.push_back(CsCodeIvar2 | (id->get_index() << 8));
+                            gs.code.push_back(CS_CODE_IVAR2 | (id->get_index() << 8));
                         } else {
-                            gs.code.push_back(CsCodeIvar3 | (id->get_index() << 8));
+                            gs.code.push_back(CS_CODE_IVAR3 | (id->get_index() << 8));
                         }
                         break;
                     case CsIdFvar:
-                        if (!(more = compilearg(gs, CsValFloat, prevargs))) {
-                            gs.code.push_back(CsCodePrint | (id->get_index() << 8));
+                        if (!(more = compilearg(gs, CS_VAL_FLOAT, prevargs))) {
+                            gs.code.push_back(CS_CODE_PRINT | (id->get_index() << 8));
                         } else {
-                            gs.code.push_back(CsCodeFvar1 | (id->get_index() << 8));
+                            gs.code.push_back(CS_CODE_FVAR1 | (id->get_index() << 8));
                         }
                         break;
                     case CsIdSvar:
-                        if (!(more = compilearg(gs, CsValString, prevargs))) {
-                            gs.code.push_back(CsCodePrint | (id->get_index() << 8));
+                        if (!(more = compilearg(gs, CS_VAL_STRING, prevargs))) {
+                            gs.code.push_back(CS_CODE_PRINT | (id->get_index() << 8));
                         } else {
                             int numargs = 0;
                             do {
                                 ++numargs;
                             } while (numargs < MaxArguments && (
                                 more = compilearg(
-                                    gs, CsValAny, prevargs + numargs
+                                    gs, CS_VAL_ANY, prevargs + numargs
                                 )
                             ));
                             if (numargs > 1) {
                                 gs.code.push_back(
-                                    CsCodeConc | CsRetString | (numargs << 8)
+                                    CS_CODE_CONC | CS_RET_STRING | (numargs << 8)
                                 );
                             }
-                            gs.code.push_back(CsCodeSvar1 | (id->get_index() << 8));
+                            gs.code.push_back(CS_CODE_SVAR1 | (id->get_index() << 8));
                         }
                         break;
                 }
@@ -1405,7 +1405,7 @@ noid:
         }
 endstatement:
         if (more) {
-            while (compilearg(gs, CsValPop));
+            while (compilearg(gs, CS_VAL_POP));
         }
         switch (gs.skip_until(")];/\n")) {
             case '\0':
@@ -1437,9 +1437,9 @@ endstatement:
 
 void cs_gen_state::gen_main(ostd::string_range s, int ret_type) {
     source = s;
-    code.push_back(CsCodeStart);
-    compilestatements(*this, CsValAny);
-    code.push_back(CsCodeExit | ((ret_type < CsValAny) ? (ret_type << CsCodeRet) : 0));
+    code.push_back(CS_CODE_START);
+    compilestatements(*this, CS_VAL_ANY);
+    code.push_back(CS_CODE_EXIT | ((ret_type < CS_VAL_ANY) ? (ret_type << CS_CODE_RET) : 0));
 }
 
 } /* namespace cscript */

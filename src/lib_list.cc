@@ -87,9 +87,9 @@ static void cs_loop_list_conc(
         }
         cs_value v{cs};
         switch (cs.run_loop(body, v)) {
-            case CsLoopState::Break:
+            case cs_loop_state::BREAK:
                 goto end;
-            case CsLoopState::Continue:
+            case cs_loop_state::CONTINUE:
                 continue;
             default:
                 break;
@@ -294,7 +294,7 @@ void cs_init_lib_list(cs_state &gcs) {
             idv.set_str(p.get_item());
             idv.push();
             switch (cs.run_loop(body)) {
-                case CsLoopState::Break:
+                case cs_loop_state::BREAK:
                     goto end;
                 default: /* continue and normal */
                     break;
@@ -322,7 +322,7 @@ end:
             idv1.push();
             idv2.push();
             switch (cs.run_loop(body)) {
-                case CsLoopState::Break:
+                case cs_loop_state::BREAK:
                     goto end;
                 default: /* continue and normal */
                     break;
@@ -357,7 +357,7 @@ end:
             idv2.push();
             idv3.push();
             switch (cs.run_loop(body)) {
-                case CsLoopState::Break:
+                case cs_loop_state::BREAK:
                     goto end;
                 default: /* continue and normal */
                     break;
@@ -557,8 +557,8 @@ static void cs_list_sort(
     }
 
     cs_stacked_value xval{cs, xa}, yval{cs, ya};
-    xval.set_null();
-    yval.set_null();
+    xval.set_none();
+    yval.set_none();
     xval.push();
     yval.push();
 

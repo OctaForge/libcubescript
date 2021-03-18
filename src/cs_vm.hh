@@ -25,9 +25,9 @@ enum {
     CsIdNot, CsIdAnd, CsIdOr
 };
 
-struct cs_identLink {
+struct cs_ident_link {
     cs_ident *id;
-    cs_identLink *next;
+    cs_ident_link *next;
     int usedargs;
     cs_ident_stack *argstack;
 };
@@ -54,12 +54,14 @@ struct cs_valarray {
 };
 
 enum {
-    CsValNull = 0, CsValInt, CsValFloat, CsValString,
-    CsValAny, CsValCode, CsValIdent, CsValWord, CsValPop, CsValCond
+    CS_VAL_NULL = 0, CS_VAL_INT, CS_VAL_FLOAT, CS_VAL_STRING,
+    CS_VAL_ANY, CS_VAL_CODE, CS_VAL_IDENT, CS_VAL_WORD,
+    CS_VAL_POP, CS_VAL_COND
 };
 
 static const int cs_valtypet[] = {
-    CsValNull, CsValInt, CsValFloat, CsValString, CsValCode, CsValIdent
+    CS_VAL_NULL, CS_VAL_INT, CS_VAL_FLOAT, CS_VAL_STRING,
+    CS_VAL_CODE, CS_VAL_IDENT
 };
 
 static inline int cs_vtype_to_int(cs_value_type v) {
@@ -68,48 +70,48 @@ static inline int cs_vtype_to_int(cs_value_type v) {
 
 /* instruction: uint32 [length 24][retflag 2][opcode 6] */
 enum {
-    CsCodeStart = 0,
-    CsCodeOffset,
-    CsCodeNull, CsCodeTrue, CsCodeFalse, CsCodeNot,
-    CsCodePop,
-    CsCodeEnter, CsCodeEnterResult,
-    CsCodeExit, CsCodeResultArg,
-    CsCodeVal, CsCodeValInt,
-    CsCodeDup,
-    CsCodeBool,
-    CsCodeBlock, CsCodeEmpty,
-    CsCodeCompile, CsCodeCond,
-    CsCodeForce,
-    CsCodeResult,
-    CsCodeIdent, CsCodeIdentU, CsCodeIdentArg,
-    CsCodeCom, CsCodeComC, CsCodeComV,
-    CsCodeConc, CsCodeConcW, CsCodeConcM,
-    CsCodeSvar, CsCodeSvar1,
-    CsCodeIvar, CsCodeIvar1, CsCodeIvar2, CsCodeIvar3,
-    CsCodeFvar, CsCodeFvar1,
-    CsCodeLookup, CsCodeLookupU, CsCodeLookupArg,
-    CsCodeLookupM, CsCodeLookupMu, CsCodeLookupMarg,
-    CsCodeAlias, CsCodeAliasU, CsCodeAliasArg,
-    CsCodeCall, CsCodeCallU, CsCodeCallArg,
-    CsCodePrint,
-    CsCodeLocal,
-    CsCodeDo, CsCodeDoArgs,
-    CsCodeJump, CsCodeJumpB, CsCodeJumpResult,
-    CsCodeBreak,
+    CS_CODE_START = 0,
+    CS_CODE_OFFSET,
+    CS_CODE_NULL, CS_CODE_TRUE, CS_CODE_FALSE, CS_CODE_NOT,
+    CS_CODE_POP,
+    CS_CODE_ENTER, CS_CODE_ENTER_RESULT,
+    CS_CODE_EXIT, CS_CODE_RESULT_ARG,
+    CS_CODE_VAL, CS_CODE_VAL_INT,
+    CS_CODE_DUP,
+    CS_CODE_BOOL,
+    CS_CODE_BLOCK, CS_CODE_EMPTY,
+    CS_CODE_COMPILE, CS_CODE_COND,
+    CS_CODE_FORCE,
+    CS_CODE_RESULT,
+    CS_CODE_IDENT, CS_CODE_IDENT_U, CS_CODE_IDENT_ARG,
+    CS_CODE_COM, CS_CODE_COM_C, CS_CODE_COM_V,
+    CS_CODE_CONC, CS_CODE_CONC_W, CS_CODE_CONC_M,
+    CS_CODE_SVAR, CS_CODE_SVAR1,
+    CS_CODE_IVAR, CS_CODE_IVAR1, CS_CODE_IVAR2, CS_CODE_IVAR3,
+    CS_CODE_FVAR, CS_CODE_FVAR1,
+    CS_CODE_LOOKUP, CS_CODE_LOOKUP_U, CS_CODE_LOOKUP_ARG,
+    CS_CODE_LOOKUP_M, CS_CODE_LOOKUP_MU, CS_CODE_LOOKUP_MARG,
+    CS_CODE_ALIAS, CS_CODE_ALIAS_U, CS_CODE_ALIAS_ARG,
+    CS_CODE_CALL, CS_CODE_CALL_U, CS_CODE_CALL_ARG,
+    CS_CODE_PRINT,
+    CS_CODE_LOCAL,
+    CS_CODE_DO, CS_CODE_DO_ARGS,
+    CS_CODE_JUMP, CS_CODE_JUMP_B, CS_CODE_JUMP_RESULT,
+    CS_CODE_BREAK,
 
-    CsCodeOpMask = 0x3F,
-    CsCodeRet = 6,
-    CsCodeRetMask = 0xC0,
+    CS_CODE_OP_MASK = 0x3F,
+    CS_CODE_RET = 6,
+    CS_CODE_RET_MASK = 0xC0,
 
     /* return type flags */
-    CsRetNull   = CsValNull << CsCodeRet,
-    CsRetString = CsValString << CsCodeRet,
-    CsRetInt    = CsValInt << CsCodeRet,
-    CsRetFloat  = CsValFloat << CsCodeRet,
+    CS_RET_NULL   = CS_VAL_NULL << CS_CODE_RET,
+    CS_RET_STRING = CS_VAL_STRING << CS_CODE_RET,
+    CS_RET_INT    = CS_VAL_INT << CS_CODE_RET,
+    CS_RET_FLOAT  = CS_VAL_FLOAT << CS_CODE_RET,
 
-    /* CsCodeJumpB, CsCodeJumpResult */
-    CsCodeFlagTrue = 1 << CsCodeRet,
-    CsCodeFlagFalse = 0 << CsCodeRet
+    /* CS_CODE_JUMP_B, CS_CODE_JUMP_RESULT */
+    CS_CODE_FLAG_TRUE = 1 << CS_CODE_RET,
+    CS_CODE_FLAG_FALSE = 0 << CS_CODE_RET
 };
 
 struct cs_shared_state {
@@ -199,7 +201,7 @@ struct cs_gen_state {
 
     void gen_str(ostd::string_range word) {
         if (word.size() <= 3) {
-            uint32_t op = CsCodeValInt | CsRetString;
+            uint32_t op = CS_CODE_VAL_INT | CS_RET_STRING;
             for (size_t i = 0; i < word.size(); ++i) {
                 op |= uint32_t(
                     static_cast<unsigned char>(word[i])
@@ -208,7 +210,7 @@ struct cs_gen_state {
             code.push_back(op);
             return;
         }
-        code.push_back(CsCodeVal | CsRetString | (word.size() << 8));
+        code.push_back(CS_CODE_VAL | CS_RET_STRING | (word.size() << 8));
         auto it = reinterpret_cast<uint32_t const *>(word.data());
         code.insert(
             code.end(), it, it + (word.size() / sizeof(uint32_t))
@@ -224,23 +226,23 @@ struct cs_gen_state {
     }
 
     void gen_str() {
-        code.push_back(CsCodeValInt | CsRetString);
+        code.push_back(CS_CODE_VAL_INT | CS_RET_STRING);
     }
 
     void gen_null() {
-        code.push_back(CsCodeValInt | CsRetNull);
+        code.push_back(CS_CODE_VAL_INT | CS_RET_NULL);
     }
 
     void gen_int(cs_int i = 0) {
         if (i >= -0x800000 && i <= 0x7FFFFF) {
-            code.push_back(CsCodeValInt | CsRetInt | (i << 8));
+            code.push_back(CS_CODE_VAL_INT | CS_RET_INT | (i << 8));
         } else {
             union {
                 cs_int i;
                 uint32_t u[CsTypeStorageSize<cs_int>];
             } c;
             c.i = i;
-            code.push_back(CsCodeVal | CsRetInt);
+            code.push_back(CS_CODE_VAL | CS_RET_INT);
             code.insert(code.end(), c.u, c.u + CsTypeStorageSize<cs_int>);
         }
     }
@@ -249,14 +251,14 @@ struct cs_gen_state {
 
     void gen_float(cs_float f = 0.0f) {
         if (cs_int(f) == f && f >= -0x800000 && f <= 0x7FFFFF) {
-            code.push_back(CsCodeValInt | CsRetFloat | (cs_int(f) << 8));
+            code.push_back(CS_CODE_VAL_INT | CS_RET_FLOAT | (cs_int(f) << 8));
         } else {
             union {
                 cs_float f;
                 uint32_t u[CsTypeStorageSize<cs_float>];
             } c;
             c.f = f;
-            code.push_back(CsCodeVal | CsRetFloat);
+            code.push_back(CS_CODE_VAL | CS_RET_FLOAT);
             code.insert(code.end(), c.u, c.u + CsTypeStorageSize<cs_float>);
         }
     }
@@ -266,8 +268,8 @@ struct cs_gen_state {
     void gen_ident(cs_ident *id) {
         code.push_back(
             ((id->get_index() < MaxArguments)
-                ? CsCodeIdentArg
-                : CsCodeIdent
+                ? CS_CODE_IDENT_ARG
+                : CS_CODE_IDENT
             ) | (id->get_index() << 8)
         );
     }
@@ -285,7 +287,7 @@ struct cs_gen_state {
         int line = 0
     );
 
-    void gen_main(ostd::string_range s, int ret_type = CsValAny);
+    void gen_main(ostd::string_range s, int ret_type = CS_VAL_ANY);
 
     void next_char() {
         if (source.empty()) {
@@ -436,8 +438,8 @@ static void cs_do_args(cs_state &cs, F body) {
             );
         }
     }
-    cs_identLink *prevstack = cs.p_callstack->next;
-    cs_identLink aliaslink = {
+    cs_ident_link *prevstack = cs.p_callstack->next;
+    cs_ident_link aliaslink = {
         cs.p_callstack->id, cs.p_callstack,
         prevstack ? prevstack->usedargs : ((1 << MaxArguments) - 1),
         prevstack ? prevstack->argstack : nullptr

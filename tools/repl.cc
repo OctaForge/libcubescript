@@ -190,7 +190,7 @@ static void do_sigint(int n) {
 /* an example of what var printer would look like in real usage */
 static void repl_print_var(cs_state const &cs, cs_var const &var) {
     switch (var.get_type()) {
-        case cs_ident_type::Ivar: {
+        case cs_ident_type::IVAR: {
             auto &iv = static_cast<cs_ivar const &>(var);
             auto val = iv.get_value();
             if (!(iv.get_flags() & CS_IDF_HEX) || (val < 0)) {
@@ -205,7 +205,7 @@ static void repl_print_var(cs_state const &cs, cs_var const &var) {
             }
             break;
         }
-        case cs_ident_type::Fvar: {
+        case cs_ident_type::FVAR: {
             auto &fv = static_cast<cs_fvar const &>(var);
             auto val = fv.get_value();
             ostd::writefln(
@@ -214,7 +214,7 @@ static void repl_print_var(cs_state const &cs, cs_var const &var) {
             );
             break;
         }
-        case cs_ident_type::Svar: {
+        case cs_ident_type::SVAR: {
             auto &sv = static_cast<cs_svar const &>(var);
             auto val = ostd::string_range{sv.get_value()};
             if (ostd::find(val, '"').empty()) {
@@ -266,7 +266,7 @@ static bool do_call(cs_state &cs, ostd::string_range line, bool file = false) {
     }
     signal(SIGINT, SIG_DFL);
     scs = nullptr;
-    if (ret.get_type() != cs_value_type::Null) {
+    if (ret.get_type() != cs_value_type::NONE) {
         ostd::writeln(ret.get_str());
     }
     return false;
