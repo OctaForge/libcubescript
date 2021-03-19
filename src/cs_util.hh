@@ -9,12 +9,6 @@
 
 namespace cscript {
 
-template<typename K, typename V>
-using cs_map = std::unordered_map<K, V>;
-
-template<typename T>
-using cs_vector = std::vector<T>;
-
 cs_int cs_parse_int(
     ostd::string_range input, ostd::string_range *end = nullptr
 );
@@ -131,12 +125,32 @@ struct cs_charbuf: cs_valbuf<char> {
 };
 
 struct cs_shared_state {
-    cs_map<ostd::string_range, cs_ident *> idents;
-    cs_vector<cs_ident *> identmap;
+    using allocator_type = cs_allocator<
+        std::pair<ostd::string_range const, cs_ident *>
+    >;
     cs_alloc_cb allocf;
+    void *aptr;
+
+    std::unordered_map<
+        ostd::string_range, cs_ident *,
+        std::hash<ostd::string_range>,
+        std::equal_to<ostd::string_range>,
+        allocator_type
+    > idents;
+    std::vector<cs_ident *, cs_allocator<cs_ident *>> identmap;
+
     cs_vprint_cb varprintf;
     cs_strman *strman;
-    void *aptr;
+
+    cs_shared_state() = delete;
+
+    cs_shared_state(cs_alloc_cb af, void *data):
+        allocf{af}, aptr{data},
+        idents{allocator_type{this}},
+        identmap{allocator_type{this}},
+        varprintf{[](auto &, auto &) {}},
+        strman{create<cs_strman>(this)}
+    {}
 
     void *alloc(void *ptr, size_t os, size_t ns) {
         return allocf(aptr, ptr, os, ns);

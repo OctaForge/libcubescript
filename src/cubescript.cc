@@ -256,13 +256,9 @@ cs_state::cs_state(cs_alloc_cb func, void *data):
     p_state = static_cast<cs_shared_state *>(
         func(data, nullptr, 0, sizeof(cs_shared_state))
     );
-    new (p_state) cs_shared_state();
+    /* allocator will be set up in the constructor */
+    new (p_state) cs_shared_state{func, data};
     p_owner = true;
-    /* set up allocator, from now we can call into alloc() */
-    p_state->allocf = func;
-    p_state->aptr = data;
-    p_state->strman = p_state->create<cs_strman>(p_state);
-    p_state->varprintf = [](auto &, auto &) {};
 
     for (int i = 0; i < MaxArguments; ++i) {
         char buf[32];
