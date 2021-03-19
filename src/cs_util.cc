@@ -205,27 +205,36 @@ char const *cs_strman::add(ostd::string_range str) {
     }
     /* not present: allocate brand new data */
     auto ss = str.size();
-    auto mem = cstate->alloc(nullptr, 0, ss + sizeof(cs_strref_state) + 1);
-    if (!mem) {
-        throw cs_internal_error{"allocation failed"};
-    }
-    /* write length and refcount */
-    auto *sst = static_cast<cs_strref_state *>(mem);
-    sst->length = ss;
-    sst->refcount = 1;
-    /* write string data */
-    auto *strp = reinterpret_cast<char *>(sst + 1);
+    auto strp = alloc_buf(ss);
+    /* write string data, it's already pre-terminated */
     memcpy(strp, str.data(), ss);
-    /* terminated for best compatibility */
-    strp[ss] = '\0';
     /* store it */
-    counts.emplace(ostd::string_range{strp, strp + ss}, sst);
+    counts.emplace(ostd::string_range{strp, strp + ss}, get_ref_state(strp));
     return strp;
 }
 
 char const *cs_strman::ref(char const *ptr) {
     auto *ss = get_ref_state(ptr);
     ++ss->refcount;
+    return ptr;
+}
+
+char const *cs_strman::steal(char *ptr) {
+    auto *ss = get_ref_state(ptr);
+    auto sr = ostd::string_range{ptr, ptr + ss->length};
+    /* much like add(), but we already have memory */
+    auto it = counts.find(sr);
+    if (it != counts.end()) {
+        auto *st = it->second;
+        if (st) {
+            ++st->refcount;
+            /* the buffer is superfluous now */
+            cstate->alloc(ss, ss->length + sizeof(cs_strref_state) + 1, 0);
+            return reinterpret_cast<char const *>(st + 1);
+        }
+    }
+    ss->refcount = 1;
+    counts.emplace(sr, ss);
     return ptr;
 }
 
@@ -260,6 +269,22 @@ ostd::string_range cs_strman::get(char const *ptr) const {
     auto *ss = get_ref_state(ptr);
     return ostd::string_range{ptr, ptr + ss->length};
 }
+
+char *cs_strman::alloc_buf(std::size_t len) const {
+    auto mem = cstate->alloc(nullptr, 0, len + sizeof(cs_strref_state) + 1);
+    if (!mem) {
+        throw cs_internal_error{"allocation failed"};
+    }
+    /* write length and initial refcount */
+    auto *sst = static_cast<cs_strref_state *>(mem);
+    sst->length = len;
+    sst->refcount = 1;
+    /* pre-terminate */
+    auto *strp = reinterpret_cast<char *>(sst + 1);
+    strp[len] = '\0';
+    /* now the user can fill it */
+    return strp;
+};
 
 namespace util {
     OSTD_EXPORT ostd::string_range parse_string(

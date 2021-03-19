@@ -86,6 +86,11 @@ struct cs_strman {
      */
     char const *ref(char const *ptr);
 
+    /* this will use the provided memory, assuming it is a fresh string that
+     * is yet to be added; the memory must be allocated with alloc_buf()
+     */
+    char const *steal(char *ptr);
+
     /* decrements the reference count and removes it from the system if
      * that reaches zero; likewise, only safe with pointers that are managed
      */
@@ -98,6 +103,11 @@ struct cs_strman {
 
     /* a quick helper to make a proper ostd string range out of a ptr */
     ostd::string_range get(char const *ptr) const;
+
+    /* this will allocate a buffer of the given length (plus one for
+     * terminating zero) so you can fill it; use steal() to write it
+     */
+    char *alloc_buf(std::size_t len) const;
 
     cs_shared_state *cstate;
     /* FIXME: use main allocator */
