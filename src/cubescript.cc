@@ -995,7 +995,7 @@ static inline void cs_loop_conc(
     if (n <= 0 || !idv.has_alias()) {
         return;
     }
-    cs_string s;
+    cs_charbuf s{cs};
     for (cs_int i = 0; i < n; ++i) {
         idv.set_int(offset + i * step);
         idv.push();
@@ -1009,12 +1009,12 @@ static inline void cs_loop_conc(
                 break;
         }
         if (space && i) {
-            s += ' ';
+            s.push_back(' ');
         }
-        s += ostd::string_range{v.get_str()};
+        s.append(v.get_str());
     }
 end:
-    res.set_str(s);
+    res.set_str(s.str());
 }
 
 void cs_init_lib_base(cs_state &gcs) {

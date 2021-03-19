@@ -100,6 +100,11 @@ struct cs_shared_state {
             state->alloc(p, n, 0);
         }
 
+        template<typename U>
+        bool operator==(allocator<U> const &a) {
+            return state == a.state;
+        }
+
         cs_shared_state *state;
     };
 };
@@ -192,6 +197,8 @@ struct cs_strman {
 };
 
 struct cs_charbuf {
+    cs_charbuf() = delete;
+
     cs_charbuf(cs_shared_state &cs):
         buf{cs_shared_state::allocator<char>{&cs}}
     {}
@@ -221,9 +228,15 @@ struct cs_charbuf {
         return ostd::string_range{buf.data(), buf.data() + buf.size()};
     }
 
+    ostd::string_range str_term() {
+        return ostd::string_range{buf.data(), buf.data() + buf.size() - 1};
+    }
+
     size_t size() const { return buf.size(); }
 
     bool empty() const { return buf.empty(); }
+
+    void clear() { buf.clear(); }
 
     std::vector<char, cs_shared_state::allocator<char>> buf;
 };

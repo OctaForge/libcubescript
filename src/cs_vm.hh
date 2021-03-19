@@ -154,7 +154,7 @@ struct cs_gen_state {
     }
 
     ostd::string_range get_str();
-    cs_string get_str_dup();
+    cs_charbuf get_str_dup();
 
     ostd::string_range get_word();
 

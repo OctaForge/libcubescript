@@ -17,9 +17,9 @@ ostd::string_range cs_gen_state::get_str() {
     return ret.slice(1, ret.size() - 1);
 }
 
-cs_string cs_gen_state::get_str_dup() {
+cs_charbuf cs_gen_state::get_str_dup() {
     auto str = get_str();
-    auto app = ostd::appender<cs_string>();
+    auto app = ostd::appender<cs_charbuf>(cs);
     util::unescape_string(app, str);
     return std::move(app.get());
 }
@@ -204,11 +204,11 @@ static inline void compileunescapestr(cs_gen_state &gs) {
 
 static bool compilearg(
     cs_gen_state &gs, int wordtype, int prevargs = MaxResults,
-    cs_string *word = nullptr
+    cs_charbuf *word = nullptr
 );
 
 static void compilelookup(cs_gen_state &gs, int ltype, int prevargs = MaxResults) {
-    cs_string lookup;
+    cs_charbuf lookup{gs.cs};
     gs.next_char();
     switch (gs.current()) {
         case '(':
@@ -222,12 +222,14 @@ static void compilelookup(cs_gen_state &gs, int ltype, int prevargs = MaxResults
             break;
         case '\"':
             lookup = gs.get_str_dup();
+            lookup.push_back('\0');
             goto lookupid;
         default: {
-            lookup = gs.get_word();
+            lookup.append(gs.get_word());
             if (lookup.empty()) goto invalid;
+            lookup.push_back('\0');
 lookupid:
-            cs_ident *id = gs.cs.new_ident(lookup);
+            cs_ident *id = gs.cs.new_ident(lookup.str_term());
             if (id) {
                 switch (id->get_type()) {
                     case cs_ident_type::IVAR:
@@ -402,7 +404,7 @@ lookupid:
                         goto invalid;
                 }
             }
-            gs.gen_str(lookup);
+            gs.gen_str(lookup.str_term());
             break;
         }
     }
@@ -501,7 +503,7 @@ done:
 }
 
 static bool compileblocksub(cs_gen_state &gs, int prevargs) {
-    cs_string lookup;
+    cs_charbuf lookup{gs.cs};
     switch (gs.current()) {
         case '(':
             if (!compilearg(gs, CS_VAL_ANY, prevargs)) {
@@ -516,14 +518,16 @@ static bool compileblocksub(cs_gen_state &gs, int prevargs) {
             break;
         case '\"':
             lookup = gs.get_str_dup();
+            lookup.push_back('\0');
             goto lookupid;
         default: {
-            lookup = gs.read_macro_name();
+            lookup.append(gs.read_macro_name());
             if (lookup.empty()) {
                 return false;
             }
+            lookup.push_back('\0');
 lookupid:
-            cs_ident *id = gs.cs.new_ident(lookup);
+            cs_ident *id = gs.cs.new_ident(lookup.str_term());
             if (id) {
                 switch (id->get_type()) {
                     case cs_ident_type::IVAR:
@@ -547,7 +551,7 @@ lookupid:
                         break;
                 }
             }
-            gs.gen_str(lookup);
+            gs.gen_str(lookup.str_term());
             gs.code.push_back(CS_CODE_LOOKUP_MU);
 done:
             break;
@@ -701,7 +705,7 @@ static void compileblockmain(cs_gen_state &gs, int wordtype, int prevargs) {
 }
 
 static bool compilearg(
-    cs_gen_state &gs, int wordtype, int prevargs, cs_string *word
+    cs_gen_state &gs, int wordtype, int prevargs, cs_charbuf *word
 ) {
     gs.skip_comments();
     switch (gs.current()) {
@@ -714,7 +718,8 @@ static bool compilearg(
                     size_t line = gs.current_line;
                     auto s = gs.get_str_dup();
                     if (!s.empty()) {
-                        compileblock(gs, s, line);
+                        s.push_back('\0');
+                        compileblock(gs, s.str_term(), line);
                     } else {
                         gs.gen_null();
                     }
@@ -722,12 +727,13 @@ static bool compilearg(
                 }
                 case CS_VAL_CODE: {
                     auto s = gs.get_str_dup();
-                    compileblock(gs);
+                    s.push_back('\0');
+                    compileblock(gs, s.str_term(), gs.current_line);
                     break;
                 }
                 case CS_VAL_WORD:
                     if (word) {
-                        *word = gs.get_str_dup();
+                        *word = std::move(gs.get_str_dup());
                     }
                     break;
                 case CS_VAL_ANY:
@@ -737,7 +743,8 @@ static bool compilearg(
                 default: {
                     size_t line = gs.current_line;
                     auto s = gs.get_str_dup();
-                    gs.gen_value(wordtype, s, line);
+                    s.push_back('\0');
+                    gs.gen_value(wordtype, s.str_term(), line);
                     break;
                 }
             }
@@ -806,7 +813,8 @@ static bool compilearg(
                 case CS_VAL_WORD: {
                     auto w = gs.get_word();
                     if (word) {
-                        *word = w;
+                        word->clear();
+                        word->append(w);
                     }
                     return !w.empty();
                 }
@@ -1187,7 +1195,7 @@ static void compile_and_or(
 }
 
 static void compilestatements(cs_gen_state &gs, int rettype, int brak, int prevargs) {
-    cs_string idname;
+    cs_charbuf idname{gs.cs};
     for (;;) {
         gs.skip_comments();
         idname.clear();
@@ -1212,7 +1220,8 @@ static void compilestatements(cs_gen_state &gs, int rettype, int brak, int preva
                 case '\0':
                     gs.next_char();
                     if (!idname.empty()) {
-                        cs_ident *id = gs.cs.new_ident(idname);
+                        idname.push_back('\0');
+                        cs_ident *id = gs.cs.new_ident(idname.str_term());
                         if (id) {
                             switch (id->get_type()) {
                                 case cs_ident_type::ALIAS:
@@ -1258,7 +1267,7 @@ static void compilestatements(cs_gen_state &gs, int rettype, int brak, int preva
                                     break;
                             }
                         }
-                        gs.gen_str(idname);
+                        gs.gen_str(idname.str_term());
                     }
                     more = compilearg(gs, CS_VAL_ANY);
                     if (!more) {
@@ -1280,25 +1289,26 @@ noid:
             }
             gs.code.push_back(CS_CODE_CALL_U | (numargs << 8));
         } else {
-            cs_ident *id = gs.cs.get_ident(idname);
+            idname.push_back('\0');
+            cs_ident *id = gs.cs.get_ident(idname.str_term());
             if (!id) {
-                if (!cs_check_num(idname)) {
-                    gs.gen_str(idname);
+                if (!cs_check_num(idname.str_term())) {
+                    gs.gen_str(idname.str_term());
                     goto noid;
                 }
                 switch (rettype) {
                     case CS_VAL_ANY: {
-                        ostd::string_range end = idname;
+                        ostd::string_range end = idname.str_term();
                         cs_int val = cs_parse_int(end, &end);
                         if (!end.empty()) {
-                            gs.gen_str(idname);
+                            gs.gen_str(idname.str_term());
                         } else {
                             gs.gen_int(val);
                         }
                         break;
                     }
                     default:
-                        gs.gen_value(rettype, idname, curline);
+                        gs.gen_value(rettype, idname.str_term(), curline);
                         break;
                 }
                 gs.code.push_back(CS_CODE_RESULT);
