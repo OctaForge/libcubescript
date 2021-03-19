@@ -87,6 +87,11 @@ struct cs_shared_state {
     struct allocator {
         using value_type = T;
 
+        allocator(cs_shared_state *s): state{s} {}
+
+        template<typename U>
+        allocator(allocator<U> const &a): state{a.state} {};
+
         T *allocate(std::size_t n) {
             return static_cast<T *>(state->alloc(nullptr, 0, n * sizeof(T)));
         }
@@ -129,8 +134,11 @@ struct cs_strref_state {
 };
 
 struct cs_strman {
+    using allocator_type = cs_shared_state::allocator<
+        std::pair<ostd::string_range const, cs_strref_state *>
+    >;
     cs_strman() = delete;
-    cs_strman(cs_shared_state *cs): cstate{cs} {}
+    cs_strman(cs_shared_state *cs): cstate{cs}, counts{allocator_type{cs}} {}
     ~cs_strman() {}
 
     cs_strman(cs_strman const &) = delete;
@@ -175,8 +183,12 @@ struct cs_strman {
     char *alloc_buf(std::size_t len) const;
 
     cs_shared_state *cstate;
-    /* FIXME: use main allocator */
-    std::unordered_map<ostd::string_range, cs_strref_state *> counts{};
+    std::unordered_map<
+        ostd::string_range, cs_strref_state *,
+        std::hash<ostd::string_range>,
+        std::equal_to<ostd::string_range>,
+        allocator_type
+    > counts;
 };
 
 struct cs_charbuf {
