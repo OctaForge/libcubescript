@@ -194,25 +194,39 @@ struct cs_strman {
     > counts;
 };
 
-struct cs_charbuf {
-    cs_charbuf() = delete;
+template<typename T>
+struct cs_valbuf {
+    cs_valbuf() = delete;
 
-    cs_charbuf(cs_shared_state &cs):
-        buf{cs_shared_state::allocator<char>{&cs}}
+    cs_valbuf(cs_shared_state &cs):
+        buf{cs_shared_state::allocator<T>{&cs}}
     {}
 
-    cs_charbuf(cs_state &cs):
-        buf{cs_shared_state::allocator<char>{cs_get_sstate(cs)}}
+    cs_valbuf(cs_state &cs):
+        buf{cs_shared_state::allocator<T>{cs_get_sstate(cs)}}
     {}
 
     using size_type = std::size_t;
-    using value_type = char;
-    using reference = char &;
-    using const_reference = char const &;
+    using value_type = T;
+    using reference = T &;
+    using const_reference = T const &;
 
     void reserve(std::size_t s) { buf.reserve(s); }
 
-    void push_back(char c) { buf.push_back(c); }
+    void push_back(T const &v) { buf.push_back(v); }
+
+    size_t size() const { return buf.size(); }
+
+    bool empty() const { return buf.empty(); }
+
+    void clear() { buf.clear(); }
+
+    std::vector<T, cs_shared_state::allocator<T>> buf;
+};
+
+struct cs_charbuf: cs_valbuf<char> {
+    cs_charbuf(cs_shared_state &cs): cs_valbuf<char>(cs) {}
+    cs_charbuf(cs_state &cs): cs_valbuf<char>(cs) {}
 
     void append(char const *beg, char const *end) {
         buf.insert(buf.end(), beg, end);
@@ -229,14 +243,6 @@ struct cs_charbuf {
     ostd::string_range str_term() {
         return ostd::string_range{buf.data(), buf.data() + buf.size() - 1};
     }
-
-    size_t size() const { return buf.size(); }
-
-    bool empty() const { return buf.empty(); }
-
-    void clear() { buf.clear(); }
-
-    std::vector<char, cs_shared_state::allocator<char>> buf;
 };
 
 } /* namespace cscript */
