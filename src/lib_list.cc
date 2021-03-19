@@ -543,7 +543,7 @@ static void cs_list_sort(
 
     cs_alias *xa = static_cast<cs_alias *>(x), *ya = static_cast<cs_alias *>(y);
 
-    cs_vector<ListSortItem> items;
+    cs_valbuf<ListSortItem> items{cs};
     size_t total = 0;
 
     for (cs_list_parse_state p{list}; list_parse(p, cs);) {
@@ -567,7 +567,7 @@ static void cs_list_sort(
     size_t nuniq = items.size();
     if (body) {
         ListSortFun f = { cs, xval, yval, body };
-        ostd::sort_cmp(ostd::iter(items), f);
+        ostd::sort_cmp(ostd::iter(items.buf), f);
         if (!cs_code_is_empty(unique)) {
             f.body = unique;
             totaluniq = items[0].quote.size();

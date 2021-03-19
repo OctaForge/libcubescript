@@ -198,7 +198,7 @@ static inline void compileunescapestr(cs_gen_state &gs) {
     memset(&buf[len], 0, sizeof(uint32_t) - len % sizeof(uint32_t));
     gs.code.back() |= len << 8;
     uint32_t *ubuf = reinterpret_cast<uint32_t *>(buf);
-    gs.code.insert(gs.code.end(), ubuf, ubuf + (len / sizeof(uint32_t) + 1));
+    gs.code.append(ubuf, ubuf + (len / sizeof(uint32_t) + 1));
     delete[] buf;
 }
 
@@ -496,7 +496,7 @@ static bool compileblockstr(cs_gen_state &gs, ostd::string_range str) {
 done:
     memset(&buf[len], '\0', sizeof(uint32_t) - len % sizeof(uint32_t));
     uint32_t *ubuf = reinterpret_cast<uint32_t *>(buf);
-    gs.code.insert(gs.code.end(), ubuf, ubuf + (len / sizeof(uint32_t) + 1));
+    gs.code.append(ubuf, ubuf + (len / sizeof(uint32_t) + 1));
     gs.code[startc] |= len << 8;
     delete[] buf;
     return true;

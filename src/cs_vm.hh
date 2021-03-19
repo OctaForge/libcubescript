@@ -128,14 +128,14 @@ struct cs_gen_state {
     cs_state &cs;
     cs_gen_state *prevps;
     bool parsing = true;
-    cs_vector<uint32_t> code;
+    cs_valbuf<uint32_t> code;
     ostd::string_range source;
     size_t current_line;
     ostd::string_range src_name;
 
     cs_gen_state() = delete;
     cs_gen_state(cs_state &csr):
-        cs(csr), prevps(csr.p_pstate), code(),
+        cs(csr), prevps(csr.p_pstate), code{cs},
         source(nullptr), current_line(1), src_name()
     {
         csr.p_pstate = this;
@@ -171,9 +171,7 @@ struct cs_gen_state {
         }
         code.push_back(CS_CODE_VAL | CS_RET_STRING | (word.size() << 8));
         auto it = reinterpret_cast<uint32_t const *>(word.data());
-        code.insert(
-            code.end(), it, it + (word.size() / sizeof(uint32_t))
-        );
+        code.append(it, it + (word.size() / sizeof(uint32_t)));
         size_t esz = word.size() % sizeof(uint32_t);
         union {
             char c[sizeof(uint32_t)];
@@ -202,7 +200,7 @@ struct cs_gen_state {
             } c;
             c.i = i;
             code.push_back(CS_CODE_VAL | CS_RET_INT);
-            code.insert(code.end(), c.u, c.u + CsTypeStorageSize<cs_int>);
+            code.append(c.u, c.u + CsTypeStorageSize<cs_int>);
         }
     }
 
@@ -218,7 +216,7 @@ struct cs_gen_state {
             } c;
             c.f = f;
             code.push_back(CS_CODE_VAL | CS_RET_FLOAT);
-            code.insert(code.end(), c.u, c.u + CsTypeStorageSize<cs_float>);
+            code.append(c.u, c.u + CsTypeStorageSize<cs_float>);
         }
     }
 
