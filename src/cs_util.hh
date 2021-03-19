@@ -40,6 +40,28 @@ inline void cs_do_and_cleanup(F1 &&dof, F2 &&clf) {
 }
 
 struct cs_strman;
+struct cs_shared_state;
+
+template<typename T>
+struct cs_allocator {
+    using value_type = T;
+
+    cs_allocator(cs_shared_state *s): state{s} {}
+
+    template<typename U>
+    cs_allocator(cs_allocator<U> const &a): state{a.state} {};
+
+    inline T *allocate(std::size_t n);
+
+    inline void deallocate(T *p, std::size_t n);
+
+    template<typename U>
+    bool operator==(cs_allocator<U> const &a) {
+        return state == a.state;
+    }
+
+    cs_shared_state *state;
+};
 
 struct cs_shared_state {
     cs_map<ostd::string_range, cs_ident *> idents;
@@ -80,32 +102,17 @@ struct cs_shared_state {
         v->~T();
         alloc(v, len * sizeof(T), 0);
     }
-
-    template<typename T>
-    struct allocator {
-        using value_type = T;
-
-        allocator(cs_shared_state *s): state{s} {}
-
-        template<typename U>
-        allocator(allocator<U> const &a): state{a.state} {};
-
-        T *allocate(std::size_t n) {
-            return static_cast<T *>(state->alloc(nullptr, 0, n * sizeof(T)));
-        }
-
-        void deallocate(T *p, std::size_t n) {
-            state->alloc(p, n, 0);
-        }
-
-        template<typename U>
-        bool operator==(allocator<U> const &a) {
-            return state == a.state;
-        }
-
-        cs_shared_state *state;
-    };
 };
+
+template<typename T>
+inline T *cs_allocator<T>::allocate(std::size_t n) {
+    return static_cast<T *>(state->alloc(nullptr, 0, n * sizeof(T)));
+}
+
+template<typename T>
+inline void cs_allocator<T>::deallocate(T *p, std::size_t n) {
+    state->alloc(p, n, 0);
+}
 
 inline cs_shared_state *cs_get_sstate(cs_state &cs) {
     return cs.p_state;
@@ -137,7 +144,7 @@ struct cs_strref_state {
 };
 
 struct cs_strman {
-    using allocator_type = cs_shared_state::allocator<
+    using allocator_type = cs_allocator<
         std::pair<ostd::string_range const, cs_strref_state *>
     >;
     cs_strman() = delete;
@@ -199,11 +206,11 @@ struct cs_valbuf {
     cs_valbuf() = delete;
 
     cs_valbuf(cs_shared_state &cs):
-        buf{cs_shared_state::allocator<T>{&cs}}
+        buf{cs_allocator<T>{&cs}}
     {}
 
     cs_valbuf(cs_state &cs):
-        buf{cs_shared_state::allocator<T>{cs_get_sstate(cs)}}
+        buf{cs_allocator<T>{cs_get_sstate(cs)}}
     {}
 
     using size_type = std::size_t;
@@ -237,7 +244,7 @@ struct cs_valbuf {
     T *data() { return &buf[0]; }
     T const *data() const { return &buf[0]; }
 
-    std::vector<T, cs_shared_state::allocator<T>> buf;
+    std::vector<T, cs_allocator<T>> buf;
 };
 
 struct cs_charbuf: cs_valbuf<char> {
