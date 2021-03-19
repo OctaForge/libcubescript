@@ -102,11 +102,11 @@ void cs_init_lib_string(cs_state &cs) {
         res.set_str(value_list_concat(ccs, args));
     });
 
-    cs.new_command("format", "V", [](auto &, auto args, auto &res) {
+    cs.new_command("format", "V", [](auto &ccs, auto args, auto &res) {
         if (args.empty()) {
             return;
         }
-        cs_string s;
+        cs_charbuf s{ccs};
         cs_strref fs = args[0].get_str();
         ostd::string_range f{fs};
         while (!f.empty()) {
@@ -118,20 +118,20 @@ void cs_init_lib_string(cs_state &cs) {
                 if (ic >= '1' && ic <= '9') {
                     int i = ic - '0';
                     if (size_t(i) < args.size()) {
-                        s += ostd::string_range{args[i].get_str()};
+                        s.append(args[i].get_str());
                     }
                 } else {
-                    s += ic;
+                    s.push_back(ic);
                 }
             } else {
-                s += c;
+                s.push_back(c);
             }
         }
-        res.set_str(s);
+        res.set_str(s.str());
     });
 
-    cs.new_command("tohex", "ii", [](auto &, auto args, auto &res) {
-        auto r = ostd::appender<cs_string>();
+    cs.new_command("tohex", "ii", [](auto &ccs, auto args, auto &res) {
+        auto r = ostd::appender<cs_charbuf>(ccs);
         try {
             ostd::format(
                 r, "0x%.*X", std::max(args[1].get_int(), cs_int(1)),
@@ -140,7 +140,7 @@ void cs_init_lib_string(cs_state &cs) {
         } catch (ostd::format_error const &e) {
             throw cs_internal_error{e.what()};
         }
-        res.set_str(r.get());
+        res.set_str(r.get().str());
     });
 
     cs.new_command("substr", "siiN", [](auto &, auto args, auto &res) {
@@ -178,7 +178,7 @@ void cs_init_lib_string(cs_state &cs) {
         cs_strgcmp(args, res, std::greater_equal<ostd::string_range>());
     });
 
-    cs.new_command("strreplace", "ssss", [](auto &, auto args, auto &res) {
+    cs.new_command("strreplace", "ssss", [](auto &ccs, auto args, auto &res) {
         ostd::string_range s = args[0].get_str();
         ostd::string_range oldval = args[1].get_str(),
                              newval = args[2].get_str(),
@@ -186,11 +186,11 @@ void cs_init_lib_string(cs_state &cs) {
         if (newval2.empty()) {
             newval2 = newval;
         }
-        cs_string buf;
         if (!oldval.size()) {
             res.set_str(s);
             return;
         }
+        cs_charbuf buf{ccs};
         for (size_t i = 0;; ++i) {
             ostd::string_range found;
             ostd::string_range trys = s;
@@ -201,36 +201,34 @@ void cs_init_lib_string(cs_state &cs) {
                 }
             }
             if (!found.empty()) {
-                buf += s.slice(0, &found[0] - &s[0]);
-                buf += (i & 1) ? newval2 : newval;
+                buf.append(s.slice(0, &found[0] - &s[0]));
+                buf.append((i & 1) ? newval2 : newval);
                 s = found.slice(oldval.size(), found.size());
             } else {
-                buf += s;
-                res.set_str(buf);
+                buf.append(s);
+                res.set_str(buf.str());
                 return;
             }
         }
     });
 
-    cs.new_command("strsplice", "ssii", [](auto &, auto args, auto &res) {
+    cs.new_command("strsplice", "ssii", [](auto &ccs, auto args, auto &res) {
         ostd::string_range s = args[0].get_str();
         ostd::string_range vals = args[1].get_str();
         cs_int skip   = args[2].get_int(),
               count  = args[3].get_int();
         cs_int offset = std::clamp(skip, cs_int(0), cs_int(s.size())),
               len    = std::clamp(count, cs_int(0), cs_int(s.size()) - offset);
-        cs_string p;
+        cs_charbuf p{ccs};
         p.reserve(s.size() - len + vals.size());
         if (offset) {
-            p += s.slice(0, offset);
+            p.append(s.slice(0, offset));
         }
-        if (!vals.empty()) {
-            p += vals;
-        }
+        p.append(vals);
         if ((offset + len) < cs_int(s.size())) {
-            p += s.slice(offset + len, s.size());
+            p.append(s.slice(offset + len, s.size()));
         }
-        res.set_str(p);
+        res.set_str(p.str());
     });
 }
 

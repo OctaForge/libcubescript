@@ -197,6 +197,10 @@ struct cs_charbuf {
 
     void push_back(char c) { buf.push_back(c); }
 
+    void append(ostd::string_range v) {
+        buf.insert(buf.end(), &v[0], &v[v.size()]);
+    }
+
     ostd::string_range str() {
         return ostd::string_range{buf.data(), buf.data() + buf.size()};
     }
