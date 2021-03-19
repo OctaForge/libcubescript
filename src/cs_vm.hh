@@ -155,6 +155,14 @@ struct cs_shared_state {
     }
 };
 
+inline cs_shared_state *cs_get_sstate(cs_state &cs) {
+    return cs.p_state;
+}
+
+inline cs_strref cs_make_strref(char const *p, cs_shared_state &cs) {
+    return cs_strref{p, cs};
+}
+
 struct CsBreakException {
 };
 

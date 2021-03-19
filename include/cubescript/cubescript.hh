@@ -70,6 +70,8 @@ OSTD_EXPORT bool cs_code_is_empty(cs_bcode *code);
 
 struct OSTD_EXPORT cs_strref {
     friend struct cs_value;
+    /* FIXME: eliminate this */
+    friend inline cs_strref cs_make_strref(char const *p, cs_shared_state &cs);
 
     cs_strref() = delete;
     cs_strref(cs_shared_state &cs, ostd::string_range str);
@@ -381,6 +383,7 @@ struct OSTD_EXPORT cs_state {
     friend struct cs_strref;
     friend struct cs_value;
     friend struct cs_gen_state;
+    friend inline cs_shared_state *cs_get_sstate(cs_state &);
 
     cs_shared_state *p_state;
     cs_ident_link *p_callstack = nullptr;

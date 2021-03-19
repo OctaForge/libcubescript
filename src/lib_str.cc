@@ -3,6 +3,7 @@
 #include <cubescript/cubescript.hh>
 
 #include "cs_util.hh"
+#include "cs_vm.hh"
 
 namespace cscript {
 
@@ -56,20 +57,30 @@ void cs_init_lib_string(cs_state &cs) {
         res.set_str(ostd::string_range{static_cast<char const *>(p)});
     });
 
-    cs.new_command("strlower", "s", [](auto &, auto args, auto &res) {
-        cs_string s{ostd::string_range{args[0].get_str()}};
-        for (auto i: ostd::range(s.size())) {
-            s[i] = tolower(s[i]);
+    cs.new_command("strlower", "s", [](auto &ccs, auto args, auto &res) {
+        auto inps = ostd::string_range{args[0].get_str()};
+        auto *ics = cs_get_sstate(ccs);
+        auto *buf = ics->strman->alloc_buf(inps.size());
+        for (auto i: ostd::range(inps.size())) {
+            buf[i] = tolower(inps[i]);
         }
-        res.set_str(s);
+        auto const *cbuf = ics->strman->steal(buf);
+        auto sr = cs_make_strref(cbuf, *ics);
+        sman->unref(cbuf);
+        res.set_str(sr);
     });
 
     cs.new_command("strupper", "s", [](auto &, auto args, auto &res) {
-        cs_string s{ostd::string_range{args[0].get_str()}};
-        for (auto i: ostd::range(s.size())) {
-            s[i] = toupper(s[i]);
+        auto inps = ostd::string_range{args[0].get_str()};
+        auto *ics = cs_get_sstate(ccs);
+        auto *buf = ics->strman->alloc_buf(inps.size());
+        for (auto i: ostd::range(inps.size())) {
+            buf[i] = toupper(inps[i]);
         }
-        res.set_str(s);
+        auto const *cbuf = ics->strman->steal(buf);
+        auto sr = cs_make_strref(cbuf, *ics);
+        sman->unref(cbuf);
+        res.set_str(sr);
     });
 
     cs.new_command("escape", "s", [](auto &, auto args, auto &res) {
