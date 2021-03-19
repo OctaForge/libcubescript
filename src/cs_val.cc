@@ -4,8 +4,8 @@
 
 namespace cscript {
 
-static cs_string intstr(cs_int v) {
-    auto app = ostd::appender<cs_string>();
+static cs_charbuf intstr(cs_int v, cs_shared_state &cs) {
+    auto app = ostd::appender<cs_charbuf>(cs);
     try {
         ostd::format(app, CS_INT_FORMAT, v);
     } catch (ostd::format_error const &e) {
@@ -14,8 +14,8 @@ static cs_string intstr(cs_int v) {
     return std::move(app.get());
 }
 
-static cs_string floatstr(cs_float v) {
-    auto app = ostd::appender<cs_string>();
+static cs_charbuf floatstr(cs_float v, cs_shared_state &cs) {
+    auto app = ostd::appender<cs_charbuf>(cs);
     try {
         ostd::format(
             app, (v == floor(v)) ? CS_ROUND_FLOAT_FORMAT : CS_FLOAT_FORMAT, v
@@ -190,13 +190,13 @@ cs_int cs_value::force_int() {
 }
 
 ostd::string_range cs_value::force_str() {
-    cs_string rs;
+    cs_charbuf rs{*state()};
     switch (get_type()) {
         case cs_value_type::FLOAT:
-            rs = floatstr(csv_get<cs_float>(p_stor));
+            rs = std::move(floatstr(csv_get<cs_float>(p_stor), *state()));
             break;
         case cs_value_type::INT:
-            rs = intstr(csv_get<cs_int>(p_stor));
+            rs = std::move(intstr(csv_get<cs_int>(p_stor), *state()));
             break;
         case cs_value_type::STRING:
             return ostd::string_range(
@@ -205,7 +205,7 @@ ostd::string_range cs_value::force_str() {
         default:
             break;
     }
-    set_str(rs);
+    set_str(rs.str());
     return ostd::string_range(*reinterpret_cast<cs_strref const *>(&p_stor));
 }
 
@@ -260,9 +260,13 @@ cs_strref cs_value::get_str() const {
         case cs_value_type::STRING:
             return *reinterpret_cast<cs_strref const *>(&p_stor);
         case cs_value_type::INT:
-            return cs_strref{*state(), intstr(csv_get<cs_int>(p_stor))};
+            return cs_strref{
+                *state(), intstr(csv_get<cs_int>(p_stor), *state()).str()
+            };
         case cs_value_type::FLOAT:
-            return cs_strref{*state(), floatstr(csv_get<cs_float>(p_stor))};
+            return cs_strref{
+                *state(), floatstr(csv_get<cs_float>(p_stor), *state()).str()
+            };
         default:
             break;
     }
