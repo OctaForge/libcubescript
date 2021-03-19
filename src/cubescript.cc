@@ -1036,9 +1036,9 @@ void cs_init_lib_base(cs_state &gcs) {
         } catch (cs_error const &e) {
             result.set_str(e.what());
             if (e.get_stack().get()) {
-                auto app = ostd::appender<cs_string>();
+                auto app = ostd::appender<cs_charbuf>(cs);
                 cscript::util::print_stack(app, e.get_stack());
-                tback.set_str(app.get());
+                tback.set_str(app.get().str());
             }
             rc = false;
         }

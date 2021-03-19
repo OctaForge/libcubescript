@@ -546,7 +546,7 @@ OSTD_EXPORT void list_find_item(cs_list_parse_state &ps) {
 OSTD_EXPORT cs_strref value_list_concat(
     cs_state &cs, cs_value_r vals, ostd::string_range sep
 ) {
-    auto app = ostd::appender<cs_string>();
+    auto app = ostd::appender<cs_charbuf>(cs);
     for (std::size_t i = 0; i < vals.size(); ++i) {
         switch (vals[i].get_type()) {
             case cs_value_type::INT:
@@ -564,7 +564,7 @@ OSTD_EXPORT cs_strref value_list_concat(
         }
         ostd::range_put_all(app, sep);
     }
-    return cs_strref{cs, ostd::iter(app.get())};
+    return cs_strref{cs, app.get().str()};
 }
 
 } /* namespace cscript */
