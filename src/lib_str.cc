@@ -3,7 +3,6 @@
 #include <cubescript/cubescript.hh>
 
 #include "cs_util.hh"
-#include "cs_vm.hh"
 
 namespace cscript {
 
@@ -66,11 +65,11 @@ void cs_init_lib_string(cs_state &cs) {
         }
         auto const *cbuf = ics->strman->steal(buf);
         auto sr = cs_make_strref(cbuf, *ics);
-        sman->unref(cbuf);
+        ics->strman->unref(cbuf);
         res.set_str(sr);
     });
 
-    cs.new_command("strupper", "s", [](auto &, auto args, auto &res) {
+    cs.new_command("strupper", "s", [](auto &ccs, auto args, auto &res) {
         auto inps = ostd::string_range{args[0].get_str()};
         auto *ics = cs_get_sstate(ccs);
         auto *buf = ics->strman->alloc_buf(inps.size());
@@ -79,7 +78,7 @@ void cs_init_lib_string(cs_state &cs) {
         }
         auto const *cbuf = ics->strman->steal(buf);
         auto sr = cs_make_strref(cbuf, *ics);
-        sman->unref(cbuf);
+        ics->strman->unref(cbuf);
         res.set_str(sr);
     });
 
