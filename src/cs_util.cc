@@ -519,9 +519,9 @@ OSTD_EXPORT std::size_t list_count(cs_list_parse_state &ps, cs_state &cs) {
 
 OSTD_EXPORT cs_strref list_get_item(cs_list_parse_state &ps, cs_state &cs) {
     if (!ps.quoted_item.empty() && (*ps.quoted_item == '"')) {
-        auto app = ostd::appender<cs_string>();
+        auto app = ostd::appender<cs_charbuf>(cs);
         util::unescape_string(app, ps.item);
-        return cs_strref{cs, app.get()};
+        return cs_strref{cs, app.get().str()};
     }
     return cs_strref{cs, ps.item};
 }

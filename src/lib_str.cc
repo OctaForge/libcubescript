@@ -82,16 +82,16 @@ void cs_init_lib_string(cs_state &cs) {
         res.set_str(sr);
     });
 
-    cs.new_command("escape", "s", [](auto &, auto args, auto &res) {
-        auto s = ostd::appender<cs_string>();
+    cs.new_command("escape", "s", [](auto &ccs, auto args, auto &res) {
+        auto s = ostd::appender<cs_charbuf>(ccs);
         util::escape_string(s, args[0].get_str());
-        res.set_str(s.get());
+        res.set_str(s.get().str());
     });
 
-    cs.new_command("unescape", "s", [](auto &, auto args, auto &res) {
-        auto s = ostd::appender<cs_string>();
+    cs.new_command("unescape", "s", [](auto &ccs, auto args, auto &res) {
+        auto s = ostd::appender<cs_charbuf>(ccs);
         util::unescape_string(s, args[0].get_str());
-        res.set_str(s.get());
+        res.set_str(s.get().str());
     });
 
     cs.new_command("concat", "V", [](auto &ccs, auto args, auto &res) {

@@ -82,6 +82,21 @@ struct cs_shared_state {
         v->~T();
         alloc(v, len * sizeof(T), 0);
     }
+
+    template<typename T>
+    struct allocator {
+        using value_type = T;
+
+        T *allocate(std::size_t n) {
+            return static_cast<T *>(state->alloc(nullptr, 0, n * sizeof(T)));
+        }
+
+        void deallocate(T *p, std::size_t n) {
+            state->alloc(p, n, 0);
+        }
+
+        cs_shared_state *state;
+    };
 };
 
 inline cs_shared_state *cs_get_sstate(cs_state &cs) {
@@ -162,6 +177,31 @@ struct cs_strman {
     cs_shared_state *cstate;
     /* FIXME: use main allocator */
     std::unordered_map<ostd::string_range, cs_strref_state *> counts{};
+};
+
+struct cs_charbuf {
+    cs_charbuf(cs_shared_state &cs):
+        buf{cs_shared_state::allocator<char>{&cs}}
+    {}
+
+    cs_charbuf(cs_state &cs):
+        buf{cs_shared_state::allocator<char>{cs_get_sstate(cs)}}
+    {}
+
+    using size_type = std::size_t;
+    using value_type = char;
+    using reference = char &;
+    using const_reference = char const &;
+
+    void reserve(std::size_t s) { buf.reserve(s); }
+
+    void push_back(char c) { buf.push_back(c); }
+
+    ostd::string_range str() {
+        return ostd::string_range{buf.data(), buf.data() + buf.size()};
+    }
+
+    std::vector<char, cs_shared_state::allocator<char>> buf;
 };
 
 } /* namespace cscript */
