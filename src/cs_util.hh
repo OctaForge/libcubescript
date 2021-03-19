@@ -63,6 +63,73 @@ struct cs_allocator {
     cs_shared_state *state;
 };
 
+template<typename T>
+struct cs_valbuf {
+    cs_valbuf() = delete;
+
+    cs_valbuf(cs_shared_state &cs):
+        buf{cs_allocator<T>{&cs}}
+    {}
+
+    cs_valbuf(cs_state &cs):
+        buf{cs_allocator<T>{cs_get_sstate(cs)}}
+    {}
+
+    using size_type = std::size_t;
+    using value_type = T;
+    using reference = T &;
+    using const_reference = T const &;
+
+    void reserve(std::size_t s) { buf.reserve(s); }
+    void resize(std::size_t s) { buf.resize(s); }
+
+    void append(T const *beg, T const *end) {
+        buf.insert(buf.end(), beg, end);
+    }
+
+    void push_back(T const &v) { buf.push_back(v); }
+    void pop_back() { buf.pop_back(); }
+
+    T &back() { return buf.back(); }
+    T const &back() const { return buf.back(); }
+
+    std::size_t size() const { return buf.size(); }
+    std::size_t capacity() const { return buf.capacity(); }
+
+    bool empty() const { return buf.empty(); }
+
+    void clear() { buf.clear(); }
+
+    T &operator[](std::size_t i) { return buf[i]; }
+    T const &operator[](std::size_t i) const { return buf[i]; }
+
+    T *data() { return &buf[0]; }
+    T const *data() const { return &buf[0]; }
+
+    std::vector<T, cs_allocator<T>> buf;
+};
+
+struct cs_charbuf: cs_valbuf<char> {
+    cs_charbuf(cs_shared_state &cs): cs_valbuf<char>(cs) {}
+    cs_charbuf(cs_state &cs): cs_valbuf<char>(cs) {}
+
+    void append(char const *beg, char const *end) {
+        cs_valbuf<char>::append(beg, end);
+    }
+
+    void append(ostd::string_range v) {
+        append(&v[0], &v[v.size()]);
+    }
+
+    ostd::string_range str() {
+        return ostd::string_range{buf.data(), buf.data() + buf.size()};
+    }
+
+    ostd::string_range str_term() {
+        return ostd::string_range{buf.data(), buf.data() + buf.size() - 1};
+    }
+};
+
 struct cs_shared_state {
     cs_map<ostd::string_range, cs_ident *> idents;
     cs_vector<cs_ident *> identmap;
@@ -199,73 +266,6 @@ struct cs_strman {
         std::equal_to<ostd::string_range>,
         allocator_type
     > counts;
-};
-
-template<typename T>
-struct cs_valbuf {
-    cs_valbuf() = delete;
-
-    cs_valbuf(cs_shared_state &cs):
-        buf{cs_allocator<T>{&cs}}
-    {}
-
-    cs_valbuf(cs_state &cs):
-        buf{cs_allocator<T>{cs_get_sstate(cs)}}
-    {}
-
-    using size_type = std::size_t;
-    using value_type = T;
-    using reference = T &;
-    using const_reference = T const &;
-
-    void reserve(std::size_t s) { buf.reserve(s); }
-    void resize(std::size_t s) { buf.resize(s); }
-
-    void append(T const *beg, T const *end) {
-        buf.insert(buf.end(), beg, end);
-    }
-
-    void push_back(T const &v) { buf.push_back(v); }
-    void pop_back() { buf.pop_back(); }
-
-    T &back() { return buf.back(); }
-    T const &back() const { return buf.back(); }
-
-    std::size_t size() const { return buf.size(); }
-    std::size_t capacity() const { return buf.capacity(); }
-
-    bool empty() const { return buf.empty(); }
-
-    void clear() { buf.clear(); }
-
-    T &operator[](std::size_t i) { return buf[i]; }
-    T const &operator[](std::size_t i) const { return buf[i]; }
-
-    T *data() { return &buf[0]; }
-    T const *data() const { return &buf[0]; }
-
-    std::vector<T, cs_allocator<T>> buf;
-};
-
-struct cs_charbuf: cs_valbuf<char> {
-    cs_charbuf(cs_shared_state &cs): cs_valbuf<char>(cs) {}
-    cs_charbuf(cs_state &cs): cs_valbuf<char>(cs) {}
-
-    void append(char const *beg, char const *end) {
-        cs_valbuf<char>::append(beg, end);
-    }
-
-    void append(ostd::string_range v) {
-        append(&v[0], &v[v.size()]);
-    }
-
-    ostd::string_range str() {
-        return ostd::string_range{buf.data(), buf.data() + buf.size()};
-    }
-
-    ostd::string_range str_term() {
-        return ostd::string_range{buf.data(), buf.data() + buf.size() - 1};
-    }
 };
 
 } /* namespace cscript */
