@@ -77,13 +77,13 @@ static void cs_loop_list_conc(
     if (!idv.has_alias()) {
         return;
     }
-    cs_string r;
+    cs_charbuf r{cs};
     int n = 0;
     for (cs_list_parse_state p{list}; list_parse(p, cs); ++n) {
         idv.set_str(list_get_item(p, cs));
         idv.push();
         if (n && space) {
-            r += ' ';
+            r.push_back(' ');
         }
         cs_value v{cs};
         switch (cs.run_loop(body, v)) {
@@ -94,10 +94,10 @@ static void cs_loop_list_conc(
             default:
                 break;
         }
-        r += ostd::string_range{v.get_str()};
+        r.append(v.get_str());
     }
 end:
-    res.set_str(r);
+    res.set_str(r.str());
 }
 
 int cs_list_includes(
@@ -119,9 +119,9 @@ static inline void cs_list_merge(
 ) {
     ostd::string_range list = args[0].get_str();
     ostd::string_range elems = args[1].get_str();
-    cs_string buf;
+    cs_charbuf buf{cs};
     if (PushList) {
-        buf += list;
+        buf.append(list);
     }
     if (Swap) {
         std::swap(list, elems);
@@ -129,12 +129,12 @@ static inline void cs_list_merge(
     for (cs_list_parse_state p{list}; list_parse(p, cs);) {
         if (cmp(cs_list_includes(cs, elems, p.item), 0)) {
             if (!buf.empty()) {
-                buf += ' ';
+                buf.push_back(' ');
             }
-            buf += p.quoted_item;
+            buf.append(p.quoted_item);
         }
     }
-    res.set_str(buf);
+    res.set_str(buf.str());
 }
 
 static void cs_init_lib_list_sort(cs_state &cs);
@@ -390,19 +390,19 @@ end:
             return;
         }
         auto body = args[2].get_code();
-        cs_string r;
+        cs_charbuf r{cs};
         int n = 0;
         for (cs_list_parse_state p{args[1].get_str()}; list_parse(p, cs); ++n) {
             idv.set_str(p.item);
             idv.push();
             if (cs.run_bool(body)) {
                 if (r.size()) {
-                    r += ' ';
+                    r.push_back(' ');
                 }
-                r += p.quoted_item;
+                r.append(p.quoted_item);
             }
         }
-        res.set_str(r);
+        res.set_str(r.str());
     });
 
     gcs.new_command("listcount", "rse", [](auto &cs, auto args, auto &res) {
@@ -423,7 +423,7 @@ end:
     });
 
     gcs.new_command("prettylist", "ss", [](auto &cs, auto args, auto &res) {
-        auto buf = ostd::appender<cs_string>();
+        auto buf = ostd::appender<cs_charbuf>(cs);
         ostd::string_range s = args[0].get_str();
         ostd::string_range conj = args[1].get_str();
         cs_list_parse_state p{s};
@@ -446,7 +446,7 @@ end:
                 buf.put(' ');
             }
         }
-        res.set_str(buf.get());
+        res.set_str(buf.get().str());
     });
 
     gcs.new_command("indexof", "ss", [](auto &cs, auto args, auto &res) {
@@ -479,15 +479,15 @@ end:
         }
         ostd::string_range quote = p.quoted_item;
         char const *qend = !quote.empty() ? &quote[quote.size()] : list;
-        cs_string buf;
+        cs_charbuf buf{cs};
         if (qend > list) {
-            buf += ostd::string_range(list, qend);
+            buf.append(list, qend);
         }
         if (!vals.empty()) {
             if (!buf.empty()) {
-                buf += ' ';
+                buf.push_back(' ');
             }
-            buf += vals;
+            buf.append(vals);
         }
         for (cs_int i = 0; i < len; ++i) {
             if (!list_parse(p, cs)) {
@@ -502,13 +502,13 @@ end:
                     break;
                 default:
                     if (!buf.empty()) {
-                        buf += ' ';
+                        buf.push_back(' ');
                     }
-                    buf += p.input;
+                    buf.append(p.input);
                     break;
             }
         }
-        res.set_str(buf);
+        res.set_str(buf.str());
     });
 
     cs_init_lib_list_sort(gcs);
@@ -605,7 +605,7 @@ static void cs_list_sort(
     xval.pop();
     yval.pop();
 
-    cs_string sorted;
+    cs_charbuf sorted{cs};
     sorted.reserve(totaluniq + std::max(nuniq - 1, size_t(0)));
     for (size_t i = 0; i < items.size(); ++i) {
         ListSortItem &item = items[i];
@@ -613,11 +613,11 @@ static void cs_list_sort(
             continue;
         }
         if (i) {
-            sorted += ' ';
+            sorted.push_back(' ');
         }
-        sorted += item.quote;
+        sorted.append(item.quote);
     }
-    res.set_str(sorted);
+    res.set_str(sorted.str());
 }
 
 static void cs_init_lib_list_sort(cs_state &gcs) {
