@@ -1582,6 +1582,12 @@ void cs_state::run(std::string_view code, cs_value &ret) {
     cs_run(*this, std::string_view{}, code, ret);
 }
 
+void cs_state::run(
+    std::string_view code, cs_value &ret, std::string_view source
+) {
+    cs_run(*this, source, code, ret);
+}
+
 void cs_state::run(cs_ident *id, cs_value_r args, cs_value &ret) {
     int nargs = int(args.size());
     ret.set_none();
@@ -1727,19 +1733,28 @@ bool cs_state::run_bool(cs_ident *id, cs_value_r args) {
     return ret.get_bool();
 }
 
-void cs_state::run(cs_bcode *code) {
+cs_value cs_state::run(cs_bcode *code) {
     cs_value ret{*this};
     run(code, ret);
+    return ret;
 }
 
-void cs_state::run(std::string_view code) {
+cs_value cs_state::run(std::string_view code) {
     cs_value ret{*this};
     run(code, ret);
+    return ret;
 }
 
-void cs_state::run(cs_ident *id, cs_value_r args) {
+cs_value cs_state::run(std::string_view code, std::string_view source) {
+    cs_value ret{*this};
+    run(code, ret, source);
+    return ret;
+}
+
+cs_value cs_state::run(cs_ident *id, cs_value_r args) {
     cs_value ret{*this};
     run(id, args, ret);
+    return ret;
 }
 
 cs_loop_state cs_state::run_loop(cs_bcode *code, cs_value &ret) {
@@ -1762,77 +1777,6 @@ cs_loop_state cs_state::run_loop(cs_bcode *code, cs_value &ret) {
 cs_loop_state cs_state::run_loop(cs_bcode *code) {
     cs_value ret{*this};
     return run_loop(code, ret);
-}
-
-static bool cs_run_file(
-    cs_state &cs, std::string_view fname, cs_value &ret
-) {
-    std::unique_ptr<char[]> buf;
-    size_t len;
-
-    ostd::file_stream f(fname, ostd::stream_mode::READ);
-    if (!f.is_open()) {
-        return false;
-    }
-
-    len = f.size();
-    buf = std::make_unique<char[]>(len + 1);
-    if (!buf) {
-        return false;
-    }
-    try {
-        f.get(buf.get(), len);
-    } catch (...) {
-        return false;
-    }
-    buf[len] = '\0';
-
-    cs_run(cs, fname, std::string_view{buf.get(), len}, ret);
-    return true;
-}
-
-std::optional<cs_strref> cs_state::run_file_str(std::string_view fname) {
-    cs_value ret{*this};
-    if (!cs_run_file(*this, fname, ret)) {
-        return std::nullopt;
-    }
-    return ret.get_str();
-}
-
-std::optional<cs_int> cs_state::run_file_int(std::string_view fname) {
-    cs_value ret{*this};
-    if (!cs_run_file(*this, fname, ret)) {
-        return std::nullopt;
-    }
-    return ret.get_int();
-}
-
-std::optional<cs_float> cs_state::run_file_float(std::string_view fname) {
-    cs_value ret{*this};
-    if (!cs_run_file(*this, fname, ret)) {
-        return std::nullopt;
-    }
-    return ret.get_float();
-}
-
-std::optional<bool> cs_state::run_file_bool(std::string_view fname) {
-    cs_value ret{*this};
-    if (!cs_run_file(*this, fname, ret)) {
-        return std::nullopt;
-    }
-    return ret.get_bool();
-}
-
-bool cs_state::run_file(std::string_view fname, cs_value &ret) {
-    return cs_run_file(*this, fname, ret);
-}
-
-bool cs_state::run_file(std::string_view fname) {
-    cs_value ret{*this};
-    if (!cs_run_file(*this, fname, ret)) {
-        return false;
-    }
-    return true;
 }
 
 } /* namespace cscript */

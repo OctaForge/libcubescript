@@ -481,11 +481,13 @@ struct OSTD_EXPORT cs_state {
 
     void run(cs_bcode *code, cs_value &ret);
     void run(std::string_view code, cs_value &ret);
+    void run(std::string_view code, cs_value &ret, std::string_view source);
     void run(cs_ident *id, cs_value_r args, cs_value &ret);
 
-    void run(cs_bcode *code);
-    void run(std::string_view code);
-    void run(cs_ident *id, cs_value_r args);
+    cs_value run(cs_bcode *code);
+    cs_value run(std::string_view code);
+    cs_value run(std::string_view code, std::string_view source);
+    cs_value run(cs_ident *id, cs_value_r args);
 
     cs_loop_state run_loop(cs_bcode *code, cs_value &ret);
     cs_loop_state run_loop(cs_bcode *code);
@@ -493,13 +495,6 @@ struct OSTD_EXPORT cs_state {
     bool is_in_loop() const {
         return p_inloop;
     }
-
-    std::optional<cs_strref> run_file_str(std::string_view fname);
-    std::optional<cs_int> run_file_int(std::string_view fname);
-    std::optional<cs_float> run_file_float(std::string_view fname);
-    std::optional<bool> run_file_bool(std::string_view fname);
-    bool run_file(std::string_view fname, cs_value &ret);
-    bool run_file(std::string_view fname);
 
     void set_alias(std::string_view name, cs_value v);
 

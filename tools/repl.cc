@@ -1,6 +1,7 @@
 #include <signal.h>
 
 #include <optional>
+#include <memory>
 
 #include <ostd/platform.hh>
 #include <ostd/io.hh>
@@ -233,13 +234,39 @@ static void repl_print_var(cs_state const &cs, cs_var const &var) {
     }
 }
 
+static bool do_run_file(cs_state &cs, std::string_view fname, cs_value &ret) {
+    std::unique_ptr<char[]> buf;
+    std::size_t len;
+
+    ostd::file_stream f{fname, ostd::stream_mode::READ};
+    if (!f.is_open()) {
+        return false;
+    }
+
+    len = f.size();
+    buf = std::make_unique<char[]>(len + 1);
+    if (!buf) {
+        return false;
+    }
+
+    try {
+        f.get(buf.get(), len);
+    } catch (...) {
+        return false;
+    }
+    buf[len] = '\0';
+
+    cs.run(std::string_view{buf.get(), len}, ret, fname);
+    return true;
+}
+
 static bool do_call(cs_state &cs, std::string_view line, bool file = false) {
     cs_value ret{cs};
     scs = &cs;
     signal(SIGINT, do_sigint);
     try {
         if (file) {
-            if (!cs.run_file(line, ret)) {
+            if (!do_run_file(cs, line, ret)) {
                 ostd::cerr.writeln("cannot read file: ", line);
             }
         } else {
@@ -325,7 +352,8 @@ int main(int argc, char **argv) {
 
     gcs.new_command("exec", "s", [](auto &cs, auto args, auto &) {
         auto file = args[0].get_str();
-        bool ret = cs.run_file(file);
+        cs_value val{cs};
+        bool ret = do_run_file(cs, file, val);
         if (!ret) {
             throw cscript::cs_error(
                 cs, "could not run file \"%s\"", file
