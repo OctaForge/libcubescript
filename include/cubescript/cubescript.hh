@@ -652,29 +652,37 @@ private:
     bool p_pushed;
 };
 
-struct LIBCUBESCRIPT_EXPORT cs_list_parse_state {
-    cs_list_parse_state(std::string_view s = std::string_view{}):
-        input_beg{s.data()}, input_end{s.data() + s.size()}
+struct LIBCUBESCRIPT_EXPORT cs_list_parser {
+    cs_list_parser(cs_state &cs, std::string_view s = std::string_view{}):
+        p_state{&cs}, p_input_beg{s.data()}, p_input_end{s.data() + s.size()}
      {}
 
     void set_input(std::string_view s) {
-        input_beg = s.data();
-        input_end = s.data() + s.size();
+        p_input_beg = s.data();
+        p_input_end = s.data() + s.size();
     }
 
     std::string_view get_input() const {
-        return std::string_view{input_beg, std::size_t(input_end - input_beg)};
+        return std::string_view{p_input_beg, p_input_end};
     }
 
-    char const *input_beg, *input_end;
-    std::string_view item{};
-    std::string_view quoted_item{};
-};
+    bool parse();
+    std::size_t count();
 
-LIBCUBESCRIPT_EXPORT bool list_parse(cs_list_parse_state &ps, cs_state &cs);
-LIBCUBESCRIPT_EXPORT std::size_t list_count(cs_list_parse_state &ps, cs_state &cs);
-LIBCUBESCRIPT_EXPORT cs_strref list_get_item(cs_list_parse_state &ps, cs_state &cs);
-LIBCUBESCRIPT_EXPORT void list_find_item(cs_list_parse_state &ps);
+    cs_strref get_item() const;
+
+    std::string_view get_raw_item() const { return p_item; }
+    std::string_view get_quoted_item() const { return p_quoted_item; }
+
+    void skip_until_item();
+
+private:
+    cs_state *p_state;
+    char const *p_input_beg, *p_input_end;
+
+    std::string_view p_item{};
+    std::string_view p_quoted_item{};
+};
 
 LIBCUBESCRIPT_EXPORT cs_strref value_list_concat(
     cs_state &cs, std::span<cs_value> vals,

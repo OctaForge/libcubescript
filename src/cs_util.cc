@@ -432,48 +432,46 @@ end:
     }
 } /* namespace util */
 
-LIBCUBESCRIPT_EXPORT bool list_parse(cs_list_parse_state &ps, cs_state &cs) {
-    list_find_item(ps);
-    if (ps.input_beg == ps.input_end) {
+LIBCUBESCRIPT_EXPORT bool cs_list_parser::parse() {
+    skip_until_item();
+    if (p_input_beg == p_input_end) {
         return false;
     }
-    switch (*ps.input_beg) {
+    switch (*p_input_beg) {
         case '"': {
-            char const *qi = ps.input_beg;
-            ps.input_beg = util::parse_string(cs, ps.get_input());
-            ps.quoted_item = std::string_view{
-                qi, std::size_t(ps.input_beg - qi)
-            };
-            ps.item = ps.quoted_item.substr(1, ps.quoted_item.size() - 2);
+            char const *qi = p_input_beg;
+            p_input_beg = util::parse_string(*p_state, get_input());
+            p_quoted_item = std::string_view{qi, p_input_beg};
+            p_item = p_quoted_item.substr(1, p_quoted_item.size() - 2);
             break;
         }
         case '(':
         case '[': {
-            char btype = *ps.input_beg;
+            char btype = *p_input_beg;
             int brak = 1;
-            char const *ibeg = ps.input_beg++;
+            char const *ibeg = p_input_beg++;
             for (;;) {
                 std::string_view chrs{"\"/;()[]"};
-                ps.input_beg = std::find_first_of(
-                    ps.input_beg, ps.input_end, chrs.begin(), chrs.end()
+                p_input_beg = std::find_first_of(
+                    p_input_beg, p_input_end, chrs.begin(), chrs.end()
                 );
-                if (ps.input_beg == ps.input_end) {
+                if (p_input_beg == p_input_end) {
                     return true;
                 }
-                char c = *ps.input_beg++;
+                char c = *p_input_beg++;
                 switch (c) {
                     case '"':
                         /* the quote is needed in str parsing */
-                        --ps.input_beg;
-                        ps.input_beg = util::parse_string(cs, ps.get_input());
+                        --p_input_beg;
+                        p_input_beg = util::parse_string(*p_state, get_input());
                         break;
                     case '/':
                         if (
-                            (ps.input_beg != ps.input_end) &&
-                            (*ps.input_beg == '/')
+                            (p_input_beg != p_input_end) &&
+                            (*p_input_beg == '/')
                         ) {
-                            ps.input_beg = std::find(
-                                ps.input_beg, ps.input_end, '\n'
+                            p_input_beg = std::find(
+                                p_input_beg, p_input_end, '\n'
                             );
                         }
                         break;
@@ -494,67 +492,61 @@ LIBCUBESCRIPT_EXPORT bool list_parse(cs_list_parse_state &ps, cs_state &cs) {
                 }
             }
 endblock:
-            ps.item = std::string_view{
-                ibeg + 1, std::size_t(ps.input_beg - ibeg - 2)
-            };
-            ps.quoted_item = std::string_view{
-                ibeg, std::size_t(ps.input_beg - ibeg)
-            };
+            p_item = std::string_view{ibeg + 1, p_input_beg - 1};
+            p_quoted_item = std::string_view{ibeg, p_input_beg};
             break;
         }
         case ')':
         case ']':
             return false;
         default: {
-            char const *e = util::parse_word(cs, ps.get_input());
-            ps.quoted_item = ps.item = std::string_view{
-                ps.input_beg, std::size_t(e - ps.input_beg)
-            };
-            ps.input_beg = e;
+            char const *e = util::parse_word(*p_state, get_input());
+            p_quoted_item = p_item = std::string_view{p_input_beg, e};
+            p_input_beg = e;
             break;
         }
     }
-    list_find_item(ps);
-    if ((ps.input_beg != ps.input_end) && (*ps.input_beg == ';')) {
-        ++ps.input_beg;
+    skip_until_item();
+    if ((p_input_beg != p_input_end) && (*p_input_beg == ';')) {
+        ++p_input_beg;
     }
     return true;
 }
 
-LIBCUBESCRIPT_EXPORT std::size_t list_count(cs_list_parse_state &ps, cs_state &cs) {
+LIBCUBESCRIPT_EXPORT std::size_t cs_list_parser::count() {
     size_t ret = 0;
-    while (list_parse(ps, cs)) {
+    while (parse()) {
         ++ret;
     }
     return ret;
 }
 
-LIBCUBESCRIPT_EXPORT cs_strref list_get_item(cs_list_parse_state &ps, cs_state &cs) {
-    if (!ps.quoted_item.empty() && (ps.quoted_item.front() == '"')) {
-        cs_charbuf buf{cs};
-        util::unescape_string(std::back_inserter(buf), ps.item);
-        return cs_strref{cs, buf.str()};
+LIBCUBESCRIPT_EXPORT cs_strref cs_list_parser::get_item() const {
+    if (!p_quoted_item.empty() && (p_quoted_item.front() == '"')) {
+        cs_charbuf buf{*p_state};
+        util::unescape_string(std::back_inserter(buf), p_item);
+        return cs_strref{*p_state, buf.str()};
     }
-    return cs_strref{cs, ps.item};
+    return cs_strref{*p_state, p_item};
 }
 
-LIBCUBESCRIPT_EXPORT void list_find_item(cs_list_parse_state &ps) {
+LIBCUBESCRIPT_EXPORT void cs_list_parser::skip_until_item() {
     for (;;) {
-        while (ps.input_beg != ps.input_end) {
-            char c = *ps.input_beg;
+        while (p_input_beg != p_input_end) {
+            char c = *p_input_beg;
             if ((c == ' ') || (c == '\t') || (c == '\r') || (c == '\n')) {
-                ++ps.input_beg;
+                ++p_input_beg;
             } else {
                 break;
             }
         }
-        if ((ps.input_end - ps.input_beg) < 2) {
+        if ((p_input_end - p_input_beg) < 2) {
             break;
         }
-        if ((ps.input_beg[0] != '/') || (ps.input_beg[1]) != '/') {
+        if ((p_input_beg[0] != '/') || (p_input_beg[1]) != '/') {
             break;
         }
-        ps.input_beg = std::find(ps.input_beg, ps.input_end, '\n');
+        p_input_beg = std::find(p_input_beg, p_input_end, '\n');
     }
 }
 
@@ -566,19 +558,18 @@ LIBCUBESCRIPT_EXPORT cs_strref value_list_concat(
         switch (vals[i].get_type()) {
             case cs_value_type::INT:
             case cs_value_type::FLOAT:
-            case cs_value_type::STRING: {
-                cs_value v{vals[i]};
-                auto str = v.force_str();
-                std::copy(str.begin(), str.end(), std::back_inserter(buf));
+            case cs_value_type::STRING:
+                std::ranges::copy(
+                    cs_value{vals[i]}.force_str(), std::back_inserter(buf)
+                );
                 break;
-            }
             default:
                 break;
         }
         if (i == (vals.size() - 1)) {
             break;
         }
-        std::copy(sep.begin(), sep.end(), std::back_inserter(buf));
+        std::ranges::copy(sep, std::back_inserter(buf));
     }
     return cs_strref{cs, buf.str()};
 }
