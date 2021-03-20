@@ -386,14 +386,6 @@ enum class cs_loop_state {
     NORMAL = 0, BREAK, CONTINUE
 };
 
-static inline void *cs_default_alloc(void *, void *p, size_t, size_t ns) {
-    if (!ns) {
-        delete[] static_cast<unsigned char *>(p);
-        return nullptr;
-    }
-    return new unsigned char[ns];
-}
-
 struct LIBCUBESCRIPT_EXPORT cs_state {
     friend struct cs_error;
     friend struct cs_strman;
@@ -407,7 +399,8 @@ struct LIBCUBESCRIPT_EXPORT cs_state {
 
     int identflags = 0;
 
-    cs_state(cs_alloc_cb func = cs_default_alloc, void *data = nullptr);
+    cs_state();
+    cs_state(cs_alloc_cb func, void *data);
     virtual ~cs_state();
 
     cs_state(cs_state const &) = delete;
@@ -536,10 +529,9 @@ private:
     LIBCUBESCRIPT_LOCAL void *alloc(void *ptr, size_t olds, size_t news);
 
     cs_gen_state *p_pstate = nullptr;
+    void *p_errbuf = nullptr;
     int p_inloop = 0;
     bool p_owner = false;
-
-    char p_errbuf[512];
 
     cs_hook_cb p_callhook;
 };
@@ -593,7 +585,11 @@ struct LIBCUBESCRIPT_EXPORT cs_error {
     cs_error(cs_state &cs, std::string_view msg):
         p_errmsg(), p_stack(cs)
     {
-        p_errmsg = save_msg(cs, msg);
+        char *sp;
+        char *buf = request_buf(cs, msg.size(), sp);
+        std::memcpy(buf, msg.data(), msg.size());
+        buf[msg.size()] = '\0';
+        p_errmsg = std::string_view{sp, buf + msg.size()};
         p_stack = save_stack(cs);
     }
 
@@ -601,26 +597,25 @@ struct LIBCUBESCRIPT_EXPORT cs_error {
     cs_error(cs_state &cs, std::string_view msg, A const &...args):
         p_errmsg(), p_stack(cs)
     {
-        char fbuf[512];
-        int written = std::snprintf(
-            fbuf, sizeof(fbuf), msg.data(), args...
-        );
-        if (written >= int(sizeof(fbuf))) {
-            written = std::strlen(fbuf);
-        } else if (written <= 0) {
-            std::strncpy(fbuf, "format error", sizeof(fbuf));
-            written = std::strlen(fbuf);
+        std::size_t sz = msg.size() + 64;
+        char *buf, *sp;
+        for (;;) {
+            buf = request_buf(cs, sz, sp);
+            int written = std::snprintf(buf, sz, msg.data(), args...);
+            if (written <= 0) {
+                throw cs_internal_error{"format error"};
+            } else if (std::size_t(written) <= sz) {
+                break;
+            }
+            sz = std::size_t(written);
         }
-        p_errmsg = save_msg(cs, std::string_view{
-            static_cast<char const *>(fbuf),
-            std::size_t(written)
-        });
+        p_errmsg = std::string_view{sp, buf + sz};
         p_stack = save_stack(cs);
     }
 
 private:
     cs_stack_state save_stack(cs_state &cs);
-    std::string_view save_msg(cs_state &cs, std::string_view v);
+    char *request_buf(cs_state &cs, std::size_t bufs, char *&sp);
 
     std::string_view p_errmsg;
     cs_stack_state p_stack;

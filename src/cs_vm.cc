@@ -70,6 +70,43 @@ bool cs_stack_state::gap() const {
     return p_gap;
 }
 
+char *cs_error::request_buf(cs_state &cs, std::size_t bufs, char *&sp) {
+    cs_charbuf &cb = *static_cast<cs_charbuf *>(cs.p_errbuf);
+    cs_gen_state *gs = cs.p_pstate;
+    cb.clear();
+    std::size_t sz = 0;
+    if (gs) {
+        /* we can attach line number */
+        sz = gs->src_name.size() + 32;
+        for (;;) {
+            /* we are using so the buffer tracks the elements and therefore
+             * does not wipe them when we attempt to reserve more capacity
+             */
+            cb.resize(sz);
+            int nsz;
+            if (!gs->src_name.empty()) {
+                nsz = std::snprintf(
+                    cb.data(), sz, "%.*s:%zu: ",
+                    int(gs->src_name.size()), gs->src_name.data(),
+                    gs->current_line
+                );
+            } else {
+                nsz = std::snprintf(cb.data(), sz, "%zu: ", gs->current_line);
+            }
+            if (nsz <= 0) {
+                throw cs_internal_error{"format error"};
+            } else if (std::size_t(nsz) < sz) {
+                sz = std::size_t(nsz);
+                break;
+            }
+            sz = std::size_t(nsz + 1);
+        }
+    }
+    cb.resize(sz + bufs + 1);
+    sp = cb.data();
+    return &cb[sz];
+}
+
 cs_stack_state cs_error::save_stack(cs_state &cs) {
     cs_ivar *dalias = static_cast<cs_ivar *>(cs.p_state->identmap[DbgaliasIdx]);
     if (!dalias->get_value()) {
@@ -105,39 +142,6 @@ cs_stack_state cs_error::save_stack(cs_state &cs) {
         }
     }
     return cs_stack_state(cs, ret, total > dalias->get_value());
-}
-
-std::string_view cs_error::save_msg(
-    cs_state &cs, std::string_view msg
-) {
-    if (msg.size() >= sizeof(cs.p_errbuf)) {
-        msg = msg.substr(0, sizeof(cs.p_errbuf) - 1);
-    }
-    cs_gen_state *gs = cs.p_pstate;
-    if (gs) {
-        /* we can attach line number */
-        int sz;
-        if (!gs->src_name.empty()) {
-            sz = snprintf(
-                cs.p_errbuf, sizeof(cs.p_errbuf), "%.*s:%zu: %.*s",
-                int(gs->src_name.size()), gs->src_name.data(),
-                gs->current_line,
-                int(msg.size()), msg.data()
-            );
-        } else {
-            sz = snprintf(
-                cs.p_errbuf, sizeof(cs.p_errbuf), "%zu: %.*s",
-                gs->current_line, int(msg.size()), msg.data()
-            );
-        }
-        if (sz <= 0) {
-            throw cs_internal_error{"format error"};
-        }
-        return std::string_view{cs.p_errbuf, std::size_t(sz)};
-    }
-    memcpy(cs.p_errbuf, msg.data(), msg.size());
-    cs.p_errbuf[msg.size()] = '\0';
-    return std::string_view{cs.p_errbuf, msg.size()};
 }
 
 static void bcode_ref(uint32_t *code) {

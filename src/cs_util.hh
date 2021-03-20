@@ -151,7 +151,11 @@ struct cs_shared_state {
     {}
 
     void *alloc(void *ptr, size_t os, size_t ns) {
-        return allocf(aptr, ptr, os, ns);
+        void *p = allocf(aptr, ptr, os, ns);
+        if (!p && ns) {
+            throw std::bad_alloc{};
+        }
+        return p;
     }
 
     template<typename T, typename ...A>

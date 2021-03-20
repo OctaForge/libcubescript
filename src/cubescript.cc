@@ -248,6 +248,16 @@ int cs_command::get_num_args() const {
 
 void cs_init_lib_base(cs_state &cs);
 
+static void *cs_default_alloc(void *, void *p, size_t, size_t ns) {
+    if (!ns) {
+        std::free(p);
+        return nullptr;
+    }
+    return std::realloc(p, ns);
+}
+
+cs_state::cs_state(): cs_state{cs_default_alloc, nullptr} {}
+
 cs_state::cs_state(cs_alloc_cb func, void *data):
     p_state(nullptr), p_callhook()
 {
@@ -261,6 +271,9 @@ cs_state::cs_state(cs_alloc_cb func, void *data):
     /* allocator will be set up in the constructor */
     new (p_state) cs_shared_state{func, data};
     p_owner = true;
+
+    /* will be used as message storage for errors */
+    p_errbuf = p_state->create<cs_charbuf>(*this);
 
     for (int i = 0; i < MaxArguments; ++i) {
         char buf[32];
@@ -379,6 +392,7 @@ LIBCUBESCRIPT_EXPORT void cs_state::destroy() {
         p_state->destroy(i);
     }
     p_state->destroy(p_state->strman);
+    p_state->destroy(static_cast<cs_charbuf *>(p_errbuf));
     p_state->destroy(p_state);
 }
 
