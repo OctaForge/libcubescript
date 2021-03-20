@@ -43,7 +43,7 @@ struct cs_math_noop {
 
 template<typename T, typename F1, typename F2>
 static inline void cs_mathop(
-    cs_value_r args, cs_value &res, T initval,
+    std::span<cs_value> args, cs_value &res, T initval,
     F1 binop, F2 unop
 ) {
     T val;
@@ -59,7 +59,7 @@ static inline void cs_mathop(
 }
 
 template<typename T, typename F>
-static inline void cs_cmpop(cs_value_r args, cs_value &res, F cmp) {
+static inline void cs_cmpop(std::span<cs_value> args, cs_value &res, F cmp) {
     bool val;
     if (args.size() >= 2) {
         val = cmp(cs_math_val<T>::get(args[0]), cs_math_val<T>::get(args[1]));

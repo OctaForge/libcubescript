@@ -457,8 +457,8 @@ struct OSTD_EXPORT cs_state {
     cs_alias *get_alias(std::string_view name);
     bool have_ident(std::string_view name);
 
-    cs_ident_r get_idents();
-    cs_const_ident_r get_idents() const;
+    std::span<cs_ident *> get_idents();
+    std::span<cs_ident const *> get_idents() const;
 
     void reset_var(std::string_view name);
     void touch_var(std::string_view name);
@@ -466,12 +466,12 @@ struct OSTD_EXPORT cs_state {
     void run(cs_bcode *code, cs_value &ret);
     void run(std::string_view code, cs_value &ret);
     void run(std::string_view code, cs_value &ret, std::string_view source);
-    void run(cs_ident *id, cs_value_r args, cs_value &ret);
+    void run(cs_ident *id, std::span<cs_value> args, cs_value &ret);
 
     cs_value run(cs_bcode *code);
     cs_value run(std::string_view code);
     cs_value run(std::string_view code, std::string_view source);
-    cs_value run(cs_ident *id, cs_value_r args);
+    cs_value run(cs_ident *id, std::span<cs_value> args);
 
     cs_loop_state run_loop(cs_bcode *code, cs_value &ret);
     cs_loop_state run_loop(cs_bcode *code);
@@ -495,7 +495,7 @@ struct OSTD_EXPORT cs_state {
     );
 
     void set_var_int_checked(cs_ivar *iv, cs_int v);
-    void set_var_int_checked(cs_ivar *iv, cs_value_r args);
+    void set_var_int_checked(cs_ivar *iv, std::span<cs_value> args);
     void set_var_float_checked(cs_fvar *fv, cs_float v);
     void set_var_str_checked(cs_svar *fv, std::string_view v);
 
@@ -658,7 +658,8 @@ OSTD_EXPORT cs_strref list_get_item(cs_list_parse_state &ps, cs_state &cs);
 OSTD_EXPORT void list_find_item(cs_list_parse_state &ps);
 
 OSTD_EXPORT cs_strref value_list_concat(
-    cs_state &cs, cs_value_r vals, std::string_view sep = std::string_view{}
+    cs_state &cs, std::span<cs_value> vals,
+    std::string_view sep = std::string_view{}
 );
 
 namespace util {

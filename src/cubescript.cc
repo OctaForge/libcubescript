@@ -518,16 +518,16 @@ OSTD_EXPORT bool cs_state::have_ident(std::string_view name) {
     return p_state->idents.find(name) != p_state->idents.end();
 }
 
-OSTD_EXPORT cs_ident_r cs_state::get_idents() {
-    return cs_ident_r(
+OSTD_EXPORT std::span<cs_ident *> cs_state::get_idents() {
+    return std::span<cs_ident *>{
         p_state->identmap.data(),
-        p_state->identmap.data() + p_state->identmap.size()
-    );
+        p_state->identmap.size()
+    };
 }
 
-OSTD_EXPORT cs_const_ident_r cs_state::get_idents() const {
+OSTD_EXPORT std::span<cs_ident const *> cs_state::get_idents() const {
     auto ptr = const_cast<cs_ident const **>(p_state->identmap.data());
-    return cs_const_ident_r(ptr, ptr + p_state->identmap.size());
+    return std::span<cs_ident const *>{ptr, p_state->identmap.size()};
 }
 
 OSTD_EXPORT cs_ivar *cs_state::new_ivar(
@@ -844,7 +844,9 @@ OSTD_EXPORT void cs_state::set_var_int_checked(cs_ivar *iv, cs_int v) {
     iv->changed(*this);
 }
 
-OSTD_EXPORT void cs_state::set_var_int_checked(cs_ivar *iv, cs_value_r args) {
+OSTD_EXPORT void cs_state::set_var_int_checked(
+    cs_ivar *iv, std::span<cs_value> args
+) {
     cs_int v = args[0].force_int();
     if ((iv->get_flags() & CS_IDF_HEX) && (args.size() > 1)) {
         v = (v << 16) | (args[1].force_int() << 8);

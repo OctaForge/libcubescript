@@ -3,6 +3,7 @@
 
 #include <limits.h>
 #include <functional>
+#include <span>
 #include <ostd/range.hh>
 
 /* do not modify */
@@ -11,10 +12,6 @@ namespace cscript {
     struct cs_ident;
     struct cs_value;
     struct cs_var;
-
-    using cs_value_r       = ostd::iterator_range<cs_value *>;
-    using cs_ident_r       = ostd::iterator_range<cs_ident **>;
-    using cs_const_ident_r = ostd::iterator_range<cs_ident const **>;
 }
 
 /* configurable section */
@@ -33,7 +30,7 @@ namespace cscript {
      */
     using cs_var_cb     = std::function<void(cs_state &, cs_ident &)>;
     using cs_vprint_cb  = std::function<void(cs_state const &, cs_var const &)>;
-    using cs_command_cb = std::function<void(cs_state &, cs_value_r, cs_value &)>;
+    using cs_command_cb = std::function<void(cs_state &, std::span<cs_value>, cs_value &)>;
     using cs_hook_cb    = std::function<void(cs_state &)>;
     using cs_alloc_cb   = void *(*)(void *, void *, size_t, size_t);
 

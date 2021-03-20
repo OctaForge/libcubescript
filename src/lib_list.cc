@@ -31,7 +31,7 @@ struct cs_arg_val<std::string_view> {
 
 template<typename T, typename F>
 static inline void cs_list_find(
-    cs_state &cs, cs_value_r args, cs_value &res, F cmp
+    cs_state &cs, std::span<cs_value> args, cs_value &res, F cmp
 ) {
     cs_int n = 0, skip = args[2].get_int();
     T val = cs_arg_val<T>::get(args[1]);
@@ -53,7 +53,7 @@ notfound:
 
 template<typename T, typename F>
 static inline void cs_list_assoc(
-    cs_state &cs, cs_value_r args, cs_value &res, F cmp
+    cs_state &cs, std::span<cs_value> args, cs_value &res, F cmp
 ) {
     T val = cs_arg_val<T>::get(args[1]);
     for (cs_list_parse_state p{args[0].get_str()}; list_parse(p, cs);) {
@@ -115,7 +115,7 @@ int cs_list_includes(
 
 template<bool PushList, bool Swap, typename F>
 static inline void cs_list_merge(
-    cs_state &cs, cs_value_r args, cs_value &res, F cmp
+    cs_state &cs, std::span<cs_value> args, cs_value &res, F cmp
 ) {
     std::string_view list = args[0].get_str();
     std::string_view elems = args[1].get_str();

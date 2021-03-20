@@ -9,7 +9,7 @@ namespace cscript {
 
 struct cs_cmd_internal {
     static void call(
-        cs_state &cs, cs_command *c, cs_value_r args, cs_value &ret
+        cs_state &cs, cs_command *c, std::span<cs_value> args, cs_value &ret
     ) {
         c->p_cb_cftv(cs, args, ret);
     }
@@ -424,13 +424,19 @@ static inline void callcommand(
             case 'C': {
                 i = std::max(i + 1, numargs);
                 cs_value tv{cs};
-                tv.set_str(value_list_concat(cs, ostd::iter(args, args + i), " "));
-                cs_cmd_internal::call(cs, id, cs_value_r(&tv, &tv + 1), res);
+                tv.set_str(value_list_concat(
+                    cs, std::span{args, std::size_t(i)}, " "
+                ));
+                cs_cmd_internal::call(
+                    cs, id, std::span<cs_value>(&tv, &tv + 1), res
+                );
                 return;
             }
             case 'V':
                 i = std::max(i + 1, numargs);
-                cs_cmd_internal::call(cs, id, ostd::iter(args, args + i), res);
+                cs_cmd_internal::call(
+                    cs, id, std::span{args, std::size_t(i)}, res
+                );
                 return;
             case '1':
             case '2':
@@ -444,7 +450,9 @@ static inline void callcommand(
         }
     }
     ++i;
-    cs_cmd_internal::call(cs, id, cs_value_r(args, args + i), res);
+    cs_cmd_internal::call(
+        cs, id, std::span<cs_value>{args, std::size_t(i)}, res
+    );
 }
 
 static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result);
@@ -1300,9 +1308,9 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 );
                 int offset = numargs - id->get_num_args();
                 result.force_none();
-                cs_cmd_internal::call(cs, id, cs_value_r(
-                    &args[0] + offset, &args[0] + offset + id->get_num_args()
-                ), result);
+                cs_cmd_internal::call(cs, id, std::span<cs_value>{
+                    &args[0] + offset, std::size_t(id->get_num_args())
+                }, result);
                 force_arg(result, op & CS_CODE_RET_MASK);
                 numargs = offset;
                 continue;
@@ -1315,11 +1323,12 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 cs_command *id = static_cast<cs_command *>(
                     cs.p_state->identmap[op >> 13]
                 );
-                int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
+                std::size_t callargs = (op >> 8) & 0x1F,
+                            offset = numargs - callargs;
                 result.force_none();
-                cs_cmd_internal::call(cs, id, ostd::iter(
-                    &args[offset], &args[offset + callargs]
-                ), result);
+                cs_cmd_internal::call(
+                    cs, id, std::span{&args[offset], callargs}, result
+                );
                 force_arg(result, op & CS_CODE_RET_MASK);
                 numargs = offset;
                 continue;
@@ -1331,14 +1340,17 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 cs_command *id = static_cast<cs_command *>(
                     cs.p_state->identmap[op >> 13]
                 );
-                int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
+                std::size_t callargs = (op >> 8) & 0x1F,
+                            offset = numargs - callargs;
                 result.force_none();
                 {
                     cs_value tv{cs};
-                    tv.set_str(value_list_concat(cs, ostd::iter(
-                        &args[offset], &args[offset + callargs]
-                    ), " "));
-                    cs_cmd_internal::call(cs, id, cs_value_r(&tv, &tv + 1), result);
+                    tv.set_str(value_list_concat(cs, std::span{
+                        &args[offset], callargs
+                    }, " "));
+                    cs_cmd_internal::call(
+                        cs, id, std::span<cs_value>{&tv, 1}, result
+                    );
                 }
                 force_arg(result, op & CS_CODE_RET_MASK);
                 numargs = offset;
@@ -1353,9 +1365,9 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
             case CS_CODE_CONC_W | CS_RET_STRING:
             case CS_CODE_CONC_W | CS_RET_FLOAT:
             case CS_CODE_CONC_W | CS_RET_INT: {
-                int numconc = op >> 8;
+                std::size_t numconc = op >> 8;
                 auto buf = value_list_concat(
-                    cs, ostd::iter(&args[numargs - numconc], &args[numargs]),
+                    cs, std::span{&args[numargs - numconc], numconc},
                     ((op & CS_CODE_OP_MASK) == CS_CODE_CONC) ? " " : ""
                 );
                 numargs = numargs - numconc;
@@ -1369,9 +1381,9 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
             case CS_CODE_CONC_M | CS_RET_STRING:
             case CS_CODE_CONC_M | CS_RET_FLOAT:
             case CS_CODE_CONC_M | CS_RET_INT: {
-                int numconc = op >> 8;
+                std::size_t numconc = op >> 8;
                 auto buf = value_list_concat(
-                    cs, ostd::iter(&args[numargs - numconc], &args[numargs])
+                    cs, std::span{&args[numargs - numconc], numconc}
                 );
                 numargs = numargs - numconc;
                 result.set_str(buf);
@@ -1501,7 +1513,7 @@ noid:
                         } else {
                             cs.set_var_int_checked(
                                 static_cast<cs_ivar *>(id),
-                                ostd::iter(&args[offset], &args[offset + callargs])
+                                std::span{&args[offset], std::size_t(callargs)}
                             );
                         }
                         numargs = offset - 1;
@@ -1588,7 +1600,7 @@ void cs_state::run(
     cs_run(*this, source, code, ret);
 }
 
-void cs_state::run(cs_ident *id, cs_value_r args, cs_value &ret) {
+void cs_state::run(cs_ident *id, std::span<cs_value> args, cs_value &ret) {
     int nargs = int(args.size());
     ret.set_none();
     RunDepthRef level{*this}; /* incr and decr on scope exit */
@@ -1679,7 +1691,7 @@ cs_value cs_state::run(std::string_view code, std::string_view source) {
     return ret;
 }
 
-cs_value cs_state::run(cs_ident *id, cs_value_r args) {
+cs_value cs_state::run(cs_ident *id, std::span<cs_value> args) {
     cs_value ret{*this};
     run(id, args, ret);
     return ret;

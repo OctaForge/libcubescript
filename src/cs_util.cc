@@ -557,7 +557,7 @@ OSTD_EXPORT void list_find_item(cs_list_parse_state &ps) {
 }
 
 OSTD_EXPORT cs_strref value_list_concat(
-    cs_state &cs, cs_value_r vals, std::string_view sep
+    cs_state &cs, std::span<cs_value> vals, std::string_view sep
 ) {
     auto app = ostd::appender<cs_charbuf>(cs);
     for (std::size_t i = 0; i < vals.size(); ++i) {

@@ -7,7 +7,9 @@
 namespace cscript {
 
 template<typename F>
-static inline void cs_strgcmp(cs_value_r args, cs_value &res, F cfunc) {
+static inline void cs_strgcmp(
+    std::span<cs_value> args, cs_value &res, F cfunc
+) {
     bool val;
     if (args.size() >= 2) {
         val = cfunc(args[0].get_str(), args[1].get_str());
