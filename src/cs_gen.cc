@@ -466,38 +466,42 @@ static bool compileblockstr(cs_gen_state &gs, char const *str, char const *send)
     gs.code.reserve(gs.code.size() + (send - str) / sizeof(uint32_t) + 1);
     char *buf = new char[((send - str) / sizeof(uint32_t) + 1) * sizeof(uint32_t)];
     int len = 0;
-    for (auto it = str; it != send; ++it) {
-        char const *p = it;
+    while (str < send) {
         std::string_view chrs{"\r/\"@]"};
-        it = std::find_first_of(it, send, chrs.begin(), chrs.end());
-        memcpy(&buf[len], p, std::size_t(it - p));
-        len += (it - p);
-        if (it == send) {
+        char const *orig = str;
+        str = std::find_first_of(str, send, chrs.begin(), chrs.end());
+        memcpy(&buf[len], orig, str - orig);
+        len += (str - orig);
+        if (str == send) {
             goto done;
         }
-        switch (*it) {
+        switch (*str) {
             case '\r':
-                ++it;
+                ++str;
                 break;
             case '\"': {
-                char const *start = it;
-                it = util::parse_string(
-                    gs.cs, std::string_view{it, std::size_t(send - it)}
+                char const *start = str;
+                str = util::parse_string(
+                    gs.cs, std::string_view{str, send}
                 );
-                memcpy(&buf[len], start, std::size_t(it - start));
-                len += (it - start);
+                memcpy(&buf[len], start, std::size_t(str - start));
+                len += (str - start);
                 break;
             }
             case '/':
-                if (((it + 1) != send) && it[1] == '/') {
-                    it = std::find(it, send, '\n');
+                if (((str + 1) != send) && str[1] == '/') {
+                    str = std::find(str, send, '\n');
                 } else {
-                    buf[len++] = *it++;
+                    buf[len++] = *str++;
                 }
                 break;
             case '@':
             case ']':
-                buf[len++] = *it++;
+                if (str < send) {
+                    buf[len++] = *str++;
+                } else {
+                    goto done;
+                }
                 break;
         }
     }
