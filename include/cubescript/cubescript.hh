@@ -569,7 +569,7 @@ private:
     bool p_gap;
 };
 
-struct cs_error {
+struct LIBCUBESCRIPT_EXPORT cs_error {
     friend struct cs_state;
 
     cs_error() = delete;

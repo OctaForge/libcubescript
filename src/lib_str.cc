@@ -150,7 +150,7 @@ void cs_init_lib_string(cs_state &cs) {
             return;
         }
         /* should pretty much be unreachable */
-        throw cs_error{ccs, "format error"};
+        throw cs_internal_error{"format error"};
     });
 
     cs.new_command("substr", "siiN", [](auto &, auto args, auto &res) {

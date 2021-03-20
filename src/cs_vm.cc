@@ -131,8 +131,7 @@ std::string_view cs_error::save_msg(
             );
         }
         if (sz <= 0) {
-            strncpy(cs.p_errbuf, "format error", sizeof(cs.p_errbuf));
-            sz = strlen(cs.p_errbuf);
+            throw cs_internal_error{"format error"};
         }
         return std::string_view{cs.p_errbuf, std::size_t(sz)};
     }
