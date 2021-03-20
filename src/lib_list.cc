@@ -209,7 +209,7 @@ void cs_init_lib_list(cs_state &gcs) {
             ++n;
             idv.set_str(p.item);
             idv.push();
-            if (cs.run_bool(body)) {
+            if (cs.run(body).get_bool()) {
                 res.set_int(cs_int(n));
                 return;
             }
@@ -228,7 +228,7 @@ void cs_init_lib_list(cs_state &gcs) {
             ++n;
             idv.set_str(p.item);
             idv.push();
-            if (cs.run_bool(body)) {
+            if (cs.run(body).get_bool()) {
                 if (list_parse(p, cs)) {
                     res.set_str(list_get_item(p, cs));
                 }
@@ -395,7 +395,7 @@ end:
         for (cs_list_parse_state p{args[1].get_str()}; list_parse(p, cs); ++n) {
             idv.set_str(p.item);
             idv.push();
-            if (cs.run_bool(body)) {
+            if (cs.run(body).get_bool()) {
                 if (r.size()) {
                     r.push_back(' ');
                 }
@@ -415,7 +415,7 @@ end:
         for (cs_list_parse_state p{args[1].get_str()}; list_parse(p, cs); ++n) {
             idv.set_str(p.item);
             idv.push();
-            if (cs.run_bool(body)) {
+            if (cs.run(body).get_bool()) {
                 r++;
             }
         }
@@ -529,7 +529,7 @@ struct ListSortFun {
         yv.set_str(yval.str);
         xv.push();
         yv.push();
-        return cs.run_bool(body);
+        return cs.run(body).get_bool();
     }
 };
 

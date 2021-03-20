@@ -972,7 +972,7 @@ static inline void cs_do_loop(
     for (cs_int i = 0; i < n; ++i) {
         idv.set_int(offset + i * step);
         idv.push();
-        if (cond && !cs.run_bool(cond)) {
+        if (cond && !cs.run(cond).get_bool()) {
             break;
         }
         switch (cs.run_loop(body)) {
@@ -1057,7 +1057,7 @@ void cs_init_lib_base(cs_state &gcs) {
     gcs.new_command("cond", "ee2V", [](auto &cs, auto args, auto &res) {
         for (size_t i = 0; i < args.size(); i += 2) {
             if ((i + 1) < args.size()) {
-                if (cs.run_bool(args[i].get_code())) {
+                if (cs.run(args[i].get_code()).get_bool()) {
                     cs.run(args[i + 1].get_code(), res);
                     break;
                 }
@@ -1177,7 +1177,7 @@ void cs_init_lib_base(cs_state &gcs) {
 
     gcs.new_command("while", "ee", [](auto &cs, auto args, auto &) {
         cs_bcode *cond = args[0].get_code(), *body = args[1].get_code();
-        while (cs.run_bool(cond)) {
+        while (cs.run(cond).get_bool()) {
             switch (cs.run_loop(body)) {
                 case cs_loop_state::BREAK:
                     goto end;

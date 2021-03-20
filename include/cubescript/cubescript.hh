@@ -463,22 +463,6 @@ struct OSTD_EXPORT cs_state {
     void reset_var(std::string_view name);
     void touch_var(std::string_view name);
 
-    cs_strref run_str(cs_bcode *code);
-    cs_strref run_str(std::string_view code);
-    cs_strref run_str(cs_ident *id, cs_value_r args);
-
-    cs_int run_int(cs_bcode *code);
-    cs_int run_int(std::string_view code);
-    cs_int run_int(cs_ident *id, cs_value_r args);
-
-    cs_float run_float(cs_bcode *code);
-    cs_float run_float(std::string_view code);
-    cs_float run_float(cs_ident *id, cs_value_r args);
-
-    bool run_bool(cs_bcode *code);
-    bool run_bool(std::string_view code);
-    bool run_bool(cs_ident *id, cs_value_r args);
-
     void run(cs_bcode *code, cs_value &ret);
     void run(std::string_view code, cs_value &ret);
     void run(std::string_view code, cs_value &ret, std::string_view source);
