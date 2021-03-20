@@ -1,4 +1,5 @@
 #include <functional>
+#include <iterator>
 
 #include <cubescript/cubescript.hh>
 
@@ -59,7 +60,7 @@ void cs_init_lib_string(cs_state &cs) {
         auto inps = std::string_view{args[0].get_str()};
         auto *ics = cs_get_sstate(ccs);
         auto *buf = ics->strman->alloc_buf(inps.size());
-        for (auto i: ostd::range(inps.size())) {
+        for (std::size_t i = 0; i < inps.size(); ++i) {
             buf[i] = tolower(inps[i]);
         }
         auto const *cbuf = ics->strman->steal(buf);
@@ -72,7 +73,7 @@ void cs_init_lib_string(cs_state &cs) {
         auto inps = std::string_view{args[0].get_str()};
         auto *ics = cs_get_sstate(ccs);
         auto *buf = ics->strman->alloc_buf(inps.size());
-        for (auto i: ostd::range(inps.size())) {
+        for (std::size_t i = 0; i < inps.size(); ++i) {
             buf[i] = toupper(inps[i]);
         }
         auto const *cbuf = ics->strman->steal(buf);
@@ -82,15 +83,15 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("escape", "s", [](auto &ccs, auto args, auto &res) {
-        auto s = ostd::appender<cs_charbuf>(ccs);
-        util::escape_string(s, args[0].get_str());
-        res.set_str(s.get().str());
+        cs_charbuf s{ccs};
+        util::escape_string(std::back_inserter(s), args[0].get_str());
+        res.set_str(s.str());
     });
 
     cs.new_command("unescape", "s", [](auto &ccs, auto args, auto &res) {
-        auto s = ostd::appender<cs_charbuf>(ccs);
-        util::unescape_string(s, args[0].get_str());
-        res.set_str(s.get().str());
+        cs_charbuf s{ccs};
+        util::unescape_string(std::back_inserter(s), args[0].get_str());
+        res.set_str(s.str());
     });
 
     cs.new_command("concat", "V", [](auto &ccs, auto args, auto &res) {

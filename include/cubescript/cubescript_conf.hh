@@ -1,10 +1,8 @@
 #ifndef LIBCUBESCRIPT_CUBESCRIPT_CONF_HH
 #define LIBCUBESCRIPT_CUBESCRIPT_CONF_HH
 
-#include <limits.h>
 #include <functional>
 #include <span>
-#include <ostd/range.hh>
 
 /* do not modify */
 namespace cscript {

@@ -8,6 +8,7 @@
 #include <optional>
 #include <functional>
 #include <type_traits>
+#include <algorithm>
 #include <utility>
 
 #include "cubescript_conf.hh"
@@ -664,37 +665,25 @@ OSTD_EXPORT cs_strref value_list_concat(
 
 namespace util {
     template<typename R>
-    inline R &&escape_string(R &&writer, std::string_view str) {
+    inline R escape_string(R writer, std::string_view str) {
         using namespace ostd::string_literals;
-        writer.put('"');
+        *writer++ = '"';
         for (auto c: str) {
             switch (c) {
-                case '\n':
-                    ostd::range_put_all(writer, "^n"_sr);
-                    break;
-                case '\t':
-                    ostd::range_put_all(writer, "^t"_sr);
-                    break;
-                case '\f':
-                    ostd::range_put_all(writer, "^f"_sr);
-                    break;
-                case '"':
-                    ostd::range_put_all(writer, "^\""_sr);
-                    break;
-                case '^':
-                    ostd::range_put_all(writer, "^^"_sr);
-                    break;
-                default:
-                    writer.put(c);
-                    break;
+                case '\n': *writer++ = '^'; *writer++ = 'n'; break;
+                case '\t': *writer++ = '^'; *writer++ = 't'; break;
+                case '\f': *writer++ = '^'; *writer++ = 'f'; break;
+                case  '"': *writer++ = '^'; *writer++ = '"'; break;
+                case  '^': *writer++ = '^'; *writer++ = '^'; break;
+                default: *writer++ = c; break;
             }
         }
-        writer.put('"');
-        return std::forward<R>(writer);
+        *writer++ = '"';
+        return writer;
     }
 
     template<typename R>
-    inline R &&unescape_string(R &&writer, std::string_view str) {
+    inline R  unescape_string(R writer, std::string_view str) {
         for (auto it = str.begin(); it != str.end(); ++it) {
             if (*it == '^') {
                 ++it;
@@ -702,24 +691,12 @@ namespace util {
                     break;
                 }
                 switch (*it) {
-                    case 'n':
-                        writer.put('\n');
-                        break;
-                    case 't':
-                        writer.put('\r');
-                        break;
-                    case 'f':
-                        writer.put('\f');
-                        break;
-                    case '"':
-                        writer.put('"');
-                        break;
-                    case '^':
-                        writer.put('^');
-                        break;
-                    default:
-                        writer.put(*it);
-                        break;
+                    case 'n': *writer++ = '\n'; break;
+                    case 't': *writer++ = '\r'; break;
+                    case 'f': *writer++ = '\f'; break;
+                    case '"': *writer++ = '"'; break;
+                    case '^': *writer++ = '^'; break;
+                    default: *writer++ = *it; break;
                 }
             } else if (*it == '\\') {
                 ++it;
@@ -735,12 +712,12 @@ namespace util {
                     }
                     continue;
                 }
-                writer.put('\\');
+                *writer++ = '\\';
             } else {
-                writer.put(str.front());
+                *writer++ = *it;
             }
         }
-        return std::forward<R>(writer);
+        return writer;
     }
 
     OSTD_EXPORT char const *parse_string(

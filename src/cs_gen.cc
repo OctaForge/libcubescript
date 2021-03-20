@@ -5,6 +5,7 @@
 #include <ctype.h>
 
 #include <limits>
+#include <iterator>
 
 namespace cscript {
 
@@ -20,10 +21,9 @@ std::string_view cs_gen_state::get_str() {
 }
 
 cs_charbuf cs_gen_state::get_str_dup() {
-    auto str = get_str();
-    auto app = ostd::appender<cs_charbuf>(cs);
-    util::unescape_string(app, str);
-    return std::move(app.get());
+    cs_charbuf buf{cs};
+    util::unescape_string(std::back_inserter(buf), get_str());
+    return buf;
 }
 
 std::string_view cs_gen_state::read_macro_name() {
@@ -199,12 +199,14 @@ static inline void compileunescapestr(cs_gen_state &gs) {
     );
     size_t bufs = (gs.code.capacity() - gs.code.size()) * sizeof(uint32_t);
     char *buf = new char[bufs + 1];
-    auto writer = ostd::char_range(buf, buf + bufs);
-    size_t len = util::unescape_string(ostd::counting_sink(writer), str).get_written();
-    memset(&buf[len], 0, sizeof(uint32_t) - len % sizeof(uint32_t));
-    gs.code.back() |= len << 8;
+    char *wbuf = util::unescape_string(&buf[0], str);
+    memset(
+        &buf[wbuf - buf], 0,
+        sizeof(uint32_t) - (wbuf - buf) % sizeof(uint32_t)
+    );
+    gs.code.back() |= (wbuf - buf) << 8;
     uint32_t *ubuf = reinterpret_cast<uint32_t *>(buf);
-    gs.code.append(ubuf, ubuf + (len / sizeof(uint32_t) + 1));
+    gs.code.append(ubuf, ubuf + ((wbuf - buf) / sizeof(uint32_t) + 1));
     delete[] buf;
 }
 

@@ -1,4 +1,5 @@
 #include <functional>
+#include <iterator>
 
 #include <cubescript/cubescript.hh>
 #include "cs_util.hh"
@@ -423,7 +424,7 @@ end:
     });
 
     gcs.new_command("prettylist", "ss", [](auto &cs, auto args, auto &res) {
-        auto buf = ostd::appender<cs_charbuf>(cs);
+        cs_charbuf buf{cs};
         std::string_view s = args[0].get_str();
         std::string_view conj = args[1].get_str();
         cs_list_parse_state p{s};
@@ -431,22 +432,22 @@ end:
         size_t n = 0;
         for (p.set_input(s); list_parse(p, cs); ++n) {
             if (!p.quoted_item.empty() && (p.quoted_item.front() == '"')) {
-                util::unescape_string(buf, p.item);
+                util::unescape_string(std::back_inserter(buf), p.item);
             } else {
-                buf.get().append(p.item);
+                buf.append(p.item);
             }
             if ((n + 1) < len) {
                 if ((len > 2) || conj.empty()) {
-                    buf.put(',');
+                    buf.push_back(',');
                 }
                 if ((n + 2 == len) && !conj.empty()) {
-                    buf.put(' ');
-                    buf.get().append(conj);
+                    buf.push_back(' ');
+                    buf.append(conj);
                 }
-                buf.put(' ');
+                buf.push_back(' ');
             }
         }
-        res.set_str(buf.get().str());
+        res.set_str(buf.str());
     });
 
     gcs.new_command("indexof", "ss", [](auto &cs, auto args, auto &res) {
@@ -567,7 +568,7 @@ static void cs_list_sort(
     size_t nuniq = items.size();
     if (body) {
         ListSortFun f = { cs, xval, yval, body };
-        ostd::sort_cmp(ostd::iter(items.buf), f);
+        std::sort(items.buf.begin(), items.buf.end(), f);
         if (!cs_code_is_empty(unique)) {
             f.body = unique;
             totaluniq = items[0].quote.size();
