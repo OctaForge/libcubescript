@@ -72,6 +72,10 @@ cs_value::cs_value(cs_value const &v): cs_value(*v.state()) {
     *this = v;
 }
 
+cs_value::cs_value(cs_value &&v): cs_value(*v.state()) {
+    *this = std::move(v);
+}
+
 cs_value &cs_value::operator=(cs_value const &v) {
     csv_cleanup(p_type, p_stor);
     p_type = cs_value_type::NONE;
@@ -94,6 +98,12 @@ cs_value &cs_value::operator=(cs_value const &v) {
         default:
             break;
     }
+    return *this;
+}
+
+cs_value &cs_value::operator=(cs_value &&v) {
+    *this = v;
+    v.set_none();
     return *this;
 }
 

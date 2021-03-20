@@ -118,8 +118,10 @@ struct OSTD_EXPORT cs_value {
     cs_value(cs_shared_state &);
 
     cs_value(cs_value const &);
+    cs_value(cs_value &&v);
 
     cs_value &operator=(cs_value const &);
+    cs_value &operator=(cs_value &&);
 
     cs_value_type get_type() const;
 
