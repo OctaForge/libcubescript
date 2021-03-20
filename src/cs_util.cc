@@ -330,7 +330,7 @@ bool cs_strref::operator==(cs_strref const &s) const {
 }
 
 namespace util {
-    OSTD_EXPORT char const *parse_string(
+    LIBCUBESCRIPT_EXPORT char const *parse_string(
         cs_state &cs, std::string_view str, size_t &nlines
     ) {
         size_t nl = 0;
@@ -383,7 +383,7 @@ end:
         return ++beg;
     }
 
-    OSTD_EXPORT char const *parse_word(cs_state &cs, std::string_view str) {
+    LIBCUBESCRIPT_EXPORT char const *parse_word(cs_state &cs, std::string_view str) {
         char const *it = str.begin();
         char const *end = str.end();
         for (; it != end; ++it) {
@@ -432,7 +432,7 @@ end:
     }
 } /* namespace util */
 
-OSTD_EXPORT bool list_parse(cs_list_parse_state &ps, cs_state &cs) {
+LIBCUBESCRIPT_EXPORT bool list_parse(cs_list_parse_state &ps, cs_state &cs) {
     list_find_item(ps);
     if (ps.input_beg == ps.input_end) {
         return false;
@@ -521,7 +521,7 @@ endblock:
     return true;
 }
 
-OSTD_EXPORT std::size_t list_count(cs_list_parse_state &ps, cs_state &cs) {
+LIBCUBESCRIPT_EXPORT std::size_t list_count(cs_list_parse_state &ps, cs_state &cs) {
     size_t ret = 0;
     while (list_parse(ps, cs)) {
         ++ret;
@@ -529,7 +529,7 @@ OSTD_EXPORT std::size_t list_count(cs_list_parse_state &ps, cs_state &cs) {
     return ret;
 }
 
-OSTD_EXPORT cs_strref list_get_item(cs_list_parse_state &ps, cs_state &cs) {
+LIBCUBESCRIPT_EXPORT cs_strref list_get_item(cs_list_parse_state &ps, cs_state &cs) {
     if (!ps.quoted_item.empty() && (ps.quoted_item.front() == '"')) {
         cs_charbuf buf{cs};
         util::unescape_string(std::back_inserter(buf), ps.item);
@@ -538,7 +538,7 @@ OSTD_EXPORT cs_strref list_get_item(cs_list_parse_state &ps, cs_state &cs) {
     return cs_strref{cs, ps.item};
 }
 
-OSTD_EXPORT void list_find_item(cs_list_parse_state &ps) {
+LIBCUBESCRIPT_EXPORT void list_find_item(cs_list_parse_state &ps) {
     for (;;) {
         while (ps.input_beg != ps.input_end) {
             char c = *ps.input_beg;
@@ -558,7 +558,7 @@ OSTD_EXPORT void list_find_item(cs_list_parse_state &ps) {
     }
 }
 
-OSTD_EXPORT cs_strref value_list_concat(
+LIBCUBESCRIPT_EXPORT cs_strref value_list_concat(
     cs_state &cs, std::span<cs_value> vals, std::string_view sep
 ) {
     cs_charbuf buf{cs};

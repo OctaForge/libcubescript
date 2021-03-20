@@ -2,28 +2,54 @@
 #include "cs_vm.hh"
 #include "cs_util.hh"
 
+#include <cmath>
+
 namespace cscript {
 
-static cs_charbuf intstr(cs_int v, cs_shared_state &cs) {
-    auto app = ostd::appender<cs_charbuf>(cs);
-    try {
-        ostd::format(app, CS_INT_FORMAT, v);
-    } catch (ostd::format_error const &e) {
-        throw cs_internal_error{e.what()};
+static std::string_view intstr(cs_int v, cs_charbuf &buf) {
+    buf.reserve(32);
+    int n = snprintf(buf.data(), 32, CS_INT_FORMAT, v);
+    if (n > 32) {
+        buf.reserve(n + 1);
+        int nn = snprintf(buf.data(), n + 1, CS_INT_FORMAT, v);
+        if ((nn > n) || (nn <= 0)) {
+            n = -1;
+        } else {
+            n = nn;
+        }
     }
-    return std::move(app.get());
+    if (n <= 0) {
+        throw cs_internal_error{"format error"};
+    }
+    return std::string_view{buf.data(), std::size_t(n)};
 }
 
-static cs_charbuf floatstr(cs_float v, cs_shared_state &cs) {
-    auto app = ostd::appender<cs_charbuf>(cs);
-    try {
-        ostd::format(
-            app, (v == floor(v)) ? CS_ROUND_FLOAT_FORMAT : CS_FLOAT_FORMAT, v
-        );
-    } catch (ostd::format_error const &e) {
-        throw cs_internal_error{e.what()};
+static std::string_view floatstr(cs_float v, cs_charbuf &buf) {
+    buf.reserve(32);
+    int n;
+    if (v == std::floor(v)) {
+        n = snprintf(buf.data(), 32, CS_ROUND_FLOAT_FORMAT, v);
+    } else {
+        n = snprintf(buf.data(), 32, CS_FLOAT_FORMAT, v);
     }
-    return std::move(app.get());
+    if (n > 32) {
+        buf.reserve(n + 1);
+        int nn;
+        if (v == std::floor(v)) {
+            nn = snprintf(buf.data(), n + 1, CS_ROUND_FLOAT_FORMAT, v);
+        } else {
+            nn = snprintf(buf.data(), n + 1, CS_FLOAT_FORMAT, v);
+        }
+        if ((nn > n) || (nn <= 0)) {
+            n = -1;
+        } else {
+            n = nn;
+        }
+    }
+    if (n <= 0) {
+        throw cs_internal_error{"format error"};
+    }
+    return std::string_view{buf.data(), std::size_t(n)};
 }
 
 template<typename T>
@@ -201,19 +227,21 @@ cs_int cs_value::force_int() {
 
 std::string_view cs_value::force_str() {
     cs_charbuf rs{*state()};
+    std::string_view str;
     switch (get_type()) {
         case cs_value_type::FLOAT:
-            rs = std::move(floatstr(csv_get<cs_float>(p_stor), *state()));
+            str = floatstr(csv_get<cs_float>(p_stor), rs);
             break;
         case cs_value_type::INT:
-            rs = std::move(intstr(csv_get<cs_int>(p_stor), *state()));
+            str = intstr(csv_get<cs_int>(p_stor), rs);
             break;
         case cs_value_type::STRING:
             return *reinterpret_cast<cs_strref const *>(&p_stor);
         default:
+            str = rs.str();
             break;
     }
-    set_str(rs.str());
+    set_str(str);
     return std::string_view(*reinterpret_cast<cs_strref const *>(&p_stor));
 }
 
@@ -267,14 +295,14 @@ cs_strref cs_value::get_str() const {
     switch (get_type()) {
         case cs_value_type::STRING:
             return *reinterpret_cast<cs_strref const *>(&p_stor);
-        case cs_value_type::INT:
-            return cs_strref{
-                *state(), intstr(csv_get<cs_int>(p_stor), *state()).str()
-            };
-        case cs_value_type::FLOAT:
-            return cs_strref{
-                *state(), floatstr(csv_get<cs_float>(p_stor), *state()).str()
-            };
+        case cs_value_type::INT: {
+            cs_charbuf rs{*state()};
+            return cs_strref{*state(), intstr(csv_get<cs_int>(p_stor), rs)};
+        }
+        case cs_value_type::FLOAT: {
+            cs_charbuf rs{*state()};
+            return cs_strref{*state(), floatstr(csv_get<cs_float>(p_stor), rs)};
+        }
         default:
             break;
     }
@@ -298,7 +326,7 @@ void cs_value::get_val(cs_value &r) const {
     }
 }
 
-OSTD_EXPORT bool cs_code_is_empty(cs_bcode *code) {
+LIBCUBESCRIPT_EXPORT bool cs_code_is_empty(cs_bcode *code) {
     if (!code) {
         return true;
     }

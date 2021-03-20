@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <memory>
+#include <iterator>
 
 #include <ostd/platform.hh>
 #include <ostd/io.hh>
@@ -292,8 +293,9 @@ static bool do_call(cs_state &cs, std::string_view line, bool file = false) {
         }
         ostd::writeln(!is_lnum ? "stdin: " : "stdin:", e.what());
         if (e.get_stack().get()) {
-            cscript::util::print_stack(ostd::cout.iter(), e.get_stack());
-            ostd::write('\n');
+            std::string str;
+            cscript::util::print_stack(std::back_inserter(str), e.get_stack());
+            ostd::writeln(str);
         }
         return false;
     }

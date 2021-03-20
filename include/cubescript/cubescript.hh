@@ -1,9 +1,7 @@
 #ifndef LIBCUBESCRIPT_CUBESCRIPT_HH
 #define LIBCUBESCRIPT_CUBESCRIPT_HH
 
-#include <stdio.h>
-#include <stdlib.h>
-
+#include <cstring>
 #include <vector>
 #include <optional>
 #include <functional>
@@ -13,10 +11,26 @@
 
 #include "cubescript_conf.hh"
 
-#include <ostd/platform.hh>
-#include <ostd/string.hh>
-#include <ostd/range.hh>
-#include <ostd/format.hh>
+#if defined(__CYGWIN__) || (defined(_WIN32) && !defined(_XBOX_VER))
+#  ifdef LIBCUBESCRIPT_DLL
+#    ifdef LIBCUBESCRIPT_BUILD
+#      define LIBCUBESCRIPT_EXPORT __declspec(dllexport)
+#    else
+#      define LIBCUBESCRIPT_EXPORT __declspec(dllimport)
+#    endif
+#  else
+#    define LIBCUBESCRIPT_EXPORT
+#  endif
+#  define LIBCUBESCRIPT_LOCAL
+#else
+#  if defined(__GNUC__) && (__GNUC__ >= 4)
+#    define LIBCUBESCRIPT_EXPORT __attribute__((visibility("default")))
+#    define LIBCUBESCRIPT_LOCAL __attribute__((visibility("hidden")))
+#  else
+#    define LIBCUBESCRIPT_EXPORT
+#    define LIBCUBESCRIPT_LOCAL
+#  endif
+#endif
 
 namespace cscript {
 
@@ -43,7 +57,7 @@ struct cs_value;
 struct cs_state;
 struct cs_shared_state;
 
-struct OSTD_EXPORT cs_bcode_ref {
+struct LIBCUBESCRIPT_EXPORT cs_bcode_ref {
     cs_bcode_ref():
         p_code(nullptr)
     {}
@@ -67,9 +81,9 @@ private:
     cs_bcode *p_code;
 };
 
-OSTD_EXPORT bool cs_code_is_empty(cs_bcode *code);
+LIBCUBESCRIPT_EXPORT bool cs_code_is_empty(cs_bcode *code);
 
-struct OSTD_EXPORT cs_strref {
+struct LIBCUBESCRIPT_EXPORT cs_strref {
     friend struct cs_value;
     /* FIXME: eliminate this */
     friend inline cs_strref cs_make_strref(char const *p, cs_shared_state &cs);
@@ -111,7 +125,7 @@ enum class cs_value_type {
     NONE = 0, INT, FLOAT, STRING, CODE, IDENT
 };
 
-struct OSTD_EXPORT cs_value {
+struct LIBCUBESCRIPT_EXPORT cs_value {
     cs_value() = delete;
     ~cs_value();
 
@@ -191,7 +205,7 @@ struct cs_svar;
 struct cs_alias;
 struct cs_command;
 
-struct OSTD_EXPORT cs_ident {
+struct LIBCUBESCRIPT_EXPORT cs_ident {
     friend struct cs_state;
     friend struct cs_shared_state;
 
@@ -253,7 +267,7 @@ private:
     int p_index = -1;
 };
 
-struct OSTD_EXPORT cs_var: cs_ident {
+struct LIBCUBESCRIPT_EXPORT cs_var: cs_ident {
     friend struct cs_state;
     friend struct cs_shared_state;
 
@@ -270,7 +284,7 @@ private:
     }
 };
 
-struct OSTD_EXPORT cs_ivar: cs_var {
+struct LIBCUBESCRIPT_EXPORT cs_ivar: cs_var {
     friend struct cs_state;
     friend struct cs_shared_state;
 
@@ -288,7 +302,7 @@ private:
     cs_int p_storage, p_minval, p_maxval, p_overrideval;
 };
 
-struct OSTD_EXPORT cs_fvar: cs_var {
+struct LIBCUBESCRIPT_EXPORT cs_fvar: cs_var {
     friend struct cs_state;
     friend struct cs_shared_state;
 
@@ -307,7 +321,7 @@ private:
     cs_float p_storage, p_minval, p_maxval, p_overrideval;
 };
 
-struct OSTD_EXPORT cs_svar: cs_var {
+struct LIBCUBESCRIPT_EXPORT cs_svar: cs_var {
     friend struct cs_state;
     friend struct cs_shared_state;
 
@@ -320,7 +334,7 @@ private:
     cs_strref p_storage, p_overrideval;
 };
 
-struct OSTD_EXPORT cs_alias: cs_ident {
+struct LIBCUBESCRIPT_EXPORT cs_alias: cs_ident {
     friend struct cs_state;
     friend struct cs_shared_state;
     friend struct cs_alias_internal;
@@ -380,7 +394,7 @@ static inline void *cs_default_alloc(void *, void *p, size_t, size_t ns) {
     return new unsigned char[ns];
 }
 
-struct OSTD_EXPORT cs_state {
+struct LIBCUBESCRIPT_EXPORT cs_state {
     friend struct cs_error;
     friend struct cs_strman;
     friend struct cs_strref;
@@ -515,11 +529,11 @@ struct OSTD_EXPORT cs_state {
     void print_var(cs_var const &v) const;
 
 private:
-    OSTD_LOCAL cs_state(cs_shared_state *s);
+    LIBCUBESCRIPT_LOCAL cs_state(cs_shared_state *s);
 
     cs_ident *add_ident(cs_ident *id);
 
-    OSTD_LOCAL void *alloc(void *ptr, size_t olds, size_t news);
+    LIBCUBESCRIPT_LOCAL void *alloc(void *ptr, size_t olds, size_t news);
 
     cs_gen_state *p_pstate = nullptr;
     int p_inloop = 0;
@@ -587,16 +601,20 @@ struct cs_error {
     cs_error(cs_state &cs, std::string_view msg, A &&...args):
         p_errmsg(), p_stack(cs)
     {
-        try {
-            char fbuf[512];
-            auto ret = ostd::format(
-                ostd::counting_sink(ostd::char_range(fbuf, fbuf + sizeof(fbuf))),
-                msg, std::forward<A>(args)...
-            ).get_written();
-            p_errmsg = save_msg(cs, ostd::char_range(fbuf, fbuf + ret));
-        } catch (...) {
-            p_errmsg = save_msg(cs, msg);
+        char fbuf[512];
+        int written = std::snprintf(
+            fbuf, sizeof(fbuf), "%.*s", int(msg.size()), msg.data()
+        );
+        if (written >= int(sizeof(fbuf))) {
+            written = std::strlen(fbuf);
+        } else if (written <= 0) {
+            std::strncpy(fbuf, "format error", sizeof(fbuf));
+            written = std::strlen(fbuf);
         }
+        p_errmsg = save_msg(cs, std::string_view{
+            static_cast<char const *>(fbuf),
+            std::size_t(written)
+        });
         p_stack = save_stack(cs);
     }
 
@@ -608,7 +626,7 @@ private:
     cs_stack_state p_stack;
 };
 
-struct OSTD_EXPORT cs_stacked_value: cs_value {
+struct LIBCUBESCRIPT_EXPORT cs_stacked_value: cs_value {
     cs_stacked_value(cs_state &cs, cs_ident *id = nullptr);
     ~cs_stacked_value();
 
@@ -634,7 +652,7 @@ private:
     bool p_pushed;
 };
 
-struct OSTD_EXPORT cs_list_parse_state {
+struct LIBCUBESCRIPT_EXPORT cs_list_parse_state {
     cs_list_parse_state(std::string_view s = std::string_view{}):
         input_beg{s.data()}, input_end{s.data() + s.size()}
      {}
@@ -653,12 +671,12 @@ struct OSTD_EXPORT cs_list_parse_state {
     std::string_view quoted_item{};
 };
 
-OSTD_EXPORT bool list_parse(cs_list_parse_state &ps, cs_state &cs);
-OSTD_EXPORT std::size_t list_count(cs_list_parse_state &ps, cs_state &cs);
-OSTD_EXPORT cs_strref list_get_item(cs_list_parse_state &ps, cs_state &cs);
-OSTD_EXPORT void list_find_item(cs_list_parse_state &ps);
+LIBCUBESCRIPT_EXPORT bool list_parse(cs_list_parse_state &ps, cs_state &cs);
+LIBCUBESCRIPT_EXPORT std::size_t list_count(cs_list_parse_state &ps, cs_state &cs);
+LIBCUBESCRIPT_EXPORT cs_strref list_get_item(cs_list_parse_state &ps, cs_state &cs);
+LIBCUBESCRIPT_EXPORT void list_find_item(cs_list_parse_state &ps);
 
-OSTD_EXPORT cs_strref value_list_concat(
+LIBCUBESCRIPT_EXPORT cs_strref value_list_concat(
     cs_state &cs, std::span<cs_value> vals,
     std::string_view sep = std::string_view{}
 );
@@ -666,7 +684,6 @@ OSTD_EXPORT cs_strref value_list_concat(
 namespace util {
     template<typename R>
     inline R escape_string(R writer, std::string_view str) {
-        using namespace ostd::string_literals;
         *writer++ = '"';
         for (auto c: str) {
             switch (c) {
@@ -720,7 +737,7 @@ namespace util {
         return writer;
     }
 
-    OSTD_EXPORT char const *parse_string(
+    LIBCUBESCRIPT_EXPORT char const *parse_string(
         cs_state &cs, std::string_view str, size_t &nlines
     );
 
@@ -731,27 +748,31 @@ namespace util {
         return parse_string(cs, str, nlines);
     }
 
-    OSTD_EXPORT char const *parse_word(cs_state &cs, std::string_view str);
+    LIBCUBESCRIPT_EXPORT char const *parse_word(cs_state &cs, std::string_view str);
 
     template<typename R>
-    inline void print_stack(R &&writer, cs_stack_state const &st) {
+    inline R print_stack(R writer, cs_stack_state const &st) {
+        char buf[32] = {0};
         auto nd = st.get();
         while (nd) {
-            try {
-                ostd::format(
-                    std::forward<R>(writer),
-                    ((nd->index == 1) && st.gap())
-                        ? "  ..%d) %s" : "  %d) %s",
-                    nd->index, nd->id->get_name()
-                );
-            } catch (ostd::format_error const &e) {
-                throw cs_internal_error{e.what()};
+            auto name = nd->id->get_name();
+            *writer++ = ' ';
+            *writer++ = ' ';
+            if ((nd->index == 1) && st.gap()) {
+                *writer++ = '.';
+                *writer++ = '.';
             }
+            snprintf(buf, sizeof(buf), "%d", nd->index);
+            char const *p = buf;
+            std::copy(p, p + strlen(p), writer);
+            *writer++ = ')';
+            std::copy(name.begin(), name.end(), writer);
             nd = nd->next;
             if (nd) {
-                writer.put('\n');
+                *writer++ = '\n';
             }
         }
+        return writer;
     }
 } /* namespace util */
 
