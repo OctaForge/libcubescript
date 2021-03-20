@@ -5,7 +5,7 @@
 
 #include <ostd/string.hh>
 
-inline void init_lineedit(cs_state &, ostd::string_range) {
+inline void init_lineedit(cs_state &, std::string_view) {
 }
 
 inline std::optional<std::string> read_line(cs_state &, cs_svar *pr) {
@@ -13,7 +13,7 @@ inline std::optional<std::string> read_line(cs_state &, cs_svar *pr) {
     return ostd::cin.get_line(ostd::appender<std::string>()).get();
 }
 
-inline void add_history(cs_state &, ostd::string_range) {
+inline void add_history(cs_state &, std::string_view) {
 }
 
 #endif

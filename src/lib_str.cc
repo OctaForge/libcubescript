@@ -16,8 +16,8 @@ static inline void cs_strgcmp(cs_value_r args, cs_value &res, F cfunc) {
         }
     } else {
         val = cfunc(
-            !args.empty() ? args[0].get_str() : ostd::string_range(),
-            ostd::string_range()
+            !args.empty() ? args[0].get_str() : std::string_view(),
+            std::string_view()
         );
     }
     res.set_int(cs_int(val));
@@ -25,16 +25,13 @@ static inline void cs_strgcmp(cs_value_r args, cs_value &res, F cfunc) {
 
 void cs_init_lib_string(cs_state &cs) {
     cs.new_command("strstr", "ss", [](auto &, auto args, auto &res) {
-        ostd::string_range a = args[0].get_str(), b = args[1].get_str();
-        ostd::string_range s = a;
-        for (cs_int i = 0; b.size() <= s.size(); ++i) {
-            if (b == s.slice(0, b.size())) {
-                res.set_int(i);
-                return;
-            }
-            ++s;
+        std::string_view a = args[0].get_str(), b = args[1].get_str();
+        auto pos = a.find(b);
+        if (pos == a.npos) {
+            res.set_int(-1);
+        } else {
+            res.set_int(cs_int(pos));
         }
-        res.set_int(-1);
     });
 
     cs.new_command("strlen", "s", [](auto &, auto args, auto &res) {
@@ -42,7 +39,7 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("strcode", "si", [](auto &, auto args, auto &res) {
-        ostd::string_range str = args[0].get_str();
+        std::string_view str = args[0].get_str();
         cs_int i = args[1].get_int();
         if (i >= cs_int(str.size())) {
             res.set_int(0);
@@ -53,11 +50,11 @@ void cs_init_lib_string(cs_state &cs) {
 
     cs.new_command("codestr", "i", [](auto &, auto args, auto &res) {
         char const p[2] = { char(args[0].get_int()), '\0' };
-        res.set_str(ostd::string_range{static_cast<char const *>(p)});
+        res.set_str(std::string_view{static_cast<char const *>(p)});
     });
 
     cs.new_command("strlower", "s", [](auto &ccs, auto args, auto &res) {
-        auto inps = ostd::string_range{args[0].get_str()};
+        auto inps = std::string_view{args[0].get_str()};
         auto *ics = cs_get_sstate(ccs);
         auto *buf = ics->strman->alloc_buf(inps.size());
         for (auto i: ostd::range(inps.size())) {
@@ -70,7 +67,7 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("strupper", "s", [](auto &ccs, auto args, auto &res) {
-        auto inps = ostd::string_range{args[0].get_str()};
+        auto inps = std::string_view{args[0].get_str()};
         auto *ics = cs_get_sstate(ccs);
         auto *buf = ics->strman->alloc_buf(inps.size());
         for (auto i: ostd::range(inps.size())) {
@@ -108,16 +105,16 @@ void cs_init_lib_string(cs_state &cs) {
         }
         cs_charbuf s{ccs};
         cs_strref fs = args[0].get_str();
-        ostd::string_range f{fs};
-        while (!f.empty()) {
-            char c = *f;
-            ++f;
-            if ((c == '%') && !f.empty()) {
-                char ic = *f;
-                ++f;
-                if (ic >= '1' && ic <= '9') {
+        std::string_view f{fs};
+        for (auto it = f.begin(); it != f.end(); ++it) {
+            char c = *it;
+            ++it;
+            if ((c == '%') && (it != f.end())) {
+                char ic = *it;
+                ++it;
+                if ((ic >= '1') && (ic <= '9')) {
                     int i = ic - '0';
-                    if (size_t(i) < args.size()) {
+                    if (std::size_t(i) < args.size()) {
                         s.append(args[i].get_str());
                     }
                 } else {
@@ -144,89 +141,85 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("substr", "siiN", [](auto &, auto args, auto &res) {
-        ostd::string_range s = args[0].get_str();
+        std::string_view s = args[0].get_str();
         cs_int start = args[1].get_int(), count = args[2].get_int();
         cs_int numargs = args[3].get_int();
         cs_int len = cs_int(s.size()), offset = std::clamp(start, cs_int(0), len);
-        res.set_str(ostd::string_range{
+        res.set_str(std::string_view{
             &s[offset],
-            &s[offset] + ((numargs >= 3)
+            ((numargs >= 3)
                 ? size_t(std::clamp(count, cs_int(0), len - offset))
                 : size_t(len - offset))
         });
     });
 
     cs.new_command("strcmp", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, std::equal_to<ostd::string_range>());
+        cs_strgcmp(args, res, std::equal_to<std::string_view>());
     });
     cs.new_command("=s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, std::equal_to<ostd::string_range>());
+        cs_strgcmp(args, res, std::equal_to<std::string_view>());
     });
     cs.new_command("!=s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, std::not_equal_to<ostd::string_range>());
+        cs_strgcmp(args, res, std::not_equal_to<std::string_view>());
     });
     cs.new_command("<s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, std::less<ostd::string_range>());
+        cs_strgcmp(args, res, std::less<std::string_view>());
     });
     cs.new_command(">s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, std::greater<ostd::string_range>());
+        cs_strgcmp(args, res, std::greater<std::string_view>());
     });
     cs.new_command("<=s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, std::less_equal<ostd::string_range>());
+        cs_strgcmp(args, res, std::less_equal<std::string_view>());
     });
     cs.new_command(">=s", "s1V", [](auto &, auto args, auto &res) {
-        cs_strgcmp(args, res, std::greater_equal<ostd::string_range>());
+        cs_strgcmp(args, res, std::greater_equal<std::string_view>());
     });
 
     cs.new_command("strreplace", "ssss", [](auto &ccs, auto args, auto &res) {
-        ostd::string_range s = args[0].get_str();
-        ostd::string_range oldval = args[1].get_str(),
-                             newval = args[2].get_str(),
-                             newval2 = args[3].get_str();
+        std::string_view s = args[0].get_str();
+        std::string_view oldval = args[1].get_str(),
+                         newval = args[2].get_str(),
+                         newval2 = args[3].get_str();
         if (newval2.empty()) {
             newval2 = newval;
         }
-        if (!oldval.size()) {
+        if (oldval.empty()) {
             res.set_str(s);
             return;
         }
         cs_charbuf buf{ccs};
         for (size_t i = 0;; ++i) {
-            ostd::string_range found;
-            ostd::string_range trys = s;
-            for (; oldval.size() <= trys.size(); ++trys) {
-                if (trys.slice(0, oldval.size()) == oldval) {
-                    found = trys;
-                    break;
-                }
-            }
-            if (!found.empty()) {
-                buf.append(s.slice(0, &found[0] - &s[0]));
-                buf.append((i & 1) ? newval2 : newval);
-                s = found.slice(oldval.size(), found.size());
-            } else {
+            std::string_view found;
+            auto p = s.find(oldval);
+            if (p == s.npos) {
                 buf.append(s);
-                res.set_str(buf.str());
+                res.set_str(s);
                 return;
             }
+            buf.append(s.substr(0, p));
+            buf.append((i & 1) ? newval2 : newval);
+            buf.append(s.substr(
+                p + oldval.size(),
+                s.size() - p - oldval.size()
+            ));
         }
     });
 
     cs.new_command("strsplice", "ssii", [](auto &ccs, auto args, auto &res) {
-        ostd::string_range s = args[0].get_str();
-        ostd::string_range vals = args[1].get_str();
-        cs_int skip   = args[2].get_int(),
+        std::string_view s = args[0].get_str();
+        std::string_view vals = args[1].get_str();
+        cs_int skip  = args[2].get_int(),
               count  = args[3].get_int();
         cs_int offset = std::clamp(skip, cs_int(0), cs_int(s.size())),
-              len    = std::clamp(count, cs_int(0), cs_int(s.size()) - offset);
+              len     = std::clamp(count, cs_int(0), cs_int(s.size()) - offset);
         cs_charbuf p{ccs};
         p.reserve(s.size() - len + vals.size());
         if (offset) {
-            p.append(s.slice(0, offset));
+            p.append(s.substr(0, offset));
         }
         p.append(vals);
         if ((offset + len) < cs_int(s.size())) {
-            p.append(s.slice(offset + len, s.size()));
+            p.append(s.substr(offset + len, s.size() - offset - len));
         }
         res.set_str(p.str());
     });

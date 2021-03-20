@@ -10,11 +10,11 @@
 namespace cscript {
 
 cs_int cs_parse_int(
-    ostd::string_range input, ostd::string_range *end = nullptr
+    std::string_view input, std::string_view *end = nullptr
 );
 
 cs_float cs_parse_float(
-    ostd::string_range input, ostd::string_range *end = nullptr
+    std::string_view input, std::string_view *end = nullptr
 );
 
 template<typename F>
@@ -111,30 +111,30 @@ struct cs_charbuf: cs_valbuf<char> {
         cs_valbuf<char>::append(beg, end);
     }
 
-    void append(ostd::string_range v) {
+    void append(std::string_view v) {
         append(&v[0], &v[v.size()]);
     }
 
-    ostd::string_range str() {
-        return ostd::string_range{buf.data(), buf.data() + buf.size()};
+    std::string_view str() {
+        return std::string_view{buf.data(), buf.size()};
     }
 
-    ostd::string_range str_term() {
-        return ostd::string_range{buf.data(), buf.data() + buf.size() - 1};
+    std::string_view str_term() {
+        return std::string_view{buf.data(), buf.size() - 1};
     }
 };
 
 struct cs_shared_state {
     using allocator_type = cs_allocator<
-        std::pair<ostd::string_range const, cs_ident *>
+        std::pair<std::string_view const, cs_ident *>
     >;
     cs_alloc_cb allocf;
     void *aptr;
 
     std::unordered_map<
-        ostd::string_range, cs_ident *,
-        std::hash<ostd::string_range>,
-        std::equal_to<ostd::string_range>,
+        std::string_view, cs_ident *,
+        std::hash<std::string_view>,
+        std::equal_to<std::string_view>,
         allocator_type
     > idents;
     std::vector<cs_ident *, cs_allocator<cs_ident *>> identmap;
@@ -226,7 +226,7 @@ struct cs_strref_state {
 
 struct cs_strman {
     using allocator_type = cs_allocator<
-        std::pair<ostd::string_range const, cs_strref_state *>
+        std::pair<std::string_view const, cs_strref_state *>
     >;
     cs_strman() = delete;
     cs_strman(cs_shared_state *cs): cstate{cs}, counts{allocator_type{cs}} {}
@@ -242,7 +242,7 @@ struct cs_strman {
      * version; this is "slow" as it has to hash the string and potentially
      * allocate fresh memory for it, but is perfectly safe at any time
      */
-    char const *add(ostd::string_range str);
+    char const *add(std::string_view str);
 
     /* this simply increments the reference count of an existing managed
      * string, this is only safe when you know the pointer you are passing
@@ -263,10 +263,10 @@ struct cs_strman {
     /* just finds a managed pointer with the same contents
      * as the input, if not found then a null pointer is returned
      */
-    char const *find(ostd::string_range str) const;
+    char const *find(std::string_view str) const;
 
     /* a quick helper to make a proper ostd string range out of a ptr */
-    ostd::string_range get(char const *ptr) const;
+    std::string_view get(char const *ptr) const;
 
     /* this will allocate a buffer of the given length (plus one for
      * terminating zero) so you can fill it; use steal() to write it
@@ -275,9 +275,9 @@ struct cs_strman {
 
     cs_shared_state *cstate;
     std::unordered_map<
-        ostd::string_range, cs_strref_state *,
-        std::hash<ostd::string_range>,
-        std::equal_to<ostd::string_range>,
+        std::string_view, cs_strref_state *,
+        std::hash<std::string_view>,
+        std::equal_to<std::string_view>,
         allocator_type
     > counts;
 };

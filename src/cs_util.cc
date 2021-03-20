@@ -7,19 +7,20 @@
 
 namespace cscript {
 
-static inline void p_skip_white(ostd::string_range &v) {
-    while (!v.empty() && isspace(*v)) {
-        ++v;
+static inline char const *p_skip_white(char const *beg, char const *end) {
+    while ((beg != end) && isspace(*beg)) {
+        ++beg;
     }
+    return beg;
 }
 
 static inline void p_set_end(
-    const ostd::string_range &v, ostd::string_range *end
+    char const *nbeg, char const *nend, std::string_view *end
 ) {
     if (!end) {
         return;
     }
-    *end = v;
+    *end = std::string_view{nbeg, std::size_t(nend - nbeg)};
 }
 
 /* this function assumes the input is definitely a hex digit */
@@ -33,7 +34,7 @@ static inline cs_int p_hexd_to_int(char c) {
     return c - '0';
 }
 
-static inline bool p_check_neg(ostd::string_range &input) {
+static inline bool p_check_neg(char const *&input) {
     bool neg = (*input == '-');
     if (neg || (*input == '+')) {
         ++input;
@@ -41,46 +42,41 @@ static inline bool p_check_neg(ostd::string_range &input) {
     return neg;
 }
 
-cs_int cs_parse_int(ostd::string_range input, ostd::string_range *end) {
-    ostd::string_range orig = input;
-    p_skip_white(input);
-    if (input.empty()) {
-        p_set_end(orig, end);
+cs_int cs_parse_int(std::string_view input, std::string_view *endstr) {
+    char const *beg = input.begin();
+    char const *end = input.end();
+    char const *orig = beg;
+    beg = p_skip_white(beg, end);
+    if (beg == end) {
+        p_set_end(orig, end, endstr);
         return cs_int(0);
     }
-    bool neg = p_check_neg(input);
+    bool neg = p_check_neg(beg);
     cs_int ret = 0;
-    ostd::string_range past = input;
-    if (input.size() >= 2) {
-        ostd::string_range pfx = input.slice(0, 2);
+    char const *past = beg;
+    if ((end - beg) >= 2) {
+        std::string_view pfx = std::string_view{beg, 2};
         if ((pfx == "0x") || (pfx == "0X")) {
-            input = input.slice(2, input.size());
-            past = input;
-            while (!past.empty() && isxdigit(*past)) {
-                ret = ret * 16 + p_hexd_to_int(*past);
-                ++past;
+            beg += 2;
+            past = beg;
+            while ((past != end) && isxdigit(*past)) {
+                ret = ret * 16 + p_hexd_to_int(*past++);
             }
             goto done;
         } else if ((pfx == "0b") || (pfx == "0B")) {
-            input = input.slice(2, input.size());
-            past = input;
-            while (!past.empty() && ((*past == '0') || (*past == '1'))) {
-                ret = ret * 2 + (*past - '0');
-                ++past;
+            beg += 2;
+            past = beg;
+            while ((past != end) && ((*past == '0') || (*past == '1'))) {
+                ret = ret * 2 + (*past++ - '0');
             }
             goto done;
         }
     }
-    while (!past.empty() && isdigit(*past)) {
-        ret = ret * 10 + (*past - '0');
-        ++past;
+    while ((past != end) && isdigit(*past)) {
+        ret = ret * 10 + (*past++ - '0');
     }
 done:
-    if (&past[0] == &input[0]) {
-        p_set_end(orig, end);
-    } else {
-        p_set_end(past, end);
-    }
+    p_set_end((past == beg) ? orig : past, end, endstr);
     if (neg) {
         return -ret;
     }
@@ -88,25 +84,23 @@ done:
 }
 
 template<bool Hex, char e1 = Hex ? 'p' : 'e', char e2 = Hex ? 'P' : 'E'>
-static inline bool p_read_exp(ostd::string_range &input, cs_int &fn) {
-    if (input.empty()) {
+static inline bool p_read_exp(char const *&beg, char const *end, cs_int &fn) {
+    if (beg == end) {
         return true;
     }
-    if ((*input != e1) && (*input != e2)) {
+    if ((*beg != e1) && (*beg != e2)) {
         return true;
     }
-    ++input;
-    if (input.empty()) {
+    if (++beg == end) {
         return false;
     }
-    bool neg = p_check_neg(input);
-    if (input.empty() || !isdigit(*input)) {
+    bool neg = p_check_neg(beg);
+    if ((beg == end) || !isdigit(*beg)) {
         return false;
     }
     cs_int exp = 0;
-    while (!input.empty() && isdigit(*input)) {
-        exp = exp * 10 + (*input - '0');
-        ++input;
+    while ((beg != end) && isdigit(*beg)) {
+        exp = exp * 10 + (*beg++ - '0');
     }
     if (neg) {
         exp = -exp;
@@ -117,33 +111,33 @@ static inline bool p_read_exp(ostd::string_range &input, cs_int &fn) {
 
 template<bool Hex>
 static inline bool parse_gen_float(
-    ostd::string_range input, ostd::string_range *end, cs_float &ret
+    char const *&beg, char const *end, std::string_view *endstr, cs_float &ret
 ) {
-    auto read_digits = [&input](double r, cs_int &n) {
-        while (!input.empty() && (Hex ? isxdigit(*input) : isdigit(*input))) {
+    auto read_digits = [&beg, end](double r, cs_int &n) {
+        while ((beg != end) && (Hex ? isxdigit(*beg) : isdigit(*beg))) {
             if (Hex) {
-                r = r * 16.0 + double(p_hexd_to_int(*input));
+                r = r * 16.0 + double(p_hexd_to_int(*beg));
             } else {
-                r = r * 10.0 + double(*input - '0');
+                r = r * 10.0 + double(*beg - '0');
             }
             ++n;
-            ++input;
+            ++beg;
         }
         return r;
     };
     cs_int wn = 0, fn = 0;
     double r = read_digits(0.0, wn);
-    if (!input.empty() && (*input == '.')) {
-        ++input;
+    if ((beg != end) && (*beg == '.')) {
+        ++beg;
         r = read_digits(r, fn);
     }
     if (!wn && !fn) {
         return false;
     }
     fn = -fn;
-    p_set_end(input, end); /* we have a valid number until here */
-    if (p_read_exp<Hex>(input, fn)) {
-        p_set_end(input, end);
+    p_set_end(beg, end, endstr); /* we have a valid number until here */
+    if (p_read_exp<Hex>(beg, end, fn)) {
+        p_set_end(beg, end, endstr);
     }
     if (Hex) {
         ret = cs_float(ldexp(r, fn * 4));
@@ -153,28 +147,30 @@ static inline bool parse_gen_float(
     return true;
 }
 
-cs_float cs_parse_float(ostd::string_range input, ostd::string_range *end) {
-    ostd::string_range orig = input;
-    p_skip_white(input);
-    if (input.empty()) {
-        p_set_end(orig, end);
+cs_float cs_parse_float(std::string_view input, std::string_view *endstr) {
+    char const *beg = input.begin();
+    char const *end = input.end();
+    char const *orig = beg;
+    beg = p_skip_white(beg, end);
+    if (beg == end) {
+        p_set_end(orig, end, endstr);
         return cs_float(0);
     }
-    bool neg = p_check_neg(input);
+    bool neg = p_check_neg(beg);
     cs_float ret = cs_float(0);
-    if (input.size() >= 2) {
-        ostd::string_range pfx = input.slice(0, 2);
+    if ((end - beg) >= 2) {
+        std::string_view pfx = std::string_view{beg, 2};
         if ((pfx == "0x") || (pfx == "0X")) {
-            input = input.slice(2, input.size());
-            if (!parse_gen_float<true>(input, end, ret)) {
-                p_set_end(orig, end);
+            beg += 2;
+            if (!parse_gen_float<true>(beg, end, endstr, ret)) {
+                p_set_end(orig, end, endstr);
                 return ret;
             }
             goto done;
         }
     }
-    if (!parse_gen_float<false>(input, end, ret)) {
-        p_set_end(orig, end);
+    if (!parse_gen_float<false>(beg, end, endstr, ret)) {
+        p_set_end(orig, end, endstr);
         return ret;
     }
 done:
@@ -192,7 +188,7 @@ inline cs_strref_state *get_ref_state(char const *ptr) {
     ) - 1;
 }
 
-char const *cs_strman::add(ostd::string_range str) {
+char const *cs_strman::add(std::string_view str) {
     auto it = counts.find(str);
     /* already present: just increment ref */
     if (it != counts.end()) {
@@ -209,7 +205,7 @@ char const *cs_strman::add(ostd::string_range str) {
     /* write string data, it's already pre-terminated */
     memcpy(strp, str.data(), ss);
     /* store it */
-    counts.emplace(ostd::string_range{strp, strp + ss}, get_ref_state(strp));
+    counts.emplace(std::string_view{strp, ss}, get_ref_state(strp));
     return strp;
 }
 
@@ -221,7 +217,7 @@ char const *cs_strman::ref(char const *ptr) {
 
 char const *cs_strman::steal(char *ptr) {
     auto *ss = get_ref_state(ptr);
-    auto sr = ostd::string_range{ptr, ptr + ss->length};
+    auto sr = std::string_view{ptr, ss->length};
     /* much like add(), but we already have memory */
     auto it = counts.find(sr);
     if (it != counts.end()) {
@@ -244,7 +240,7 @@ void cs_strman::unref(char const *ptr) {
         /* refcount zero, so ditch it
          * this path is a little slow...
          */
-        auto sr = ostd::string_range{ptr, ptr + ss->length};
+        auto sr = std::string_view{ptr, ss->length};
         auto it = counts.find(sr);
         if (it == counts.end()) {
             /* internal error: this should *never* happen */
@@ -257,7 +253,7 @@ void cs_strman::unref(char const *ptr) {
     }
 }
 
-char const *cs_strman::find(ostd::string_range str) const {
+char const *cs_strman::find(std::string_view str) const {
     auto it = counts.find(str);
     if (it == counts.end()) {
         return nullptr;
@@ -265,9 +261,9 @@ char const *cs_strman::find(ostd::string_range str) const {
     return reinterpret_cast<char const *>(it->second + 1);
 }
 
-ostd::string_range cs_strman::get(char const *ptr) const {
+std::string_view cs_strman::get(char const *ptr) const {
     auto *ss = get_ref_state(ptr);
-    return ostd::string_range{ptr, ptr + ss->length};
+    return std::string_view{ptr, ss->length};
 }
 
 char *cs_strman::alloc_buf(std::size_t len) const {
@@ -288,13 +284,13 @@ char *cs_strman::alloc_buf(std::size_t len) const {
 
 /* strref */
 
-cs_strref::cs_strref(cs_shared_state &cs, ostd::string_range str):
+cs_strref::cs_strref(cs_shared_state &cs, std::string_view str):
     p_state{&cs}
 {
     p_str = cs.strman->add(str);
 }
 
-cs_strref::cs_strref(cs_state &cs, ostd::string_range str):
+cs_strref::cs_strref(cs_state &cs, std::string_view str):
     p_state{cs.p_state}
 {
     p_str = p_state->strman->add(str);
@@ -323,7 +319,7 @@ cs_strref &cs_strref::operator=(cs_strref const &ref) {
     return *this;
 }
 
-cs_strref::operator ostd::string_range() const {
+cs_strref::operator std::string_view() const {
     return p_state->strman->get(p_str);
 }
 
@@ -332,140 +328,151 @@ bool cs_strref::operator==(cs_strref const &s) const {
 }
 
 namespace util {
-    OSTD_EXPORT ostd::string_range parse_string(
-        cs_state &cs, ostd::string_range str, size_t &nlines
+    OSTD_EXPORT char const *parse_string(
+        cs_state &cs, std::string_view str, size_t &nlines
     ) {
         size_t nl = 0;
         nlines = nl;
-        if (str.empty() || (*str != '\"')) {
-            return str;
+        if (str.empty() || (str.front() != '\"')) {
+            return str.data();
         }
-        ostd::string_range orig = str;
-        ++str;
+        char const *beg = str.begin();
+        char const *end = str.end();
+        char const *orig = beg++;
         ++nl;
-        while (!str.empty()) {
-            switch (*str) {
+        while (beg != end) {
+            switch (*beg) {
                 case '\r':
                 case '\n':
                 case '\"':
                     goto end;
                 case '^':
                 case '\\': {
-                    bool needn = (*str == '\\');
-                    ++str;
-                    if (str.empty()) {
+                    bool needn = (*beg == '\\');
+                    if (++beg == end) {
                         goto end;
                     }
-                    if ((*str == '\r') || (*str == '\n')) {
-                        char c = *str;
-                        ++str;
+                    if ((*beg == '\r') || (*beg == '\n')) {
+                        char c = *beg++;
                         ++nl;
-                        if (!str.empty() && (c == '\r') && (*str == '\n')) {
-                            ++str;
+                        if ((beg != end) && (c == '\r') && (*beg == '\n')) {
+                            ++beg;
                         }
                     } else if (needn) {
                         goto end;
                     } else {
-                        ++str;
+                        ++beg;
                     }
                     continue;
                 }
+                default:
+                    break;
             }
-            ++str;
+            ++beg;
         }
 end:
         nlines = nl;
-        if (str.empty() || (*str != '\"')) {
+        if ((beg == end) || (*beg != '\"')) {
             throw cs_error(
-                cs, "unfinished string '%s'", orig.slice(0, &str[0] - &orig[0])
+                cs, "unfinished string '%s'",
+                std::string_view{orig, std::size_t(beg - orig)}
             );
         }
-        str.pop_front();
-        return str;
+        return ++beg;
     }
 
-    OSTD_EXPORT ostd::string_range parse_word(
-        cs_state &cs, ostd::string_range str
-    ) {
-        for (;;) {
-            str = ostd::find_one_of(str, ostd::string_range("\"/;()[] \t\r\n"));
-            if (str.empty()) {
-                return str;
+    OSTD_EXPORT char const *parse_word(cs_state &cs, std::string_view str) {
+        char const *it = str.begin();
+        char const *end = str.end();
+        for (; it != end; ++it) {
+            std::string_view chrs{"\"/;()[] \t\r\n"};
+            it = std::find_first_of(it, end, chrs.begin(), chrs.end());
+            if (it == end) {
+                return it;
             }
-            switch (*str) {
+            switch (*it) {
                 case '"':
                 case ';':
                 case ' ':
                 case '\t':
                 case '\r':
                 case '\n':
-                    return str;
+                    return it;
                 case '/':
-                    if ((str.size() > 1) && (str[1] == '/')) {
-                        return str;
+                    if (((end - it) > 1) && (it[1] == '/')) {
+                        return it;
                     }
                     break;
                 case '[':
-                    str.pop_front();
-                    str = parse_word(cs, str);
-                    if (str.empty() || (*str != ']')) {
+                    ++it;
+                    it = parse_word(cs, std::string_view{
+                        it, std::size_t(end - it)
+                    });
+                    if ((it == end) || (*it != ']')) {
                         throw cs_error(cs, "missing \"]\"");
                     }
                     break;
                 case '(':
-                    str.pop_front();
-                    str = parse_word(cs, str);
-                    if (str.empty() || (*str != ')')) {
+                    ++it;
+                    it = parse_word(cs, std::string_view{
+                        it, std::size_t(end - it)
+                    });
+                    if ((it == end) || (*it != ')')) {
                         throw cs_error(cs, "missing \")\"");
                     }
                     break;
                 case ']':
                 case ')':
-                    return str;
+                    return it;
             }
-            ++str;
         }
-        return str;
+        return it;
     }
 } /* namespace util */
 
 OSTD_EXPORT bool list_parse(cs_list_parse_state &ps, cs_state &cs) {
     list_find_item(ps);
-    if (ps.input.empty()) {
+    if (ps.input_beg == ps.input_end) {
         return false;
     }
-    switch (*ps.input) {
-        case '"':
-            ps.quoted_item = ps.input;
-            ps.input = util::parse_string(cs, ps.input);
-            ps.quoted_item = ps.quoted_item.slice(
-                0, &ps.input[0] - &ps.quoted_item[0]
-            );
-            ps.item = ps.quoted_item.slice(1, ps.quoted_item.size() - 1);
+    switch (*ps.input_beg) {
+        case '"': {
+            char const *qi = ps.input_beg;
+            ps.input_beg = util::parse_string(cs, ps.get_input());
+            ps.quoted_item = std::string_view{
+                qi, std::size_t(ps.input_beg - qi)
+            };
+            ps.item = ps.quoted_item.substr(1, ps.quoted_item.size() - 2);
             break;
+        }
         case '(':
         case '[': {
-            ps.quoted_item = ps.input;
-            ++ps.input;
-            ps.item = ps.input;
-            char btype = *ps.quoted_item;
+            char btype = *ps.input_beg;
             int brak = 1;
+            char const *ibeg = ps.input_beg++;
             for (;;) {
-                ps.input = ostd::find_one_of(
-                    ps.input, ostd::string_range("\"/;()[]")
+                std::string_view chrs{"\"/;()[]"};
+                ps.input_beg = std::find_first_of(
+                    ps.input_beg, ps.input_end, chrs.begin(), chrs.end()
                 );
-                if (ps.input.empty()) {
+                if (ps.input_beg == ps.input_end) {
                     return true;
                 }
-                char c = *ps.input;
-                ++ps.input;
+                char c = *ps.input_beg++;
                 switch (c) {
                     case '"':
-                        ps.input = util::parse_string(cs, ps.input);
+                        /* the quote is needed in str parsing */
+                        --ps.input_beg;
+                        ps.input_beg = util::parse_string(cs, ps.get_input());
                         break;
                     case '/':
-                        if (!ps.input.empty() && (*ps.input == '/')) {
-                            ps.input = ostd::find(ps.input, '\n');
+                        if (
+                            (ps.input_beg != ps.input_end) &&
+                            (*ps.input_beg == '/')
+                        ) {
+                            ps.input_beg = std::find(
+                                ps.input_beg, ps.input_end, '\n'
+                            );
                         }
                         break;
                     case '(':
@@ -485,26 +492,29 @@ OSTD_EXPORT bool list_parse(cs_list_parse_state &ps, cs_state &cs) {
                 }
             }
 endblock:
-            ps.item = ps.item.slice(0, &ps.input[0] - &ps.item[0]);
-            ps.item.pop_back();
-            ps.quoted_item = ps.quoted_item.slice(
-                0, &ps.input[0] - &ps.quoted_item[0]
-            );
+            ps.item = std::string_view{
+                ibeg + 1, std::size_t(ps.input_beg - ibeg - 2)
+            };
+            ps.quoted_item = std::string_view{
+                ibeg, std::size_t(ps.input_beg - ibeg)
+            };
             break;
         }
         case ')':
         case ']':
             return false;
         default: {
-            ostd::string_range e = util::parse_word(cs, ps.input);
-            ps.quoted_item = ps.item = ps.input.slice(0, &e[0] - &ps.input[0]);
-            ps.input = e;
+            char const *e = util::parse_word(cs, ps.get_input());
+            ps.quoted_item = ps.item = std::string_view{
+                ps.input_beg, std::size_t(e - ps.input_beg)
+            };
+            ps.input_beg = e;
             break;
         }
     }
     list_find_item(ps);
-    if (!ps.input.empty() && (*ps.input == ';')) {
-        ++ps.input;
+    if ((ps.input_beg != ps.input_end) && (*ps.input_beg == ';')) {
+        ++ps.input_beg;
     }
     return true;
 }
@@ -518,7 +528,7 @@ OSTD_EXPORT std::size_t list_count(cs_list_parse_state &ps, cs_state &cs) {
 }
 
 OSTD_EXPORT cs_strref list_get_item(cs_list_parse_state &ps, cs_state &cs) {
-    if (!ps.quoted_item.empty() && (*ps.quoted_item == '"')) {
+    if (!ps.quoted_item.empty() && (ps.quoted_item.front() == '"')) {
         auto app = ostd::appender<cs_charbuf>(cs);
         util::unescape_string(app, ps.item);
         return cs_strref{cs, app.get().str()};
@@ -528,23 +538,26 @@ OSTD_EXPORT cs_strref list_get_item(cs_list_parse_state &ps, cs_state &cs) {
 
 OSTD_EXPORT void list_find_item(cs_list_parse_state &ps) {
     for (;;) {
-        while (!ps.input.empty()) {
-            char c = *ps.input;
+        while (ps.input_beg != ps.input_end) {
+            char c = *ps.input_beg;
             if ((c == ' ') || (c == '\t') || (c == '\r') || (c == '\n')) {
-                ++ps.input;
+                ++ps.input_beg;
             } else {
                 break;
             }
         }
-        if ((ps.input.size() < 2) || (ps.input[0] != '/') || (ps.input[1] != '/')) {
+        if ((ps.input_end - ps.input_beg) < 2) {
             break;
         }
-        ps.input = ostd::find(ps.input, '\n');
+        if ((ps.input_beg[0] != '/') || (ps.input_beg[1]) != '/') {
+            break;
+        }
+        ps.input_beg = std::find(ps.input_beg, ps.input_end, '\n');
     }
 }
 
 OSTD_EXPORT cs_strref value_list_concat(
-    cs_state &cs, cs_value_r vals, ostd::string_range sep
+    cs_state &cs, cs_value_r vals, std::string_view sep
 ) {
     auto app = ostd::appender<cs_charbuf>(cs);
     for (std::size_t i = 0; i < vals.size(); ++i) {
@@ -553,7 +566,9 @@ OSTD_EXPORT cs_strref value_list_concat(
             case cs_value_type::FLOAT:
             case cs_value_type::STRING: {
                 cs_value v{vals[i]};
-                ostd::range_put_all(app, cs_value{vals[i]}.force_str());
+                for (auto c: v.force_str()) {
+                    app.put(c);
+                }
                 break;
             }
             default:
@@ -562,7 +577,9 @@ OSTD_EXPORT cs_strref value_list_concat(
         if (i == (vals.size() - 1)) {
             break;
         }
-        ostd::range_put_all(app, sep);
+        for (auto c: sep) {
+            app.put(c);
+        }
     }
     return cs_strref{cs, app.get().str()};
 }

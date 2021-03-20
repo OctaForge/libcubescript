@@ -23,8 +23,8 @@ struct cs_arg_val<cs_float> {
 };
 
 template<>
-struct cs_arg_val<ostd::string_range> {
-    static ostd::string_range get(cs_value &tv) {
+struct cs_arg_val<std::string_view> {
+    static std::string_view get(cs_value &tv) {
         return tv.get_str();
     }
 };
@@ -70,7 +70,7 @@ static inline void cs_list_assoc(
 }
 
 static void cs_loop_list_conc(
-    cs_state &cs, cs_value &res, cs_ident *id, ostd::string_range list,
+    cs_state &cs, cs_value &res, cs_ident *id, std::string_view list,
     cs_bcode *body, bool space
 ) {
     cs_stacked_value idv{cs, id};
@@ -101,7 +101,7 @@ end:
 }
 
 int cs_list_includes(
-    cs_state &cs, ostd::string_range list, ostd::string_range needle
+    cs_state &cs, std::string_view list, std::string_view needle
 ) {
     int offset = 0;
     for (cs_list_parse_state p{list}; list_parse(p, cs);) {
@@ -117,8 +117,8 @@ template<bool PushList, bool Swap, typename F>
 static inline void cs_list_merge(
     cs_state &cs, cs_value_r args, cs_value &res, F cmp
 ) {
-    ostd::string_range list = args[0].get_str();
-    ostd::string_range elems = args[1].get_str();
+    std::string_view list = args[0].get_str();
+    std::string_view elems = args[1].get_str();
     cs_charbuf buf{cs};
     if (PushList) {
         buf.append(list);
@@ -153,7 +153,7 @@ void cs_init_lib_list(cs_state &gcs) {
         cs_list_parse_state p{str};
         p.item = str;
         for (size_t i = 1; i < args.size(); ++i) {
-            p.input = str;
+            p.set_input(str);
             cs_int pos = args[i].get_int();
             for (; pos > 0; --pos) {
                 if (!list_parse(p, cs)) {
@@ -161,7 +161,7 @@ void cs_init_lib_list(cs_state &gcs) {
                 }
             }
             if (pos > 0 || !list_parse(p, cs)) {
-                p.item = p.quoted_item = ostd::string_range();
+                p.item = p.quoted_item = std::string_view{};
             }
         }
         res.set_str(list_get_item(p, cs));
@@ -183,18 +183,18 @@ void cs_init_lib_list(cs_state &gcs) {
             if (offset > 0) {
                 list_find_item(p);
             }
-            res.set_str(p.input);
+            res.set_str(p.get_input());
             return;
         }
 
-        char const *list = p.input.data();
-        p.quoted_item = ostd::string_range();
+        char const *list = p.get_input().data();
+        p.quoted_item = std::string_view{};
         if (len > 0 && list_parse(p, cs)) {
             while (--len > 0 && list_parse(p, cs));
         }
-        ostd::string_range quote = p.quoted_item;
+        std::string_view quote = p.quoted_item;
         char const *qend = !quote.empty() ? &quote[quote.size()] : list;
-        res.set_str(ostd::string_range{list, qend});
+        res.set_str(std::string_view{list, std::size_t(qend - list)});
     });
 
     gcs.new_command("listfind", "rse", [](auto &cs, auto args, auto &res) {
@@ -255,8 +255,8 @@ void cs_init_lib_list(cs_state &gcs) {
         );
     });
     gcs.new_command("listfind=s", "s", [](auto &cs, auto args, auto &res) {
-        cs_list_find<ostd::string_range>(
-            cs, args, res, [](cs_list_parse_state const &p, ostd::string_range val) {
+        cs_list_find<std::string_view>(
+            cs, args, res, [](cs_list_parse_state const &p, std::string_view val) {
                 return p.item == val;
             }
         );
@@ -277,8 +277,8 @@ void cs_init_lib_list(cs_state &gcs) {
         );
     });
     gcs.new_command("listassoc=s", "s", [](auto &cs, auto args, auto &res) {
-        cs_list_assoc<ostd::string_range>(
-            cs, args, res, [](cs_list_parse_state const &p, ostd::string_range val) {
+        cs_list_assoc<std::string_view>(
+            cs, args, res, [](cs_list_parse_state const &p, std::string_view val) {
                 return p.item == val;
             }
         );
@@ -424,16 +424,16 @@ end:
 
     gcs.new_command("prettylist", "ss", [](auto &cs, auto args, auto &res) {
         auto buf = ostd::appender<cs_charbuf>(cs);
-        ostd::string_range s = args[0].get_str();
-        ostd::string_range conj = args[1].get_str();
+        std::string_view s = args[0].get_str();
+        std::string_view conj = args[1].get_str();
         cs_list_parse_state p{s};
         size_t len = list_count(p, cs);
         size_t n = 0;
-        for (p.input = s; list_parse(p, cs); ++n) {
+        for (p.set_input(s); list_parse(p, cs); ++n) {
             if (!p.quoted_item.empty() && (p.quoted_item.front() == '"')) {
                 util::unescape_string(buf, p.item);
             } else {
-                ostd::range_put_all(buf, p.item);
+                buf.get().append(p.item);
             }
             if ((n + 1) < len) {
                 if ((len > 2) || conj.empty()) {
@@ -441,7 +441,7 @@ end:
                 }
                 if ((n + 2 == len) && !conj.empty()) {
                     buf.put(' ');
-                    ostd::range_put_all(buf, conj);
+                    buf.get().append(conj);
                 }
                 buf.put(' ');
             }
@@ -468,8 +468,8 @@ end:
     gcs.new_command("listsplice", "ssii", [](auto &cs, auto args, auto &res) {
         cs_int offset = std::max(args[2].get_int(), cs_int(0));
         cs_int len    = std::max(args[3].get_int(), cs_int(0));
-        ostd::string_range s = args[0].get_str();
-        ostd::string_range vals = args[1].get_str();
+        std::string_view s = args[0].get_str();
+        std::string_view vals = args[1].get_str();
         char const *list = s.data();
         cs_list_parse_state p{s};
         for (cs_int i = 0; i < offset; ++i) {
@@ -477,7 +477,7 @@ end:
                 break;
             }
         }
-        ostd::string_range quote = p.quoted_item;
+        std::string_view quote = p.quoted_item;
         char const *qend = !quote.empty() ? &quote[quote.size()] : list;
         cs_charbuf buf{cs};
         if (qend > list) {
@@ -495,8 +495,8 @@ end:
             }
         }
         list_find_item(p);
-        if (!p.input.empty()) {
-            switch (p.input.front()) {
+        if (!p.get_input().empty()) {
+            switch (p.get_input().front()) {
                 case ')':
                 case ']':
                     break;
@@ -504,7 +504,7 @@ end:
                     if (!buf.empty()) {
                         buf.push_back(' ');
                     }
-                    buf.append(p.input);
+                    buf.append(p.get_input());
                     break;
             }
         }
@@ -515,8 +515,8 @@ end:
 }
 
 struct ListSortItem {
-    ostd::string_range str;
-    ostd::string_range quote;
+    std::string_view str;
+    std::string_view quote;
 };
 
 struct ListSortFun {
@@ -534,7 +534,7 @@ struct ListSortFun {
 };
 
 static void cs_list_sort(
-    cs_state &cs, cs_value &res, ostd::string_range list,
+    cs_state &cs, cs_value &res, std::string_view list,
     cs_ident *x, cs_ident *y, cs_bcode *body, cs_bcode *unique
 ) {
     if (x == y || !x->is_alias() || !y->is_alias()) {
@@ -575,7 +575,7 @@ static void cs_list_sort(
             for (size_t i = 1; i < items.size(); i++) {
                 ListSortItem &item = items[i];
                 if (f(items[i - 1], item)) {
-                    item.quote = nullptr;
+                    item.quote = std::string_view{};
                 } else {
                     totaluniq += item.quote.size();
                     ++nuniq;
@@ -591,7 +591,7 @@ static void cs_list_sort(
             for (size_t j = 0; j < i; ++j) {
                 ListSortItem &prev = items[j];
                 if (!prev.quote.empty() && f(item, prev)) {
-                    item.quote = nullptr;
+                    item.quote = std::string_view{};
                     break;
                 }
             }

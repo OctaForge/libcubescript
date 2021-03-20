@@ -74,8 +74,8 @@ struct OSTD_EXPORT cs_strref {
     friend inline cs_strref cs_make_strref(char const *p, cs_shared_state &cs);
 
     cs_strref() = delete;
-    cs_strref(cs_shared_state &cs, ostd::string_range str);
-    cs_strref(cs_state &cs, ostd::string_range str);
+    cs_strref(cs_shared_state &cs, std::string_view str);
+    cs_strref(cs_state &cs, std::string_view str);
 
     cs_strref(cs_strref const &ref);
 
@@ -83,17 +83,17 @@ struct OSTD_EXPORT cs_strref {
 
     cs_strref &operator=(cs_strref const &ref);
 
-    operator ostd::string_range() const;
+    operator std::string_view() const;
 
     std::size_t size() const {
-        return ostd::string_range{*this}.size();
+        return std::string_view{*this}.size();
     }
     std::size_t length() const {
-        return ostd::string_range{*this}.length();
+        return std::string_view{*this}.length();
     }
 
     char const *data() const {
-        return ostd::string_range{*this}.data();
+        return std::string_view{*this}.data();
     }
 
     bool operator==(cs_strref const &s) const;
@@ -125,7 +125,7 @@ struct OSTD_EXPORT cs_value {
 
     void set_int(cs_int val);
     void set_float(cs_float val);
-    void set_str(ostd::string_range val);
+    void set_str(std::string_view val);
     void set_str(cs_strref const &val);
     void set_none();
     void set_code(cs_bcode *val);
@@ -143,7 +143,7 @@ struct OSTD_EXPORT cs_value {
     void force_none();
     cs_float force_float();
     cs_int force_int();
-    ostd::string_range force_str();
+    std::string_view force_str();
 
     bool code_is_empty() const;
 
@@ -203,7 +203,7 @@ struct OSTD_EXPORT cs_ident {
     cs_ident &operator=(cs_ident &&) = delete;
 
     cs_ident_type get_type() const;
-    ostd::string_range get_name() const;
+    std::string_view get_name() const;
     int get_flags() const;
     int get_index() const;
 
@@ -329,7 +329,7 @@ struct OSTD_EXPORT cs_alias: cs_ident {
     void get_cval(cs_value &v) const;
 private:
     cs_alias(cs_state &cs, cs_strref n, cs_strref a, int flags);
-    cs_alias(cs_state &cs, cs_strref n, ostd::string_range a, int flags);
+    cs_alias(cs_state &cs, cs_strref n, std::string_view a, int flags);
     cs_alias(cs_state &cs, cs_strref n, cs_int a, int flags);
     cs_alias(cs_state &cs, cs_strref n, cs_float a, int flags);
     cs_alias(cs_state &cs, cs_strref n, int flags);
@@ -345,7 +345,7 @@ struct cs_command: cs_ident {
     friend struct cs_shared_state;
     friend struct cs_cmd_internal;
 
-    ostd::string_range get_args() const;
+    std::string_view get_args() const;
     int get_num_args() const;
 
 private:
@@ -431,58 +431,58 @@ struct OSTD_EXPORT cs_state {
     void clear_override(cs_ident &id);
     void clear_overrides();
 
-    cs_ident *new_ident(ostd::string_range name, int flags = CS_IDF_UNKNOWN);
+    cs_ident *new_ident(std::string_view name, int flags = CS_IDF_UNKNOWN);
     cs_ident *force_ident(cs_value &v);
 
     cs_ivar *new_ivar(
-        ostd::string_range n, cs_int m, cs_int x, cs_int v,
+        std::string_view n, cs_int m, cs_int x, cs_int v,
         cs_var_cb f = cs_var_cb(), int flags = 0
     );
     cs_fvar *new_fvar(
-        ostd::string_range n, cs_float m, cs_float x, cs_float v,
+        std::string_view n, cs_float m, cs_float x, cs_float v,
         cs_var_cb f = cs_var_cb(), int flags = 0
     );
     cs_svar *new_svar(
-        ostd::string_range n, ostd::string_range v,
+        std::string_view n, std::string_view v,
         cs_var_cb f = cs_var_cb(), int flags = 0
     );
 
     cs_command *new_command(
-        ostd::string_range name, ostd::string_range args, cs_command_cb func
+        std::string_view name, std::string_view args, cs_command_cb func
     );
 
-    cs_ident *get_ident(ostd::string_range name);
-    cs_alias *get_alias(ostd::string_range name);
-    bool have_ident(ostd::string_range name);
+    cs_ident *get_ident(std::string_view name);
+    cs_alias *get_alias(std::string_view name);
+    bool have_ident(std::string_view name);
 
     cs_ident_r get_idents();
     cs_const_ident_r get_idents() const;
 
-    void reset_var(ostd::string_range name);
-    void touch_var(ostd::string_range name);
+    void reset_var(std::string_view name);
+    void touch_var(std::string_view name);
 
     cs_strref run_str(cs_bcode *code);
-    cs_strref run_str(ostd::string_range code);
+    cs_strref run_str(std::string_view code);
     cs_strref run_str(cs_ident *id, cs_value_r args);
 
     cs_int run_int(cs_bcode *code);
-    cs_int run_int(ostd::string_range code);
+    cs_int run_int(std::string_view code);
     cs_int run_int(cs_ident *id, cs_value_r args);
 
     cs_float run_float(cs_bcode *code);
-    cs_float run_float(ostd::string_range code);
+    cs_float run_float(std::string_view code);
     cs_float run_float(cs_ident *id, cs_value_r args);
 
     bool run_bool(cs_bcode *code);
-    bool run_bool(ostd::string_range code);
+    bool run_bool(std::string_view code);
     bool run_bool(cs_ident *id, cs_value_r args);
 
     void run(cs_bcode *code, cs_value &ret);
-    void run(ostd::string_range code, cs_value &ret);
+    void run(std::string_view code, cs_value &ret);
     void run(cs_ident *id, cs_value_r args, cs_value &ret);
 
     void run(cs_bcode *code);
-    void run(ostd::string_range code);
+    void run(std::string_view code);
     void run(cs_ident *id, cs_value_r args);
 
     cs_loop_state run_loop(cs_bcode *code, cs_value &ret);
@@ -492,43 +492,43 @@ struct OSTD_EXPORT cs_state {
         return p_inloop;
     }
 
-    std::optional<cs_strref> run_file_str(ostd::string_range fname);
-    std::optional<cs_int> run_file_int(ostd::string_range fname);
-    std::optional<cs_float> run_file_float(ostd::string_range fname);
-    std::optional<bool> run_file_bool(ostd::string_range fname);
-    bool run_file(ostd::string_range fname, cs_value &ret);
-    bool run_file(ostd::string_range fname);
+    std::optional<cs_strref> run_file_str(std::string_view fname);
+    std::optional<cs_int> run_file_int(std::string_view fname);
+    std::optional<cs_float> run_file_float(std::string_view fname);
+    std::optional<bool> run_file_bool(std::string_view fname);
+    bool run_file(std::string_view fname, cs_value &ret);
+    bool run_file(std::string_view fname);
 
-    void set_alias(ostd::string_range name, cs_value v);
+    void set_alias(std::string_view name, cs_value v);
 
     void set_var_int(
-        ostd::string_range name, cs_int v,
+        std::string_view name, cs_int v,
         bool dofunc = true, bool doclamp = true
     );
     void set_var_float(
-        ostd::string_range name, cs_float v,
+        std::string_view name, cs_float v,
         bool dofunc  = true, bool doclamp = true
     );
     void set_var_str(
-        ostd::string_range name, ostd::string_range v, bool dofunc = true
+        std::string_view name, std::string_view v, bool dofunc = true
     );
 
     void set_var_int_checked(cs_ivar *iv, cs_int v);
     void set_var_int_checked(cs_ivar *iv, cs_value_r args);
     void set_var_float_checked(cs_fvar *fv, cs_float v);
-    void set_var_str_checked(cs_svar *fv, ostd::string_range v);
+    void set_var_str_checked(cs_svar *fv, std::string_view v);
 
-    std::optional<cs_int> get_var_int(ostd::string_range name);
-    std::optional<cs_float> get_var_float(ostd::string_range name);
-    std::optional<cs_strref> get_var_str(ostd::string_range name);
+    std::optional<cs_int> get_var_int(std::string_view name);
+    std::optional<cs_float> get_var_float(std::string_view name);
+    std::optional<cs_strref> get_var_str(std::string_view name);
 
-    std::optional<cs_int> get_var_min_int(ostd::string_range name);
-    std::optional<cs_int> get_var_max_int(ostd::string_range name);
+    std::optional<cs_int> get_var_min_int(std::string_view name);
+    std::optional<cs_int> get_var_max_int(std::string_view name);
 
-    std::optional<cs_float> get_var_min_float(ostd::string_range name);
-    std::optional<cs_float> get_var_max_float(ostd::string_range name);
+    std::optional<cs_float> get_var_min_float(std::string_view name);
+    std::optional<cs_float> get_var_max_float(std::string_view name);
 
-    std::optional<cs_strref> get_alias_val(ostd::string_range name);
+    std::optional<cs_strref> get_alias_val(std::string_view name);
 
     void print_var(cs_var const &v) const;
 
@@ -582,7 +582,7 @@ struct cs_error {
         p_errmsg(v.p_errmsg), p_stack(std::move(v.p_stack))
     {}
 
-    ostd::string_range what() const {
+    std::string_view what() const {
         return p_errmsg;
     }
 
@@ -594,7 +594,7 @@ struct cs_error {
         return p_stack;
     }
 
-    cs_error(cs_state &cs, ostd::string_range msg):
+    cs_error(cs_state &cs, std::string_view msg):
         p_errmsg(), p_stack(cs)
     {
         p_errmsg = save_msg(cs, msg);
@@ -602,7 +602,7 @@ struct cs_error {
     }
 
     template<typename ...A>
-    cs_error(cs_state &cs, ostd::string_range msg, A &&...args):
+    cs_error(cs_state &cs, std::string_view msg, A &&...args):
         p_errmsg(), p_stack(cs)
     {
         try {
@@ -620,9 +620,9 @@ struct cs_error {
 
 private:
     cs_stack_state save_stack(cs_state &cs);
-    ostd::string_range save_msg(cs_state &cs, ostd::string_range v);
+    std::string_view save_msg(cs_state &cs, std::string_view v);
 
-    ostd::string_range p_errmsg;
+    std::string_view p_errmsg;
     cs_stack_state p_stack;
 };
 
@@ -652,12 +652,23 @@ private:
     bool p_pushed;
 };
 
-struct cs_list_parse_state {
-    cs_list_parse_state(ostd::string_range s = ostd::string_range{}): input{s} {}
+struct OSTD_EXPORT cs_list_parse_state {
+    cs_list_parse_state(std::string_view s = std::string_view{}):
+        input_beg{s.data()}, input_end{s.data() + s.size()}
+     {}
 
-    ostd::string_range input{};
-    ostd::string_range item{};
-    ostd::string_range quoted_item{};
+    void set_input(std::string_view s) {
+        input_beg = s.data();
+        input_end = s.data() + s.size();
+    }
+
+    std::string_view get_input() const {
+        return std::string_view{input_beg, std::size_t(input_end - input_beg)};
+    }
+
+    char const *input_beg, *input_end;
+    std::string_view item{};
+    std::string_view quoted_item{};
 };
 
 OSTD_EXPORT bool list_parse(cs_list_parse_state &ps, cs_state &cs);
@@ -666,16 +677,16 @@ OSTD_EXPORT cs_strref list_get_item(cs_list_parse_state &ps, cs_state &cs);
 OSTD_EXPORT void list_find_item(cs_list_parse_state &ps);
 
 OSTD_EXPORT cs_strref value_list_concat(
-    cs_state &cs, cs_value_r vals, ostd::string_range sep = ostd::string_range{}
+    cs_state &cs, cs_value_r vals, std::string_view sep = std::string_view{}
 );
 
 namespace util {
     template<typename R>
-    inline R &&escape_string(R &&writer, ostd::string_range str) {
+    inline R &&escape_string(R &&writer, std::string_view str) {
         using namespace ostd::string_literals;
         writer.put('"');
-        for (; !str.empty(); str.pop_front()) {
-            switch (str.front()) {
+        for (auto c: str) {
+            switch (c) {
                 case '\n':
                     ostd::range_put_all(writer, "^n"_sr);
                     break;
@@ -692,7 +703,7 @@ namespace util {
                     ostd::range_put_all(writer, "^^"_sr);
                     break;
                 default:
-                    writer.put(str.front());
+                    writer.put(c);
                     break;
             }
         }
@@ -701,14 +712,14 @@ namespace util {
     }
 
     template<typename R>
-    inline R &&unescape_string(R &&writer, ostd::string_range str) {
-        for (; !str.empty(); str.pop_front()) {
-            if (str.front() == '^') {
-                str.pop_front();
-                if (str.empty()) {
+    inline R &&unescape_string(R &&writer, std::string_view str) {
+        for (auto it = str.begin(); it != str.end(); ++it) {
+            if (*it == '^') {
+                ++it;
+                if (it == str.end()) {
                     break;
                 }
-                switch (str.front()) {
+                switch (*it) {
                     case 'n':
                         writer.put('\n');
                         break;
@@ -725,18 +736,20 @@ namespace util {
                         writer.put('^');
                         break;
                     default:
-                        writer.put(str.front());
+                        writer.put(*it);
                         break;
                 }
-            } else if (str.front() == '\\') {
-                str.pop_front();
-                if (str.empty()) {
+            } else if (*it == '\\') {
+                ++it;
+                if (it == str.end()) {
                     break;
                 }
-                char c = str.front();
+                char c = *it;
                 if ((c == '\r') || (c == '\n')) {
-                    if (!str.empty() && (c == '\r') && (str.front() == '\n')) {
-                        str.pop_front();
+                    if ((c == '\r') && ((it + 1) != str.end())) {
+                        if (it[1] == '\n') {
+                            ++it;
+                        }
                     }
                     continue;
                 }
@@ -748,20 +761,18 @@ namespace util {
         return std::forward<R>(writer);
     }
 
-    OSTD_EXPORT ostd::string_range parse_string(
-        cs_state &cs, ostd::string_range str, size_t &nlines
+    OSTD_EXPORT char const *parse_string(
+        cs_state &cs, std::string_view str, size_t &nlines
     );
 
-    inline ostd::string_range parse_string(
-        cs_state &cs, ostd::string_range str
+    inline char const *parse_string(
+        cs_state &cs, std::string_view str
     ) {
         size_t nlines;
         return parse_string(cs, str, nlines);
     }
 
-    OSTD_EXPORT ostd::string_range parse_word(
-        cs_state &cs, ostd::string_range str
-    );
+    OSTD_EXPORT char const *parse_word(cs_state &cs, std::string_view str);
 
     template<typename R>
     inline void print_stack(R &&writer, cs_stack_state const &st) {

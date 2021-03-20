@@ -8,13 +8,15 @@
 
 namespace cscript {
 
-ostd::string_range cs_gen_state::get_str() {
+std::string_view cs_gen_state::get_str() {
     size_t nl;
-    ostd::string_range beg = source;
-    source = util::parse_string(cs, source, nl);
+    char const *beg = source;
+    source = util::parse_string(
+        cs, std::string_view{source, std::size_t(send - source)}, nl
+    );
     current_line += nl - 1;
-    ostd::string_range ret = beg.slice(0, &source[0] - &beg[0]);
-    return ret.slice(1, ret.size() - 1);
+    auto ret = std::string_view{beg, std::size_t(source - beg)};
+    return ret.substr(1, ret.size() - 2);
 }
 
 cs_charbuf cs_gen_state::get_str_dup() {
@@ -24,21 +26,21 @@ cs_charbuf cs_gen_state::get_str_dup() {
     return std::move(app.get());
 }
 
-ostd::string_range cs_gen_state::read_macro_name() {
-    auto op = source;
+std::string_view cs_gen_state::read_macro_name() {
+    char const *op = source;
     char c = current();
     if (!isalpha(c) && (c != '_')) {
-        return nullptr;
+        return std::string_view{};
     }
     for (; isalnum(c) || (c == '_'); c = current()) {
         next_char();
     }
-    return op.slice(0, &source[0] - &op[0]);
+    return std::string_view{op, std::size_t(source - op)};
 }
 
-char cs_gen_state::skip_until(ostd::string_range chars) {
+char cs_gen_state::skip_until(std::string_view chars) {
     char c = current();
-    while (c && ostd::find(chars, c).empty()) {
+    while (c && (chars.find(c) == std::string_view::npos)) {
         next_char();
         c = current();
     }
@@ -88,10 +90,12 @@ void cs_gen_state::skip_comments() {
     }
 }
 
-ostd::string_range cs_gen_state::get_word() {
-    auto beg = source;
-    source = util::parse_word(cs, source);
-    return beg.slice(0, &source[0] - &beg[0]);
+std::string_view cs_gen_state::get_word() {
+    char const *beg = source;
+    source = util::parse_word(
+        cs, std::string_view{source, std::size_t(send - source)}
+    );
+    return std::string_view{beg, std::size_t(source - beg)};
 }
 
 static inline int cs_ret_code(int type, int def = 0) {
@@ -104,20 +108,20 @@ static inline int cs_ret_code(int type, int def = 0) {
 static void compilestatements(
     cs_gen_state &gs, int rettype, int brak = '\0', int prevargs = 0
 );
-static inline std::pair<ostd::string_range, size_t> compileblock(
-    cs_gen_state &gs, ostd::string_range p, size_t line,
+static inline std::pair<std::string_view, size_t> compileblock(
+    cs_gen_state &gs, std::string_view p, size_t line,
     int rettype = CS_RET_NULL, int brak = '\0'
 );
 
-void cs_gen_state::gen_int(ostd::string_range word) {
+void cs_gen_state::gen_int(std::string_view word) {
     gen_int(cs_parse_int(word));
 }
 
-void cs_gen_state::gen_float(ostd::string_range word) {
+void cs_gen_state::gen_float(std::string_view word) {
     gen_float(cs_parse_float(word));
 }
 
-void cs_gen_state::gen_value(int wordtype, ostd::string_range word, int line) {
+void cs_gen_state::gen_value(int wordtype, std::string_view word, int line) {
     switch (wordtype) {
         case CS_VAL_ANY:
             if (!word.empty()) {
@@ -157,22 +161,24 @@ static inline void compileblock(cs_gen_state &gs) {
     gs.code.push_back(CS_CODE_EMPTY);
 }
 
-static inline std::pair<ostd::string_range, size_t> compileblock(
-    cs_gen_state &gs, ostd::string_range p, size_t line, int rettype, int brak
+static inline std::pair<std::string_view, size_t> compileblock(
+    cs_gen_state &gs, std::string_view p, size_t line, int rettype, int brak
 ) {
     size_t start = gs.code.size();
     gs.code.push_back(CS_CODE_BLOCK);
     gs.code.push_back(CS_CODE_OFFSET | ((start + 2) << 8));
     size_t retline = line;
-    if (p) {
-        ostd::string_range op = gs.source;
+    if (!p.empty()) {
+        char const *op = gs.source, *oe = gs.send;
         size_t oldline = gs.current_line;
-        gs.source = p;
+        gs.source = p.data();
+        gs.send = p.data() + p.size();
         gs.current_line = line;
         compilestatements(gs, CS_VAL_ANY, brak);
-        p = gs.source;
+        p = std::string_view{gs.source, std::size_t(gs.send - gs.source)};
         retline = gs.current_line;
         gs.source = op;
+        gs.send = oe;
         gs.current_line = oldline;
     }
     if (gs.code.size() > start + 2) {
@@ -323,7 +329,7 @@ lookupid:
                                     numargs++;
                                     break;
                                 case 's':
-                                    gs.gen_str(ostd::string_range());
+                                    gs.gen_str(std::string_view{});
                                     numargs++;
                                     break;
                                 case 'i':
@@ -452,44 +458,44 @@ invalid:
     }
 }
 
-static bool compileblockstr(cs_gen_state &gs, ostd::string_range str) {
+static bool compileblockstr(cs_gen_state &gs, char const *str, char const *send) {
     int startc = gs.code.size();
     gs.code.push_back(CS_CODE_VAL | CS_RET_STRING);
-    gs.code.reserve(gs.code.size() + str.size() / sizeof(uint32_t) + 1);
-    char *buf = new char[(str.size() / sizeof(uint32_t) + 1) * sizeof(uint32_t)];
+    gs.code.reserve(gs.code.size() + (send - str) / sizeof(uint32_t) + 1);
+    char *buf = new char[((send - str) / sizeof(uint32_t) + 1) * sizeof(uint32_t)];
     int len = 0;
-    while (!str.empty()) {
-        char const *p = str.data();
-        str = ostd::find_one_of(str, ostd::string_range("\r/\"@]"));
-        memcpy(&buf[len], p, str.data() - p);
-        len += str.data() - p;
-        if (str.empty()) {
+    for (auto it = str; it != send; ++it) {
+        char const *p = it;
+        std::string_view chrs{"\r/\"@]"};
+        it = std::find_first_of(it, send, chrs.begin(), chrs.end());
+        memcpy(&buf[len], p, std::size_t(it - p));
+        len += (it - p);
+        if (it == send) {
             goto done;
         }
-        switch (str.front()) {
+        switch (*it) {
             case '\r':
-                str.pop_front();
+                ++it;
                 break;
             case '\"': {
-                auto start = str;
-                str = util::parse_string(gs.cs, str);
-                auto strr = start.slice(0, &str[0] - &start[0]);
-                memcpy(&buf[len], strr.data(), strr.size());
-                len += strr.size();
+                char const *start = it;
+                it = util::parse_string(
+                    gs.cs, std::string_view{it, std::size_t(send - it)}
+                );
+                memcpy(&buf[len], start, std::size_t(it - start));
+                len += (it - start);
                 break;
             }
             case '/':
-                if (str[1] == '/') {
-                    str = ostd::find(str, '\n');
+                if (((it + 1) != send) && it[1] == '/') {
+                    it = std::find(it, send, '\n');
                 } else {
-                    buf[len++] = str.front();
-                    str.pop_front();
+                    buf[len++] = *it++;
                 }
                 break;
             case '@':
             case ']':
-                buf[len++] = str.front();
-                str.pop_front();
+                buf[len++] = *it++;
                 break;
         }
     }
@@ -561,7 +567,7 @@ done:
 }
 
 static void compileblockmain(cs_gen_state &gs, int wordtype, int prevargs) {
-    char const *start = gs.source.data();
+    char const *start = gs.source;
     size_t curline = gs.current_line;
     int concs = 0;
     for (int brak = 1; brak;) {
@@ -587,7 +593,7 @@ static void compileblockmain(cs_gen_state &gs, int wordtype, int prevargs) {
                 brak--;
                 break;
             case '@': {
-                char const *esc = gs.source.data();
+                char const *esc = gs.source;
                 int level = 0;
                 while (gs.current() == '@') {
                     ++level;
@@ -606,14 +612,14 @@ static void compileblockmain(cs_gen_state &gs, int wordtype, int prevargs) {
                     gs.code.push_back(CS_CODE_CONC_W | CS_RET_STRING | (concs << 8));
                     concs = 1;
                 }
-                if (compileblockstr(gs, ostd::string_range(start, esc))) {
+                if (compileblockstr(gs, start, esc)) {
                     concs++;
                 }
                 if (compileblocksub(gs, prevargs + concs)) {
                     concs++;
                 }
                 if (concs) {
-                    start = gs.source.data();
+                    start = gs.source;
                     curline = gs.current_line;
                 } else if (prevargs >= MaxResults) {
                     gs.code.pop_back();
@@ -625,26 +631,29 @@ static void compileblockmain(cs_gen_state &gs, int wordtype, int prevargs) {
                 break;
         }
     }
-    if (gs.source.data() - 1 > start) {
+    if (gs.source - 1 > start) {
         if (!concs) {
             switch (wordtype) {
                 case CS_VAL_POP:
                     return;
                 case CS_VAL_CODE:
                 case CS_VAL_COND: {
-                    auto ret = compileblock(gs, ostd::string_range(
-                        start, gs.source.data() + gs.source.size()
-                    ), curline, CS_RET_NULL, ']');
-                    gs.source = ret.first;
+                    auto ret = compileblock(gs, std::string_view{
+                        start, std::size_t(gs.send - start)
+                    }, curline, CS_RET_NULL, ']');
+                    gs.source = ret.first.data();
+                    gs.send = ret.first.data() + ret.first.size();
                     gs.current_line = ret.second;
                     return;
                 }
                 case CS_VAL_IDENT:
-                    gs.gen_ident(ostd::string_range(start, gs.source.data() - 1));
+                    gs.gen_ident(std::string_view{
+                        start, std::size_t((gs.source - 1) - start)
+                    });
                     return;
             }
         }
-        compileblockstr(gs, ostd::string_range(start, gs.source.data() - 1));
+        compileblockstr(gs, start, gs.source - 1);
         if (concs > 1) {
             concs++;
         }
@@ -659,26 +668,26 @@ static void compileblockmain(cs_gen_state &gs, int wordtype, int prevargs) {
     }
     switch (wordtype) {
         case CS_VAL_POP:
-            if (concs || gs.source.data() - 1 > start) {
+            if (concs || gs.source - 1 > start) {
                 gs.code.push_back(CS_CODE_POP);
             }
             break;
         case CS_VAL_COND:
-            if (!concs && gs.source.data() - 1 <= start) {
+            if (!concs && gs.source - 1 <= start) {
                 gs.gen_null();
             } else {
                 gs.code.push_back(CS_CODE_COND);
             }
             break;
         case CS_VAL_CODE:
-            if (!concs && gs.source.data() - 1 <= start) {
+            if (!concs && gs.source - 1 <= start) {
                 compileblock(gs);
             } else {
                 gs.code.push_back(CS_CODE_COMPILE);
             }
             break;
         case CS_VAL_IDENT:
-            if (!concs && gs.source.data() - 1 <= start) {
+            if (!concs && gs.source - 1 <= start) {
                 gs.gen_ident();
             } else {
                 gs.code.push_back(CS_CODE_IDENT_U);
@@ -688,13 +697,13 @@ static void compileblockmain(cs_gen_state &gs, int wordtype, int prevargs) {
         case CS_VAL_NULL:
         case CS_VAL_ANY:
         case CS_VAL_WORD:
-            if (!concs && gs.source.data() - 1 <= start) {
+            if (!concs && gs.source - 1 <= start) {
                 gs.gen_str();
             }
             break;
         default:
             if (!concs) {
-                if (gs.source.data() - 1 <= start) {
+                if (gs.source - 1 <= start) {
                     gs.gen_value(wordtype);
                 } else {
                     gs.code.push_back(CS_CODE_FORCE | (wordtype << CS_CODE_RET));
@@ -837,8 +846,8 @@ static void compile_cmd(
     int comtype = CS_CODE_COM, numargs = 0, fakeargs = 0;
     bool rep = false;
     auto fmt = id->get_args();
-    for (; !fmt.empty(); ++fmt) {
-        switch (*fmt) {
+    for (auto it = fmt.begin(); it != fmt.end(); ++it) {
+        switch (*it) {
             case 's': /* string */
                 if (more) {
                     more = compilearg(gs, CS_VAL_STRING, prevargs + numargs);
@@ -847,9 +856,9 @@ static void compile_cmd(
                     if (rep) {
                         break;
                     }
-                    gs.gen_str(ostd::string_range());
+                    gs.gen_str(std::string_view{});
                     fakeargs++;
-                } else if (fmt.size() == 1) {
+                } else if ((it + 1) == fmt.end()) {
                     int numconc = 1;
                     while ((numargs + numconc) < MaxArguments) {
                         more = compilearg(
@@ -1010,8 +1019,8 @@ static void compile_cmd(
             case '3':
             case '4':
                 if (more && (numargs < MaxArguments)) {
-                    int numrep = -int(*fmt) + '0' - 1;
-                    fmt = ostd::string_range{&fmt[numrep], &fmt[fmt.size()]};
+                    int numrep = *it - '0' + 1;
+                    it -= numrep;
                     rep = true;
                 } else {
                     while (numargs > MaxArguments) {
@@ -1298,7 +1307,7 @@ noid:
                 }
                 switch (rettype) {
                     case CS_VAL_ANY: {
-                        ostd::string_range end = idname.str_term();
+                        std::string_view end = idname.str_term();
                         cs_int val = cs_parse_int(end, &end);
                         if (!end.empty()) {
                             gs.gen_str(idname.str_term());
@@ -1441,8 +1450,9 @@ endstatement:
     }
 }
 
-void cs_gen_state::gen_main(ostd::string_range s, int ret_type) {
-    source = s;
+void cs_gen_state::gen_main(std::string_view s, int ret_type) {
+    source = s.data();
+    send = s.data() + s.size();
     code.push_back(CS_CODE_START);
     compilestatements(*this, CS_VAL_ANY);
     code.push_back(CS_CODE_EXIT | ((ret_type < CS_VAL_ANY) ? (ret_type << CS_CODE_RET) : 0));

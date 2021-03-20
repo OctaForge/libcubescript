@@ -3,7 +3,7 @@
 
 namespace cscript {
 
-bool cs_check_num(ostd::string_range s) {
+bool cs_check_num(std::string_view s) {
     if (isdigit(s[0])) {
         return true;
     }
@@ -51,7 +51,7 @@ cs_alias::cs_alias(cs_state &cs, cs_strref name, cs_strref a, int fl):
 {
     p_val.set_str(a);
 }
-cs_alias::cs_alias(cs_state &cs, cs_strref name, ostd::string_range a, int fl):
+cs_alias::cs_alias(cs_state &cs, cs_strref name, std::string_view a, int fl):
     cs_ident(cs_ident_type::ALIAS, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
@@ -236,7 +236,7 @@ void cs_svar::set_value(cs_strref val) {
     p_storage = val;
 }
 
-ostd::string_range cs_command::get_args() const {
+std::string_view cs_command::get_args() const {
     return p_cargs;
 }
 
@@ -338,7 +338,7 @@ cs_state::cs_state(cs_alloc_cb func, void *data):
         }
     })->p_type = CsIdOr;
 
-    new_command("local", nullptr, nullptr)->p_type = CsIdLocal;
+    new_command("local", "", nullptr)->p_type = CsIdLocal;
 
     new_command("break", "", [](auto &cs, auto, auto &) {
         if (cs.is_in_loop()) {
@@ -467,7 +467,7 @@ OSTD_EXPORT cs_ident *cs_state::add_ident(cs_ident *id) {
     return p_state->identmap.back();
 }
 
-OSTD_EXPORT cs_ident *cs_state::new_ident(ostd::string_range name, int flags) {
+OSTD_EXPORT cs_ident *cs_state::new_ident(std::string_view name, int flags) {
     cs_ident *id = get_ident(name);
     if (!id) {
         if (cs_check_num(name)) {
@@ -498,7 +498,7 @@ OSTD_EXPORT cs_ident *cs_state::force_ident(cs_value &v) {
     return p_state->identmap[DummyIdx];
 }
 
-OSTD_EXPORT cs_ident *cs_state::get_ident(ostd::string_range name) {
+OSTD_EXPORT cs_ident *cs_state::get_ident(std::string_view name) {
     auto id = p_state->idents.find(name);
     if (id != p_state->idents.end()) {
         return id->second;
@@ -506,7 +506,7 @@ OSTD_EXPORT cs_ident *cs_state::get_ident(ostd::string_range name) {
     return nullptr;
 }
 
-OSTD_EXPORT cs_alias *cs_state::get_alias(ostd::string_range name) {
+OSTD_EXPORT cs_alias *cs_state::get_alias(std::string_view name) {
     auto id = get_ident(name);
     if (!id || !id->is_alias()) {
         return nullptr;
@@ -514,7 +514,7 @@ OSTD_EXPORT cs_alias *cs_state::get_alias(ostd::string_range name) {
     return static_cast<cs_alias *>(id);
 }
 
-OSTD_EXPORT bool cs_state::have_ident(ostd::string_range name) {
+OSTD_EXPORT bool cs_state::have_ident(std::string_view name) {
     return p_state->idents.find(name) != p_state->idents.end();
 }
 
@@ -531,7 +531,7 @@ OSTD_EXPORT cs_const_ident_r cs_state::get_idents() const {
 }
 
 OSTD_EXPORT cs_ivar *cs_state::new_ivar(
-    ostd::string_range n, cs_int m, cs_int x, cs_int v, cs_var_cb f, int flags
+    std::string_view n, cs_int m, cs_int x, cs_int v, cs_var_cb f, int flags
 ) {
     return add_ident(p_state->create<cs_ivar>(
         cs_strref{*p_state, n}, m, x, v, std::move(f), flags
@@ -539,7 +539,7 @@ OSTD_EXPORT cs_ivar *cs_state::new_ivar(
 }
 
 OSTD_EXPORT cs_fvar *cs_state::new_fvar(
-    ostd::string_range n, cs_float m, cs_float x, cs_float v, cs_var_cb f, int flags
+    std::string_view n, cs_float m, cs_float x, cs_float v, cs_var_cb f, int flags
 ) {
     return add_ident(p_state->create<cs_fvar>(
         cs_strref{*p_state, n}, m, x, v, std::move(f), flags
@@ -547,7 +547,7 @@ OSTD_EXPORT cs_fvar *cs_state::new_fvar(
 }
 
 OSTD_EXPORT cs_svar *cs_state::new_svar(
-    ostd::string_range n, ostd::string_range v, cs_var_cb f, int flags
+    std::string_view n, std::string_view v, cs_var_cb f, int flags
 ) {
     return add_ident(p_state->create<cs_svar>(
         cs_strref{*p_state, n}, cs_strref{*p_state, v},
@@ -555,7 +555,7 @@ OSTD_EXPORT cs_svar *cs_state::new_svar(
     ))->get_svar();
 }
 
-OSTD_EXPORT void cs_state::reset_var(ostd::string_range name) {
+OSTD_EXPORT void cs_state::reset_var(std::string_view name) {
     cs_ident *id = get_ident(name);
     if (!id) {
         throw cs_error(*this, "variable %s does not exist", name);
@@ -566,14 +566,14 @@ OSTD_EXPORT void cs_state::reset_var(ostd::string_range name) {
     clear_override(*id);
 }
 
-OSTD_EXPORT void cs_state::touch_var(ostd::string_range name) {
+OSTD_EXPORT void cs_state::touch_var(std::string_view name) {
     cs_ident *id = get_ident(name);
     if (id && id->is_var()) {
         static_cast<cs_var *>(id)->changed(*this);
     }
 }
 
-OSTD_EXPORT void cs_state::set_alias(ostd::string_range name, cs_value v) {
+OSTD_EXPORT void cs_state::set_alias(std::string_view name, cs_value v) {
     cs_ident *id = get_ident(name);
     if (id) {
         switch (id->get_type()) {
@@ -638,7 +638,7 @@ cs_ident_type cs_ident::get_type() const {
     return cs_ident_type(p_type);
 }
 
-ostd::string_range cs_ident::get_name() const {
+std::string_view cs_ident::get_name() const {
     return p_name;
 }
 
@@ -670,7 +670,7 @@ static inline void cs_override_var(cs_state &cs, cs_var *v, int &vflags, SF sf) 
 }
 
 OSTD_EXPORT void cs_state::set_var_int(
-    ostd::string_range name, cs_int v, bool dofunc, bool doclamp
+    std::string_view name, cs_int v, bool dofunc, bool doclamp
 ) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
@@ -692,7 +692,7 @@ OSTD_EXPORT void cs_state::set_var_int(
 }
 
 OSTD_EXPORT void cs_state::set_var_float(
-    ostd::string_range name, cs_float v, bool dofunc, bool doclamp
+    std::string_view name, cs_float v, bool dofunc, bool doclamp
 ) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
@@ -714,7 +714,7 @@ OSTD_EXPORT void cs_state::set_var_float(
 }
 
 OSTD_EXPORT void cs_state::set_var_str(
-    ostd::string_range name, ostd::string_range v, bool dofunc
+    std::string_view name, std::string_view v, bool dofunc
 ) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_svar()) {
@@ -732,7 +732,7 @@ OSTD_EXPORT void cs_state::set_var_str(
 }
 
 OSTD_EXPORT std::optional<cs_int>
-cs_state::get_var_int(ostd::string_range name) {
+cs_state::get_var_int(std::string_view name) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return std::nullopt;
@@ -741,7 +741,7 @@ cs_state::get_var_int(ostd::string_range name) {
 }
 
 OSTD_EXPORT std::optional<cs_float>
-cs_state::get_var_float(ostd::string_range name) {
+cs_state::get_var_float(std::string_view name) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return std::nullopt;
@@ -750,7 +750,7 @@ cs_state::get_var_float(ostd::string_range name) {
 }
 
 OSTD_EXPORT std::optional<cs_strref>
-cs_state::get_var_str(ostd::string_range name) {
+cs_state::get_var_str(std::string_view name) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_svar()) {
         return std::nullopt;
@@ -759,7 +759,7 @@ cs_state::get_var_str(ostd::string_range name) {
 }
 
 OSTD_EXPORT std::optional<cs_int>
-cs_state::get_var_min_int(ostd::string_range name) {
+cs_state::get_var_min_int(std::string_view name) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return std::nullopt;
@@ -768,7 +768,7 @@ cs_state::get_var_min_int(ostd::string_range name) {
 }
 
 OSTD_EXPORT std::optional<cs_int>
-cs_state::get_var_max_int(ostd::string_range name) {
+cs_state::get_var_max_int(std::string_view name) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return std::nullopt;
@@ -777,7 +777,7 @@ cs_state::get_var_max_int(ostd::string_range name) {
 }
 
 OSTD_EXPORT std::optional<cs_float>
-cs_state::get_var_min_float(ostd::string_range name) {
+cs_state::get_var_min_float(std::string_view name) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return std::nullopt;
@@ -786,7 +786,7 @@ cs_state::get_var_min_float(ostd::string_range name) {
 }
 
 OSTD_EXPORT std::optional<cs_float>
-cs_state::get_var_max_float(ostd::string_range name) {
+cs_state::get_var_max_float(std::string_view name) {
     cs_ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return std::nullopt;
@@ -795,7 +795,7 @@ cs_state::get_var_max_float(ostd::string_range name) {
 }
 
 OSTD_EXPORT std::optional<cs_strref>
-cs_state::get_alias_val(ostd::string_range name) {
+cs_state::get_alias_val(std::string_view name) {
     cs_alias *a = get_alias(name);
     if (!a) {
         return std::nullopt;
@@ -891,7 +891,7 @@ OSTD_EXPORT void cs_state::set_var_float_checked(cs_fvar *fv, cs_float v) {
 }
 
 OSTD_EXPORT void cs_state::set_var_str_checked(
-    cs_svar *sv, ostd::string_range v
+    cs_svar *sv, std::string_view v
 ) {
     if (sv->get_flags() & CS_IDF_READONLY) {
         throw cs_error(
@@ -907,10 +907,10 @@ OSTD_EXPORT void cs_state::set_var_str_checked(
 }
 
 OSTD_EXPORT cs_command *cs_state::new_command(
-    ostd::string_range name, ostd::string_range args, cs_command_cb func
+    std::string_view name, std::string_view args, cs_command_cb func
 ) {
     int nargs = 0;
-    for (ostd::string_range fmt(args); !fmt.empty(); ++fmt) {
+    for (auto fmt = args.begin(); fmt != args.end(); ++fmt) {
         switch (*fmt) {
             case 'i':
             case 'b':
@@ -935,16 +935,19 @@ OSTD_EXPORT cs_command *cs_state::new_command(
                 if (nargs < (*fmt - '0')) {
                     return nullptr;
                 }
-                if ((fmt.size() != 2) || ((fmt[1] != 'C') && (fmt[1] != 'V'))) {
+                if ((args.end() - fmt) != 2) {
+                    return nullptr;
+                }
+                if ((fmt[1] != 'C') && (fmt[1] != 'V')) {
                     return nullptr;
                 }
                 if (nargs < MaxArguments) {
-                    fmt = ostd::string_range{&fmt[-int(*fmt) + '0' - 1], &fmt[fmt.size()]};
+                    fmt -= *fmt - '0' + 1;
                 }
                 break;
             case 'C':
             case 'V':
-                if (fmt.size() != 1) {
+                if ((fmt + 1) != args.end()) {
                     return nullptr;
                 }
                 break;

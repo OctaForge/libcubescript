@@ -107,11 +107,11 @@ cs_stack_state cs_error::save_stack(cs_state &cs) {
     return cs_stack_state(cs, ret, total > dalias->get_value());
 }
 
-ostd::string_range cs_error::save_msg(
-    cs_state &cs, ostd::string_range msg
+std::string_view cs_error::save_msg(
+    cs_state &cs, std::string_view msg
 ) {
     if (msg.size() > sizeof(cs.p_errbuf)) {
-        msg = msg.slice(0, sizeof(cs.p_errbuf));
+        msg = msg.substr(0, sizeof(cs.p_errbuf));
     }
     cs_gen_state *gs = cs.p_pstate;
     if (gs) {
@@ -133,10 +133,10 @@ ostd::string_range cs_error::save_msg(
             memcpy(cs.p_errbuf, msg.data(), msg.size());
             sz = msg.size();
         }
-        return ostd::string_range(cs.p_errbuf, cs.p_errbuf + sz);
+        return std::string_view{cs.p_errbuf, sz};
     }
     memcpy(cs.p_errbuf, msg.data(), msg.size());
-    return ostd::string_range(cs.p_errbuf, cs.p_errbuf + msg.size());
+    return std::string_view{cs.p_errbuf, msg.size()};
 }
 
 static void bcode_ref(uint32_t *code) {
@@ -220,7 +220,7 @@ static inline uint32_t *forcecode(cs_state &cs, cs_value &v) {
 static inline void forcecond(cs_state &cs, cs_value &v) {
     switch (v.get_type()) {
         case cs_value_type::STRING:
-            if (!ostd::string_range{v.get_str()}.empty()) {
+            if (!std::string_view{v.get_str()}.empty()) {
                 forcecode(cs, v);
             } else {
                 v.set_int(0);
@@ -310,8 +310,9 @@ static inline void callcommand(
 ) {
     int i = -1, fakeargs = 0;
     bool rep = false;
-    for (auto fmt = id->get_args(); !fmt.empty(); ++fmt) {
-        switch (*fmt) {
+    auto fmt = id->get_args();
+    for (auto it = fmt.begin(); it != fmt.end(); ++it) {
+        switch (*it) {
             case 'i':
                 if (++i >= numargs) {
                     if (rep) {
@@ -436,9 +437,7 @@ static inline void callcommand(
             case '3':
             case '4':
                 if (i + 1 < numargs) {
-                    fmt = ostd::string_range{
-                        &fmt[-int(*fmt) + '0' - 1], &fmt[fmt.size()]
-                    };
+                    it -= *it - '0' + 1;
                     rep = true;
                 }
                 break;
@@ -758,9 +757,8 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
 
             case CS_CODE_VAL | CS_RET_STRING: {
                 uint32_t len = op >> 8;
-                args[numargs++].set_str(ostd::string_range{
-                    reinterpret_cast<char const *>(code),
-                    reinterpret_cast<char const *>(code) + len
+                args[numargs++].set_str(std::string_view{
+                    reinterpret_cast<char const *>(code), len
                 });
                 code += len / sizeof(uint32_t) + 1;
                 continue;
@@ -906,7 +904,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 cs_value &arg = args[numargs - 1];
                 switch (arg.get_type()) {
                     case cs_value_type::STRING: {
-                        ostd::string_range s = arg.get_str();
+                        std::string_view s = arg.get_str();
                         if (!s.empty()) {
                             cs_gen_state gs(cs);
                             gs.code.reserve(64);
@@ -1461,7 +1459,7 @@ noid:
                     result.force_none();
                     force_arg(result, op & CS_CODE_RET_MASK);
                     throw cs_error(
-                        cs, "unknown command: %s", ostd::string_range{idn}
+                        cs, "unknown command: %s", std::string_view{idn}
                     );
                 }
                 result.force_none();
@@ -1564,7 +1562,7 @@ void cs_state::run(cs_bcode *code, cs_value &ret) {
 }
 
 static void cs_run(
-    cs_state &cs, ostd::string_range file, ostd::string_range code,
+    cs_state &cs, std::string_view file, std::string_view code,
     cs_value &ret
 ) {
     cs_gen_state gs(cs);
@@ -1580,8 +1578,8 @@ static void cs_run(
     }
 }
 
-void cs_state::run(ostd::string_range code, cs_value &ret) {
-    cs_run(*this, ostd::string_range(), code, ret);
+void cs_state::run(std::string_view code, cs_value &ret) {
+    cs_run(*this, std::string_view{}, code, ret);
 }
 
 void cs_state::run(cs_ident *id, cs_value_r args, cs_value &ret) {
@@ -1663,7 +1661,7 @@ cs_strref cs_state::run_str(cs_bcode *code) {
     return ret.get_str();
 }
 
-cs_strref cs_state::run_str(ostd::string_range code) {
+cs_strref cs_state::run_str(std::string_view code) {
     cs_value ret{*this};
     run(code, ret);
     return ret.get_str();
@@ -1681,7 +1679,7 @@ cs_int cs_state::run_int(cs_bcode *code) {
     return ret.get_int();
 }
 
-cs_int cs_state::run_int(ostd::string_range code) {
+cs_int cs_state::run_int(std::string_view code) {
     cs_value ret{*this};
     run(code, ret);
     return ret.get_int();
@@ -1699,7 +1697,7 @@ cs_float cs_state::run_float(cs_bcode *code) {
     return ret.get_float();
 }
 
-cs_float cs_state::run_float(ostd::string_range code) {
+cs_float cs_state::run_float(std::string_view code) {
     cs_value ret{*this};
     run(code, ret);
     return ret.get_float();
@@ -1717,7 +1715,7 @@ bool cs_state::run_bool(cs_bcode *code) {
     return ret.get_bool();
 }
 
-bool cs_state::run_bool(ostd::string_range code) {
+bool cs_state::run_bool(std::string_view code) {
     cs_value ret{*this};
     run(code, ret);
     return ret.get_bool();
@@ -1734,7 +1732,7 @@ void cs_state::run(cs_bcode *code) {
     run(code, ret);
 }
 
-void cs_state::run(ostd::string_range code) {
+void cs_state::run(std::string_view code) {
     cs_value ret{*this};
     run(code, ret);
 }
@@ -1767,7 +1765,7 @@ cs_loop_state cs_state::run_loop(cs_bcode *code) {
 }
 
 static bool cs_run_file(
-    cs_state &cs, ostd::string_range fname, cs_value &ret
+    cs_state &cs, std::string_view fname, cs_value &ret
 ) {
     std::unique_ptr<char[]> buf;
     size_t len;
@@ -1789,11 +1787,11 @@ static bool cs_run_file(
     }
     buf[len] = '\0';
 
-    cs_run(cs, fname, ostd::string_range(buf.get(), buf.get() + len), ret);
+    cs_run(cs, fname, std::string_view{buf.get(), len}, ret);
     return true;
 }
 
-std::optional<cs_strref> cs_state::run_file_str(ostd::string_range fname) {
+std::optional<cs_strref> cs_state::run_file_str(std::string_view fname) {
     cs_value ret{*this};
     if (!cs_run_file(*this, fname, ret)) {
         return std::nullopt;
@@ -1801,7 +1799,7 @@ std::optional<cs_strref> cs_state::run_file_str(ostd::string_range fname) {
     return ret.get_str();
 }
 
-std::optional<cs_int> cs_state::run_file_int(ostd::string_range fname) {
+std::optional<cs_int> cs_state::run_file_int(std::string_view fname) {
     cs_value ret{*this};
     if (!cs_run_file(*this, fname, ret)) {
         return std::nullopt;
@@ -1809,7 +1807,7 @@ std::optional<cs_int> cs_state::run_file_int(ostd::string_range fname) {
     return ret.get_int();
 }
 
-std::optional<cs_float> cs_state::run_file_float(ostd::string_range fname) {
+std::optional<cs_float> cs_state::run_file_float(std::string_view fname) {
     cs_value ret{*this};
     if (!cs_run_file(*this, fname, ret)) {
         return std::nullopt;
@@ -1817,7 +1815,7 @@ std::optional<cs_float> cs_state::run_file_float(ostd::string_range fname) {
     return ret.get_float();
 }
 
-std::optional<bool> cs_state::run_file_bool(ostd::string_range fname) {
+std::optional<bool> cs_state::run_file_bool(std::string_view fname) {
     cs_value ret{*this};
     if (!cs_run_file(*this, fname, ret)) {
         return std::nullopt;
@@ -1825,11 +1823,11 @@ std::optional<bool> cs_state::run_file_bool(ostd::string_range fname) {
     return ret.get_bool();
 }
 
-bool cs_state::run_file(ostd::string_range fname, cs_value &ret) {
+bool cs_state::run_file(std::string_view fname, cs_value &ret) {
     return cs_run_file(*this, fname, ret);
 }
 
-bool cs_state::run_file(ostd::string_range fname) {
+bool cs_state::run_file(std::string_view fname) {
     cs_value ret{*this};
     if (!cs_run_file(*this, fname, ret)) {
         return false;

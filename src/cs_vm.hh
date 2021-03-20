@@ -129,14 +129,14 @@ struct cs_gen_state {
     cs_gen_state *prevps;
     bool parsing = true;
     cs_valbuf<uint32_t> code;
-    ostd::string_range source;
+    char const *source, *send;
     size_t current_line;
-    ostd::string_range src_name;
+    std::string_view src_name;
 
     cs_gen_state() = delete;
     cs_gen_state(cs_state &csr):
-        cs(csr), prevps(csr.p_pstate), code{cs},
-        source(nullptr), current_line(1), src_name()
+        cs{csr}, prevps{csr.p_pstate}, code{cs},
+        source{}, send{}, current_line{1}, src_name{}
     {
         csr.p_pstate = this;
     }
@@ -153,12 +153,12 @@ struct cs_gen_state {
         parsing = false;
     }
 
-    ostd::string_range get_str();
+    std::string_view get_str();
     cs_charbuf get_str_dup();
 
-    ostd::string_range get_word();
+    std::string_view get_word();
 
-    void gen_str(ostd::string_range word) {
+    void gen_str(std::string_view word) {
         if (word.size() <= 3) {
             uint32_t op = CS_CODE_VAL_INT | CS_RET_STRING;
             for (size_t i = 0; i < word.size(); ++i) {
@@ -204,7 +204,7 @@ struct cs_gen_state {
         }
     }
 
-    void gen_int(ostd::string_range word);
+    void gen_int(std::string_view word);
 
     void gen_float(cs_float f = 0.0f) {
         if (cs_int(f) == f && f >= -0x800000 && f <= 0x7FFFFF) {
@@ -220,7 +220,7 @@ struct cs_gen_state {
         }
     }
 
-    void gen_float(ostd::string_range word);
+    void gen_float(std::string_view word);
 
     void gen_ident(cs_ident *id) {
         code.push_back(
@@ -235,43 +235,43 @@ struct cs_gen_state {
         gen_ident(cs.p_state->identmap[DummyIdx]);
     }
 
-    void gen_ident(ostd::string_range word) {
+    void gen_ident(std::string_view word) {
         gen_ident(cs.new_ident(word));
     }
 
     void gen_value(
-        int wordtype, ostd::string_range word = ostd::string_range(),
+        int wordtype, std::string_view word = std::string_view(),
         int line = 0
     );
 
-    void gen_main(ostd::string_range s, int ret_type = CS_VAL_ANY);
+    void gen_main(std::string_view s, int ret_type = CS_VAL_ANY);
 
     void next_char() {
-        if (source.empty()) {
+        if (source == send) {
             return;
         }
         if (*source == '\n') {
             ++current_line;
         }
-        source.pop_front();
+        ++source;
     }
 
     char current(size_t ahead = 0) {
-        if (source.size() <= ahead) {
+        if (std::size_t(send - source) <= ahead) {
             return '\0';
         }
         return source[ahead];
     }
 
-    ostd::string_range read_macro_name();
+    std::string_view read_macro_name();
 
-    char skip_until(ostd::string_range chars);
+    char skip_until(std::string_view chars);
     char skip_until(char cf);
 
     void skip_comments();
 };
 
-bool cs_check_num(ostd::string_range s);
+bool cs_check_num(std::string_view s);
 
 static inline void bcode_incr(uint32_t *bc) {
     *bc += 0x100;

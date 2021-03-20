@@ -10,7 +10,7 @@
 
 using namespace cscript;
 
-ostd::string_range version = "CubeScript 0.0.1";
+std::string_view version = "CubeScript 0.0.1";
 
 /* util */
 
@@ -28,18 +28,17 @@ static bool stdin_is_tty() {
 
 /* line editing support */
 
-inline ostd::string_range get_complete_cmd(ostd::string_range buf) {
-    ostd::string_range not_allowed = "\"/;()[] \t\r\n\0";
-    ostd::string_range found = ostd::find_one_of(buf, not_allowed);
-    while (!found.empty()) {
-        ++found;
-        buf = found;
-        found = ostd::find_one_of(found, not_allowed);
+inline std::string_view get_complete_cmd(std::string_view buf) {
+    std::string_view not_allowed = "\"/;()[] \t\r\n\0";
+    auto found = buf.find_first_of(not_allowed);
+    while (found != buf.npos) {
+        buf = buf.substr(found + 1, buf.size() - found - 1);
+        found = buf.find_first_of(not_allowed);
     }
     return buf;
 }
 
-inline ostd::string_range get_arg_type(char arg) {
+inline std::string_view get_arg_type(char arg) {
     switch (arg) {
         case 'i':
             return "int";
@@ -71,15 +70,15 @@ inline ostd::string_range get_arg_type(char arg) {
     return "illegal";
 }
 
-inline void fill_cmd_args(std::string &writer, ostd::string_range args) {
+inline void fill_cmd_args(std::string &writer, std::string_view args) {
     char variadic = '\0';
     int nrep = 0;
     if (!args.empty() && ((args.back() == 'V') || (args.back() == 'C'))) {
         variadic = args.back();
-        args.pop_back();
+        args.remove_suffix(1);
         if (!args.empty() && isdigit(args.back())) {
             nrep = args.back() - '0';
-            args.pop_back();
+            args.remove_suffix(1);
         }
     }
     if (args.empty()) {
@@ -96,8 +95,8 @@ inline void fill_cmd_args(std::string &writer, ostd::string_range args) {
             if (i != 0) {
                 writer += ", ";
             }
-            writer += get_arg_type(*args);
-            ++args;
+            writer += get_arg_type(args.front());
+            args.remove_prefix(1);
         }
     }
     if (variadic) {
@@ -128,22 +127,27 @@ inline void fill_cmd_args(std::string &writer, ostd::string_range args) {
     }
 }
 
-inline cs_command *get_hint_cmd(cs_state &cs, ostd::string_range buf) {
-    ostd::string_range nextchars = "([;";
-    auto lp = ostd::find_one_of(buf, nextchars);
-    if (!lp.empty()) {
-        cs_command *cmd = get_hint_cmd(cs, buf.slice(1, buf.size()));
+inline cs_command *get_hint_cmd(cs_state &cs, std::string_view buf) {
+    std::string_view nextchars = "([;";
+    auto lp = buf.find_first_of(nextchars);
+    if (lp != buf.npos) {
+        cs_command *cmd = get_hint_cmd(cs, buf.substr(1, buf.size() - 1));
         if (cmd) {
             return cmd;
         }
     }
-    while (!buf.empty() && isspace(buf.front())) {
-        ++buf;
+    std::size_t nsp = 0;
+    for (auto c: buf) {
+        if (!isspace(c)) {
+            break;
+        }
+        ++nsp;
     }
-    ostd::string_range spaces = " \t\r\n";
-    ostd::string_range s = ostd::find_one_of(buf, spaces);
-    if (!s.empty()) {
-        buf = buf.slice(0, &s[0] - &buf[0]);
+    buf.remove_prefix(nsp);
+    std::string_view spaces = " \t\r\n";
+    auto p = buf.find_first_of(spaces);
+    if (p != buf.npos) {
+        buf = buf.substr(0, p);
     }
     if (!buf.empty()) {
         auto cmd = cs.get_ident(buf);
@@ -158,7 +162,7 @@ inline cs_command *get_hint_cmd(cs_state &cs, ostd::string_range buf) {
 
 /* usage */
 
-void print_usage(ostd::string_range progname, bool err) {
+void print_usage(std::string_view progname, bool err) {
     auto &s = err ? ostd::cerr : ostd::cout;
     s.writeln(
         "Usage: ", progname, " [options] [file]\n"
@@ -216,8 +220,8 @@ static void repl_print_var(cs_state const &cs, cs_var const &var) {
         }
         case cs_ident_type::SVAR: {
             auto &sv = static_cast<cs_svar const &>(var);
-            auto val = ostd::string_range{sv.get_value()};
-            if (ostd::find(val, '"').empty()) {
+            auto val = std::string_view{sv.get_value()};
+            if (val.find('"') == val.npos) {
                 ostd::writefln("%s = \"%s\"", sv.get_name(), val);
             } else {
                 ostd::writefln("%s = [%s]", sv.get_name(), val);
@@ -229,7 +233,7 @@ static void repl_print_var(cs_state const &cs, cs_var const &var) {
     }
 }
 
-static bool do_call(cs_state &cs, ostd::string_range line, bool file = false) {
+static bool do_call(cs_state &cs, std::string_view line, bool file = false) {
     cs_value ret{cs};
     scs = &cs;
     signal(SIGINT, do_sigint);
@@ -244,15 +248,17 @@ static bool do_call(cs_state &cs, ostd::string_range line, bool file = false) {
     } catch (cscript::cs_error const &e) {
         signal(SIGINT, SIG_DFL);
         scs = nullptr;
-        ostd::string_range terr = e.what();
-        auto col = ostd::find(terr, ':');
+        std::string_view terr = e.what();
+        auto col = terr.find(':');
         bool is_lnum = false;
-        if (!col.empty()) {
-            is_lnum = ostd::find_if(
-                terr.slice(0, &col[0] - &terr[0]),
+        if (col != terr.npos) {
+            auto pre = terr.substr(0, col);
+            auto it = std::find_if(
+                pre.begin(), pre.end(),
                 [](auto c) { return !isdigit(c); }
-            ).empty();
-            terr = col.slice(2, col.size());
+            );
+            is_lnum = (it == pre.end());
+            terr = terr.substr(col + 2, terr.size() - col - 2);
         }
         if (!file && ((terr == "missing \"]\"") || (terr == "missing \")\""))) {
             return true;
@@ -267,7 +273,7 @@ static bool do_call(cs_state &cs, ostd::string_range line, bool file = false) {
     signal(SIGINT, SIG_DFL);
     scs = nullptr;
     if (ret.get_type() != cs_value_type::NONE) {
-        ostd::writeln(ret.get_str());
+        ostd::writeln(std::string_view{ret.get_str()});
     }
     return false;
 }
@@ -328,7 +334,7 @@ int main(int argc, char **argv) {
     });
 
     gcs.new_command("echo", "C", [](auto &, auto args, auto &) {
-        ostd::writeln(ostd::string_range{args[0].get_str()});
+        ostd::writeln(std::string_view{args[0].get_str()});
     });
 
     int firstarg = 0;
