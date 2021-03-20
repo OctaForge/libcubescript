@@ -27,8 +27,8 @@ advantages, including:
 
 * Independent implementation (can be embedded in any project)
 * No global state (multiple CubeScripts in a single program)
-* Modern C++17 API (no macros, use of strongly typed enums, lambdas, ranges etc.)
-* C++17 lambdas can be used as commands (including captures and type inference)
+* Modern C++20 API
+* C++ lambdas can be used as commands (including captures and type inference)
 * Error handling including recovery (protected call system similar to Lua)
 * Stricter parsing (strings cannot be left unfinished etc.)
 * Loop control statements (`break` and `continue`)
@@ -70,13 +70,8 @@ utilized in the outside native code.
 
 ## Building and usage
 
-The only dependency is libostd:
-
-https://git.octaforge.org/OctaForge/libostd
-
-https://github.com/OctaForge/libostd
-
-If libostd can work on your system, so can libcubescript.
+There are no dependencies (other than a suitable compiler and the standard
+library).
 
 Libostd is built using Meson. Therefore, you need to install Meson and then
 you can compile it as usual. Typically, this will be something like
@@ -84,16 +79,17 @@ you can compile it as usual. Typically, this will be something like
 ~~~
 mkdir build && cd build
 meson ..
-meson compile
+ninja all
 ~~~
 
-Link the libcubescript library together with your application and everything should just work.
-It also builds the REPL.
+Link the libcubescript library together with your application and everything
+should just work. It also builds the REPL.
 
-The project also bundles the linenoise line editing library which has been modified
-to compile cleanly as C++ (with the same flags as libcubescript). It's used strictly
-for the REPL only (you don't need it to build libcubescript itself). The version
-in the repository tracks Git revision https://github.com/antirez/linenoise/commit/c894b9e59f02203dbe4e2be657572cf88c4230c3.
+The project also bundles the linenoise line editing library which has been
+modified to compile cleanly as C++ (with the same flags as libcubescript).
+It's used strictly for the REPL only (you don't need it to build libcubescript
+itself). The version in the repository tracks Git revision
+https://github.com/antirez/linenoise/commit/c894b9e59f02203dbe4e2be657572cf88c4230c3.
 
 ## Licensing
 

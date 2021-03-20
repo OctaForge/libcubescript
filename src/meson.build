@@ -14,11 +14,8 @@ libcubescript_src = [
     'lib_str.cc'
 ]
 
-libostd_dep = dependency('libostd', fallback: ['libostd', 'libostd_static'])
-
 libcubescript_lib = both_libraries('cubescript',
     libcubescript_src,
-    dependencies: libostd_dep,
     include_directories: libcubescript_includes + [include_directories('.')],
     cpp_args: extra_cxxflags,
     install: true,

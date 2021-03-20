@@ -2,7 +2,7 @@ repl_src = [
     'repl.cc'
 ]
 
-repl_deps = [libostd_dep, libcubescript]
+repl_deps = [libcubescript]
 repl_flags = []
 
 if get_option('readline')

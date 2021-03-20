@@ -474,7 +474,7 @@ LIBCUBESCRIPT_EXPORT cs_ident *cs_state::new_ident(std::string_view name, int fl
     if (!id) {
         if (cs_check_num(name)) {
             throw cs_error(
-                *this, "number %s is not a valid identifier name", name
+                *this, "number %s is not a valid identifier name", name.data()
             );
         }
         id = add_ident(p_state->create<cs_alias>(
@@ -560,10 +560,10 @@ LIBCUBESCRIPT_EXPORT cs_svar *cs_state::new_svar(
 LIBCUBESCRIPT_EXPORT void cs_state::reset_var(std::string_view name) {
     cs_ident *id = get_ident(name);
     if (!id) {
-        throw cs_error(*this, "variable %s does not exist", name);
+        throw cs_error(*this, "variable %s does not exist", name.data());
     }
     if (id->get_flags() & CS_IDF_READONLY) {
-        throw cs_error(*this, "variable %s is read only", name);
+        throw cs_error(*this, "variable %s is read only", name.data());
     }
     clear_override(*id);
 }
@@ -600,11 +600,11 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_alias(std::string_view name, cs_value v)
             default:
                 throw cs_error(
                     *this, "cannot redefine builtin %s with an alias",
-                    id->get_name()
+                    id->get_name().data()
                 );
         }
     } else if (cs_check_num(name)) {
-        throw cs_error(*this, "cannot alias number %s", name);
+        throw cs_error(*this, "cannot alias number %s", name.data());
     } else {
         add_ident(p_state->create<cs_alias>(
             *this, cs_strref{*p_state, name}, std::move(v), identflags
@@ -657,7 +657,8 @@ static inline void cs_override_var(cs_state &cs, cs_var *v, int &vflags, SF sf) 
     if ((cs.identflags & CS_IDF_OVERRIDDEN) || (vflags & CS_IDF_OVERRIDE)) {
         if (vflags & CS_IDF_PERSIST) {
             throw cs_error(
-                cs, "cannot override persistent variable '%s'", v->get_name()
+                cs, "cannot override persistent variable '%s'",
+                v->get_name().data()
             );
         }
         if (!(vflags & CS_IDF_OVERRIDDEN)) {
@@ -825,14 +826,14 @@ cs_int cs_clamp_var(cs_state &cs, cs_ivar *iv, cs_int v) {
                     : "valid range for '%s' is 0x%X..0x%X"
             )
             : "valid range for '%s' is %d..%d",
-        iv->get_name(), iv->get_val_min(), iv->get_val_max()
+        iv->get_name().data(), iv->get_val_min(), iv->get_val_max()
     );
 }
 
 LIBCUBESCRIPT_EXPORT void cs_state::set_var_int_checked(cs_ivar *iv, cs_int v) {
     if (iv->get_flags() & CS_IDF_READONLY) {
         throw cs_error(
-            *this, "variable '%s' is read only", iv->get_name()
+            *this, "variable '%s' is read only", iv->get_name().data()
         );
     }
     cs_override_var(
@@ -871,7 +872,7 @@ cs_float cs_clamp_fvar(cs_state &cs, cs_fvar *fv, cs_float v) {
     vmin.set_float(fv->get_val_min());
     vmax.set_float(fv->get_val_max());
     throw cs_error(
-        cs, "valid range for '%s' is %s..%s", fv->get_name(),
+        cs, "valid range for '%s' is %s..%s", fv->get_name().data(),
         vmin.force_str(), vmax.force_str()
     );
     return v;
@@ -880,7 +881,7 @@ cs_float cs_clamp_fvar(cs_state &cs, cs_fvar *fv, cs_float v) {
 LIBCUBESCRIPT_EXPORT void cs_state::set_var_float_checked(cs_fvar *fv, cs_float v) {
     if (fv->get_flags() & CS_IDF_READONLY) {
         throw cs_error(
-            *this, "variable '%s' is read only", fv->get_name()
+            *this, "variable '%s' is read only", fv->get_name().data()
         );
     }
     cs_override_var(
@@ -899,7 +900,7 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_var_str_checked(
 ) {
     if (sv->get_flags() & CS_IDF_READONLY) {
         throw cs_error(
-            *this, "variable '%s' is read only", sv->get_name()
+            *this, "variable '%s' is read only", sv->get_name().data()
         );
     }
     cs_override_var(

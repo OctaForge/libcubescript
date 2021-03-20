@@ -1,12 +1,11 @@
 #include <signal.h>
 
+#include <cmath>
+#include <cstring>
+#include <cstdio>
 #include <optional>
 #include <memory>
 #include <iterator>
-
-#include <ostd/platform.hh>
-#include <ostd/io.hh>
-#include <ostd/string.hh>
 
 #include <cubescript/cubescript.hh>
 
@@ -16,7 +15,7 @@ std::string_view version = "CubeScript 0.0.1";
 
 /* util */
 
-#ifdef OSTD_PLATFORM_WIN32
+#if defined(_WIN32)
 #include <io.h>
 static bool stdin_is_tty() {
     return _isatty(_fileno(stdin));
@@ -165,9 +164,9 @@ inline cs_command *get_hint_cmd(cs_state &cs, std::string_view buf) {
 /* usage */
 
 void print_usage(std::string_view progname, bool err) {
-    auto &s = err ? ostd::cerr : ostd::cout;
-    s.writeln(
-        "Usage: ", progname, " [options] [file]\n"
+    std::fprintf(
+        err ? stderr : stdout,
+        "Usage: %s [options] [file]\n"
         "Options:\n"
         "  -e str  run string \"str\"\n"
         "  -i      enter interactive mode after the above\n"
@@ -175,12 +174,13 @@ void print_usage(std::string_view progname, bool err) {
         "  -h      show this message\n"
         "  --      stop handling options\n"
         "  -       execute stdin and stop handling options"
+        "\n",
+        progname.data()
     );
-    s.flush();
 }
 
 void print_version() {
-    ostd::writeln(version);
+    printf("%s\n", version.data());
 }
 
 static cs_state *scs = nullptr;
@@ -200,33 +200,35 @@ static void repl_print_var(cs_state const &cs, cs_var const &var) {
             auto &iv = static_cast<cs_ivar const &>(var);
             auto val = iv.get_value();
             if (!(iv.get_flags() & CS_IDF_HEX) || (val < 0)) {
-                ostd::writefln("%s = %d", iv.get_name(), val);
+                std::printf("%s = %d\n", iv.get_name().data(), val);
             } else if (iv.get_val_max() == 0xFFFFFF) {
-                ostd::writefln(
-                    "%s = 0x%.6X (%d, %d, %d)", iv.get_name(),
+                std::printf(
+                    "%s = 0x%.6X (%d, %d, %d)\n",
+                    iv.get_name().data(),
                     val, (val >> 16) & 0xFF, (val >> 8) & 0xFF, val & 0xFF
                 );
             } else {
-                ostd::writefln("%s = 0x%X", iv.get_name(), val);
+                std::printf("%s = 0x%X\n", iv.get_name().data(), val);
             }
             break;
         }
         case cs_ident_type::FVAR: {
             auto &fv = static_cast<cs_fvar const &>(var);
             auto val = fv.get_value();
-            ostd::writefln(
-                (floor(val) == val) ? "%s = %.1f" : "%s = %.7g",
-                fv.get_name(), val
-            );
+            if (std::floor(val) == val) {
+                std::printf("%s = %.1f", fv.get_name().data(), val);
+            } else {
+                std::printf("%s = %.7g", fv.get_name().data(), val);
+            }
             break;
         }
         case cs_ident_type::SVAR: {
             auto &sv = static_cast<cs_svar const &>(var);
             auto val = std::string_view{sv.get_value()};
             if (val.find('"') == val.npos) {
-                ostd::writefln("%s = \"%s\"", sv.get_name(), val);
+                std::printf("%s = \"%s\"", sv.get_name().data(), val.data());
             } else {
-                ostd::writefln("%s = [%s]", sv.get_name(), val);
+                std::printf("%s = [%s]", sv.get_name().data(), val.data());
             }
             break;
         }
@@ -236,28 +238,29 @@ static void repl_print_var(cs_state const &cs, cs_var const &var) {
 }
 
 static bool do_run_file(cs_state &cs, std::string_view fname, cs_value &ret) {
-    std::unique_ptr<char[]> buf;
-    std::size_t len;
-
-    ostd::file_stream f{fname, ostd::stream_mode::READ};
-    if (!f.is_open()) {
+    FILE *f = std::fopen(fname.data(), "rb");
+    if (!f) {
         return false;
     }
 
-    len = f.size();
-    buf = std::make_unique<char[]>(len + 1);
+    std::fseek(f, 0, SEEK_END);
+    auto len = std::ftell(f);
+    std::fseek(f, 0, SEEK_SET);
+
+    auto buf = std::make_unique<char[]>(len + 1);
     if (!buf) {
+        std::fclose(f);
         return false;
     }
 
-    try {
-        f.get(buf.get(), len);
-    } catch (...) {
+    if (std::fread(buf.get(), 1, len, f) != std::size_t(len)) {
+        std::fclose(f);
         return false;
     }
+
     buf[len] = '\0';
 
-    cs.run(std::string_view{buf.get(), len}, ret, fname);
+    cs.run(std::string_view{buf.get(), std::size_t(len)}, ret, fname);
     return true;
 }
 
@@ -268,7 +271,7 @@ static bool do_call(cs_state &cs, std::string_view line, bool file = false) {
     try {
         if (file) {
             if (!do_run_file(cs, line, ret)) {
-                ostd::cerr.writeln("cannot read file: ", line);
+                std::fprintf(stderr, "cannot read file: %s\n", line.data());
             }
         } else {
             cs.run(line, ret);
@@ -291,18 +294,20 @@ static bool do_call(cs_state &cs, std::string_view line, bool file = false) {
         if (!file && ((terr == "missing \"]\"") || (terr == "missing \")\""))) {
             return true;
         }
-        ostd::writeln(!is_lnum ? "stdin: " : "stdin:", e.what());
+        std::printf(
+            "%s%s\n", !is_lnum ? "stdin: " : "stdin:", e.what().data()
+        );
         if (e.get_stack().get()) {
             std::string str;
             cscript::util::print_stack(std::back_inserter(str), e.get_stack());
-            ostd::writeln(str);
+            std::printf("%s\n", str.data());
         }
         return false;
     }
     signal(SIGINT, SIG_DFL);
     scs = nullptr;
     if (ret.get_type() != cs_value_type::NONE) {
-        ostd::writeln(std::string_view{ret.get_str()});
+        std::printf("%s\n", std::string_view{ret.get_str()}.data());
     }
     return false;
 }
@@ -316,7 +321,7 @@ static void do_tty(cs_state &cs) {
         do_exit = true;
     });
 
-    ostd::writeln(version, " (REPL mode)");
+    std::printf("%s (REPL mode)\n", version.data());
     for (;;) {
         auto line = read_line(cs, prompt);
         if (!line) {
@@ -364,7 +369,7 @@ int main(int argc, char **argv) {
     });
 
     gcs.new_command("echo", "C", [](auto &, auto args, auto &) {
-        ostd::writeln(std::string_view{args[0].get_str()});
+        std::printf("%s\n", std::string_view{args[0].get_str()}.data());
     });
 
     int firstarg = 0;
@@ -450,7 +455,7 @@ endargs:
             return 0;
         } else {
             std::string str;
-            for (signed char c = '\0'; (c = ostd::cin.get_char()) != EOF;) {
+            for (signed char c = '\0'; (c = std::fgetc(stdin)) != EOF;) {
                 str += c;
             }
             do_call(gcs, str);

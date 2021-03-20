@@ -3,11 +3,8 @@
 #define CS_REPL_HAS_EDIT
 /* use the GNU readline library */
 
-#include <string.h>
-
+#include <cstring>
 #include <optional>
-
-#include <ostd/string.hh>
 
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -16,15 +13,14 @@ static cs_state *rd_cs = nullptr;
 
 inline char *ln_complete_list(char const *buf, int state) {
     static std::string_view cmd;
-    static ostd::iterator_range<cs_ident **> itr;
+    static std::span<cs_ident *> itr;
 
     if (!state) {
         cmd = get_complete_cmd(buf);
         itr = rd_cs->get_idents();
     }
 
-    for (; !itr.empty(); itr.pop_front()) {
-        cs_ident *id = itr.front();
+    for (cs_ident *id: itr) {
         if (!id->is_command()) {
             continue;
         }
@@ -33,7 +29,7 @@ inline char *ln_complete_list(char const *buf, int state) {
             continue;
         }
         if (idname.substr(0, cmd.size()) == cmd) {
-            itr.pop_front();
+            ++itr;
             return strdup(idname.data());
         }
     }

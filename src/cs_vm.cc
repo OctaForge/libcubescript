@@ -110,8 +110,8 @@ cs_stack_state cs_error::save_stack(cs_state &cs) {
 std::string_view cs_error::save_msg(
     cs_state &cs, std::string_view msg
 ) {
-    if (msg.size() > sizeof(cs.p_errbuf)) {
-        msg = msg.substr(0, sizeof(cs.p_errbuf));
+    if (msg.size() >= sizeof(cs.p_errbuf)) {
+        msg = msg.substr(0, sizeof(cs.p_errbuf) - 1);
     }
     cs_gen_state *gs = cs.p_pstate;
     if (gs) {
@@ -137,6 +137,7 @@ std::string_view cs_error::save_msg(
         return std::string_view{cs.p_errbuf, std::size_t(sz)};
     }
     memcpy(cs.p_errbuf, msg.data(), msg.size());
+    cs.p_errbuf[msg.size()] = '\0';
     return std::string_view{cs.p_errbuf, msg.size()};
 }
 
@@ -527,7 +528,7 @@ struct RunDepthRef {
 static inline cs_alias *cs_get_lookup_id(cs_state &cs, uint32_t op) {
     cs_ident *id = cs.p_state->identmap[op >> 8];
     if (id->get_flags() & CS_IDF_UNKNOWN) {
-        throw cs_error(cs, "unknown alias lookup: %s", id->get_name());
+        throw cs_error(cs, "unknown alias lookup: %s", id->get_name().data());
     }
     return static_cast<cs_alias *>(id);
 }
@@ -574,7 +575,7 @@ static inline int cs_get_lookupu_type(
                 return CsIdUnknown;
         }
     }
-    throw cs_error(cs, "unknown alias lookup: %s", arg.get_str());
+    throw cs_error(cs, "unknown alias lookup: %s", arg.get_str().data());
 }
 
 static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
@@ -1421,7 +1422,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 if (id->get_flags() & CS_IDF_UNKNOWN) {
                     force_arg(result, op & CS_CODE_RET_MASK);
                     throw cs_error(
-                        cs, "unknown command: %s", id->get_name()
+                        cs, "unknown command: %s", id->get_name().data()
                     );
                 }
                 cs_call_alias(
@@ -1471,8 +1472,9 @@ noid:
                     }
                     result.force_none();
                     force_arg(result, op & CS_CODE_RET_MASK);
+                    std::string_view ids{idn};
                     throw cs_error(
-                        cs, "unknown command: %s", std::string_view{idn}
+                        cs, "unknown command: %s", ids.data()
                     );
                 }
                 result.force_none();

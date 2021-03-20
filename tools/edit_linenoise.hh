@@ -1,5 +1,5 @@
 #ifdef CS_REPL_USE_LINENOISE
-#ifdef OSTD_PLATFORM_POSIX
+#ifndef _WIN32
 #ifndef CS_REPL_HAS_EDIT
 #define CS_REPL_HAS_EDIT
 /* use the bundled linenoise library, default */
@@ -9,8 +9,6 @@
 #include <signal.h>
 
 #include <optional>
-
-#include <ostd/string.hh>
 
 #include "linenoise.hh"
 

@@ -598,12 +598,12 @@ struct cs_error {
     }
 
     template<typename ...A>
-    cs_error(cs_state &cs, std::string_view msg, A &&...args):
+    cs_error(cs_state &cs, std::string_view msg, A const &...args):
         p_errmsg(), p_stack(cs)
     {
         char fbuf[512];
         int written = std::snprintf(
-            fbuf, sizeof(fbuf), "%.*s", int(msg.size()), msg.data()
+            fbuf, sizeof(fbuf), msg.data(), args...
         );
         if (written >= int(sizeof(fbuf))) {
             written = std::strlen(fbuf);
