@@ -5,6 +5,7 @@
 #include <cctype>
 #include <cmath>
 #include <iterator>
+#include <algorithm>
 
 namespace cscript {
 
@@ -560,16 +561,15 @@ OSTD_EXPORT void list_find_item(cs_list_parse_state &ps) {
 OSTD_EXPORT cs_strref value_list_concat(
     cs_state &cs, std::span<cs_value> vals, std::string_view sep
 ) {
-    auto app = ostd::appender<cs_charbuf>(cs);
+    cs_charbuf buf{cs};
     for (std::size_t i = 0; i < vals.size(); ++i) {
         switch (vals[i].get_type()) {
             case cs_value_type::INT:
             case cs_value_type::FLOAT:
             case cs_value_type::STRING: {
                 cs_value v{vals[i]};
-                for (auto c: v.force_str()) {
-                    app.put(c);
-                }
+                auto str = v.force_str();
+                std::copy(str.begin(), str.end(), std::back_inserter(buf));
                 break;
             }
             default:
@@ -578,11 +578,9 @@ OSTD_EXPORT cs_strref value_list_concat(
         if (i == (vals.size() - 1)) {
             break;
         }
-        for (auto c: sep) {
-            app.put(c);
-        }
+        std::copy(sep.begin(), sep.end(), std::back_inserter(buf));
     }
-    return cs_strref{cs, app.get().str()};
+    return cs_strref{cs, buf.str()};
 }
 
 } /* namespace cscript */

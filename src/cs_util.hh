@@ -5,8 +5,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <ostd/string.hh>
-
 namespace cscript {
 
 cs_int cs_parse_int(
@@ -265,7 +263,7 @@ struct cs_strman {
      */
     char const *find(std::string_view str) const;
 
-    /* a quick helper to make a proper ostd string range out of a ptr */
+    /* a quick helper to make a proper string view out of a ptr */
     std::string_view get(char const *ptr) const;
 
     /* this will allocate a buffer of the given length (plus one for

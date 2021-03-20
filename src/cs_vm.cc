@@ -2,6 +2,7 @@
 #include "cs_vm.hh"
 #include "cs_util.hh"
 
+#include <cstdio>
 #include <limits>
 
 namespace cscript {
@@ -115,24 +116,25 @@ std::string_view cs_error::save_msg(
     cs_gen_state *gs = cs.p_pstate;
     if (gs) {
         /* we can attach line number */
-        std::size_t sz = 0;
-        try {
-            ostd::char_range r(cs.p_errbuf, cs.p_errbuf + sizeof(cs.p_errbuf));
-            if (!gs->src_name.empty()) {
-                sz = ostd::format(
-                    ostd::counting_sink(r), "%s:%d: %s", gs->src_name,
-                    gs->current_line, msg
-                ).get_written();
-            } else {
-                sz = ostd::format(
-                    ostd::counting_sink(r), "%d: %s", gs->current_line, msg
-                ).get_written();
-            }
-        } catch (...) {
-            memcpy(cs.p_errbuf, msg.data(), msg.size());
-            sz = msg.size();
+        int sz;
+        if (!gs->src_name.empty()) {
+            sz = snprintf(
+                cs.p_errbuf, sizeof(cs.p_errbuf), "%.*s:%zu: %.*s",
+                int(gs->src_name.size()), gs->src_name.data(),
+                gs->current_line,
+                int(msg.size()), msg.data()
+            );
+        } else {
+            sz = snprintf(
+                cs.p_errbuf, sizeof(cs.p_errbuf), "%zu: %.*s",
+                gs->current_line, int(msg.size()), msg.data()
+            );
         }
-        return std::string_view{cs.p_errbuf, sz};
+        if (sz <= 0) {
+            strncpy(cs.p_errbuf, "format error", sizeof(cs.p_errbuf));
+            sz = strlen(cs.p_errbuf);
+        }
+        return std::string_view{cs.p_errbuf, std::size_t(sz)};
     }
     memcpy(cs.p_errbuf, msg.data(), msg.size());
     return std::string_view{cs.p_errbuf, msg.size()};

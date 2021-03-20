@@ -131,16 +131,26 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("tohex", "ii", [](auto &ccs, auto args, auto &res) {
-        auto r = ostd::appender<cs_charbuf>(ccs);
-        try {
-            ostd::format(
-                r, "0x%.*X", std::max(args[1].get_int(), cs_int(1)),
-                args[0].get_int()
-            );
-        } catch (ostd::format_error const &e) {
-            throw cs_internal_error{e.what()};
+        char buf[32];
+        /* use long long as the largest signed integer type */
+        auto val = static_cast<long long>(args[0].get_int());
+        int prec = std::max(int(args[1].get_int()), 1);
+        int n = snprintf(buf, sizeof(buf), "0x%.*llX", prec, val);
+        if (n >= int(sizeof(buf))) {
+            cs_charbuf s{ccs};
+            s.reserve(n + 1);
+            s.data()[0] = '\0';
+            int nn = snprintf(s.data(), n + 1, "0x%.*llX", prec, val);
+            if ((nn > 0) && (nn <= n)) {
+                res.set_str(std::string_view{s.data(), std::size_t(nn)});
+                return;
+            }
+        } else if (n > 0) {
+            res.set_str(static_cast<char const *>(buf));
+            return;
         }
-        res.set_str(r.get().str());
+        /* should pretty much be unreachable */
+        throw cs_error{ccs, "format error"};
     });
 
     cs.new_command("substr", "siiN", [](auto &, auto args, auto &res) {
