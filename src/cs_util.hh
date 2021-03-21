@@ -39,6 +39,7 @@ struct cs_allocator {
     using value_type = T;
 
     cs_allocator(cs_shared_state *s): state{s} {}
+    cs_allocator(cs_state &cs): state{cs_get_sstate(cs)} {}
 
     template<typename U>
     cs_allocator(cs_allocator<U> const &a): state{a.state} {};

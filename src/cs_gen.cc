@@ -198,7 +198,8 @@ static inline void compileunescapestr(cs_gen_state &gs) {
         gs.code.size() + str.size() / sizeof(uint32_t) + 1
     );
     size_t bufs = (gs.code.capacity() - gs.code.size()) * sizeof(uint32_t);
-    char *buf = new char[bufs + 1];
+    auto alloc = cs_allocator<char>{gs.cs};
+    auto *buf = alloc.allocate(bufs + 1);
     char *wbuf = util::unescape_string(&buf[0], str);
     memset(
         &buf[wbuf - buf], 0,
@@ -207,7 +208,7 @@ static inline void compileunescapestr(cs_gen_state &gs) {
     gs.code.back() |= (wbuf - buf) << 8;
     uint32_t *ubuf = reinterpret_cast<uint32_t *>(buf);
     gs.code.append(ubuf, ubuf + ((wbuf - buf) / sizeof(uint32_t) + 1));
-    delete[] buf;
+    alloc.deallocate(buf, bufs + 1);
 }
 
 static bool compilearg(
@@ -464,7 +465,9 @@ static bool compileblockstr(cs_gen_state &gs, char const *str, char const *send)
     int startc = gs.code.size();
     gs.code.push_back(CS_CODE_VAL | CS_RET_STRING);
     gs.code.reserve(gs.code.size() + (send - str) / sizeof(uint32_t) + 1);
-    char *buf = new char[((send - str) / sizeof(uint32_t) + 1) * sizeof(uint32_t)];
+    auto alloc = cs_allocator<char>{gs.cs};
+    auto asz = ((send - str) / sizeof(uint32_t) + 1) * sizeof(uint32_t);
+    char *buf = alloc.allocate(asz);
     int len = 0;
     while (str < send) {
         std::string_view chrs{"\r/\"@]"};
@@ -510,7 +513,7 @@ done:
     uint32_t *ubuf = reinterpret_cast<uint32_t *>(buf);
     gs.code.append(ubuf, ubuf + (len / sizeof(uint32_t) + 1));
     gs.code[startc] |= len << 8;
-    delete[] buf;
+    alloc.deallocate(buf, asz);
     return true;
 }
 
