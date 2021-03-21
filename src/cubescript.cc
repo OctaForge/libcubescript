@@ -20,73 +20,73 @@ bool cs_check_num(std::string_view s) {
     }
 }
 
-cs_ident::cs_ident(cs_ident_type tp, cs_strref nm, int fl):
+cs_ident_impl::cs_ident_impl(cs_ident_type tp, cs_strref nm, int fl):
     p_name(nm), p_type(int(tp)), p_flags(fl)
 {}
 
-cs_var::cs_var(cs_ident_type tp, cs_strref name, cs_var_cb f, int fl):
-    cs_ident(tp, name, fl), cb_var(std::move(f))
+cs_var_impl::cs_var_impl(cs_ident_type tp, cs_strref name, cs_var_cb f, int fl):
+    cs_ident_impl(tp, name, fl), cb_var(std::move(f))
 {}
 
-cs_ivar::cs_ivar(
+cs_ivar_impl::cs_ivar_impl(
     cs_strref name, cs_int m, cs_int x, cs_int v, cs_var_cb f, int fl
 ):
-    cs_var(cs_ident_type::IVAR, name, std::move(f), fl | ((m > x) ? CS_IDF_READONLY : 0)),
+    cs_var_impl(cs_ident_type::IVAR, name, std::move(f), fl | ((m > x) ? CS_IDF_READONLY : 0)),
     p_storage(v), p_minval(m), p_maxval(x), p_overrideval(0)
 {}
 
-cs_fvar::cs_fvar(
+cs_fvar_impl::cs_fvar_impl(
     cs_strref name, cs_float m, cs_float x, cs_float v, cs_var_cb f, int fl
 ):
-    cs_var(cs_ident_type::FVAR, name, std::move(f), fl | ((m > x) ? CS_IDF_READONLY : 0)),
+    cs_var_impl(cs_ident_type::FVAR, name, std::move(f), fl | ((m > x) ? CS_IDF_READONLY : 0)),
     p_storage(v), p_minval(m), p_maxval(x), p_overrideval(0)
 {}
 
-cs_svar::cs_svar(cs_strref name, cs_strref v, cs_strref ov, cs_var_cb f, int fl):
-    cs_var(cs_ident_type::SVAR, name, std::move(f), fl),
+cs_svar_impl::cs_svar_impl(cs_strref name, cs_strref v, cs_strref ov, cs_var_cb f, int fl):
+    cs_var_impl(cs_ident_type::SVAR, name, std::move(f), fl),
     p_storage{v}, p_overrideval{ov}
 {}
 
-cs_alias::cs_alias(cs_state &cs, cs_strref name, cs_strref a, int fl):
-    cs_ident(cs_ident_type::ALIAS, name, fl),
+cs_alias_impl::cs_alias_impl(cs_state &cs, cs_strref name, cs_strref a, int fl):
+    cs_ident_impl(cs_ident_type::ALIAS, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_str(a);
 }
-cs_alias::cs_alias(cs_state &cs, cs_strref name, std::string_view a, int fl):
-    cs_ident(cs_ident_type::ALIAS, name, fl),
+cs_alias_impl::cs_alias_impl(cs_state &cs, cs_strref name, std::string_view a, int fl):
+    cs_ident_impl(cs_ident_type::ALIAS, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_str(a);
 }
-cs_alias::cs_alias(cs_state &cs, cs_strref name, cs_int a, int fl):
-    cs_ident(cs_ident_type::ALIAS, name, fl),
+cs_alias_impl::cs_alias_impl(cs_state &cs, cs_strref name, cs_int a, int fl):
+    cs_ident_impl(cs_ident_type::ALIAS, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_int(a);
 }
-cs_alias::cs_alias(cs_state &cs, cs_strref name, cs_float a, int fl):
-    cs_ident(cs_ident_type::ALIAS, name, fl),
+cs_alias_impl::cs_alias_impl(cs_state &cs, cs_strref name, cs_float a, int fl):
+    cs_ident_impl(cs_ident_type::ALIAS, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_float(a);
 }
-cs_alias::cs_alias(cs_state &cs, cs_strref name, int fl):
-    cs_ident(cs_ident_type::ALIAS, name, fl),
+cs_alias_impl::cs_alias_impl(cs_state &cs, cs_strref name, int fl):
+    cs_ident_impl(cs_ident_type::ALIAS, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val{cs}
 {
     p_val.set_none();
 }
 /* FIXME: use cs rather than val's cs */
-cs_alias::cs_alias(cs_state &, cs_strref name, cs_value v, int fl):
-    cs_ident(cs_ident_type::ALIAS, name, fl),
+cs_alias_impl::cs_alias_impl(cs_state &, cs_strref name, cs_value v, int fl):
+    cs_ident_impl(cs_ident_type::ALIAS, name, fl),
     p_acode(nullptr), p_astack(nullptr), p_val(v)
 {}
 
-cs_command::cs_command(
+cs_command_impl::cs_command_impl(
     cs_strref name, cs_strref args, int nargs, cs_command_cb f
 ):
-    cs_ident(cs_ident_type::COMMAND, name, 0),
+    cs_ident_impl(cs_ident_type::COMMAND, name, 0),
     p_cargs(args), p_cb_cftv(std::move(f)), p_numargs(nargs)
 {}
 
@@ -116,14 +116,14 @@ cs_command *cs_ident::get_command() {
     if (!is_command()) {
         return nullptr;
     }
-    return static_cast<cs_command *>(this);
+    return static_cast<cs_command_impl *>(this);
 }
 
 cs_command const *cs_ident::get_command() const {
     if (!is_command()) {
         return nullptr;
     }
-    return static_cast<cs_command const *>(this);
+    return static_cast<cs_command_impl const *>(this);
 }
 
 bool cs_ident::is_special() const {
@@ -203,47 +203,65 @@ cs_svar const *cs_ident::get_svar() const {
     return static_cast<cs_svar const *>(this);
 }
 
+void cs_var_impl::changed(cs_state &cs) {
+    if (cb_var) {
+        switch (p_type) {
+            case CsIdIvar:
+                cb_var(cs, *static_cast<cs_ivar_impl *>(this));
+                break;
+            case CsIdFvar:
+                cb_var(cs, *static_cast<cs_fvar_impl *>(this));
+                break;
+            case CsIdSvar:
+                cb_var(cs, *static_cast<cs_svar_impl *>(this));
+                break;
+            default:
+                break;
+        }
+    }
+}
+
 cs_int cs_ivar::get_val_min() const {
-    return p_minval;
+    return static_cast<cs_ivar_impl const *>(this)->p_minval;
 }
 cs_int cs_ivar::get_val_max() const {
-    return p_maxval;
+    return static_cast<cs_ivar_impl const *>(this)->p_maxval;
 }
 
 cs_int cs_ivar::get_value() const {
-    return p_storage;
+    return static_cast<cs_ivar_impl const *>(this)->p_storage;
 }
 void cs_ivar::set_value(cs_int val) {
-    p_storage = val;
+    static_cast<cs_ivar_impl *>(this)->p_storage = val;
 }
 
 cs_float cs_fvar::get_val_min() const {
-    return p_minval;
+    return static_cast<cs_fvar_impl const *>(this)->p_minval;
 }
 cs_float cs_fvar::get_val_max() const {
-    return p_maxval;
+    return static_cast<cs_fvar_impl const *>(this)->p_maxval;
 }
 
 cs_float cs_fvar::get_value() const {
-    return p_storage;
+    return static_cast<cs_fvar_impl const *>(this)->p_storage;
 }
 void cs_fvar::set_value(cs_float val) {
-    p_storage = val;
+    static_cast<cs_fvar_impl *>(this)->p_storage = val;
 }
 
 cs_strref cs_svar::get_value() const {
-    return p_storage;
+    return static_cast<cs_svar_impl const *>(this)->p_storage;
 }
 void cs_svar::set_value(cs_strref val) {
-    p_storage = val;
+    static_cast<cs_svar_impl *>(this)->p_storage = val;
 }
 
 std::string_view cs_command::get_args() const {
-    return p_cargs;
+    return static_cast<cs_command_impl const *>(this)->p_cargs;
 }
 
 int cs_command::get_num_args() const {
-    return p_numargs;
+    return static_cast<cs_command_impl const *>(this)->p_numargs;
 }
 
 void cs_init_lib_base(cs_state &cs);
@@ -261,6 +279,8 @@ cs_state::cs_state(): cs_state{cs_default_alloc, nullptr} {}
 cs_state::cs_state(cs_alloc_cb func, void *data):
     p_state(nullptr), p_callhook()
 {
+    cs_command *p;
+
     if (!func) {
         func = cs_default_alloc;
     }
@@ -295,29 +315,34 @@ cs_state::cs_state(cs_alloc_cb func, void *data):
         throw cs_internal_error{"invalid dbgalias index"};
     }
 
-    new_command("do", "e", [](auto &cs, auto args, auto &res) {
+    p = new_command("do", "e", [](auto &cs, auto args, auto &res) {
         cs.run(args[0].get_code(), res);
-    })->p_type = CsIdDo;
+    });
+    static_cast<cs_command_impl *>(p)->p_type = CsIdDo;
 
-    new_command("doargs", "e", [](auto &cs, auto args, auto &res) {
+    p = new_command("doargs", "e", [](auto &cs, auto args, auto &res) {
         cs_do_args(cs, [&cs, &res, &args]() {
             cs.run(args[0].get_code(), res);
         });
-    })->p_type = CsIdDoArgs;
+    });
+    static_cast<cs_command_impl *>(p)->p_type = CsIdDoArgs;
 
-    new_command("if", "tee", [](auto &cs, auto args, auto &res) {
+    p = new_command("if", "tee", [](auto &cs, auto args, auto &res) {
         cs.run((args[0].get_bool() ? args[1] : args[2]).get_code(), res);
-    })->p_type = CsIdIf;
+    });
+    static_cast<cs_command_impl *>(p)->p_type = CsIdIf;
 
-    new_command("result", "t", [](auto &, auto args, auto &res) {
+    p = new_command("result", "t", [](auto &, auto args, auto &res) {
         res = std::move(args[0]);
-    })->p_type = CsIdResult;
+    });
+    static_cast<cs_command_impl *>(p)->p_type = CsIdResult;
 
-    new_command("!", "t", [](auto &, auto args, auto &res) {
+    p = new_command("!", "t", [](auto &, auto args, auto &res) {
         res.set_int(!args[0].get_bool());
-    })->p_type = CsIdNot;
+    });
+    static_cast<cs_command_impl *>(p)->p_type = CsIdNot;
 
-    new_command("&&", "E1V", [](auto &cs, auto args, auto &res) {
+    p = new_command("&&", "E1V", [](auto &cs, auto args, auto &res) {
         if (args.empty()) {
             res.set_int(1);
         } else {
@@ -333,9 +358,10 @@ cs_state::cs_state(cs_alloc_cb func, void *data):
                 }
             }
         }
-    })->p_type = CsIdAnd;
+    });
+    static_cast<cs_command_impl *>(p)->p_type = CsIdAnd;
 
-    new_command("||", "E1V", [](auto &cs, auto args, auto &res) {
+    p = new_command("||", "E1V", [](auto &cs, auto args, auto &res) {
         if (args.empty()) {
             res.set_int(0);
         } else {
@@ -351,25 +377,29 @@ cs_state::cs_state(cs_alloc_cb func, void *data):
                 }
             }
         }
-    })->p_type = CsIdOr;
+    });
+    static_cast<cs_command_impl *>(p)->p_type = CsIdOr;
 
-    new_command("local", "", nullptr)->p_type = CsIdLocal;
+    p = new_command("local", "", nullptr);
+    static_cast<cs_command_impl *>(p)->p_type = CsIdLocal;
 
-    new_command("break", "", [](auto &cs, auto, auto &) {
+    p = new_command("break", "", [](auto &cs, auto, auto &) {
         if (cs.is_in_loop()) {
             throw CsBreakException();
         } else {
             throw cs_error(cs, "no loop to break");
         }
-    })->p_type = CsIdBreak;
+    });
+    static_cast<cs_command_impl *>(p)->p_type = CsIdBreak;
 
-    new_command("continue", "", [](auto &cs, auto, auto &) {
+    p = new_command("continue", "", [](auto &cs, auto, auto &) {
         if (cs.is_in_loop()) {
             throw CsContinueException();
         } else {
             throw cs_error(cs, "no loop to continue");
         }
-    })->p_type = CsIdContinue;
+    });
+    static_cast<cs_command_impl *>(p)->p_type = CsIdContinue;
 
     cs_init_lib_base(*this);
 }
@@ -387,7 +417,7 @@ LIBCUBESCRIPT_EXPORT void cs_state::destroy() {
         cs_alias *a = i->get_alias();
         if (a) {
             a->get_value().force_none();
-            cs_alias_internal::clean_code(a);
+            cs_alias_internal::clean_code(static_cast<cs_alias_impl *>(a));
         }
         p_state->destroy(i);
     }
@@ -438,25 +468,25 @@ LIBCUBESCRIPT_EXPORT void cs_state::clear_override(cs_ident &id) {
     }
     switch (id.get_type()) {
         case cs_ident_type::ALIAS: {
-            cs_alias &a = static_cast<cs_alias &>(id);
+            cs_alias_impl &a = static_cast<cs_alias_impl &>(id);
             cs_alias_internal::clean_code(&a);
             a.get_value().set_str("");
             break;
         }
         case cs_ident_type::IVAR: {
-            cs_ivar &iv = static_cast<cs_ivar &>(id);
+            cs_ivar_impl &iv = static_cast<cs_ivar_impl &>(id);
             iv.set_value(iv.p_overrideval);
             iv.changed(*this);
             break;
         }
         case cs_ident_type::FVAR: {
-            cs_fvar &fv = static_cast<cs_fvar &>(id);
+            cs_fvar_impl &fv = static_cast<cs_fvar_impl &>(id);
             fv.set_value(fv.p_overrideval);
             fv.changed(*this);
             break;
         }
         case cs_ident_type::SVAR: {
-            cs_svar &sv = static_cast<cs_svar &>(id);
+            cs_svar_impl &sv = static_cast<cs_svar_impl &>(id);
             sv.set_value(sv.p_overrideval);
             sv.changed(*this);
             break;
@@ -464,7 +494,7 @@ LIBCUBESCRIPT_EXPORT void cs_state::clear_override(cs_ident &id) {
         default:
             break;
     }
-    id.p_flags &= ~CS_IDF_OVERRIDDEN;
+    id.p_impl->p_flags &= ~CS_IDF_OVERRIDDEN;
 }
 
 LIBCUBESCRIPT_EXPORT void cs_state::clear_overrides() {
@@ -473,12 +503,15 @@ LIBCUBESCRIPT_EXPORT void cs_state::clear_overrides() {
     }
 }
 
-LIBCUBESCRIPT_EXPORT cs_ident *cs_state::add_ident(cs_ident *id) {
+LIBCUBESCRIPT_EXPORT cs_ident *cs_state::add_ident(
+    cs_ident *id, cs_ident_impl *impl
+) {
     if (!id) {
         return nullptr;
     }
+    id->p_impl = impl;
     p_state->idents[id->get_name()] = id;
-    id->p_index = p_state->identmap.size();
+    static_cast<cs_ident_impl *>(impl)->p_index = p_state->identmap.size();
     p_state->identmap.push_back(id);
     return p_state->identmap.back();
 }
@@ -491,9 +524,10 @@ LIBCUBESCRIPT_EXPORT cs_ident *cs_state::new_ident(std::string_view name, int fl
                 *this, "number %s is not a valid identifier name", name.data()
             );
         }
-        id = add_ident(p_state->create<cs_alias>(
+        auto *inst = p_state->create<cs_alias_impl>(
             *this, cs_strref{*p_state, name}, flags
-        ));
+        );
+        id = add_ident(inst, inst);
     }
     return id;
 }
@@ -549,26 +583,32 @@ LIBCUBESCRIPT_EXPORT std::span<cs_ident const *> cs_state::get_idents() const {
 LIBCUBESCRIPT_EXPORT cs_ivar *cs_state::new_ivar(
     std::string_view n, cs_int m, cs_int x, cs_int v, cs_var_cb f, int flags
 ) {
-    return add_ident(p_state->create<cs_ivar>(
+    auto *iv = p_state->create<cs_ivar_impl>(
         cs_strref{*p_state, n}, m, x, v, std::move(f), flags
-    ))->get_ivar();
+    );
+    add_ident(iv, iv);
+    return iv;
 }
 
 LIBCUBESCRIPT_EXPORT cs_fvar *cs_state::new_fvar(
     std::string_view n, cs_float m, cs_float x, cs_float v, cs_var_cb f, int flags
 ) {
-    return add_ident(p_state->create<cs_fvar>(
+    auto *fv = p_state->create<cs_fvar_impl>(
         cs_strref{*p_state, n}, m, x, v, std::move(f), flags
-    ))->get_fvar();
+    );
+    add_ident(fv, fv);
+    return fv;
 }
 
 LIBCUBESCRIPT_EXPORT cs_svar *cs_state::new_svar(
     std::string_view n, std::string_view v, cs_var_cb f, int flags
 ) {
-    return add_ident(p_state->create<cs_svar>(
+    auto *sv = p_state->create<cs_svar_impl>(
         cs_strref{*p_state, n}, cs_strref{*p_state, v},
         cs_strref{*p_state, ""}, std::move(f), flags
-    ))->get_svar();
+    );
+    add_ident(sv, sv);
+    return sv;
 }
 
 LIBCUBESCRIPT_EXPORT void cs_state::reset_var(std::string_view name) {
@@ -585,7 +625,7 @@ LIBCUBESCRIPT_EXPORT void cs_state::reset_var(std::string_view name) {
 LIBCUBESCRIPT_EXPORT void cs_state::touch_var(std::string_view name) {
     cs_ident *id = get_ident(name);
     if (id && id->is_var()) {
-        static_cast<cs_var *>(id)->changed(*this);
+        static_cast<cs_var_impl *>(id->p_impl)->changed(*this);
     }
 }
 
@@ -594,7 +634,7 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_alias(std::string_view name, cs_value v)
     if (id) {
         switch (id->get_type()) {
             case cs_ident_type::ALIAS: {
-                cs_alias *a = static_cast<cs_alias *>(id);
+                cs_alias_impl *a = static_cast<cs_alias_impl *>(id);
                 if (a->get_index() < MaxArguments) {
                     cs_alias_internal::set_arg(a, *this, v);
                 } else {
@@ -620,9 +660,10 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_alias(std::string_view name, cs_value v)
     } else if (cs_check_num(name)) {
         throw cs_error(*this, "cannot alias number %s", name.data());
     } else {
-        add_ident(p_state->create<cs_alias>(
+        auto *a = p_state->create<cs_alias_impl>(
             *this, cs_strref{*p_state, name}, std::move(v), identflags
-        ));
+        );
+        add_ident(a, a);
     }
 }
 
@@ -630,16 +671,21 @@ LIBCUBESCRIPT_EXPORT void cs_state::print_var(cs_var const &v) const {
     p_state->varprintf(*this, v);
 }
 
+LIBCUBESCRIPT_EXPORT cs_value cs_alias::get_value() const {
+    return static_cast<cs_alias_impl const *>(this)->p_val;
+}
+
 void cs_alias::get_cval(cs_value &v) const {
-    switch (p_val.get_type()) {
+    auto *imp = static_cast<cs_alias_impl const *>(this);
+    switch (imp->p_val.get_type()) {
         case cs_value_type::STRING:
-            v = p_val;
+            v = imp->p_val;
             break;
         case cs_value_type::INT:
-            v.set_int(p_val.get_int());
+            v.set_int(imp->p_val.get_int());
             break;
         case cs_value_type::FLOAT:
-            v.set_float(p_val.get_float());
+            v.set_float(imp->p_val.get_float());
             break;
         default:
             v.set_none();
@@ -647,23 +693,27 @@ void cs_alias::get_cval(cs_value &v) const {
     }
 }
 
+int cs_ident::get_raw_type() const {
+    return p_impl->p_type;
+}
+
 cs_ident_type cs_ident::get_type() const {
-    if (p_type > CsIdAlias) {
+    if (p_impl->p_type > CsIdAlias) {
         return cs_ident_type::SPECIAL;
     }
-    return cs_ident_type(p_type);
+    return cs_ident_type(p_impl->p_type);
 }
 
 std::string_view cs_ident::get_name() const {
-    return p_name;
+    return p_impl->p_name;
 }
 
 int cs_ident::get_flags() const {
-    return p_flags;
+    return p_impl->p_flags;
 }
 
 int cs_ident::get_index() const {
-    return p_index;
+    return p_impl->p_index;
 }
 
 template<typename SF>
@@ -693,7 +743,7 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_var_int(
     if (!id || id->is_ivar()) {
         return;
     }
-    cs_ivar *iv = static_cast<cs_ivar *>(id);
+    cs_ivar_impl *iv = static_cast<cs_ivar_impl *>(id);
     cs_override_var(
         *this, iv, iv->p_flags,
         [&iv]() { iv->p_overrideval = iv->get_value(); }
@@ -715,7 +765,7 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_var_float(
     if (!id || id->is_fvar()) {
         return;
     }
-    cs_fvar *fv = static_cast<cs_fvar *>(id);
+    cs_fvar_impl *fv = static_cast<cs_fvar_impl *>(id);
     cs_override_var(
         *this, fv, fv->p_flags,
         [&fv]() { fv->p_overrideval = fv->get_value(); }
@@ -737,7 +787,7 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_var_str(
     if (!id || id->is_svar()) {
         return;
     }
-    cs_svar *sv = static_cast<cs_svar *>(id);
+    cs_svar_impl *sv = static_cast<cs_svar_impl *>(id);
     cs_override_var(
         *this, sv, sv->p_flags,
         [&sv]() { sv->p_overrideval = sv->get_value(); }
@@ -850,15 +900,16 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_var_int_checked(cs_ivar *iv, cs_int v) {
             *this, "variable '%s' is read only", iv->get_name().data()
         );
     }
+    cs_ivar_impl *ivp = static_cast<cs_ivar_impl *>(iv);
     cs_override_var(
-        *this, iv, iv->p_flags,
-        [&iv]() { iv->p_overrideval = iv->get_value(); }
+        *this, iv, ivp->p_flags,
+        [&ivp]() { ivp->p_overrideval = ivp->p_storage; }
     );
     if ((v < iv->get_val_min()) || (v > iv->get_val_max())) {
         v = cs_clamp_var(*this, iv, v);
     }
     iv->set_value(v);
-    iv->changed(*this);
+    ivp->changed(*this);
 }
 
 LIBCUBESCRIPT_EXPORT void cs_state::set_var_int_checked(
@@ -898,15 +949,16 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_var_float_checked(cs_fvar *fv, cs_float 
             *this, "variable '%s' is read only", fv->get_name().data()
         );
     }
+    cs_fvar_impl *fvp = static_cast<cs_fvar_impl *>(fv);
     cs_override_var(
-        *this, fv, fv->p_flags,
-        [&fv]() { fv->p_overrideval = fv->get_value(); }
+        *this, fv, fvp->p_flags,
+        [&fvp]() { fvp->p_overrideval = fvp->p_storage; }
     );
     if ((v < fv->get_val_min()) || (v > fv->get_val_max())) {
         v = cs_clamp_fvar(*this, fv, v);
     }
     fv->set_value(v);
-    fv->changed(*this);
+    fvp->changed(*this);
 }
 
 LIBCUBESCRIPT_EXPORT void cs_state::set_var_str_checked(
@@ -917,12 +969,13 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_var_str_checked(
             *this, "variable '%s' is read only", sv->get_name().data()
         );
     }
+    cs_svar_impl *svp = static_cast<cs_svar_impl *>(sv);
     cs_override_var(
-        *this, sv, sv->p_flags,
-        [&sv]() { sv->p_overrideval = sv->get_value(); }
+        *this, sv, svp->p_flags,
+        [&svp]() { svp->p_overrideval = svp->p_storage; }
     );
     sv->set_value(cs_strref{*p_state, v});
-    sv->changed(*this);
+    svp->changed(*this);
 }
 
 LIBCUBESCRIPT_EXPORT cs_command *cs_state::new_command(
@@ -974,10 +1027,12 @@ LIBCUBESCRIPT_EXPORT cs_command *cs_state::new_command(
                 return nullptr;
         }
     }
-    return static_cast<cs_command *>(add_ident(p_state->create<cs_command>(
+    auto *cmd = p_state->create<cs_command_impl>(
         cs_strref{*p_state, name}, cs_strref{*p_state, args}, nargs,
-        std::move(func))
-    ));
+        std::move(func)
+    );
+    add_ident(cmd, cmd);
+    return cmd;
 }
 
 static inline void cs_do_loop(
@@ -1061,8 +1116,12 @@ void cs_init_lib_base(cs_state &gcs) {
             rc = false;
         }
         ret.set_int(rc);
-        cs_alias_internal::set_alias(cret, cs, result);
-        cs_alias_internal::set_alias(css, cs, tback);
+        cs_alias_internal::set_alias(
+            static_cast<cs_alias_impl *>(cret), cs, result
+        );
+        cs_alias_internal::set_alias(
+            static_cast<cs_alias_impl *>(css), cs, tback
+        );
     });
 
     gcs.new_command("?", "ttt", [](auto &, auto args, auto &res) {

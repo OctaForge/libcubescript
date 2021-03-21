@@ -323,7 +323,7 @@ lookupid:
                         if (prevargs >= MaxResults) {
                             gs.code.push_back(CS_CODE_ENTER);
                         }
-                        auto fmt = static_cast<cs_command *>(id)->get_args();
+                        auto fmt = static_cast<cs_command_impl *>(id)->get_args();
                         for (char c: fmt) {
                             switch (c) {
                                 case 'S':
@@ -847,7 +847,7 @@ static bool compilearg(
 }
 
 static void compile_cmd(
-    cs_gen_state &gs, cs_command *id, bool &more, int rettype, int prevargs
+    cs_gen_state &gs, cs_command_impl *id, bool &more, int rettype, int prevargs
 ) {
     int comtype = CS_CODE_COM, numargs = 0, fakeargs = 0;
     bool rep = false;
@@ -1159,8 +1159,8 @@ static void compile_and_or(
     }
     if (!more) {
         gs.code.push_back(
-            ((id->get_type_raw() == CsIdAnd) ? CS_CODE_TRUE : CS_CODE_FALSE)
-                | cs_ret_code(rettype)
+            ((id->get_raw_type() == CsIdAnd)
+                ? CS_CODE_TRUE : CS_CODE_FALSE) | cs_ret_code(rettype)
         );
     } else {
         numargs++;
@@ -1191,7 +1191,7 @@ static void compile_and_or(
                     (numargs << 8) | (id->get_index() << 13)
             );
         } else {
-            uint32_t op = (id->get_type_raw() == CsIdAnd)
+            uint32_t op = (id->get_raw_type() == CsIdAnd)
                 ? (CS_CODE_JUMP_RESULT | CS_CODE_FLAG_FALSE)
                 : (CS_CODE_JUMP_RESULT | CS_CODE_FLAG_TRUE);
             gs.code.push_back(op);
@@ -1328,7 +1328,7 @@ noid:
                 }
                 gs.code.push_back(CS_CODE_RESULT);
             } else {
-                switch (id->get_type_raw()) {
+                switch (id->get_raw_type()) {
                     case CsIdAlias:
                         compile_alias(
                             gs, static_cast<cs_alias *>(id), more, prevargs
@@ -1336,7 +1336,7 @@ noid:
                         break;
                     case CsIdCommand:
                         compile_cmd(
-                            gs, static_cast<cs_command *>(id), more,
+                            gs, static_cast<cs_command_impl *>(id), more,
                             rettype, prevargs
                         );
                         break;

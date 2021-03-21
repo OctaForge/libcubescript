@@ -11,14 +11,14 @@ struct cs_cmd_internal {
     static void call(
         cs_state &cs, cs_command *c, std::span<cs_value> args, cs_value &ret
     ) {
-        c->p_cb_cftv(cs, args, ret);
+        static_cast<cs_command_impl *>(c)->p_cb_cftv(cs, args, ret);
     }
 
     static bool has_cb(cs_ident *id) {
         if (!id->is_command() && !id->is_special()) {
             return false;
         }
-        cs_command *cb = static_cast<cs_command *>(id);
+        cs_command_impl *cb = static_cast<cs_command_impl *>(id);
         return !!cb->p_cb_cftv;
     }
 };
@@ -26,13 +26,13 @@ struct cs_cmd_internal {
 static inline void cs_push_alias(cs_state &cs, cs_ident *id, cs_ident_stack &st) {
     if (id->is_alias() && (id->get_index() >= MaxArguments)) {
         cs_value nv{cs};
-        cs_alias_internal::push_arg(static_cast<cs_alias *>(id), nv, st);
+        cs_alias_internal::push_arg(static_cast<cs_alias_impl *>(id), nv, st);
     }
 }
 
 static inline void cs_pop_alias(cs_ident *id) {
     if (id->is_alias() && (id->get_index() >= MaxArguments)) {
-        cs_alias_internal::pop_arg(static_cast<cs_alias *>(id));
+        cs_alias_internal::pop_arg(static_cast<cs_alias_impl *>(id));
     }
 }
 
@@ -310,8 +310,8 @@ cs_bcode *cs_copy_code(cs_bcode *c) {
 }
 
 static inline void callcommand(
-    cs_state &cs, cs_command *id, cs_value *args, cs_value &res, int numargs,
-    bool lookup = false
+    cs_state &cs, cs_command_impl *id, cs_value *args, cs_value &res,
+    int numargs, bool lookup = false
 ) {
     int i = -1, fakeargs = 0;
     bool rep = false;
@@ -470,7 +470,7 @@ static inline void cs_call_alias(
     cs_valarray<cs_ident_stack, MaxArguments> argstack{cs};
     for(int i = 0; i < callargs; i++) {
         cs_alias_internal::push_arg(
-            static_cast<cs_alias *>(cs.p_state->identmap[i]),
+            static_cast<cs_alias_impl *>(cs.p_state->identmap[i]),
             args[offset + i], argstack[i], false
         );
     }
@@ -483,7 +483,7 @@ static inline void cs_call_alias(
     };
     cs.p_callstack = &aliaslink;
     uint32_t *codep = reinterpret_cast<uint32_t *>(
-        cs_alias_internal::compile_code(a, cs)
+        cs_alias_internal::compile_code(static_cast<cs_alias_impl *>(a), cs)
     );
     bcode_incr(codep);
     cs_do_and_cleanup([&]() {
@@ -494,13 +494,13 @@ static inline void cs_call_alias(
         cs.identflags = oldflags;
         for (int i = 0; i < callargs; i++) {
             cs_alias_internal::pop_arg(
-                static_cast<cs_alias *>(cs.p_state->identmap[i])
+                static_cast<cs_alias_impl *>(cs.p_state->identmap[i])
             );
         }
         int argmask = aliaslink.usedargs & int(~0U << callargs);
         for (; argmask; ++callargs) {
             if (argmask & (1 << callargs)) {
-                cs_alias_internal::pop_arg(static_cast<cs_alias *>(
+                cs_alias_internal::pop_arg(static_cast<cs_alias_impl *>(
                     cs.p_state->identmap[callargs])
                 );
                 argmask &= ~(1 << callargs);
@@ -570,7 +570,10 @@ static inline int cs_get_lookupu_type(
             case cs_ident_type::COMMAND: {
                 arg.set_none();
                 cs_valarray<cs_value, MaxArguments> buf{cs};
-                callcommand(cs, static_cast<cs_command *>(id), &buf[0], arg, 0, true);
+                callcommand(
+                    cs, static_cast<cs_command_impl *>(id),
+                    &buf[0], arg, 0, true
+                );
                 force_arg(arg, op & CS_CODE_RET_MASK);
                 return -2; /* ignore */
             }
@@ -950,7 +953,8 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 if (!cs_is_arg_used(cs, a)) {
                     cs_value nv{cs};
                     cs_alias_internal::push_arg(
-                        a, nv, cs.p_callstack->argstack[a->get_index()], false
+                        static_cast<cs_alias_impl *>(a), nv,
+                        cs.p_callstack->argstack[a->get_index()], false
                     );
                     cs.p_callstack->usedargs |= 1 << a->get_index();
                 }
@@ -966,7 +970,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 if ((id->get_index() < MaxArguments) && !cs_is_arg_used(cs, id)) {
                     cs_value nv{cs};
                     cs_alias_internal::push_arg(
-                        static_cast<cs_alias *>(id), nv,
+                        static_cast<cs_alias_impl *>(id), nv,
                         cs.p_callstack->argstack[id->get_index()], false
                     );
                     cs.p_callstack->usedargs |= 1 << id->get_index();
@@ -1308,7 +1312,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
             case CS_CODE_COM | CS_RET_STRING:
             case CS_CODE_COM | CS_RET_FLOAT:
             case CS_CODE_COM | CS_RET_INT: {
-                cs_command *id = static_cast<cs_command *>(
+                cs_command_impl *id = static_cast<cs_command_impl *>(
                     cs.p_state->identmap[op >> 8]
                 );
                 int offset = numargs - id->get_num_args();
@@ -1325,7 +1329,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
             case CS_CODE_COM_V | CS_RET_STRING:
             case CS_CODE_COM_V | CS_RET_FLOAT:
             case CS_CODE_COM_V | CS_RET_INT: {
-                cs_command *id = static_cast<cs_command *>(
+                cs_command_impl *id = static_cast<cs_command_impl *>(
                     cs.p_state->identmap[op >> 13]
                 );
                 std::size_t callargs = (op >> 8) & 0x1F,
@@ -1342,7 +1346,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
             case CS_CODE_COM_C | CS_RET_STRING:
             case CS_CODE_COM_C | CS_RET_FLOAT:
             case CS_CODE_COM_C | CS_RET_INT: {
-                cs_command *id = static_cast<cs_command *>(
+                cs_command_impl *id = static_cast<cs_command_impl *>(
                     cs.p_state->identmap[op >> 13]
                 );
                 std::size_t callargs = (op >> 8) & 0x1F,
@@ -1398,13 +1402,13 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
 
             case CS_CODE_ALIAS:
                 cs_alias_internal::set_alias(
-                    static_cast<cs_alias *>(cs.p_state->identmap[op >> 8]),
+                    static_cast<cs_alias_impl *>(cs.p_state->identmap[op >> 8]),
                     cs, args[--numargs]
                 );
                 continue;
             case CS_CODE_ALIAS_ARG:
                 cs_alias_internal::set_arg(
-                    static_cast<cs_alias *>(cs.p_state->identmap[op >> 8]),
+                    static_cast<cs_alias_impl *>(cs.p_state->identmap[op >> 8]),
                     cs, args[--numargs]
                 );
                 continue;
@@ -1481,7 +1485,7 @@ noid:
                     );
                 }
                 result.force_none();
-                switch (id->get_type_raw()) {
+                switch (id->get_raw_type()) {
                     default:
                         if (!cs_cmd_internal::has_cb(id)) {
                             numargs = offset - 1;
@@ -1491,8 +1495,8 @@ noid:
                     /* fallthrough */
                     case CsIdCommand:
                         callcommand(
-                            cs, static_cast<cs_command *>(id), &args[offset],
-                            result, callargs
+                            cs, static_cast<cs_command_impl *>(id),
+                            &args[offset], result, callargs
                         );
                         force_arg(result, op & CS_CODE_RET_MASK);
                         numargs = offset - 1;
@@ -1618,18 +1622,18 @@ void cs_state::run(cs_ident *id, std::span<cs_value> args, cs_value &ret) {
                 }
             /* fallthrough */
             case cs_ident_type::COMMAND:
-                if (nargs < static_cast<cs_command *>(id)->get_num_args()) {
+                if (nargs < static_cast<cs_command_impl *>(id)->get_num_args()) {
                     cs_valarray<cs_value, MaxArguments> buf{*this};
                     for (std::size_t i = 0; i < args.size(); ++i) {
                         buf[i] = args[i];
                     }
                     callcommand(
-                        *this, static_cast<cs_command *>(id), &buf[0], ret,
+                        *this, static_cast<cs_command_impl *>(id), &buf[0], ret,
                         nargs, false
                     );
                 } else {
                     callcommand(
-                        *this, static_cast<cs_command *>(id), &args[0],
+                        *this, static_cast<cs_command_impl *>(id), &args[0],
                         ret, nargs, false
                     );
                 }

@@ -25,6 +25,80 @@ enum {
     CsIdNot, CsIdAnd, CsIdOr
 };
 
+struct cs_ident_impl {
+    cs_ident_impl() = delete;
+    cs_ident_impl(cs_ident_impl const &) = delete;
+    cs_ident_impl(cs_ident_impl &&) = delete;
+
+    /* trigger destructors for all inherited members properly */
+    virtual ~cs_ident_impl() {};
+
+    cs_ident_impl &operator=(cs_ident_impl const &) = delete;
+    cs_ident_impl &operator=(cs_ident_impl &&) = delete;
+
+    cs_ident_impl(cs_ident_type tp, cs_strref name, int flags = 0);
+
+    cs_strref p_name;
+    /* represents the cs_ident_type above, but internally it has a wider variety
+     * of values, so it's an int here (maps to an internal enum)
+     */
+    int p_type, p_flags;
+
+    int p_index = -1;
+};
+
+struct cs_var_impl: cs_ident_impl {
+    cs_var_impl(cs_ident_type tp, cs_strref name, cs_var_cb func, int flags = 0);
+
+    cs_var_cb cb_var;
+
+    void changed(cs_state &cs);
+};
+
+struct cs_ivar_impl: cs_var_impl, cs_ivar {
+    cs_ivar_impl(
+        cs_strref n, cs_int m, cs_int x, cs_int v, cs_var_cb f, int flags
+    );
+
+    cs_int p_storage, p_minval, p_maxval, p_overrideval;
+};
+
+struct cs_fvar_impl: cs_var_impl, cs_fvar {
+    cs_fvar_impl(
+        cs_strref n, cs_float m, cs_float x, cs_float v,
+        cs_var_cb f, int flags
+    );
+
+    cs_float p_storage, p_minval, p_maxval, p_overrideval;
+};
+
+struct cs_svar_impl: cs_var_impl, cs_svar {
+    cs_svar_impl(cs_strref n, cs_strref v, cs_strref ov, cs_var_cb f, int flags);
+
+    cs_strref p_storage, p_overrideval;
+};
+
+struct cs_alias_impl: cs_ident_impl, cs_alias {
+    cs_alias_impl(cs_state &cs, cs_strref n, cs_strref a, int flags);
+    cs_alias_impl(cs_state &cs, cs_strref n, std::string_view a, int flags);
+    cs_alias_impl(cs_state &cs, cs_strref n, cs_int a, int flags);
+    cs_alias_impl(cs_state &cs, cs_strref n, cs_float a, int flags);
+    cs_alias_impl(cs_state &cs, cs_strref n, int flags);
+    cs_alias_impl(cs_state &cs, cs_strref n, cs_value v, int flags);
+
+    cs_bcode *p_acode;
+    cs_ident_stack *p_astack;
+    cs_value p_val;
+};
+
+struct cs_command_impl: cs_ident_impl, cs_command {
+    cs_command_impl(cs_strref name, cs_strref args, int numargs, cs_command_cb func);
+
+    cs_strref p_cargs;
+    cs_command_cb p_cb_cftv;
+    int p_numargs;
+};
+
 struct cs_ident_link {
     cs_ident *id;
     cs_ident_link *next;
@@ -293,7 +367,7 @@ static inline bool cs_is_arg_used(cs_state &cs, cs_ident *id) {
 
 struct cs_alias_internal {
     static void push_arg(
-        cs_alias *a, cs_value &v, cs_ident_stack &st, bool um = true
+        cs_alias_impl *a, cs_value &v, cs_ident_stack &st, bool um = true
     ) {
         if (a->p_astack == &st) {
             /* prevent cycles and unnecessary code elsewhere */
@@ -311,7 +385,7 @@ struct cs_alias_internal {
         }
     }
 
-    static void pop_arg(cs_alias *a) {
+    static void pop_arg(cs_alias_impl *a) {
         if (!a->p_astack) {
             return;
         }
@@ -321,7 +395,7 @@ struct cs_alias_internal {
         a->p_astack = st->next;
     }
 
-    static void undo_arg(cs_alias *a, cs_ident_stack &st) {
+    static void undo_arg(cs_alias_impl *a, cs_ident_stack &st) {
         cs_ident_stack *prev = a->p_astack;
         st.val_s = std::move(a->p_val);
         st.next = prev;
@@ -330,7 +404,7 @@ struct cs_alias_internal {
         clean_code(a);
     }
 
-    static void redo_arg(cs_alias *a, cs_ident_stack &st) {
+    static void redo_arg(cs_alias_impl *a, cs_ident_stack &st) {
         cs_ident_stack *prev = st.next;
         prev->val_s = std::move(a->p_val);
         a->p_astack = prev;
@@ -338,7 +412,7 @@ struct cs_alias_internal {
         clean_code(a);
     }
 
-    static void set_arg(cs_alias *a, cs_state &cs, cs_value &v) {
+    static void set_arg(cs_alias_impl *a, cs_state &cs, cs_value &v) {
         if (cs_is_arg_used(cs, a)) {
             a->p_val = std::move(v);
             clean_code(a);
@@ -348,13 +422,13 @@ struct cs_alias_internal {
         }
     }
 
-    static void set_alias(cs_alias *a, cs_state &cs, cs_value &v) {
+    static void set_alias(cs_alias_impl *a, cs_state &cs, cs_value &v) {
         a->p_val = std::move(v);
         clean_code(a);
         a->p_flags = (a->p_flags & cs.identflags) | cs.identflags;
     }
 
-    static void clean_code(cs_alias *a) {
+    static void clean_code(cs_alias_impl *a) {
         uint32_t *bcode = reinterpret_cast<uint32_t *>(a->p_acode);
         if (bcode) {
             bcode_decr(bcode);
@@ -362,7 +436,7 @@ struct cs_alias_internal {
         }
     }
 
-    static cs_bcode *compile_code(cs_alias *a, cs_state &cs) {
+    static cs_bcode *compile_code(cs_alias_impl *a, cs_state &cs) {
         if (!a->p_acode) {
             cs_gen_state gs(cs);
             gs.code.reserve(64);
@@ -388,7 +462,7 @@ static void cs_do_args(cs_state &cs, F body) {
     for (int i = 0; argmask1; argmask1 >>= 1, ++i) {
         if (argmask1 & 1) {
             cs_alias_internal::undo_arg(
-                static_cast<cs_alias *>(cs.p_state->identmap[i]), argstack[i]
+                static_cast<cs_alias_impl *>(cs.p_state->identmap[i]), argstack[i]
             );
         }
     }
@@ -408,7 +482,7 @@ static void cs_do_args(cs_state &cs, F body) {
         for (int i = 0; argmask2; argmask2 >>= 1, ++i) {
             if (argmask2 & 1) {
                 cs_alias_internal::redo_arg(
-                    static_cast<cs_alias *>(cs.p_state->identmap[i]), argstack[i]
+                    static_cast<cs_alias_impl *>(cs.p_state->identmap[i]), argstack[i]
                 );
             }
         }

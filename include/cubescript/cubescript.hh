@@ -56,6 +56,7 @@ struct cs_bcode;
 struct cs_value;
 struct cs_state;
 struct cs_shared_state;
+struct cs_ident_impl;
 
 struct LIBCUBESCRIPT_EXPORT cs_bcode_ref {
     cs_bcode_ref():
@@ -206,19 +207,7 @@ struct cs_alias;
 struct cs_command;
 
 struct LIBCUBESCRIPT_EXPORT cs_ident {
-    friend struct cs_state;
-    friend struct cs_shared_state;
-
-    cs_ident() = delete;
-    cs_ident(cs_ident const &) = delete;
-    cs_ident(cs_ident &&) = delete;
-
-    /* trigger destructors for all inherited members properly */
-    virtual ~cs_ident() {};
-
-    cs_ident &operator=(cs_ident const &) = delete;
-    cs_ident &operator=(cs_ident &&) = delete;
-
+    int get_raw_type() const;
     cs_ident_type get_type() const;
     std::string_view get_name() const;
     int get_flags() const;
@@ -250,127 +239,64 @@ struct LIBCUBESCRIPT_EXPORT cs_ident {
     cs_svar *get_svar();
     cs_svar const *get_svar() const;
 
-    int get_type_raw() const {
-        return p_type;
-    }
-
 protected:
-    cs_ident(cs_ident_type tp, cs_strref name, int flags = 0);
-
-    cs_strref p_name;
-    /* represents the cs_ident_type above, but internally it has a wider variety
-     * of values, so it's an int here (maps to an internal enum)
-     */
-    int p_type, p_flags;
+    cs_ident() = default;
 
 private:
-    int p_index = -1;
+    friend struct cs_state;
+
+    cs_ident_impl *p_impl{};
 };
 
 struct LIBCUBESCRIPT_EXPORT cs_var: cs_ident {
-    friend struct cs_state;
-    friend struct cs_shared_state;
-
 protected:
-    cs_var(cs_ident_type tp, cs_strref name, cs_var_cb func, int flags = 0);
-
-private:
-    cs_var_cb cb_var;
-
-    void changed(cs_state &cs) {
-        if (cb_var) {
-            cb_var(cs, *this);
-        }
-    }
+    cs_var() = default;
 };
 
 struct LIBCUBESCRIPT_EXPORT cs_ivar: cs_var {
-    friend struct cs_state;
-    friend struct cs_shared_state;
-
     cs_int get_val_min() const;
     cs_int get_val_max() const;
 
     cs_int get_value() const;
     void set_value(cs_int val);
 
-private:
-    cs_ivar(
-        cs_strref n, cs_int m, cs_int x, cs_int v, cs_var_cb f, int flags
-    );
-
-    cs_int p_storage, p_minval, p_maxval, p_overrideval;
+protected:
+    cs_ivar() = default;
 };
 
 struct LIBCUBESCRIPT_EXPORT cs_fvar: cs_var {
-    friend struct cs_state;
-    friend struct cs_shared_state;
-
     cs_float get_val_min() const;
     cs_float get_val_max() const;
 
     cs_float get_value() const;
     void set_value(cs_float val);
 
-private:
-    cs_fvar(
-        cs_strref n, cs_float m, cs_float x, cs_float v,
-        cs_var_cb f, int flags
-    );
-
-    cs_float p_storage, p_minval, p_maxval, p_overrideval;
+protected:
+    cs_fvar() = default;
 };
 
 struct LIBCUBESCRIPT_EXPORT cs_svar: cs_var {
-    friend struct cs_state;
-    friend struct cs_shared_state;
-
     cs_strref get_value() const;
     void set_value(cs_strref val);
 
-private:
-    cs_svar(cs_strref n, cs_strref v, cs_strref ov, cs_var_cb f, int flags);
-
-    cs_strref p_storage, p_overrideval;
+protected:
+    cs_svar() = default;
 };
 
 struct LIBCUBESCRIPT_EXPORT cs_alias: cs_ident {
-    friend struct cs_state;
-    friend struct cs_shared_state;
-    friend struct cs_alias_internal;
-
-    cs_value get_value() const {
-        return p_val;
-    }
-
+    cs_value get_value() const;
     void get_cval(cs_value &v) const;
-private:
-    cs_alias(cs_state &cs, cs_strref n, cs_strref a, int flags);
-    cs_alias(cs_state &cs, cs_strref n, std::string_view a, int flags);
-    cs_alias(cs_state &cs, cs_strref n, cs_int a, int flags);
-    cs_alias(cs_state &cs, cs_strref n, cs_float a, int flags);
-    cs_alias(cs_state &cs, cs_strref n, int flags);
-    cs_alias(cs_state &cs, cs_strref n, cs_value v, int flags);
 
-    cs_bcode *p_acode;
-    cs_ident_stack *p_astack;
-    cs_value p_val;
+protected:
+    cs_alias() = default;
 };
 
 struct cs_command: cs_ident {
-    friend struct cs_state;
-    friend struct cs_shared_state;
-    friend struct cs_cmd_internal;
-
     std::string_view get_args() const;
     int get_num_args() const;
 
-private:
-    cs_command(cs_strref name, cs_strref args, int numargs, cs_command_cb func);
-
-    cs_strref p_cargs;
-    cs_command_cb p_cb_cftv;
-    int p_numargs;
+protected:
+    cs_command() = default;
 };
 
 struct cs_ident_link;
@@ -524,7 +450,7 @@ struct LIBCUBESCRIPT_EXPORT cs_state {
 private:
     LIBCUBESCRIPT_LOCAL cs_state(cs_shared_state *s);
 
-    cs_ident *add_ident(cs_ident *id);
+    cs_ident *add_ident(cs_ident *id, cs_ident_impl *impl);
 
     LIBCUBESCRIPT_LOCAL void *alloc(void *ptr, size_t olds, size_t news);
 
