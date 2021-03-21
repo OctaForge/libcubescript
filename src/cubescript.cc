@@ -417,7 +417,7 @@ LIBCUBESCRIPT_EXPORT void cs_state::destroy() {
         cs_alias *a = i->get_alias();
         if (a) {
             a->get_value().force_none();
-            cs_alias_internal::clean_code(static_cast<cs_alias_impl *>(a));
+            static_cast<cs_alias_impl *>(a)->clean_code();
         }
         p_state->destroy(i);
     }
@@ -469,7 +469,7 @@ LIBCUBESCRIPT_EXPORT void cs_state::clear_override(cs_ident &id) {
     switch (id.get_type()) {
         case cs_ident_type::ALIAS: {
             cs_alias_impl &a = static_cast<cs_alias_impl &>(id);
-            cs_alias_internal::clean_code(&a);
+            a.clean_code();
             a.get_value().set_str("");
             break;
         }
@@ -636,9 +636,9 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_alias(std::string_view name, cs_value v)
             case cs_ident_type::ALIAS: {
                 cs_alias_impl *a = static_cast<cs_alias_impl *>(id);
                 if (a->get_index() < MaxArguments) {
-                    cs_alias_internal::set_arg(a, *this, v);
+                    a->set_arg(*this, v);
                 } else {
-                    cs_alias_internal::set_alias(a, *this, v);
+                    a->set_alias(*this, v);
                 }
                 return;
             }
@@ -1116,12 +1116,8 @@ void cs_init_lib_base(cs_state &gcs) {
             rc = false;
         }
         ret.set_int(rc);
-        cs_alias_internal::set_alias(
-            static_cast<cs_alias_impl *>(cret), cs, result
-        );
-        cs_alias_internal::set_alias(
-            static_cast<cs_alias_impl *>(css), cs, tback
-        );
+        static_cast<cs_alias_impl *>(cret)->set_alias(cs, result);
+        static_cast<cs_alias_impl *>(css)->set_alias(cs, tback);
     });
 
     gcs.new_command("?", "ttt", [](auto &, auto args, auto &res) {

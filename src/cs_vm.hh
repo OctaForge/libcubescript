@@ -78,6 +78,20 @@ struct cs_svar_impl: cs_var_impl, cs_svar {
     cs_strref p_storage, p_overrideval;
 };
 
+struct cs_ident_link {
+    cs_ident *id;
+    cs_ident_link *next;
+    int usedargs;
+    cs_ident_stack *argstack;
+};
+
+static inline bool cs_is_arg_used(cs_state &cs, cs_ident *id) {
+    if (!cs.p_callstack) {
+        return true;
+    }
+    return cs.p_callstack->usedargs & (1 << id->get_index());
+}
+
 struct cs_alias_impl: cs_ident_impl, cs_alias {
     cs_alias_impl(cs_state &cs, cs_strref n, cs_strref a, int flags);
     cs_alias_impl(cs_state &cs, cs_strref n, std::string_view a, int flags);
@@ -85,6 +99,69 @@ struct cs_alias_impl: cs_ident_impl, cs_alias {
     cs_alias_impl(cs_state &cs, cs_strref n, cs_float a, int flags);
     cs_alias_impl(cs_state &cs, cs_strref n, int flags);
     cs_alias_impl(cs_state &cs, cs_strref n, cs_value v, int flags);
+
+    void push_arg(cs_value &v, cs_ident_stack &st, bool um = true) {
+        if (p_astack == &st) {
+            /* prevent cycles and unnecessary code elsewhere */
+            p_val = std::move(v);
+            clean_code();
+            return;
+        }
+        st.val_s = std::move(p_val);
+        st.next = p_astack;
+        p_astack = &st;
+        p_val = std::move(v);
+        clean_code();
+        if (um) {
+            p_flags &= ~CS_IDF_UNKNOWN;
+        }
+    }
+
+    void pop_arg() {
+        if (!p_astack) {
+            return;
+        }
+        cs_ident_stack *st = p_astack;
+        p_val = std::move(p_astack->val_s);
+        clean_code();
+        p_astack = st->next;
+    }
+
+    void undo_arg(cs_ident_stack &st) {
+        cs_ident_stack *prev = p_astack;
+        st.val_s = std::move(p_val);
+        st.next = prev;
+        p_astack = prev->next;
+        p_val = std::move(prev->val_s);
+        clean_code();
+    }
+
+    void redo_arg(cs_ident_stack &st) {
+        cs_ident_stack *prev = st.next;
+        prev->val_s = std::move(p_val);
+        p_astack = prev;
+        p_val = std::move(st.val_s);
+        clean_code();
+    }
+
+    void set_arg(cs_state &cs, cs_value &v) {
+        if (cs_is_arg_used(cs, this)) {
+            p_val = std::move(v);
+            clean_code();
+        } else {
+            push_arg(v, cs.p_callstack->argstack[get_index()], false);
+            cs.p_callstack->usedargs |= 1 << get_index();
+        }
+    }
+
+    void set_alias(cs_state &cs, cs_value &v) {
+        p_val = std::move(v);
+        clean_code();
+        p_flags = (p_flags & cs.identflags) | cs.identflags;
+    }
+
+    void clean_code();
+    cs_bcode *compile_code(cs_state &cs);
 
     cs_bcode *p_acode;
     cs_ident_stack *p_astack;
@@ -97,13 +174,6 @@ struct cs_command_impl: cs_ident_impl, cs_command {
     cs_strref p_cargs;
     cs_command_cb p_cb_cftv;
     int p_numargs;
-};
-
-struct cs_ident_link {
-    cs_ident *id;
-    cs_ident_link *next;
-    int usedargs;
-    cs_ident_stack *argstack;
 };
 
 template<typename T, std::size_t N>
@@ -358,98 +428,27 @@ static inline void bcode_decr(uint32_t *bc) {
     }
 }
 
-static inline bool cs_is_arg_used(cs_state &cs, cs_ident *id) {
-    if (!cs.p_callstack) {
-        return true;
+inline void cs_alias_impl::clean_code() {
+    uint32_t *bcode = reinterpret_cast<uint32_t *>(p_acode);
+    if (bcode) {
+        bcode_decr(bcode);
+        p_acode = nullptr;
     }
-    return cs.p_callstack->usedargs & (1 << id->get_index());
 }
 
-struct cs_alias_internal {
-    static void push_arg(
-        cs_alias_impl *a, cs_value &v, cs_ident_stack &st, bool um = true
-    ) {
-        if (a->p_astack == &st) {
-            /* prevent cycles and unnecessary code elsewhere */
-            a->p_val = std::move(v);
-            clean_code(a);
-            return;
-        }
-        st.val_s = std::move(a->p_val);
-        st.next = a->p_astack;
-        a->p_astack = &st;
-        a->p_val = std::move(v);
-        clean_code(a);
-        if (um) {
-            a->p_flags &= ~CS_IDF_UNKNOWN;
-        }
+inline cs_bcode *cs_alias_impl::compile_code(cs_state &cs) {
+    if (!p_acode) {
+        cs_gen_state gs(cs);
+        gs.code.reserve(64);
+        gs.gen_main(get_value().get_str());
+        /* i wish i could steal the memory somehow */
+        uint32_t *code = new uint32_t[gs.code.size()];
+        memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
+        bcode_incr(code);
+        p_acode = reinterpret_cast<cs_bcode *>(code);
     }
-
-    static void pop_arg(cs_alias_impl *a) {
-        if (!a->p_astack) {
-            return;
-        }
-        cs_ident_stack *st = a->p_astack;
-        a->p_val = std::move(a->p_astack->val_s);
-        clean_code(a);
-        a->p_astack = st->next;
-    }
-
-    static void undo_arg(cs_alias_impl *a, cs_ident_stack &st) {
-        cs_ident_stack *prev = a->p_astack;
-        st.val_s = std::move(a->p_val);
-        st.next = prev;
-        a->p_astack = prev->next;
-        a->p_val = std::move(prev->val_s);
-        clean_code(a);
-    }
-
-    static void redo_arg(cs_alias_impl *a, cs_ident_stack &st) {
-        cs_ident_stack *prev = st.next;
-        prev->val_s = std::move(a->p_val);
-        a->p_astack = prev;
-        a->p_val = std::move(st.val_s);
-        clean_code(a);
-    }
-
-    static void set_arg(cs_alias_impl *a, cs_state &cs, cs_value &v) {
-        if (cs_is_arg_used(cs, a)) {
-            a->p_val = std::move(v);
-            clean_code(a);
-        } else {
-            push_arg(a, v, cs.p_callstack->argstack[a->get_index()], false);
-            cs.p_callstack->usedargs |= 1 << a->get_index();
-        }
-    }
-
-    static void set_alias(cs_alias_impl *a, cs_state &cs, cs_value &v) {
-        a->p_val = std::move(v);
-        clean_code(a);
-        a->p_flags = (a->p_flags & cs.identflags) | cs.identflags;
-    }
-
-    static void clean_code(cs_alias_impl *a) {
-        uint32_t *bcode = reinterpret_cast<uint32_t *>(a->p_acode);
-        if (bcode) {
-            bcode_decr(bcode);
-            a->p_acode = nullptr;
-        }
-    }
-
-    static cs_bcode *compile_code(cs_alias_impl *a, cs_state &cs) {
-        if (!a->p_acode) {
-            cs_gen_state gs(cs);
-            gs.code.reserve(64);
-            gs.gen_main(a->get_value().get_str());
-            /* i wish i could steal the memory somehow */
-            uint32_t *code = new uint32_t[gs.code.size()];
-            memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
-            bcode_incr(code);
-            a->p_acode = reinterpret_cast<cs_bcode *>(code);
-        }
-        return a->p_acode;
-    }
-};
+    return p_acode;
+}
 
 template<typename F>
 static void cs_do_args(cs_state &cs, F body) {
@@ -461,8 +460,8 @@ static void cs_do_args(cs_state &cs, F body) {
     int argmask1 = cs.p_callstack->usedargs;
     for (int i = 0; argmask1; argmask1 >>= 1, ++i) {
         if (argmask1 & 1) {
-            cs_alias_internal::undo_arg(
-                static_cast<cs_alias_impl *>(cs.p_state->identmap[i]), argstack[i]
+            static_cast<cs_alias_impl *>(cs.p_state->identmap[i])->undo_arg(
+                argstack[i]
             );
         }
     }
@@ -481,8 +480,8 @@ static void cs_do_args(cs_state &cs, F body) {
         int argmask2 = cs.p_callstack->usedargs;
         for (int i = 0; argmask2; argmask2 >>= 1, ++i) {
             if (argmask2 & 1) {
-                cs_alias_internal::redo_arg(
-                    static_cast<cs_alias_impl *>(cs.p_state->identmap[i]), argstack[i]
+                static_cast<cs_alias_impl *>(cs.p_state->identmap[i])->redo_arg(
+                    argstack[i]
                 );
             }
         }
