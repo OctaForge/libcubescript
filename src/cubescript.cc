@@ -419,7 +419,7 @@ LIBCUBESCRIPT_EXPORT void cs_state::destroy() {
             a->get_value().force_none();
             static_cast<cs_alias_impl *>(a)->clean_code();
         }
-        p_state->destroy(i);
+        p_state->destroy(i->p_impl);
     }
     p_state->destroy(p_state->strman);
     p_state->destroy(static_cast<cs_charbuf *>(p_errbuf));
