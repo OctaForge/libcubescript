@@ -1561,9 +1561,9 @@ static void cs_run(
     gs.done();
     uint32_t *cbuf = new uint32_t[gs.code.size()];
     memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(uint32_t));
-    bcode_ref(cbuf);
+    bcode_incr(cbuf);
     runcode(cs, cbuf + 1, ret);
-    bcode_unref(cbuf);
+    bcode_decr(cbuf);
 }
 
 void cs_state::run(std::string_view code, cs_value &ret) {
