@@ -71,10 +71,7 @@ static inline void csv_cleanup(cs_value_type tv, T &stor) {
             reinterpret_cast<cs_strref *>(&stor)->~cs_strref();
             break;
         case cs_value_type::CODE: {
-            uint32_t *bcode = csv_get<uint32_t *>(stor);
-            if (bcode[-1] == CS_CODE_START) {
-                delete[] &bcode[-1];
-            }
+            bcode_unref(csv_get<uint32_t *>(stor));
             break;
         }
         default:
@@ -119,7 +116,7 @@ cs_value &cs_value::operator=(cs_value const &v) {
             };
             break;
         case cs_value_type::CODE:
-            set_code(cs_copy_code(v.get_code()));
+            set_code(v.get_code());
             break;
         default:
             break;
@@ -169,6 +166,7 @@ void cs_value::set_none() {
 void cs_value::set_code(cs_bcode *val) {
     csv_cleanup(p_type, p_stor);
     p_type = cs_value_type::CODE;
+    bcode_ref(reinterpret_cast<uint32_t *>(val));
     csv_get<cs_bcode *>(p_stor) = val;
 }
 

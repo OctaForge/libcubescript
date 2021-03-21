@@ -421,38 +421,8 @@ struct cs_gen_state {
 
 bool cs_check_num(std::string_view s);
 
-static inline void bcode_incr(uint32_t *bc) {
-    *bc += 0x100;
-}
-
-static inline void bcode_decr(uint32_t *bc) {
-    *bc -= 0x100;
-    if (std::int32_t(*bc) < 0x100) {
-        delete[] bc;
-    }
-}
-
-inline void cs_alias_impl::clean_code() {
-    uint32_t *bcode = reinterpret_cast<uint32_t *>(p_acode);
-    if (bcode) {
-        bcode_decr(bcode);
-        p_acode = nullptr;
-    }
-}
-
-inline cs_bcode *cs_alias_impl::compile_code(cs_state &cs) {
-    if (!p_acode) {
-        cs_gen_state gs(cs);
-        gs.code.reserve(64);
-        gs.gen_main(get_value().get_str());
-        /* i wish i could steal the memory somehow */
-        uint32_t *code = new uint32_t[gs.code.size()];
-        memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
-        bcode_incr(code);
-        p_acode = reinterpret_cast<cs_bcode *>(code);
-    }
-    return p_acode;
-}
+void bcode_ref(uint32_t *code);
+void bcode_unref(uint32_t *code);
 
 template<typename F>
 static void cs_do_args(cs_state &cs, F body) {
@@ -491,8 +461,6 @@ static void cs_do_args(cs_state &cs, F body) {
         }
     });
 }
-
-cs_bcode *cs_copy_code(cs_bcode *c);
 
 } /* namespace cscript */
 

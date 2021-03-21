@@ -135,7 +135,18 @@ cs_stack_state cs_error::save_stack(cs_state &cs) {
     return cs_stack_state(cs, ret, total > dalias->get_value());
 }
 
-static void bcode_ref(uint32_t *code) {
+static inline void bcode_incr(uint32_t *bc) {
+    *bc += 0x100;
+}
+
+static inline void bcode_decr(uint32_t *bc) {
+    *bc -= 0x100;
+    if (std::int32_t(*bc) < 0x100) {
+        delete[] bc;
+    }
+}
+
+void bcode_ref(uint32_t *code) {
     if (!code) {
         return;
     }
@@ -154,7 +165,7 @@ static void bcode_ref(uint32_t *code) {
     }
 }
 
-static void bcode_unref(uint32_t *code) {
+void bcode_unref(uint32_t *code) {
     if (!code) {
         return;
     }
@@ -196,6 +207,28 @@ cs_bcode_ref &cs_bcode_ref::operator=(cs_bcode_ref &&v) {
     p_code = v.p_code;
     v.p_code = nullptr;
     return *this;
+}
+
+void cs_alias_impl::clean_code() {
+    uint32_t *bcode = reinterpret_cast<uint32_t *>(p_acode);
+    if (bcode) {
+        bcode_decr(bcode);
+        p_acode = nullptr;
+    }
+}
+
+cs_bcode *cs_alias_impl::compile_code(cs_state &cs) {
+    if (!p_acode) {
+        cs_gen_state gs(cs);
+        gs.code.reserve(64);
+        gs.gen_main(get_value().get_str());
+        /* i wish i could steal the memory somehow */
+        uint32_t *code = new uint32_t[gs.code.size()];
+        memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
+        bcode_incr(code);
+        p_acode = reinterpret_cast<cs_bcode *>(code);
+    }
+    return p_acode;
 }
 
 static inline uint32_t *forcecode(cs_state &cs, cs_value &v) {
@@ -252,52 +285,6 @@ static inline void force_arg(cs_value &v, int type) {
             }
             break;
     }
-}
-
-static uint32_t *skipcode(uint32_t *code) {
-    int depth = 0;
-    for (;;) {
-        uint32_t op = *code++;
-        switch (op & 0xFF) {
-            case CS_CODE_VAL | CS_RET_STRING: {
-                uint32_t len = op >> 8;
-                code += len / sizeof(uint32_t) + 1;
-                continue;
-            }
-            case CS_CODE_BLOCK:
-            case CS_CODE_JUMP:
-            case CS_CODE_JUMP_B | CS_CODE_FLAG_TRUE:
-            case CS_CODE_JUMP_B | CS_CODE_FLAG_FALSE:
-            case CS_CODE_JUMP_RESULT | CS_CODE_FLAG_TRUE:
-            case CS_CODE_JUMP_RESULT | CS_CODE_FLAG_FALSE: {
-                uint32_t len = op >> 8;
-                code += len;
-                continue;
-            }
-            case CS_CODE_ENTER:
-            case CS_CODE_ENTER_RESULT:
-                ++depth;
-                continue;
-            case CS_CODE_EXIT | CS_RET_NULL:
-            case CS_CODE_EXIT | CS_RET_STRING:
-            case CS_CODE_EXIT | CS_RET_INT:
-            case CS_CODE_EXIT | CS_RET_FLOAT:
-                if (depth <= 0) {
-                    return code;
-                }
-                --depth;
-                continue;
-        }
-    }
-}
-
-cs_bcode *cs_copy_code(cs_bcode *c) {
-    uint32_t *bcode = reinterpret_cast<uint32_t *>(c);
-    uint32_t *end = skipcode(bcode);
-    uint32_t *dst = new uint32_t[end - bcode + 1];
-    *dst++ = CS_CODE_START;
-    memcpy(dst, bcode, (end - bcode) * sizeof(uint32_t));
-    return reinterpret_cast<cs_bcode *>(dst);
 }
 
 static inline void callcommand(
@@ -1574,10 +1561,9 @@ static void cs_run(
     gs.done();
     uint32_t *cbuf = new uint32_t[gs.code.size()];
     memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(uint32_t));
+    bcode_ref(cbuf);
     runcode(cs, cbuf + 1, ret);
-    if (int(cbuf[0]) < 0x100) {
-        delete[] cbuf;
-    }
+    bcode_unref(cbuf);
 }
 
 void cs_state::run(std::string_view code, cs_value &ret) {
