@@ -7,21 +7,12 @@
 
 namespace cscript {
 
-struct cs_cmd_internal {
-    static void call(
-        cs_state &cs, cs_command *c, std::span<cs_value> args, cs_value &ret
-    ) {
-        static_cast<cs_command_impl *>(c)->p_cb_cftv(cs, args, ret);
+static inline bool cs_ident_has_cb(cs_ident *id) {
+    if (!id->is_command() && !id->is_special()) {
+        return false;
     }
-
-    static bool has_cb(cs_ident *id) {
-        if (!id->is_command() && !id->is_special()) {
-            return false;
-        }
-        cs_command_impl *cb = static_cast<cs_command_impl *>(id);
-        return !!cb->p_cb_cftv;
-    }
-};
+    return !!static_cast<cs_command_impl *>(id)->p_cb_cftv;
+}
 
 static inline void cs_push_alias(cs_state &cs, cs_ident *id, cs_ident_stack &st) {
     if (id->is_alias() && (id->get_index() >= MaxArguments)) {
@@ -432,15 +423,15 @@ static inline void callcommand(
                 tv.set_str(value_list_concat(
                     cs, std::span{args, std::size_t(i)}, " "
                 ));
-                cs_cmd_internal::call(
-                    cs, id, std::span<cs_value>(&tv, &tv + 1), res
+                static_cast<cs_command_impl *>(id)->call(
+                    cs, std::span<cs_value>(&tv, &tv + 1), res
                 );
                 return;
             }
             case 'V':
                 i = std::max(i + 1, numargs);
-                cs_cmd_internal::call(
-                    cs, id, std::span{args, std::size_t(i)}, res
+                static_cast<cs_command_impl *>(id)->call(
+                    cs, std::span{args, std::size_t(i)}, res
                 );
                 return;
             case '1':
@@ -455,8 +446,8 @@ static inline void callcommand(
         }
     }
     ++i;
-    cs_cmd_internal::call(
-        cs, id, std::span<cs_value>{args, std::size_t(i)}, res
+    static_cast<cs_command_impl *>(id)->call(
+        cs, std::span<cs_value>{args, std::size_t(i)}, res
     );
 }
 
@@ -1312,7 +1303,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 );
                 int offset = numargs - id->get_num_args();
                 result.force_none();
-                cs_cmd_internal::call(cs, id, std::span<cs_value>{
+                id->call(cs, std::span<cs_value>{
                     &args[0] + offset, std::size_t(id->get_num_args())
                 }, result);
                 force_arg(result, op & CS_CODE_RET_MASK);
@@ -1330,9 +1321,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 std::size_t callargs = (op >> 8) & 0x1F,
                             offset = numargs - callargs;
                 result.force_none();
-                cs_cmd_internal::call(
-                    cs, id, std::span{&args[offset], callargs}, result
-                );
+                id->call(cs, std::span{&args[offset], callargs}, result);
                 force_arg(result, op & CS_CODE_RET_MASK);
                 numargs = offset;
                 continue;
@@ -1352,9 +1341,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                     tv.set_str(value_list_concat(cs, std::span{
                         &args[offset], callargs
                     }, " "));
-                    cs_cmd_internal::call(
-                        cs, id, std::span<cs_value>{&tv, 1}, result
-                    );
+                    id->call(cs, std::span<cs_value>{&tv, 1}, result);
                 }
                 force_arg(result, op & CS_CODE_RET_MASK);
                 numargs = offset;
@@ -1480,7 +1467,7 @@ noid:
                 result.force_none();
                 switch (id->get_raw_type()) {
                     default:
-                        if (!cs_cmd_internal::has_cb(id)) {
+                        if (!cs_ident_has_cb(id)) {
                             numargs = offset - 1;
                             force_arg(result, op & CS_CODE_RET_MASK);
                             continue;
@@ -1610,7 +1597,7 @@ void cs_state::run(cs_ident *id, std::span<cs_value> args, cs_value &ret) {
     if (id) {
         switch (id->get_type()) {
             default:
-                if (!cs_cmd_internal::has_cb(id)) {
+                if (!cs_ident_has_cb(id)) {
                     break;
                 }
             /* fallthrough */

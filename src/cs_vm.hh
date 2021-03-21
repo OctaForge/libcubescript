@@ -171,6 +171,10 @@ struct cs_alias_impl: cs_ident_impl, cs_alias {
 struct cs_command_impl: cs_ident_impl, cs_command {
     cs_command_impl(cs_strref name, cs_strref args, int numargs, cs_command_cb func);
 
+    void call(cs_state &cs, std::span<cs_value> args, cs_value &ret) {
+        p_cb_cftv(cs, args, ret);
+    }
+
     cs_strref p_cargs;
     cs_command_cb p_cb_cftv;
     int p_numargs;
