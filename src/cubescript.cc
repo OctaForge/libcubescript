@@ -458,7 +458,7 @@ LIBCUBESCRIPT_EXPORT cs_vprint_cb const &cs_state::get_var_printer() const {
     return p_state->varprintf;
 }
 
-void *cs_state::alloc(void *ptr, size_t os, size_t ns) {
+LIBCUBESCRIPT_EXPORT void *cs_state::alloc(void *ptr, size_t os, size_t ns) {
     return p_state->alloc(ptr, os, ns);
 }
 
@@ -668,7 +668,9 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_alias(std::string_view name, cs_value v)
 }
 
 LIBCUBESCRIPT_EXPORT void cs_state::print_var(cs_var const &v) const {
-    p_state->varprintf(*this, v);
+    if (p_state->varprintf) {
+        p_state->varprintf(*this, v);
+    }
 }
 
 LIBCUBESCRIPT_EXPORT cs_value cs_alias::get_value() const {

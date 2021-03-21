@@ -147,7 +147,7 @@ struct cs_shared_state {
         allocf{af}, aptr{data},
         idents{allocator_type{this}},
         identmap{allocator_type{this}},
-        varprintf{[](auto &, auto &) {}},
+        varprintf{},
         strman{create<cs_strman>(this)}
     {}
 

@@ -2,12 +2,15 @@
 #define LIBCUBESCRIPT_CUBESCRIPT_HH
 
 #include <cstring>
+#include <cstddef>
 #include <vector>
 #include <optional>
 #include <functional>
 #include <type_traits>
 #include <algorithm>
+#include <memory>
 #include <utility>
+#include <span>
 
 #include "cubescript_conf.hh"
 
@@ -42,6 +45,216 @@ struct cs_internal_error: std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
+template<typename R, typename ...A>
+struct cs_callable {
+private:
+    struct base {
+        base(base const &);
+        base &operator=(base const &);
+
+    public:
+        base() {}
+        virtual ~base() {}
+        virtual void move_to(base *) = 0;
+        virtual R operator()(A &&...args) = 0;
+    };
+
+    template<typename F>
+    struct store: base {
+        explicit store(F &&f): p_stor{std::move(f)} {}
+
+        virtual void move_to(base *p) {
+            ::new (p) store{std::move(p_stor)};
+        }
+
+        virtual R operator()(A &&...args) {
+            return std::invoke(
+                *reinterpret_cast<F *>(&p_stor), std::forward<A>(args)...
+            );
+        }
+
+    private:
+        F p_stor;
+    };
+
+    using alloc_f = void *(*)(void *, void *, std::size_t, std::size_t);
+
+    struct f_alloc {
+        alloc_f af;
+        void *ud;
+        size_t asize;
+    };
+
+    std::aligned_storage_t<sizeof(void *) * 4> p_stor;
+    base *p_func;
+
+    static inline base *as_base(void *p) {
+        return static_cast<base *>(p);
+    }
+
+    template<typename T>
+    static inline bool f_not_null(T const &) { return true; }
+
+    template<typename T>
+    static inline bool f_not_null(T *p) { return !!p; }
+
+    template<typename CR, typename C>
+    static inline bool f_not_null(CR C::*p) { return !!p; }
+
+    template<typename T>
+    static inline bool f_not_null(cs_callable<T> const &f) { return !!f; }
+
+    bool small_storage() {
+        return (static_cast<void *>(p_func) == &p_stor);
+    }
+
+    void cleanup() {
+        if (!p_func) {
+            return;
+        }
+        p_func->~base();
+        if (!small_storage()) {
+            auto &ad = *reinterpret_cast<f_alloc *>(&p_stor);
+            ad.af(ad.ud, p_func, ad.asize, 0);
+        }
+    }
+
+public:
+    cs_callable() noexcept: p_func{nullptr} {}
+    cs_callable(std::nullptr_t) noexcept: p_func{nullptr} {}
+    cs_callable(std::nullptr_t, alloc_f, void *) noexcept: p_func{nullptr} {}
+
+    cs_callable(cs_callable &&f) noexcept {
+        if (!f.p_func) {
+            p_func = nullptr;
+        } else if (f.small_storage()) {
+            p_func = as_base(&p_stor);
+            f.p_func->move_to(p_func);
+        } else {
+            p_func = f.p_func;
+            f.p_func = nullptr;
+        }
+    }
+
+    template<typename F>
+    cs_callable(F func, alloc_f af, void *ud) {
+        if (!f_not_null(func)) {
+            return;
+        }
+        if constexpr (sizeof(store<F>) <= sizeof(p_stor)) {
+            auto *p = static_cast<void *>(&p_stor);
+            p_func = ::new (p) store<F>{std::move(func)};
+        } else {
+            auto &ad = *reinterpret_cast<f_alloc *>(&p_stor);
+            ad.af = af;
+            ad.ud = ud;
+            ad.asize = sizeof(store<F>);
+            p_func = static_cast<store<F> *>(
+                af(ud, nullptr, 0, sizeof(store<F>))
+            );
+            try {
+                new (p_func) store<F>{std::move(func)};
+            } catch (...) {
+                af(ud, p_func, sizeof(store<F>), 0);
+                throw;
+            }
+        }
+    }
+
+    cs_callable &operator=(cs_callable const &) = delete;
+
+    cs_callable &operator=(cs_callable &&f) noexcept {
+        cleanup();
+        if (f.p_func == nullptr) {
+            p_func = nullptr;
+        } else if (f.small_storage()) {
+            p_func = as_base(&p_stor);
+            f.p_func->move_to(p_func);
+        } else {
+            p_func = f.p_func;
+            f.p_func = nullptr;
+        }
+        return *this;
+    }
+
+    cs_callable &operator=(std::nullptr_t) noexcept {
+        cleanup();
+        p_func = nullptr;
+        return *this;
+    }
+
+    template<typename F>
+    cs_callable &operator=(F &&func) {
+        cs_callable{std::forward<F>(func)}.swap(*this);
+        return *this;
+    }
+
+    ~cs_callable() {
+        cleanup();
+    }
+
+    void swap(cs_callable &f) noexcept {
+        std::aligned_storage_t<sizeof(p_stor)> tmp_stor;
+        if (small_storage() && f.small_storage()) {
+            auto *t = as_base(&tmp_stor);
+            p_func->move_to(t);
+            p_func->~base();
+            p_func = nullptr;
+            f.p_func->move_to(as_base(&p_stor));
+            f.p_func->~base();
+            f.p_func = nullptr;
+            p_func = as_base(&p_stor);
+            t->move_to(as_base(&f.p_stor));
+            t->~base();
+            f.p_func = as_base(&f.p_stor);
+        } else if (small_storage()) {
+            /* copy allocator address/size */
+            memcpy(&tmp_stor, &f.p_stor, sizeof(tmp_stor));
+            p_func->move_to(as_base(&f.p_stor));
+            p_func->~base();
+            p_func = f.p_func;
+            f.p_func = as_base(&f.p_stor);
+            memcpy(&p_stor, &tmp_stor, sizeof(tmp_stor));
+        } else if (f.small_storage()) {
+            /* copy allocator address/size */
+            memcpy(&tmp_stor, &p_stor, sizeof(tmp_stor));
+            f.p_func->move_to(as_base(&p_stor));
+            f.p_func->~base();
+            f.p_func = p_func;
+            p_func = as_base(&p_stor);
+            memcpy(&f.p_stor, &tmp_stor, sizeof(tmp_stor));
+        } else {
+            /* copy allocator address/size */
+            memcpy(&tmp_stor, &p_stor, sizeof(tmp_stor));
+            memcpy(&p_stor, &f.p_stor, sizeof(tmp_stor));
+            memcpy(&f.p_stor, &tmp_stor, sizeof(tmp_stor));
+            std::swap(p_func, f.p_func);
+        }
+    }
+
+    explicit operator bool() const noexcept {
+        return !!p_func;
+    }
+
+    R operator()(A ...args) {
+        return (*p_func)(std::forward<A>(args)...);
+    }
+};
+
+using cs_alloc_cb = void *(*)(void *, void *, size_t, size_t);
+
+struct cs_state;
+struct cs_ident;
+struct cs_value;
+struct cs_var;
+
+using cs_hook_cb    = cs_callable<void, cs_state &>;
+using cs_var_cb     = cs_callable<void, cs_state &, cs_ident &>;
+using cs_vprint_cb  = cs_callable<void, cs_state const &, cs_var const &>;
+using cs_command_cb = cs_callable<
+    void, cs_state &, std::span<cs_value>, cs_value &
+>;
+
 enum {
     CS_IDF_PERSIST    = 1 << 0,
     CS_IDF_OVERRIDE   = 1 << 1,
@@ -53,8 +266,6 @@ enum {
 };
 
 struct cs_bcode;
-struct cs_value;
-struct cs_state;
 struct cs_shared_state;
 struct cs_ident_impl;
 
@@ -355,11 +566,21 @@ struct LIBCUBESCRIPT_EXPORT cs_state {
 
     cs_state new_thread();
 
-    cs_hook_cb set_call_hook(cs_hook_cb func);
+    template<typename F>
+    cs_hook_cb set_call_hook(F &&f) {
+        return std::move(set_call_hook(
+            cs_hook_cb{std::forward<F>(f), callable_alloc, this}
+        ));
+    }
     cs_hook_cb const &get_call_hook() const;
     cs_hook_cb &get_call_hook();
 
-    cs_vprint_cb set_var_printer(cs_vprint_cb func);
+    template<typename F>
+    cs_vprint_cb set_var_printer(F &&f) {
+        return std::move(set_var_printer(
+            cs_vprint_cb{std::forward<F>(f), callable_alloc, this}
+        ));
+    }
     cs_vprint_cb const &get_var_printer() const;
 
     void init_libs(int libs = CS_LIB_ALL);
@@ -370,22 +591,58 @@ struct LIBCUBESCRIPT_EXPORT cs_state {
     cs_ident *new_ident(std::string_view name, int flags = CS_IDF_UNKNOWN);
     cs_ident *force_ident(cs_value &v);
 
+    template<typename F>
     cs_ivar *new_ivar(
-        std::string_view n, cs_int m, cs_int x, cs_int v,
-        cs_var_cb f = cs_var_cb(), int flags = 0
-    );
-    cs_fvar *new_fvar(
-        std::string_view n, cs_float m, cs_float x, cs_float v,
-        cs_var_cb f = cs_var_cb(), int flags = 0
-    );
-    cs_svar *new_svar(
-        std::string_view n, std::string_view v,
-        cs_var_cb f = cs_var_cb(), int flags = 0
-    );
+        std::string_view name, cs_int m, cs_int x, cs_int v,
+        F &&f, int flags = 0
+    ) {
+        return new_ivar(
+            name, m, x, v,
+            cs_var_cb{std::forward<F>(f), callable_alloc, this}, flags
+        );
+    }
+    cs_ivar *new_ivar(std::string_view name, cs_int m, cs_int x, cs_int v) {
+        return new_ivar(name, m, x, v, cs_var_cb{}, 0);
+    }
 
+    template<typename F>
+    cs_fvar *new_fvar(
+        std::string_view name, cs_float m, cs_float x, cs_float v,
+        F &&f, int flags = 0
+    ) {
+        return new_fvar(
+            name, m, x, v,
+            cs_var_cb{std::forward<F>(f), callable_alloc, this}, flags
+        );
+    }
+    cs_fvar *new_fvar(
+        std::string_view name, cs_float m, cs_float x, cs_float v
+    ) {
+        return new_fvar(name, m, x, v, cs_var_cb{}, 0);
+    }
+
+    template<typename F>
+    cs_svar *new_svar(
+        std::string_view name, std::string_view v, F &&f, int flags = 0
+    ) {
+        return new_svar(
+            name, v,
+            cs_var_cb{std::forward<F>(f), callable_alloc, this}, flags
+        );
+    }
+    cs_svar *new_svar(std::string_view name, std::string_view v) {
+        return new_svar(name, v, cs_var_cb{}, 0);
+    }
+
+    template<typename F>
     cs_command *new_command(
-        std::string_view name, std::string_view args, cs_command_cb func
-    );
+        std::string_view name, std::string_view args, F &&f
+    ) {
+        return new_command(
+            name, args,
+            cs_command_cb{std::forward<F>(f), callable_alloc, this}
+        );
+    }
 
     cs_ident *get_ident(std::string_view name);
     cs_alias *get_alias(std::string_view name);
@@ -448,11 +705,36 @@ struct LIBCUBESCRIPT_EXPORT cs_state {
     void print_var(cs_var const &v) const;
 
 private:
+    cs_hook_cb set_call_hook(cs_hook_cb func);
+    cs_vprint_cb set_var_printer(cs_vprint_cb func);
+
+    cs_ivar *new_ivar(
+        std::string_view n, cs_int m, cs_int x, cs_int v,
+        cs_var_cb f, int flags
+    );
+    cs_fvar *new_fvar(
+        std::string_view n, cs_float m, cs_float x, cs_float v,
+        cs_var_cb f, int flags
+    );
+    cs_svar *new_svar(
+        std::string_view n, std::string_view v, cs_var_cb f, int flags
+    );
+
+    cs_command *new_command(
+        std::string_view name, std::string_view args, cs_command_cb func
+    );
+
+    static void *callable_alloc(
+        void *data, void *p, std::size_t os, std::size_t ns
+    ) {
+        return static_cast<cs_state *>(data)->alloc(p, os, ns);
+    }
+
     LIBCUBESCRIPT_LOCAL cs_state(cs_shared_state *s);
 
     cs_ident *add_ident(cs_ident *id, cs_ident_impl *impl);
 
-    LIBCUBESCRIPT_LOCAL void *alloc(void *ptr, size_t olds, size_t news);
+    void *alloc(void *ptr, size_t olds, size_t news);
 
     cs_gen_state *p_pstate = nullptr;
     void *p_errbuf = nullptr;
