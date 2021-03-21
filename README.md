@@ -36,12 +36,12 @@ advantages, including:
 * Clean codebase that is easy to read and contribute to
 * Support for arbitrary size integers and floats (can be set at compile time)
 * Allows building into a static or shared library, supports `-fvisibility=hidden`
+* Custom allocator support (control over how heap memory is allocated)
 
 There are some features that are a work in progress and will come later:
 
 * More helpful debug information (proper line infos at both parse and run time)
 * A degree of thread safety (see below)
-* Custom allocator support (control over how heap memory is allocated)
 * Coroutines
 
 The API is currently very unstable, as is the actual codebase. Therefore you

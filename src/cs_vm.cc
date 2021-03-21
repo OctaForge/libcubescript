@@ -135,6 +135,30 @@ cs_stack_state cs_error::save_stack(cs_state &cs) {
     return cs_stack_state(cs, ret, total > dalias->get_value());
 }
 
+struct bcode_hdr {
+    cs_shared_state *cs; /* needed to construct the allocator */
+    std::size_t asize; /* alloc size of the bytecode block */
+    std::uint32_t init; /* CS_CODE_START + refcount */
+};
+
+/* returned address is the 'init' member of the header */
+static inline std::uint32_t *bcode_alloc(cs_state &cs, std::size_t sz) {
+    auto a = cs_allocator<uint32_t>{cs};
+    std::size_t hdrs = sizeof(bcode_hdr) / sizeof(std::uint32_t);
+    auto p = a.allocate(sz + hdrs - 1);
+    bcode_hdr *hdr = reinterpret_cast<bcode_hdr *>(p);
+    hdr->cs = cs_get_sstate(cs);
+    hdr->asize = sz + hdrs - 1;
+    return p + hdrs - 1;
+}
+
+/* bc's address must be the 'init' member of the header */
+static inline void bcode_free(uint32_t *bc) {
+    auto *rp = bc + 1 - (sizeof(bcode_hdr) / sizeof(std::uint32_t));
+    bcode_hdr *hdr = reinterpret_cast<bcode_hdr *>(rp);
+    cs_allocator<uint32_t>{hdr->cs}.deallocate(rp, hdr->asize);
+}
+
 static inline void bcode_incr(uint32_t *bc) {
     *bc += 0x100;
 }
@@ -142,7 +166,7 @@ static inline void bcode_incr(uint32_t *bc) {
 static inline void bcode_decr(uint32_t *bc) {
     *bc -= 0x100;
     if (std::int32_t(*bc) < 0x100) {
-        delete[] bc;
+        bcode_free(bc);
     }
 }
 
@@ -223,7 +247,7 @@ cs_bcode *cs_alias_impl::compile_code(cs_state &cs) {
         gs.code.reserve(64);
         gs.gen_main(get_value().get_str());
         /* i wish i could steal the memory somehow */
-        uint32_t *code = new uint32_t[gs.code.size()];
+        uint32_t *code = bcode_alloc(cs, gs.code.size());
         memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
         bcode_incr(code);
         p_acode = reinterpret_cast<cs_bcode *>(code);
@@ -238,7 +262,7 @@ static inline uint32_t *forcecode(cs_state &cs, cs_value &v) {
         gs.code.reserve(64);
         gs.gen_main(v.get_str());
         gs.done();
-        uint32_t *cbuf = new uint32_t[gs.code.size()];
+        uint32_t *cbuf = bcode_alloc(cs, gs.code.size());
         memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(uint32_t));
         v.set_code(reinterpret_cast<cs_bcode *>(cbuf + 1));
         code = reinterpret_cast<uint32_t *>(v.get_code());
@@ -884,7 +908,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         break;
                 }
                 gs.done();
-                uint32_t *cbuf = new uint32_t[gs.code.size()];
+                uint32_t *cbuf = bcode_alloc(gs.cs, gs.code.size());
                 memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(uint32_t));
                 arg.set_code(
                     reinterpret_cast<cs_bcode *>(cbuf + 1)
@@ -901,7 +925,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                             gs.code.reserve(64);
                             gs.gen_main(s);
                             gs.done();
-                            uint32_t *cbuf = new uint32_t[gs.code.size()];
+                            uint32_t *cbuf = bcode_alloc(gs.cs, gs.code.size());
                             memcpy(
                                 cbuf, gs.code.data(),
                                 gs.code.size() * sizeof(uint32_t)
@@ -1559,7 +1583,7 @@ static void cs_run(
     gs.code.reserve(64);
     gs.gen_main(code, CS_VAL_ANY);
     gs.done();
-    uint32_t *cbuf = new uint32_t[gs.code.size()];
+    uint32_t *cbuf = bcode_alloc(gs.cs, gs.code.size());
     memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(uint32_t));
     bcode_incr(cbuf);
     runcode(cs, cbuf + 1, ret);
