@@ -5,6 +5,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "cs_bcode.hh"
+
 namespace cscript {
 
 cs_int cs_parse_int(
@@ -140,6 +142,7 @@ struct cs_shared_state {
 
     cs_vprint_cb varprintf;
     cs_strman *strman;
+    empty_block *empty;
 
     cs_shared_state() = delete;
 
@@ -148,8 +151,14 @@ struct cs_shared_state {
         idents{allocator_type{this}},
         identmap{allocator_type{this}},
         varprintf{},
-        strman{create<cs_strman>(this)}
+        strman{create<cs_strman>(this)},
+        empty{bcode_init_empty(this)}
     {}
+
+    ~cs_shared_state() {
+         bcode_free_empty(this, empty);
+         destroy(strman);
+    }
 
     void *alloc(void *ptr, size_t os, size_t ns) {
         void *p = allocf(aptr, ptr, os, ns);

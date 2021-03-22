@@ -79,6 +79,15 @@ void bcode_decr(std::uint32_t *code);
 void bcode_ref(std::uint32_t *code);
 void bcode_unref(std::uint32_t *code);
 
+struct empty_block {
+    cs_bcode init;
+    std::uint32_t code;
+};
+
+empty_block *bcode_init_empty(cs_shared_state *cs);
+void bcode_free_empty(cs_shared_state *cs, empty_block *empty);
+cs_bcode *bcode_get_empty(empty_block *empty, std::size_t val);
+
 } /* namespace cscript */
 
 #endif

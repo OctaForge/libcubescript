@@ -110,4 +110,28 @@ void bcode_unref(std::uint32_t *code) {
     }
 }
 
+/* empty fallbacks */
+
+static std::uint32_t emptyrets[CS_VAL_ANY] = {
+    CS_RET_NULL, CS_RET_INT, CS_RET_FLOAT, CS_RET_STRING
+};
+
+empty_block *bcode_init_empty(cs_shared_state *cs) {
+    auto a = cs_allocator<empty_block>{cs};
+    auto *p = a.allocate(CS_VAL_ANY);
+    for (std::size_t i = 0; i < CS_VAL_ANY; ++i) {
+        p[i].init.init = CS_CODE_START + 0x100;
+        p[i].code = CS_CODE_EXIT | emptyrets[i];
+    }
+    return p;
+}
+
+void bcode_free_empty(cs_shared_state *cs, empty_block *empty) {
+    cs_allocator<empty_block>{cs}.deallocate(empty, CS_VAL_ANY);
+};
+
+cs_bcode *bcode_get_empty(empty_block *empty, std::size_t val) {
+    return &empty[val].init + 1;
+}
+
 } /* namespace cscript */

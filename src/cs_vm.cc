@@ -185,13 +185,6 @@ static inline void forcecond(cs_state &cs, cs_value &v) {
     }
 }
 
-static uint32_t emptyblock[CS_VAL_ANY][2] = {
-    { CS_CODE_START + 0x100, CS_CODE_EXIT | CS_RET_NULL },
-    { CS_CODE_START + 0x100, CS_CODE_EXIT | CS_RET_INT },
-    { CS_CODE_START + 0x100, CS_CODE_EXIT | CS_RET_FLOAT },
-    { CS_CODE_START + 0x100, CS_CODE_EXIT | CS_RET_STRING }
-};
-
 static inline void force_arg(cs_value &v, int type) {
     switch (type) {
         case CS_RET_STRING:
@@ -303,7 +296,7 @@ static inline void callcommand(
                         break;
                     }
                     args[i].set_code(
-                        reinterpret_cast<cs_bcode *>(emptyblock[CS_VAL_NULL] + 1)
+                        bcode_get_empty(cs_get_sstate(cs)->empty, CS_VAL_NULL)
                     );
                     fakeargs++;
                 } else {
@@ -750,22 +743,22 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
 
             case CS_CODE_EMPTY | CS_RET_NULL:
                 args[numargs++].set_code(
-                    reinterpret_cast<cs_bcode *>(emptyblock[CS_VAL_NULL] + 1)
+                    bcode_get_empty(cs_get_sstate(cs)->empty, CS_VAL_NULL)
                 );
                 break;
             case CS_CODE_EMPTY | CS_RET_STRING:
                 args[numargs++].set_code(
-                    reinterpret_cast<cs_bcode *>(emptyblock[CS_VAL_STRING] + 1)
+                    bcode_get_empty(cs_get_sstate(cs)->empty, CS_VAL_STRING)
                 );
                 break;
             case CS_CODE_EMPTY | CS_RET_INT:
                 args[numargs++].set_code(
-                    reinterpret_cast<cs_bcode *>(emptyblock[CS_VAL_INT] + 1)
+                    bcode_get_empty(cs_get_sstate(cs)->empty, CS_VAL_INT)
                 );
                 break;
             case CS_CODE_EMPTY | CS_RET_FLOAT:
                 args[numargs++].set_code(
-                    reinterpret_cast<cs_bcode *>(emptyblock[CS_VAL_FLOAT] + 1)
+                    bcode_get_empty(cs_get_sstate(cs)->empty, CS_VAL_FLOAT)
                 );
                 break;
             case CS_CODE_BLOCK: {
