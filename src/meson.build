@@ -4,6 +4,7 @@ libcubescript_header_src = [
 ]
 
 libcubescript_src = [
+    'cs_bcode.cc',
     'cs_gen.cc',
     'cs_util.cc',
     'cs_val.cc',
