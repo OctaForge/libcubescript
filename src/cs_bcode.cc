@@ -7,29 +7,29 @@ namespace cscript {
 /* public API impls */
 
 LIBCUBESCRIPT_EXPORT cs_bcode_ref::cs_bcode_ref(cs_bcode *v): p_code(v) {
-    bcode_ref(reinterpret_cast<std::uint32_t *>(p_code));
+    bcode_ref(v->get_raw());
 }
 LIBCUBESCRIPT_EXPORT cs_bcode_ref::cs_bcode_ref(cs_bcode_ref const &v):
     p_code(v.p_code)
 {
-    bcode_ref(reinterpret_cast<std::uint32_t *>(p_code));
+    bcode_ref(p_code->get_raw());
 }
 
 LIBCUBESCRIPT_EXPORT cs_bcode_ref::~cs_bcode_ref() {
-    bcode_unref(reinterpret_cast<std::uint32_t *>(p_code));
+    bcode_unref(p_code->get_raw());
 }
 
 LIBCUBESCRIPT_EXPORT cs_bcode_ref &cs_bcode_ref::operator=(
     cs_bcode_ref const &v
 ) {
-    bcode_unref(reinterpret_cast<std::uint32_t *>(p_code));
+    bcode_unref(p_code->get_raw());
     p_code = v.p_code;
-    bcode_ref(reinterpret_cast<std::uint32_t *>(p_code));
+    bcode_ref(p_code->get_raw());
     return *this;
 }
 
 LIBCUBESCRIPT_EXPORT cs_bcode_ref &cs_bcode_ref::operator=(cs_bcode_ref &&v) {
-    bcode_unref(reinterpret_cast<std::uint32_t *>(p_code));
+    bcode_unref(p_code->get_raw());
     p_code = v.p_code;
     v.p_code = nullptr;
     return *this;
@@ -40,7 +40,7 @@ LIBCUBESCRIPT_EXPORT cs_bcode_ref &cs_bcode_ref::operator=(cs_bcode_ref &&v) {
 struct bcode_hdr {
     cs_shared_state *cs; /* needed to construct the allocator */
     std::size_t asize; /* alloc size of the bytecode block */
-    std::uint32_t init; /* CS_CODE_START + refcount */
+    cs_bcode bc; /* CS_CODE_START + refcount */
 };
 
 /* returned address is the 'init' member of the header */

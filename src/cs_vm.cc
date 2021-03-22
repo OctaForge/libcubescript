@@ -136,9 +136,8 @@ cs_stack_state cs_error::save_stack(cs_state &cs) {
 }
 
 void cs_alias_impl::clean_code() {
-    uint32_t *bcode = reinterpret_cast<uint32_t *>(p_acode);
-    if (bcode) {
-        bcode_decr(bcode);
+    if (p_acode) {
+        bcode_decr(p_acode->get_raw());
         p_acode = nullptr;
     }
 }
@@ -158,7 +157,7 @@ cs_bcode *cs_alias_impl::compile_code(cs_state &cs) {
 }
 
 static inline uint32_t *forcecode(cs_state &cs, cs_value &v) {
-    uint32_t *code = reinterpret_cast<uint32_t *>(v.get_code());
+    auto *code = v.get_code();
     if (!code) {
         cs_gen_state gs(cs);
         gs.code.reserve(64);
@@ -167,9 +166,9 @@ static inline uint32_t *forcecode(cs_state &cs, cs_value &v) {
         uint32_t *cbuf = bcode_alloc(cs, gs.code.size());
         memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(uint32_t));
         v.set_code(reinterpret_cast<cs_bcode *>(cbuf + 1));
-        code = reinterpret_cast<uint32_t *>(v.get_code());
+        code = v.get_code();
     }
-    return code;
+    return code->get_raw();
 }
 
 static inline void forcecond(cs_state &cs, cs_value &v) {
@@ -385,9 +384,7 @@ static inline void cs_call_alias(
         a, cs.p_callstack, (1<<callargs)-1, &argstack[0]
     };
     cs.p_callstack = &aliaslink;
-    uint32_t *codep = reinterpret_cast<uint32_t *>(
-        static_cast<cs_alias_impl *>(a)->compile_code(cs)
-    );
+    uint32_t *codep = static_cast<cs_alias_impl *>(a)->compile_code(cs)->get_raw();
     bcode_incr(codep);
     cs_do_and_cleanup([&]() {
         runcode(cs, codep+1, result);

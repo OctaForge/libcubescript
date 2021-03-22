@@ -8,7 +8,17 @@
 
 namespace cscript {
 
-struct cs_bcode;
+struct cs_bcode {
+    std::uint32_t init;
+
+    std::uint32_t *get_raw() {
+        return &init;
+    }
+
+    std::uint32_t const *get_raw() const {
+        return &init;
+    }
+};
 
 enum {
     CS_VAL_NULL = 0, CS_VAL_INT, CS_VAL_FLOAT, CS_VAL_STRING,
