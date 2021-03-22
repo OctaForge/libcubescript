@@ -1162,7 +1162,7 @@ static void compile_and_or(
     }
     if (!more) {
         gs.code.push_back(
-            ((id->get_raw_type() == CsIdAnd)
+            ((id->get_raw_type() == ID_AND)
                 ? CS_CODE_TRUE : CS_CODE_FALSE) | cs_ret_code(rettype)
         );
     } else {
@@ -1194,7 +1194,7 @@ static void compile_and_or(
                     (numargs << 8) | (id->get_index() << 13)
             );
         } else {
-            uint32_t op = (id->get_raw_type() == CsIdAnd)
+            uint32_t op = (id->get_raw_type() == ID_AND)
                 ? (CS_CODE_JUMP_RESULT | CS_CODE_FLAG_FALSE)
                 : (CS_CODE_JUMP_RESULT | CS_CODE_FLAG_TRUE);
             gs.code.push_back(op);
@@ -1332,36 +1332,36 @@ noid:
                 gs.code.push_back(CS_CODE_RESULT);
             } else {
                 switch (id->get_raw_type()) {
-                    case CsIdAlias:
+                    case ID_ALIAS:
                         compile_alias(
                             gs, static_cast<cs_alias *>(id), more, prevargs
                         );
                         break;
-                    case CsIdCommand:
+                    case ID_COMMAND:
                         compile_cmd(
                             gs, static_cast<cs_command_impl *>(id), more,
                             rettype, prevargs
                         );
                         break;
-                    case CsIdLocal:
+                    case ID_LOCAL:
                         compile_local(gs, more, prevargs);
                         break;
-                    case CsIdDo:
+                    case ID_DO:
                         compile_do(gs, more, prevargs, rettype, CS_CODE_DO);
                         break;
-                    case CsIdDoArgs:
+                    case ID_DOARGS:
                         compile_do(gs, more, prevargs, rettype, CS_CODE_DO_ARGS);
                         break;
-                    case CsIdIf:
+                    case ID_IF:
                         compile_if(gs, id, more, prevargs, rettype);
                         break;
-                    case CsIdBreak:
+                    case ID_BREAK:
                         gs.code.push_back(CS_CODE_BREAK | CS_CODE_FLAG_FALSE);
                         break;
-                    case CsIdContinue:
+                    case ID_CONTINUE:
                         gs.code.push_back(CS_CODE_BREAK | CS_CODE_FLAG_TRUE);
                         break;
-                    case CsIdResult:
+                    case ID_RESULT:
                         if (more) {
                             more = compilearg(gs, CS_VAL_ANY, prevargs);
                         }
@@ -1370,7 +1370,7 @@ noid:
                                 cs_ret_code(rettype)
                         );
                         break;
-                    case CsIdNot:
+                    case ID_NOT:
                         if (more) {
                             more = compilearg(gs, CS_VAL_ANY, prevargs);
                         }
@@ -1378,11 +1378,11 @@ noid:
                             (more ? CS_CODE_NOT : CS_CODE_TRUE) | cs_ret_code(rettype)
                         );
                         break;
-                    case CsIdAnd:
-                    case CsIdOr:
+                    case ID_AND:
+                    case ID_OR:
                         compile_and_or(gs, id, more, prevargs, rettype);
                         break;
-                    case CsIdIvar:
+                    case ID_IVAR:
                         if (!(more = compilearg(gs, CS_VAL_INT, prevargs))) {
                             gs.code.push_back(CS_CODE_PRINT | (id->get_index() << 8));
                         } else if (!(id->get_flags() & CS_IDF_HEX) || !(
@@ -1397,14 +1397,14 @@ noid:
                             gs.code.push_back(CS_CODE_IVAR3 | (id->get_index() << 8));
                         }
                         break;
-                    case CsIdFvar:
+                    case ID_FVAR:
                         if (!(more = compilearg(gs, CS_VAL_FLOAT, prevargs))) {
                             gs.code.push_back(CS_CODE_PRINT | (id->get_index() << 8));
                         } else {
                             gs.code.push_back(CS_CODE_FVAR1 | (id->get_index() << 8));
                         }
                         break;
-                    case CsIdSvar:
+                    case ID_SVAR:
                         if (!(more = compilearg(gs, CS_VAL_STRING, prevargs))) {
                             gs.code.push_back(CS_CODE_PRINT | (id->get_index() << 8));
                         } else {

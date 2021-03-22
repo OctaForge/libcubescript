@@ -61,101 +61,6 @@ bool cs_stack_state::gap() const {
     return p_gap;
 }
 
-char *cs_error::request_buf(cs_state &cs, std::size_t bufs, char *&sp) {
-    cs_charbuf &cb = *static_cast<cs_charbuf *>(cs.p_errbuf);
-    cs_gen_state *gs = cs.p_pstate;
-    cb.clear();
-    std::size_t sz = 0;
-    if (gs) {
-        /* we can attach line number */
-        sz = gs->src_name.size() + 32;
-        for (;;) {
-            /* we are using so the buffer tracks the elements and therefore
-             * does not wipe them when we attempt to reserve more capacity
-             */
-            cb.resize(sz);
-            int nsz;
-            if (!gs->src_name.empty()) {
-                nsz = std::snprintf(
-                    cb.data(), sz, "%.*s:%zu: ",
-                    int(gs->src_name.size()), gs->src_name.data(),
-                    gs->current_line
-                );
-            } else {
-                nsz = std::snprintf(cb.data(), sz, "%zu: ", gs->current_line);
-            }
-            if (nsz <= 0) {
-                throw cs_internal_error{"format error"};
-            } else if (std::size_t(nsz) < sz) {
-                sz = std::size_t(nsz);
-                break;
-            }
-            sz = std::size_t(nsz + 1);
-        }
-    }
-    cb.resize(sz + bufs + 1);
-    sp = cb.data();
-    return &cb[sz];
-}
-
-cs_stack_state cs_error::save_stack(cs_state &cs) {
-    cs_ivar *dalias = static_cast<cs_ivar *>(cs.p_state->identmap[DbgaliasIdx]);
-    if (!dalias->get_value()) {
-        return cs_stack_state(cs, nullptr, !!cs.p_callstack);
-    }
-    int total = 0, depth = 0;
-    for (cs_ident_link *l = cs.p_callstack; l; l = l->next) {
-        total++;
-    }
-    if (!total) {
-        return cs_stack_state(cs, nullptr, false);
-    }
-    cs_stack_state_node *st = cs.p_state->create_array<cs_stack_state_node>(
-        std::min(total, dalias->get_value())
-    );
-    cs_stack_state_node *ret = st, *nd = st;
-    ++st;
-    for (cs_ident_link *l = cs.p_callstack; l; l = l->next) {
-        ++depth;
-        if (depth < dalias->get_value()) {
-            nd->id = l->id;
-            nd->index = total - depth + 1;
-            if (!l->next) {
-                nd->next = nullptr;
-            } else {
-                nd->next = st;
-            }
-            nd = st++;
-        } else if (!l->next) {
-            nd->id = l->id;
-            nd->index = 1;
-            nd->next = nullptr;
-        }
-    }
-    return cs_stack_state(cs, ret, total > dalias->get_value());
-}
-
-void cs_alias_impl::clean_code() {
-    if (p_acode) {
-        bcode_decr(p_acode->get_raw());
-        p_acode = nullptr;
-    }
-}
-
-cs_bcode *cs_alias_impl::compile_code(cs_state &cs) {
-    if (!p_acode) {
-        cs_gen_state gs(cs);
-        gs.code.reserve(64);
-        gs.gen_main(get_value().get_str());
-        /* i wish i could steal the memory somehow */
-        uint32_t *code = bcode_alloc(cs, gs.code.size());
-        memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
-        bcode_incr(code);
-        p_acode = reinterpret_cast<cs_bcode *>(code);
-    }
-    return p_acode;
-}
-
 static inline uint32_t *forcecode(cs_state &cs, cs_value &v) {
     auto *code = v.get_code();
     if (!code) {
@@ -429,7 +334,7 @@ static inline cs_alias *cs_get_lookup_id(cs_state &cs, uint32_t op) {
 
 static inline cs_alias *cs_get_lookuparg_id(cs_state &cs, uint32_t op) {
     cs_ident *id = cs.p_state->identmap[op >> 8];
-    if (!cs_is_arg_used(cs, id)) {
+    if (!ident_is_used_arg(id, cs)) {
         return nullptr;
     }
     return static_cast<cs_alias *>(id);
@@ -448,16 +353,16 @@ static inline int cs_get_lookupu_type(
                 if (id->get_flags() & CS_IDF_UNKNOWN) {
                     break;
                 }
-                if ((id->get_index() < MaxArguments) && !cs_is_arg_used(cs, id)) {
-                    return CsIdUnknown;
+                if ((id->get_index() < MaxArguments) && !ident_is_used_arg(id, cs)) {
+                    return ID_UNKNOWN;
                 }
-                return CsIdAlias;
+                return ID_ALIAS;
             case cs_ident_type::SVAR:
-                return CsIdSvar;
+                return ID_SVAR;
             case cs_ident_type::IVAR:
-                return CsIdIvar;
+                return ID_IVAR;
             case cs_ident_type::FVAR:
-                return CsIdFvar;
+                return ID_FVAR;
             case cs_ident_type::COMMAND: {
                 arg.set_none();
                 cs_valarray<cs_value, MaxArguments> buf{cs};
@@ -469,7 +374,7 @@ static inline int cs_get_lookupu_type(
                 return -2; /* ignore */
             }
             default:
-                return CsIdUnknown;
+                return ID_UNKNOWN;
         }
     }
     throw cs_error(cs, "unknown alias lookup: %s", arg.get_str().data());
@@ -841,7 +746,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 cs_alias *a = static_cast<cs_alias *>(
                     cs.p_state->identmap[op >> 8]
                 );
-                if (!cs_is_arg_used(cs, a)) {
+                if (!ident_is_used_arg(a, cs)) {
                     cs_value nv{cs};
                     static_cast<cs_alias_impl *>(a)->push_arg(
                         nv, cs.p_callstack->argstack[a->get_index()], false
@@ -857,7 +762,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 if (arg.get_type() == cs_value_type::STRING) {
                     id = cs.new_ident(arg.get_str());
                 }
-                if ((id->get_index() < MaxArguments) && !cs_is_arg_used(cs, id)) {
+                if ((id->get_index() < MaxArguments) && !ident_is_used_arg(id, cs)) {
                     cs_value nv{cs};
                     static_cast<cs_alias_impl *>(id)->push_arg(
                         nv, cs.p_callstack->argstack[id->get_index()], false
@@ -872,22 +777,22 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 cs_ident *id = nullptr;
                 cs_value &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
-                    case CsIdAlias:
+                    case ID_ALIAS:
                         arg = static_cast<cs_alias *>(id)->get_value();
                         arg.force_str();
                         continue;
-                    case CsIdSvar:
+                    case ID_SVAR:
                         arg.set_str(static_cast<cs_svar *>(id)->get_value());
                         continue;
-                    case CsIdIvar:
+                    case ID_IVAR:
                         arg.set_int(static_cast<cs_ivar *>(id)->get_value());
                         arg.force_str();
                         continue;
-                    case CsIdFvar:
+                    case ID_FVAR:
                         arg.set_float(static_cast<cs_fvar *>(id)->get_value());
                         arg.force_str();
                         continue;
-                    case CsIdUnknown:
+                    case ID_UNKNOWN:
                         arg.set_str("");
                         continue;
                     default:
@@ -912,25 +817,25 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 cs_ident *id = nullptr;
                 cs_value &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
-                    case CsIdAlias:
+                    case ID_ALIAS:
                         arg.set_int(
                             static_cast<cs_alias *>(id)->get_value().get_int()
                         );
                         continue;
-                    case CsIdSvar:
+                    case ID_SVAR:
                         arg.set_int(cs_parse_int(
                             static_cast<cs_svar *>(id)->get_value()
                         ));
                         continue;
-                    case CsIdIvar:
+                    case ID_IVAR:
                         arg.set_int(static_cast<cs_ivar *>(id)->get_value());
                         continue;
-                    case CsIdFvar:
+                    case ID_FVAR:
                         arg.set_int(
                             cs_int(static_cast<cs_fvar *>(id)->get_value())
                         );
                         continue;
-                    case CsIdUnknown:
+                    case ID_UNKNOWN:
                         arg.set_int(0);
                         continue;
                     default:
@@ -955,27 +860,27 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 cs_ident *id = nullptr;
                 cs_value &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
-                    case CsIdAlias:
+                    case ID_ALIAS:
                         arg.set_float(
                             static_cast<cs_alias *>(id)->get_value().get_float()
                         );
                         continue;
-                    case CsIdSvar:
+                    case ID_SVAR:
                         arg.set_float(cs_parse_float(
                             static_cast<cs_svar *>(id)->get_value()
                         ));
                         continue;
-                    case CsIdIvar:
+                    case ID_IVAR:
                         arg.set_float(cs_float(
                             static_cast<cs_ivar *>(id)->get_value()
                         ));
                         continue;
-                    case CsIdFvar:
+                    case ID_FVAR:
                         arg.set_float(
                             static_cast<cs_fvar *>(id)->get_value()
                         );
                         continue;
-                    case CsIdUnknown:
+                    case ID_UNKNOWN:
                         arg.set_float(cs_float(0));
                         continue;
                     default:
@@ -1000,21 +905,21 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 cs_ident *id = nullptr;
                 cs_value &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
-                    case CsIdAlias:
+                    case ID_ALIAS:
                         static_cast<cs_alias *>(id)->get_value().get_val(arg);
                         continue;
-                    case CsIdSvar:
+                    case ID_SVAR:
                         arg.set_str(static_cast<cs_svar *>(id)->get_value());
                         continue;
-                    case CsIdIvar:
+                    case ID_IVAR:
                         arg.set_int(static_cast<cs_ivar *>(id)->get_value());
                         continue;
-                    case CsIdFvar:
+                    case ID_FVAR:
                         arg.set_float(
                             static_cast<cs_fvar *>(id)->get_value()
                         );
                         continue;
-                    case CsIdUnknown:
+                    case ID_UNKNOWN:
                         arg.set_none();
                         continue;
                     default:
@@ -1038,22 +943,22 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 cs_ident *id = nullptr;
                 cs_value &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
-                    case CsIdAlias:
+                    case ID_ALIAS:
                         arg = static_cast<cs_alias *>(id)->get_value();
                         arg.force_str();
                         continue;
-                    case CsIdSvar:
+                    case ID_SVAR:
                         arg.set_str(static_cast<cs_svar *>(id)->get_value());
                         continue;
-                    case CsIdIvar:
+                    case ID_IVAR:
                         arg.set_int(static_cast<cs_ivar *>(id)->get_value());
                         arg.force_str();
                         continue;
-                    case CsIdFvar:
+                    case ID_FVAR:
                         arg.set_float(static_cast<cs_fvar *>(id)->get_value());
                         arg.force_str();
                         continue;
-                    case CsIdUnknown:
+                    case ID_UNKNOWN:
                         arg.set_str("");
                         continue;
                     default:
@@ -1078,19 +983,19 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 cs_ident *id = nullptr;
                 cs_value &arg = args[numargs - 1];
                 switch (cs_get_lookupu_type(cs, arg, id, op)) {
-                    case CsIdAlias:
+                    case ID_ALIAS:
                         static_cast<cs_alias *>(id)->get_cval(arg);
                         continue;
-                    case CsIdSvar:
+                    case ID_SVAR:
                         arg.set_str(static_cast<cs_svar *>(id)->get_value());
                         continue;
-                    case CsIdIvar:
+                    case ID_IVAR:
                         arg.set_int(static_cast<cs_ivar *>(id)->get_value());
                         continue;
-                    case CsIdFvar:
+                    case ID_FVAR:
                         arg.set_float(static_cast<cs_fvar *>(id)->get_value());
                         continue;
-                    case CsIdUnknown:
+                    case ID_UNKNOWN:
                         arg.set_none();
                         continue;
                     default:
@@ -1328,7 +1233,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 result.force_none();
                 cs_ident *id = cs.p_state->identmap[op >> 13];
                 int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
-                if (!cs_is_arg_used(cs, id)) {
+                if (!ident_is_used_arg(id, cs)) {
                     numargs = offset;
                     force_arg(result, op & CS_CODE_RET_MASK);
                     continue;
@@ -1376,7 +1281,7 @@ noid:
                             continue;
                         }
                     /* fallthrough */
-                    case CsIdCommand:
+                    case ID_COMMAND:
                         callcommand(
                             cs, static_cast<cs_command_impl *>(id),
                             &args[offset], result, callargs
@@ -1384,7 +1289,7 @@ noid:
                         force_arg(result, op & CS_CODE_RET_MASK);
                         numargs = offset - 1;
                         continue;
-                    case CsIdLocal: {
+                    case ID_LOCAL: {
                         cs_valarray<cs_ident_stack, MaxArguments> locals{cs};
                         for (size_t j = 0; j < size_t(callargs); ++j) {
                             cs_push_alias(cs, cs.force_ident(
@@ -1400,7 +1305,7 @@ noid:
                         });
                         return code;
                     }
-                    case CsIdIvar:
+                    case ID_IVAR:
                         if (callargs <= 0) {
                             cs.print_var(*static_cast<cs_var *>(id));
                         } else {
@@ -1412,7 +1317,7 @@ noid:
                         numargs = offset - 1;
                         force_arg(result, op & CS_CODE_RET_MASK);
                         continue;
-                    case CsIdFvar:
+                    case ID_FVAR:
                         if (callargs <= 0) {
                             cs.print_var(*static_cast<cs_var *>(id));
                         } else {
@@ -1424,7 +1329,7 @@ noid:
                         numargs = offset - 1;
                         force_arg(result, op & CS_CODE_RET_MASK);
                         continue;
-                    case CsIdSvar:
+                    case ID_SVAR:
                         if (callargs <= 0) {
                             cs.print_var(*static_cast<cs_var *>(id));
                         } else {
@@ -1436,11 +1341,11 @@ noid:
                         numargs = offset - 1;
                         force_arg(result, op & CS_CODE_RET_MASK);
                         continue;
-                    case CsIdAlias: {
+                    case ID_ALIAS: {
                         cs_alias *a = static_cast<cs_alias *>(id);
                         if (
                             (a->get_index() < MaxArguments) &&
-                            !cs_is_arg_used(cs, a)
+                            !ident_is_used_arg(a, cs)
                         ) {
                             numargs = offset - 1;
                             force_arg(result, op & CS_CODE_RET_MASK);
@@ -1549,7 +1454,7 @@ void cs_state::run(cs_ident *id, std::span<cs_value> args, cs_value &ret) {
             case cs_ident_type::ALIAS: {
                 cs_alias *a = static_cast<cs_alias *>(id);
                 if (
-                    (a->get_index() < MaxArguments) && !cs_is_arg_used(*this, a)
+                    (a->get_index() < MaxArguments) && !ident_is_used_arg(a, *this)
                 ) {
                     break;
                 }

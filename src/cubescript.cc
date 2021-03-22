@@ -203,24 +203,6 @@ cs_svar const *cs_ident::get_svar() const {
     return static_cast<cs_svar const *>(this);
 }
 
-void cs_var_impl::changed(cs_state &cs) {
-    if (cb_var) {
-        switch (p_type) {
-            case CsIdIvar:
-                cb_var(cs, *static_cast<cs_ivar_impl *>(this));
-                break;
-            case CsIdFvar:
-                cb_var(cs, *static_cast<cs_fvar_impl *>(this));
-                break;
-            case CsIdSvar:
-                cb_var(cs, *static_cast<cs_svar_impl *>(this));
-                break;
-            default:
-                break;
-        }
-    }
-}
-
 cs_int cs_ivar::get_val_min() const {
     return static_cast<cs_ivar_impl const *>(this)->p_minval;
 }
@@ -318,29 +300,29 @@ cs_state::cs_state(cs_alloc_cb func, void *data):
     p = new_command("do", "e", [](auto &cs, auto args, auto &res) {
         cs.run(args[0].get_code(), res);
     });
-    static_cast<cs_command_impl *>(p)->p_type = CsIdDo;
+    static_cast<cs_command_impl *>(p)->p_type = ID_DO;
 
     p = new_command("doargs", "e", [](auto &cs, auto args, auto &res) {
         cs_do_args(cs, [&cs, &res, &args]() {
             cs.run(args[0].get_code(), res);
         });
     });
-    static_cast<cs_command_impl *>(p)->p_type = CsIdDoArgs;
+    static_cast<cs_command_impl *>(p)->p_type = ID_DOARGS;
 
     p = new_command("if", "tee", [](auto &cs, auto args, auto &res) {
         cs.run((args[0].get_bool() ? args[1] : args[2]).get_code(), res);
     });
-    static_cast<cs_command_impl *>(p)->p_type = CsIdIf;
+    static_cast<cs_command_impl *>(p)->p_type = ID_IF;
 
     p = new_command("result", "t", [](auto &, auto args, auto &res) {
         res = std::move(args[0]);
     });
-    static_cast<cs_command_impl *>(p)->p_type = CsIdResult;
+    static_cast<cs_command_impl *>(p)->p_type = ID_RESULT;
 
     p = new_command("!", "t", [](auto &, auto args, auto &res) {
         res.set_int(!args[0].get_bool());
     });
-    static_cast<cs_command_impl *>(p)->p_type = CsIdNot;
+    static_cast<cs_command_impl *>(p)->p_type = ID_NOT;
 
     p = new_command("&&", "E1V", [](auto &cs, auto args, auto &res) {
         if (args.empty()) {
@@ -359,7 +341,7 @@ cs_state::cs_state(cs_alloc_cb func, void *data):
             }
         }
     });
-    static_cast<cs_command_impl *>(p)->p_type = CsIdAnd;
+    static_cast<cs_command_impl *>(p)->p_type = ID_AND;
 
     p = new_command("||", "E1V", [](auto &cs, auto args, auto &res) {
         if (args.empty()) {
@@ -378,10 +360,10 @@ cs_state::cs_state(cs_alloc_cb func, void *data):
             }
         }
     });
-    static_cast<cs_command_impl *>(p)->p_type = CsIdOr;
+    static_cast<cs_command_impl *>(p)->p_type = ID_OR;
 
     p = new_command("local", "", nullptr);
-    static_cast<cs_command_impl *>(p)->p_type = CsIdLocal;
+    static_cast<cs_command_impl *>(p)->p_type = ID_LOCAL;
 
     p = new_command("break", "", [](auto &cs, auto, auto &) {
         if (cs.is_in_loop()) {
@@ -390,7 +372,7 @@ cs_state::cs_state(cs_alloc_cb func, void *data):
             throw cs_error(cs, "no loop to break");
         }
     });
-    static_cast<cs_command_impl *>(p)->p_type = CsIdBreak;
+    static_cast<cs_command_impl *>(p)->p_type = ID_BREAK;
 
     p = new_command("continue", "", [](auto &cs, auto, auto &) {
         if (cs.is_in_loop()) {
@@ -399,7 +381,7 @@ cs_state::cs_state(cs_alloc_cb func, void *data):
             throw cs_error(cs, "no loop to continue");
         }
     });
-    static_cast<cs_command_impl *>(p)->p_type = CsIdContinue;
+    static_cast<cs_command_impl *>(p)->p_type = ID_CONTINUE;
 
     cs_init_lib_base(*this);
 }
@@ -699,7 +681,7 @@ int cs_ident::get_raw_type() const {
 }
 
 cs_ident_type cs_ident::get_type() const {
-    if (p_impl->p_type > CsIdAlias) {
+    if (p_impl->p_type > ID_ALIAS) {
         return cs_ident_type::SPECIAL;
     }
     return cs_ident_type(p_impl->p_type);
@@ -868,7 +850,7 @@ cs_state::get_alias_val(std::string_view name) {
     if (!a) {
         return std::nullopt;
     }
-    if ((a->get_index() < MaxArguments) && !cs_is_arg_used(*this, a)) {
+    if ((a->get_index() < MaxArguments) && !ident_is_used_arg(a, *this)) {
         return std::nullopt;
     }
     return a->get_value().get_str();
