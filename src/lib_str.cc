@@ -79,13 +79,13 @@ void cs_init_lib_string(cs_state &cs) {
 
     cs.new_command("escape", "s", [](auto &ccs, auto args, auto &res) {
         cs_charbuf s{ccs};
-        util::escape_string(std::back_inserter(s), args[0].get_str());
+        cs_escape_string(std::back_inserter(s), args[0].get_str());
         res.set_str(s.str());
     });
 
     cs.new_command("unescape", "s", [](auto &ccs, auto args, auto &res) {
         cs_charbuf s{ccs};
-        util::unescape_string(std::back_inserter(s), args[0].get_str());
+        cs_unescape_string(std::back_inserter(s), args[0].get_str());
         res.set_str(s.str());
     });
 

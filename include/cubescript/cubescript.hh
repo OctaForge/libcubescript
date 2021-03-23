@@ -886,105 +886,106 @@ private:
     std::string_view p_quoted_item{};
 };
 
-LIBCUBESCRIPT_EXPORT cs_strref value_list_concat(
+
+LIBCUBESCRIPT_EXPORT char const *cs_parse_string(
+    cs_state &cs, std::string_view str, size_t &nlines
+);
+
+inline char const *cs_parse_string(
+    cs_state &cs, std::string_view str
+) {
+    size_t nlines;
+    return cs_parse_string(cs, str, nlines);
+}
+
+LIBCUBESCRIPT_EXPORT char const *cs_parse_word(
+    cs_state &cs, std::string_view str
+);
+
+LIBCUBESCRIPT_EXPORT cs_strref cs_concat_values(
     cs_state &cs, std::span<cs_value> vals,
     std::string_view sep = std::string_view{}
 );
 
-namespace util {
-    template<typename R>
-    inline R escape_string(R writer, std::string_view str) {
-        *writer++ = '"';
-        for (auto c: str) {
-            switch (c) {
-                case '\n': *writer++ = '^'; *writer++ = 'n'; break;
-                case '\t': *writer++ = '^'; *writer++ = 't'; break;
-                case '\f': *writer++ = '^'; *writer++ = 'f'; break;
-                case  '"': *writer++ = '^'; *writer++ = '"'; break;
-                case  '^': *writer++ = '^'; *writer++ = '^'; break;
-                default: *writer++ = c; break;
-            }
+template<typename R>
+inline R cs_escape_string(R writer, std::string_view str) {
+    *writer++ = '"';
+    for (auto c: str) {
+        switch (c) {
+            case '\n': *writer++ = '^'; *writer++ = 'n'; break;
+            case '\t': *writer++ = '^'; *writer++ = 't'; break;
+            case '\f': *writer++ = '^'; *writer++ = 'f'; break;
+            case  '"': *writer++ = '^'; *writer++ = '"'; break;
+            case  '^': *writer++ = '^'; *writer++ = '^'; break;
+            default: *writer++ = c; break;
         }
-        *writer++ = '"';
-        return writer;
     }
+    *writer++ = '"';
+    return writer;
+}
 
-    template<typename R>
-    inline R  unescape_string(R writer, std::string_view str) {
-        for (auto it = str.begin(); it != str.end(); ++it) {
-            if (*it == '^') {
-                ++it;
-                if (it == str.end()) {
-                    break;
-                }
-                switch (*it) {
-                    case 'n': *writer++ = '\n'; break;
-                    case 't': *writer++ = '\r'; break;
-                    case 'f': *writer++ = '\f'; break;
-                    case '"': *writer++ = '"'; break;
-                    case '^': *writer++ = '^'; break;
-                    default: *writer++ = *it; break;
-                }
-            } else if (*it == '\\') {
-                ++it;
-                if (it == str.end()) {
-                    break;
-                }
-                char c = *it;
-                if ((c == '\r') || (c == '\n')) {
-                    if ((c == '\r') && ((it + 1) != str.end())) {
-                        if (it[1] == '\n') {
-                            ++it;
-                        }
+template<typename R>
+inline R cs_unescape_string(R writer, std::string_view str) {
+    for (auto it = str.begin(); it != str.end(); ++it) {
+        if (*it == '^') {
+            ++it;
+            if (it == str.end()) {
+                break;
+            }
+            switch (*it) {
+                case 'n': *writer++ = '\n'; break;
+                case 't': *writer++ = '\r'; break;
+                case 'f': *writer++ = '\f'; break;
+                case '"': *writer++ = '"'; break;
+                case '^': *writer++ = '^'; break;
+                default: *writer++ = *it; break;
+            }
+        } else if (*it == '\\') {
+            ++it;
+            if (it == str.end()) {
+                break;
+            }
+            char c = *it;
+            if ((c == '\r') || (c == '\n')) {
+                if ((c == '\r') && ((it + 1) != str.end())) {
+                    if (it[1] == '\n') {
+                        ++it;
                     }
-                    continue;
                 }
-                *writer++ = '\\';
-            } else {
-                *writer++ = *it;
+                continue;
             }
+            *writer++ = '\\';
+        } else {
+            *writer++ = *it;
         }
-        return writer;
     }
+    return writer;
+}
 
-    LIBCUBESCRIPT_EXPORT char const *parse_string(
-        cs_state &cs, std::string_view str, size_t &nlines
-    );
-
-    inline char const *parse_string(
-        cs_state &cs, std::string_view str
-    ) {
-        size_t nlines;
-        return parse_string(cs, str, nlines);
-    }
-
-    LIBCUBESCRIPT_EXPORT char const *parse_word(cs_state &cs, std::string_view str);
-
-    template<typename R>
-    inline R print_stack(R writer, cs_stack_state const &st) {
-        char buf[32] = {0};
-        auto nd = st.get();
-        while (nd) {
-            auto name = nd->id->get_name();
-            *writer++ = ' ';
-            *writer++ = ' ';
-            if ((nd->index == 1) && st.gap()) {
-                *writer++ = '.';
-                *writer++ = '.';
-            }
-            snprintf(buf, sizeof(buf), "%d", nd->index);
-            char const *p = buf;
-            std::copy(p, p + strlen(p), writer);
-            *writer++ = ')';
-            std::copy(name.begin(), name.end(), writer);
-            nd = nd->next;
-            if (nd) {
-                *writer++ = '\n';
-            }
+template<typename R>
+inline R cs_print_stack(R writer, cs_stack_state const &st) {
+    char buf[32] = {0};
+    auto nd = st.get();
+    while (nd) {
+        auto name = nd->id->get_name();
+        *writer++ = ' ';
+        *writer++ = ' ';
+        if ((nd->index == 1) && st.gap()) {
+            *writer++ = '.';
+            *writer++ = '.';
         }
-        return writer;
+        snprintf(buf, sizeof(buf), "%d", nd->index);
+        char const *p = buf;
+        std::copy(p, p + strlen(p), writer);
+        *writer++ = ')';
+        std::copy(name.begin(), name.end(), writer);
+        nd = nd->next;
+        if (nd) {
+            *writer++ = '\n';
+        }
     }
-} /* namespace util */
+    return writer;
+}
 
 } /* namespace cscript */
 

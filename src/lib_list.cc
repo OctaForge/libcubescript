@@ -437,7 +437,7 @@ end:
         for (p.set_input(s); p.parse(); ++n) {
             auto qi = p.get_quoted_item();
             if (!qi.empty() && (qi.front() == '"')) {
-                util::unescape_string(std::back_inserter(buf), p.get_raw_item());
+                cs_unescape_string(std::back_inserter(buf), p.get_raw_item());
             } else {
                 buf.append(p.get_raw_item());
             }

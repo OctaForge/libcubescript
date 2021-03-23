@@ -22,7 +22,7 @@ std::string_view cs_gen_state::get_str() {
 
 cs_charbuf cs_gen_state::get_str_dup() {
     cs_charbuf buf{cs};
-    util::unescape_string(std::back_inserter(buf), get_str());
+    cs_unescape_string(std::back_inserter(buf), get_str());
     return buf;
 }
 
@@ -200,7 +200,7 @@ static inline void compileunescapestr(cs_gen_state &gs) {
     size_t bufs = (gs.code.capacity() - gs.code.size()) * sizeof(uint32_t);
     auto alloc = cs_allocator<char>{gs.cs};
     auto *buf = alloc.allocate(bufs + 1);
-    char *wbuf = util::unescape_string(&buf[0], str);
+    char *wbuf = cs_unescape_string(&buf[0], str);
     memset(
         &buf[wbuf - buf], 0,
         sizeof(uint32_t) - (wbuf - buf) % sizeof(uint32_t)

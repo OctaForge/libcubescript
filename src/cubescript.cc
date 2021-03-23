@@ -1093,7 +1093,7 @@ void cs_init_lib_base(cs_state &gcs) {
             result.set_str(e.what());
             if (e.get_stack().get()) {
                 cs_charbuf buf{cs};
-                util::print_stack(std::back_inserter(buf), e.get_stack());
+                cs_print_stack(std::back_inserter(buf), e.get_stack());
                 tback.set_str(buf.str());
             }
             rc = false;

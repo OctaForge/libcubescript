@@ -203,7 +203,7 @@ LIBCUBESCRIPT_EXPORT std::size_t cs_list_parser::count() {
 LIBCUBESCRIPT_EXPORT cs_strref cs_list_parser::get_item() const {
     if (!p_quoted_item.empty() && (p_quoted_item.front() == '"')) {
         cs_charbuf buf{*p_state};
-        util::unescape_string(std::back_inserter(buf), p_item);
+        cs_unescape_string(std::back_inserter(buf), p_item);
         return cs_strref{*p_state, buf.str()};
     }
     return cs_strref{*p_state, p_item};

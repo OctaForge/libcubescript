@@ -299,7 +299,7 @@ static bool do_call(cs_state &cs, std::string_view line, bool file = false) {
         );
         if (e.get_stack().get()) {
             std::string str;
-            cscript::util::print_stack(std::back_inserter(str), e.get_stack());
+            cscript::cs_print_stack(std::back_inserter(str), e.get_stack());
             std::printf("%s\n", str.data());
         }
         return false;
