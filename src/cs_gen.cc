@@ -8,7 +8,7 @@
 #include <limits>
 #include <iterator>
 
-namespace cscript {
+namespace cubescript {
 
 std::string_view codegen_state::get_str() {
     size_t nl;
@@ -1468,4 +1468,4 @@ void codegen_state::gen_main(std::string_view s, int ret_type) {
     code.push_back(BC_INST_EXIT | ((ret_type < VAL_ANY) ? (ret_type << BC_INST_RET) : 0));
 }
 
-} /* namespace cscript */
+} /* namespace cubescript */

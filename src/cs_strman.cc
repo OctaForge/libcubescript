@@ -2,7 +2,7 @@
 
 #include "cs_strman.hh"
 
-namespace cscript {
+namespace cubescript {
 
 struct string_ref_state {
     std::size_t length;
@@ -157,4 +157,4 @@ LIBCUBESCRIPT_EXPORT bool string_ref::operator==(string_ref const &s) const {
     return p_str == s.p_str;
 }
 
-} /* namespace cscript */
+} /* namespace cubescript */

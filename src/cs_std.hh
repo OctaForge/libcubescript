@@ -10,7 +10,7 @@
 
 #include "cs_state.hh"
 
-namespace cscript {
+namespace cubescript {
 
 /* run func, call the second one after finishing */
 
@@ -120,6 +120,6 @@ struct charbuf: valbuf<char> {
     }
 };
 
-} /* namespace cscript */
+} /* namespace cubescript */
 
 #endif

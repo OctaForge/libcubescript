@@ -9,7 +9,7 @@
 #include "cs_std.hh"
 #include "cs_state.hh"
 
-namespace cscript {
+namespace cubescript {
 
 struct string_ref_state;
 
@@ -87,6 +87,6 @@ struct string_pool {
     > counts;
 };
 
-} /* namespace cscript */
+} /* namespace cubescript */
 
 #endif

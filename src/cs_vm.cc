@@ -6,7 +6,7 @@
 #include <cstdio>
 #include <limits>
 
-namespace cscript {
+namespace cubescript {
 
 static inline bool ident_has_cb(ident *id) {
     if (!id->is_command() && !id->is_special()) {
@@ -1517,4 +1517,4 @@ loop_state state::run_loop(bcode *code) {
     return run_loop(code, ret);
 }
 
-} /* namespace cscript */
+} /* namespace cubescript */

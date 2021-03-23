@@ -3,7 +3,7 @@
 #include "cs_bcode.hh"
 #include "cs_vm.hh"
 
-namespace cscript {
+namespace cubescript {
 
 ident_impl::ident_impl(ident_type tp, string_ref nm, int fl):
     p_name{nm}, p_type{int(tp)}, p_flags{fl}
@@ -416,4 +416,4 @@ LIBCUBESCRIPT_EXPORT int command::get_num_args() const {
     return static_cast<command_impl const *>(this)->p_numargs;
 }
 
-} /* namespace cscript */
+} /* namespace cubescript */

@@ -4,7 +4,7 @@
 #include "cs_ident.hh"
 #include "cs_vm.hh" // FIXME, only Max Arguments
 
-namespace cscript {
+namespace cubescript {
 
 static inline void do_loop(
     state &cs, ident &id, integer_type offset, integer_type n, integer_type step,
@@ -341,4 +341,4 @@ end:
     });
 }
 
-} /* namespace cscript */
+} /* namespace cubescript */

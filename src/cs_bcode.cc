@@ -1,7 +1,7 @@
 #include "cs_bcode.hh"
 #include "cs_state.hh"
 
-namespace cscript {
+namespace cubescript {
 
 /* public API impls */
 
@@ -133,4 +133,4 @@ bcode *bcode_get_empty(empty_block *empty, std::size_t val) {
     return &empty[val].init + 1;
 }
 
-} /* namespace cscript */
+} /* namespace cubescript */

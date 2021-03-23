@@ -6,7 +6,7 @@
 #include "cs_std.hh"
 #include "cs_strman.hh"
 
-namespace cscript {
+namespace cubescript {
 
 template<typename F>
 static inline void str_cmp_by(
@@ -233,4 +233,4 @@ void init_lib_string(state &cs) {
     });
 }
 
-} /* namespace cscript */
+} /* namespace cubescript */

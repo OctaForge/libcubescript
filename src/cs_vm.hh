@@ -12,7 +12,7 @@
 #include "cs_bcode.hh"
 #include "cs_ident.hh"
 
-namespace cscript {
+namespace cubescript {
 
 static constexpr int MaxArguments = 25;
 static constexpr int MaxResults = 7;
@@ -225,6 +225,6 @@ static void call_with_args(state &cs, F body) {
     });
 }
 
-} /* namespace cscript */
+} /* namespace cubescript */
 
 #endif /* LIBCUBESCRIPT_VM_HH */

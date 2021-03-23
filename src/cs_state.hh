@@ -8,7 +8,7 @@
 
 #include "cs_bcode.hh"
 
-namespace cscript {
+namespace cubescript {
 
 struct state;
 struct internal_state;
@@ -111,6 +111,6 @@ inline void std_allocator<T>::deallocate(T *p, std::size_t n) {
     istate->alloc(p, n, 0);
 }
 
-} /* namespace cscript */
+} /* namespace cubescript */
 
 #endif

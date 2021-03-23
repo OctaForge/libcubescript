@@ -3,7 +3,7 @@
 
 #include <cubescript/cubescript.hh>
 
-namespace cscript {
+namespace cubescript {
 
 enum {
     ID_UNKNOWN = -1, ID_IVAR, ID_FVAR, ID_SVAR, ID_COMMAND, ID_ALIAS,
@@ -114,6 +114,6 @@ struct command_impl: ident_impl, command {
 
 bool ident_is_used_arg(ident *id, state &cs);
 
-} /* namespace cscript */
+} /* namespace cubescript */
 
 #endif

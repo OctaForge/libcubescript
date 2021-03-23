@@ -5,7 +5,7 @@
 
 #include "cs_std.hh"
 
-namespace cscript {
+namespace cubescript {
 
 /* string/word parsers are also useful to have public */
 
@@ -425,4 +425,4 @@ LIBCUBESCRIPT_EXPORT void list_parser::skip_until_item() {
     }
 }
 
-} /* namespace cscript */
+} /* namespace cubescript */

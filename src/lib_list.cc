@@ -5,7 +5,7 @@
 #include "cs_std.hh"
 #include "cs_parser.hh"
 
-namespace cscript {
+namespace cubescript {
 
 template<typename T>
 struct arg_val;
@@ -642,4 +642,4 @@ static void init_lib_list_sort(state &gcs) {
     });
 }
 
-} /* namespace cscript */
+} /* namespace cubescript */

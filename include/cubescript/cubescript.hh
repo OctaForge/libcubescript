@@ -35,7 +35,7 @@
 #  endif
 #endif
 
-namespace cscript {
+namespace cubescript {
 
 static_assert(std::is_integral_v<integer_type>, "integer_type must be integral");
 static_assert(std::is_signed_v<integer_type>, "integer_type must be signed");
@@ -989,6 +989,6 @@ inline R print_stack(R writer, stack_state const &st) {
     return writer;
 }
 
-} /* namespace cscript */
+} /* namespace cubescript */
 
 #endif /* LIBCUBESCRIPT_CUBESCRIPT_HH */

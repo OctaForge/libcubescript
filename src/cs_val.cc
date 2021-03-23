@@ -5,7 +5,7 @@
 
 #include <cmath>
 
-namespace cscript {
+namespace cubescript {
 
 static std::string_view intstr(integer_type v, charbuf &buf) {
     buf.reserve(32);
@@ -340,7 +340,7 @@ bool any_value::code_is_empty() const {
     if (get_type() != value_type::CODE) {
         return true;
     }
-    return cscript::code_is_empty(csv_get<bcode *>(p_stor));
+    return cubescript::code_is_empty(csv_get<bcode *>(p_stor));
 }
 
 bool any_value::get_bool() const {
@@ -454,4 +454,4 @@ LIBCUBESCRIPT_EXPORT string_ref concat_values(
     return string_ref{cs, buf.str()};
 }
 
-} /* namespace cscript */
+} /* namespace cubescript */

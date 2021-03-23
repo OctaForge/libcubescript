@@ -6,7 +6,7 @@
 
 #include <cubescript/cubescript.hh>
 
-namespace cscript {
+namespace cubescript {
 
 static constexpr float_type PI = 3.14159265358979f;
 static constexpr float_type RAD = PI / 180.0f;
@@ -364,4 +364,4 @@ void init_lib_math(state &cs) {
     });
 }
 
-} /* namespace cscript */
+} /* namespace cubescript */

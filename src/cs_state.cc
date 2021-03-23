@@ -6,7 +6,7 @@
 #include "cs_vm.hh" // FIXME, only Max Arguments
 #include "cs_parser.hh"
 
-namespace cscript {
+namespace cubescript {
 
 internal_state::internal_state(alloc_func af, void *data):
     allocf{af}, aptr{data},
@@ -787,4 +787,4 @@ LIBCUBESCRIPT_EXPORT void state::init_libs(int libs) {
     }
 }
 
-} /* namespace cscript */
+} /* namespace cubescript */

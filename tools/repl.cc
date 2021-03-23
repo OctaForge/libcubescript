@@ -9,7 +9,7 @@
 
 #include <cubescript/cubescript.hh>
 
-namespace cs = cscript;
+namespace cs = cubescript;
 
 std::string_view version = "CubeScript 0.0.1";
 

@@ -2,7 +2,7 @@
 
 #include "cs_vm.hh"
 
-namespace cscript {
+namespace cubescript {
 
 LIBCUBESCRIPT_EXPORT char *error::request_buf(
     state &cs, std::size_t bufs, char *&sp
@@ -80,4 +80,4 @@ LIBCUBESCRIPT_EXPORT stack_state error::save_stack(state &cs) {
     return stack_state(cs, ret, total > dalias->get_value());
 }
 
-} /* namespace cscript */
+} /* namespace cubescript */
