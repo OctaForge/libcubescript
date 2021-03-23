@@ -298,10 +298,10 @@ LIBCUBESCRIPT_EXPORT bool cs_code_is_empty(cs_bcode *code);
 struct LIBCUBESCRIPT_EXPORT cs_strref {
     friend struct cs_value;
     /* FIXME: eliminate this */
-    friend inline cs_strref cs_make_strref(char const *p, cs_shared_state &cs);
+    friend inline cs_strref cs_make_strref(char const *p, cs_shared_state *cs);
 
     cs_strref() = delete;
-    cs_strref(cs_shared_state &cs, std::string_view str);
+    cs_strref(cs_shared_state *cs, std::string_view str);
     cs_strref(cs_state &cs, std::string_view str);
 
     cs_strref(cs_strref const &ref);
@@ -327,7 +327,7 @@ struct LIBCUBESCRIPT_EXPORT cs_strref {
 
 private:
     /* for internal use only */
-    cs_strref(char const *p, cs_shared_state &cs);
+    cs_strref(char const *p, cs_shared_state *cs);
 
     cs_shared_state *p_state;
     char const *p_str;

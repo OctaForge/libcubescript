@@ -3,6 +3,7 @@
 #include "cs_util.hh"
 #include "cs_bcode.hh"
 #include "cs_state.hh"
+#include "cs_strman.hh"
 
 namespace cscript {
 
