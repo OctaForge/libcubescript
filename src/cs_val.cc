@@ -148,7 +148,7 @@ void cs_value::set_float(cs_float val) {
 
 void cs_value::set_str(std::string_view val) {
     csv_cleanup(p_type, p_stor);
-    new (&p_stor) cs_strref{*state(), val};
+    new (&p_stor) cs_strref{state(), val};
     p_type = cs_value_type::STRING;
 }
 
@@ -224,7 +224,7 @@ cs_int cs_value::force_int() {
 }
 
 std::string_view cs_value::force_str() {
-    cs_charbuf rs{*state()};
+    cs_charbuf rs{state()};
     std::string_view str;
     switch (get_type()) {
         case cs_value_type::FLOAT:
@@ -294,17 +294,17 @@ cs_strref cs_value::get_str() const {
         case cs_value_type::STRING:
             return *reinterpret_cast<cs_strref const *>(&p_stor);
         case cs_value_type::INT: {
-            cs_charbuf rs{*state()};
-            return cs_strref{*state(), intstr(csv_get<cs_int>(p_stor), rs)};
+            cs_charbuf rs{state()};
+            return cs_strref{state(), intstr(csv_get<cs_int>(p_stor), rs)};
         }
         case cs_value_type::FLOAT: {
-            cs_charbuf rs{*state()};
-            return cs_strref{*state(), floatstr(csv_get<cs_float>(p_stor), rs)};
+            cs_charbuf rs{state()};
+            return cs_strref{state(), floatstr(csv_get<cs_float>(p_stor), rs)};
         }
         default:
             break;
     }
-    return cs_strref{*state(), ""};
+    return cs_strref{state(), ""};
 }
 
 void cs_value::get_val(cs_value &r) const {

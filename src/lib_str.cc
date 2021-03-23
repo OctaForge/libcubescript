@@ -4,6 +4,7 @@
 #include <cubescript/cubescript.hh>
 
 #include "cs_util.hh"
+#include "cs_std.hh"
 
 namespace cscript {
 
@@ -64,7 +65,7 @@ void cs_init_lib_string(cs_state &cs) {
             buf[i] = tolower(inps[i]);
         }
         auto const *cbuf = ics->strman->steal(buf);
-        auto sr = cs_make_strref(cbuf, *ics);
+        auto sr = cs_make_strref(cbuf, ics);
         ics->strman->unref(cbuf);
         res.set_str(sr);
     });
@@ -77,7 +78,7 @@ void cs_init_lib_string(cs_state &cs) {
             buf[i] = toupper(inps[i]);
         }
         auto const *cbuf = ics->strman->steal(buf);
-        auto sr = cs_make_strref(cbuf, *ics);
+        auto sr = cs_make_strref(cbuf, ics);
         ics->strman->unref(cbuf);
         res.set_str(sr);
     });

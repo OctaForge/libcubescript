@@ -506,7 +506,7 @@ LIBCUBESCRIPT_EXPORT cs_ident *cs_state::new_ident(std::string_view name, int fl
             );
         }
         auto *inst = p_state->create<cs_alias_impl>(
-            *this, cs_strref{*p_state, name}, flags
+            *this, cs_strref{p_state, name}, flags
         );
         id = add_ident(inst, inst);
     }
@@ -565,7 +565,7 @@ LIBCUBESCRIPT_EXPORT cs_ivar *cs_state::new_ivar(
     std::string_view n, cs_int m, cs_int x, cs_int v, cs_var_cb f, int flags
 ) {
     auto *iv = p_state->create<cs_ivar_impl>(
-        cs_strref{*p_state, n}, m, x, v, std::move(f), flags
+        cs_strref{p_state, n}, m, x, v, std::move(f), flags
     );
     add_ident(iv, iv);
     return iv;
@@ -575,7 +575,7 @@ LIBCUBESCRIPT_EXPORT cs_fvar *cs_state::new_fvar(
     std::string_view n, cs_float m, cs_float x, cs_float v, cs_var_cb f, int flags
 ) {
     auto *fv = p_state->create<cs_fvar_impl>(
-        cs_strref{*p_state, n}, m, x, v, std::move(f), flags
+        cs_strref{p_state, n}, m, x, v, std::move(f), flags
     );
     add_ident(fv, fv);
     return fv;
@@ -585,8 +585,8 @@ LIBCUBESCRIPT_EXPORT cs_svar *cs_state::new_svar(
     std::string_view n, std::string_view v, cs_var_cb f, int flags
 ) {
     auto *sv = p_state->create<cs_svar_impl>(
-        cs_strref{*p_state, n}, cs_strref{*p_state, v},
-        cs_strref{*p_state, ""}, std::move(f), flags
+        cs_strref{p_state, n}, cs_strref{p_state, v},
+        cs_strref{p_state, ""}, std::move(f), flags
     );
     add_ident(sv, sv);
     return sv;
@@ -642,7 +642,7 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_alias(std::string_view name, cs_value v)
         throw cs_error(*this, "cannot alias number %s", name.data());
     } else {
         auto *a = p_state->create<cs_alias_impl>(
-            *this, cs_strref{*p_state, name}, std::move(v), identflags
+            *this, cs_strref{p_state, name}, std::move(v), identflags
         );
         add_ident(a, a);
     }
@@ -775,7 +775,7 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_var_str(
         *this, sv, sv->p_flags,
         [&sv]() { sv->p_overrideval = sv->get_value(); }
     );
-    sv->set_value(cs_strref{*p_state, v});
+    sv->set_value(cs_strref{p_state, v});
     if (dofunc) {
         sv->changed(*this);
     }
@@ -805,7 +805,7 @@ cs_state::get_var_str(std::string_view name) {
     if (!id || id->is_svar()) {
         return std::nullopt;
     }
-    return cs_strref{*p_state, static_cast<cs_svar *>(id)->get_value()};
+    return cs_strref{p_state, static_cast<cs_svar *>(id)->get_value()};
 }
 
 LIBCUBESCRIPT_EXPORT std::optional<cs_int>
@@ -957,7 +957,7 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_var_str_checked(
         *this, sv, svp->p_flags,
         [&svp]() { svp->p_overrideval = svp->p_storage; }
     );
-    sv->set_value(cs_strref{*p_state, v});
+    sv->set_value(cs_strref{p_state, v});
     svp->changed(*this);
 }
 
@@ -1011,7 +1011,7 @@ LIBCUBESCRIPT_EXPORT cs_command *cs_state::new_command(
         }
     }
     auto *cmd = p_state->create<cs_command_impl>(
-        cs_strref{*p_state, name}, cs_strref{*p_state, args}, nargs,
+        cs_strref{p_state, name}, cs_strref{p_state, args}, nargs,
         std::move(func)
     );
     add_ident(cmd, cmd);

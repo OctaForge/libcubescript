@@ -286,10 +286,10 @@ char *cs_strman::alloc_buf(std::size_t len) const {
 
 /* strref */
 
-cs_strref::cs_strref(cs_shared_state &cs, std::string_view str):
-    p_state{&cs}
+cs_strref::cs_strref(cs_shared_state *cs, std::string_view str):
+    p_state{cs}
 {
-    p_str = cs.strman->add(str);
+    p_str = cs->strman->add(str);
 }
 
 cs_strref::cs_strref(cs_state &cs, std::string_view str):
@@ -304,8 +304,8 @@ cs_strref::cs_strref(cs_strref const &ref): p_state{ref.p_state}, p_str{ref.p_st
 }
 
 /* this can be used by friends to do quick cs_strref creation */
-cs_strref::cs_strref(char const *p, cs_shared_state &cs):
-    p_state{&cs}
+cs_strref::cs_strref(char const *p, cs_shared_state *cs):
+    p_state{cs}
 {
     p_str = p_state->strman->ref(p);
 }

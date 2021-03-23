@@ -284,7 +284,7 @@ static inline void cs_call_alias(
     cs.p_callstack = &aliaslink;
     uint32_t *codep = static_cast<cs_alias_impl *>(a)->compile_code(cs)->get_raw();
     bcode_incr(codep);
-    cs_do_and_cleanup([&]() {
+    call_with_cleanup([&]() {
         runcode(cs, codep+1, result);
     }, [&]() {
         bcode_decr(codep);
@@ -479,7 +479,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 for (int i = 0; i < numlocals; ++i) {
                     cs_push_alias(cs, args[offset + i].get_ident(), locals[i]);
                 }
-                cs_do_and_cleanup([&]() {
+                call_with_cleanup([&]() {
                     code = runcode(cs, code, result);
                 }, [&]() {
                     for (int i = offset; i < numargs; i++) {
@@ -1296,7 +1296,7 @@ noid:
                                 args[offset + j]
                             ), locals[j]);
                         }
-                        cs_do_and_cleanup([&]() {
+                        call_with_cleanup([&]() {
                             code = runcode(cs, code, result);
                         }, [&]() {
                             for (size_t j = 0; j < size_t(callargs); ++j) {

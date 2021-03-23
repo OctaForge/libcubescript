@@ -8,6 +8,7 @@
 #include <vector>
 #include <type_traits>
 
+#include "cs_std.hh"
 #include "cs_util.hh"
 #include "cs_bcode.hh"
 #include "cs_ident.hh"
@@ -20,27 +21,6 @@ static constexpr int MaxResults = 7;
 static constexpr int DummyIdx = MaxArguments;
 static constexpr int NumargsIdx = MaxArguments + 1;
 static constexpr int DbgaliasIdx = MaxArguments + 2;
-
-template<typename T, std::size_t N>
-struct cs_valarray {
-    cs_valarray(cs_state &cs) {
-        for (std::size_t i = 0; i < N; ++i) {
-            new (&stor[i]) T{cs};
-        }
-    }
-
-    ~cs_valarray() {
-        for (std::size_t i = 0; i < N; ++i) {
-            reinterpret_cast<T *>(&stor[i])->~T();
-        }
-    }
-
-    T &operator[](std::size_t i) {
-        return *reinterpret_cast<T *>(&stor[i]);
-    }
-
-    std::aligned_storage_t<sizeof(T), alignof(T)> stor[N];
-};
 
 static const int cs_valtypet[] = {
     CS_VAL_NULL, CS_VAL_INT, CS_VAL_FLOAT, CS_VAL_STRING,
@@ -235,7 +215,7 @@ static void cs_do_args(cs_state &cs, F body) {
         prevstack ? prevstack->argstack : nullptr
     };
     cs.p_callstack = &aliaslink;
-    cs_do_and_cleanup(std::move(body), [&]() {
+    call_with_cleanup(std::move(body), [&]() {
         if (prevstack) {
             prevstack->usedargs = aliaslink.usedargs;
         }

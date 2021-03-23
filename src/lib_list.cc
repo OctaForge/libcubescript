@@ -3,6 +3,7 @@
 
 #include <cubescript/cubescript.hh>
 #include "cs_util.hh"
+#include "cs_std.hh"
 
 namespace cscript {
 
