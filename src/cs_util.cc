@@ -9,51 +9,6 @@
 
 namespace cscript {
 
-/* strref */
-
-cs_strref::cs_strref(cs_shared_state *cs, std::string_view str):
-    p_state{cs}
-{
-    p_str = cs->strman->add(str);
-}
-
-cs_strref::cs_strref(cs_state &cs, std::string_view str):
-    p_state{cs.p_state}
-{
-    p_str = p_state->strman->add(str);
-}
-
-cs_strref::cs_strref(cs_strref const &ref): p_state{ref.p_state}, p_str{ref.p_str}
-{
-    p_state->strman->ref(p_str);
-}
-
-/* this can be used by friends to do quick cs_strref creation */
-cs_strref::cs_strref(char const *p, cs_shared_state *cs):
-    p_state{cs}
-{
-    p_str = p_state->strman->ref(p);
-}
-
-cs_strref::~cs_strref() {
-    p_state->strman->unref(p_str);
-}
-
-cs_strref &cs_strref::operator=(cs_strref const &ref) {
-    p_str = ref.p_str;
-    p_state = ref.p_state;
-    p_state->strman->ref(p_str);
-    return *this;
-}
-
-cs_strref::operator std::string_view() const {
-    return p_state->strman->get(p_str);
-}
-
-bool cs_strref::operator==(cs_strref const &s) const {
-    return p_str == s.p_str;
-}
-
 namespace util {
     LIBCUBESCRIPT_EXPORT char const *parse_string(
         cs_state &cs, std::string_view str, size_t &nlines

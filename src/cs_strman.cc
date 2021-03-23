@@ -108,4 +108,53 @@ char *cs_strman::alloc_buf(std::size_t len) const {
     return strp;
 };
 
+/* strref implementation */
+
+/* strref */
+
+LIBCUBESCRIPT_EXPORT cs_strref::cs_strref(
+    cs_shared_state *cs, std::string_view str
+): p_state{cs}
+{
+    p_str = cs->strman->add(str);
+}
+
+LIBCUBESCRIPT_EXPORT cs_strref::cs_strref(cs_state &cs, std::string_view str):
+    p_state{cs.p_state}
+{
+    p_str = p_state->strman->add(str);
+}
+
+LIBCUBESCRIPT_EXPORT cs_strref::cs_strref(cs_strref const &ref):
+    p_state{ref.p_state}, p_str{ref.p_str}
+{
+    p_state->strman->ref(p_str);
+}
+
+/* this can be used by friends to do quick cs_strref creation */
+LIBCUBESCRIPT_EXPORT cs_strref::cs_strref(char const *p, cs_shared_state *cs):
+    p_state{cs}
+{
+    p_str = p_state->strman->ref(p);
+}
+
+LIBCUBESCRIPT_EXPORT cs_strref::~cs_strref() {
+    p_state->strman->unref(p_str);
+}
+
+LIBCUBESCRIPT_EXPORT cs_strref &cs_strref::operator=(cs_strref const &ref) {
+    p_str = ref.p_str;
+    p_state = ref.p_state;
+    p_state->strman->ref(p_str);
+    return *this;
+}
+
+LIBCUBESCRIPT_EXPORT cs_strref::operator std::string_view() const {
+    return p_state->strman->get(p_str);
+}
+
+LIBCUBESCRIPT_EXPORT bool cs_strref::operator==(cs_strref const &s) const {
+    return p_str == s.p_str;
+}
+
 } /* namespace cscript */
