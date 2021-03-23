@@ -1,6 +1,6 @@
 #include <cubescript/cubescript.hh>
 #include "cs_vm.hh"
-#include "cs_util.hh"
+#include "cs_std.hh"
 
 #include <ctype.h>
 
@@ -114,11 +114,11 @@ static inline std::pair<std::string_view, size_t> compileblock(
 );
 
 void cs_gen_state::gen_int(std::string_view word) {
-    gen_int(cs_parse_int(word));
+    gen_int(parse_int(word));
 }
 
 void cs_gen_state::gen_float(std::string_view word) {
-    gen_float(cs_parse_float(word));
+    gen_float(parse_float(word));
 }
 
 void cs_gen_state::gen_value(int wordtype, std::string_view word, int line) {
@@ -1317,7 +1317,7 @@ noid:
                 switch (rettype) {
                     case CS_VAL_ANY: {
                         std::string_view end = idname.str_term();
-                        cs_int val = cs_parse_int(end, &end);
+                        cs_int val = parse_int(end, &end);
                         if (!end.empty()) {
                             gs.gen_str(idname.str_term());
                         } else {

@@ -1,6 +1,5 @@
 #include "cs_bcode.hh"
-
-#include "cs_util.hh"
+#include "cs_state.hh"
 
 namespace cscript {
 

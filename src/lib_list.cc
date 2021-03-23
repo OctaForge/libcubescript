@@ -2,7 +2,6 @@
 #include <iterator>
 
 #include <cubescript/cubescript.hh>
-#include "cs_util.hh"
 #include "cs_std.hh"
 
 namespace cscript {
@@ -249,14 +248,14 @@ void cs_init_lib_list(cs_state &gcs) {
     gcs.new_command("listfind=", "i", [](auto &cs, auto args, auto &res) {
         cs_list_find<cs_int>(
             cs, args, res, [](cs_list_parser const &p, cs_int val) {
-                return cs_parse_int(p.get_raw_item()) == val;
+                return parse_int(p.get_raw_item()) == val;
             }
         );
     });
     gcs.new_command("listfind=f", "f", [](auto &cs, auto args, auto &res) {
         cs_list_find<cs_float>(
             cs, args, res, [](cs_list_parser const &p, cs_float val) {
-                return cs_parse_float(p.get_raw_item()) == val;
+                return parse_float(p.get_raw_item()) == val;
             }
         );
     });
@@ -271,14 +270,14 @@ void cs_init_lib_list(cs_state &gcs) {
     gcs.new_command("listassoc=", "i", [](auto &cs, auto args, auto &res) {
         cs_list_assoc<cs_int>(
             cs, args, res, [](cs_list_parser const &p, cs_int val) {
-                return cs_parse_int(p.get_raw_item()) == val;
+                return parse_int(p.get_raw_item()) == val;
             }
         );
     });
     gcs.new_command("listassoc=f", "f", [](auto &cs, auto args, auto &res) {
         cs_list_assoc<cs_float>(
             cs, args, res, [](cs_list_parser const &p, cs_float val) {
-                return cs_parse_float(p.get_raw_item()) == val;
+                return parse_float(p.get_raw_item()) == val;
             }
         );
     });

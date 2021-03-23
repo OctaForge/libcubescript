@@ -1,6 +1,6 @@
 #include <cubescript/cubescript.hh>
 #include "cs_vm.hh"
-#include "cs_util.hh"
+#include "cs_std.hh"
 
 #include <cstdio>
 #include <limits>
@@ -823,7 +823,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         );
                         continue;
                     case ID_SVAR:
-                        arg.set_int(cs_parse_int(
+                        arg.set_int(parse_int(
                             static_cast<cs_svar *>(id)->get_value()
                         ));
                         continue;
@@ -866,7 +866,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                         );
                         continue;
                     case ID_SVAR:
-                        arg.set_float(cs_parse_float(
+                        arg.set_float(parse_float(
                             static_cast<cs_svar *>(id)->get_value()
                         ));
                         continue;
@@ -1022,12 +1022,12 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 )->get_value());
                 continue;
             case CS_CODE_SVAR | CS_RET_INT:
-                args[numargs++].set_int(cs_parse_int(static_cast<cs_svar *>(
+                args[numargs++].set_int(parse_int(static_cast<cs_svar *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value()));
                 continue;
             case CS_CODE_SVAR | CS_RET_FLOAT:
-                args[numargs++].set_float(cs_parse_float(static_cast<cs_svar *>(
+                args[numargs++].set_float(parse_float(static_cast<cs_svar *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value()));
                 continue;

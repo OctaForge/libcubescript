@@ -1,9 +1,12 @@
 #ifndef LIBCUBESCRIPT_STD_HH
 #define LIBCUBESCRIPT_STD_HH
 
+#include <cubescript/cubescript.hh>
+
 #include <cstddef>
 #include <utility>
 #include <type_traits>
+#include <string_view>
 
 #include "cs_state.hh"
 
@@ -116,6 +119,11 @@ struct cs_charbuf: cs_valbuf<char> {
         return std::string_view{buf.data(), buf.size() - 1};
     }
 };
+
+/* literal parsing */
+
+cs_int parse_int(std::string_view input, std::string_view *end = nullptr);
+cs_float parse_float(std::string_view input, std::string_view *end = nullptr);
 
 } /* namespace cscript */
 

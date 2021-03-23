@@ -9,7 +9,6 @@
 #include <type_traits>
 
 #include "cs_std.hh"
-#include "cs_util.hh"
 #include "cs_bcode.hh"
 #include "cs_ident.hh"
 

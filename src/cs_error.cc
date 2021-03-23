@@ -1,6 +1,5 @@
 #include <cubescript/cubescript.hh>
 
-#include "cs_util.hh"
 #include "cs_vm.hh"
 
 namespace cscript {

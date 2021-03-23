@@ -1,6 +1,6 @@
 #include <cubescript/cubescript.hh>
 #include "cs_vm.hh"
-#include "cs_util.hh"
+#include "cs_std.hh"
 
 #include <cmath>
 
@@ -190,7 +190,7 @@ cs_float cs_value::force_float() {
             rf = csv_get<cs_int>(p_stor);
             break;
         case cs_value_type::STRING:
-            rf = cs_parse_float(
+            rf = parse_float(
                 *reinterpret_cast<cs_strref const *>(&p_stor)
             );
             break;
@@ -210,7 +210,7 @@ cs_int cs_value::force_int() {
             ri = csv_get<cs_float>(p_stor);
             break;
         case cs_value_type::STRING:
-            ri = cs_parse_int(
+            ri = parse_int(
                 *reinterpret_cast<cs_strref const *>(&p_stor)
             );
             break;
@@ -250,7 +250,7 @@ cs_int cs_value::get_int() const {
         case cs_value_type::INT:
             return csv_get<cs_int>(p_stor);
         case cs_value_type::STRING:
-            return cs_parse_int(
+            return parse_int(
                 *reinterpret_cast<cs_strref const *>(&p_stor)
             );
         default:
@@ -266,7 +266,7 @@ cs_float cs_value::get_float() const {
         case cs_value_type::INT:
             return cs_float(csv_get<cs_int>(p_stor));
         case cs_value_type::STRING:
-            return cs_parse_float(
+            return parse_float(
                 *reinterpret_cast<cs_strref const *>(&p_stor)
             );
         default:
@@ -343,12 +343,12 @@ static inline bool cs_get_bool(std::string_view s) {
         return false;
     }
     std::string_view end = s;
-    cs_int ival = cs_parse_int(end, &end);
+    cs_int ival = parse_int(end, &end);
     if (end.empty()) {
         return !!ival;
     }
     end = s;
-    cs_float fval = cs_parse_float(end, &end);
+    cs_float fval = parse_float(end, &end);
     if (end.empty()) {
         return !!fval;
     }
