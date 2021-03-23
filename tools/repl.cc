@@ -51,14 +51,10 @@ inline std::string_view get_arg_type(char arg) {
             return "float_prev";
         case 't':
             return "any";
-        case 'T':
-            return "any_m";
         case 'E':
             return "cond";
         case 'N':
             return "numargs";
-        case 'S':
-            return "str_m";
         case 's':
             return "str";
         case 'e':
