@@ -15,6 +15,7 @@ libcubescript_src = [
     'cs_val.cc',
     'cs_vm.cc',
     'cubescript.cc',
+    'lib_base.cc',
     'lib_list.cc',
     'lib_math.cc',
     'lib_str.cc'
