@@ -42,7 +42,7 @@ char const *cs_strman::ref(char const *ptr) {
     return ptr;
 }
 
-char const *cs_strman::steal(char *ptr) {
+cs_strref cs_strman::steal(char *ptr) {
     auto *ss = get_ref_state(ptr);
     auto sr = std::string_view{ptr, ss->length};
     /* much like add(), but we already have memory */
@@ -50,15 +50,14 @@ char const *cs_strman::steal(char *ptr) {
     if (it != counts.end()) {
         auto *st = it->second;
         if (st) {
-            ++st->refcount;
             /* the buffer is superfluous now */
             cstate->alloc(ss, ss->length + sizeof(cs_strref_state) + 1, 0);
-            return reinterpret_cast<char const *>(st + 1);
+            return cs_strref{reinterpret_cast<char const *>(st + 1), cstate};
         }
     }
-    ss->refcount = 1;
+    ss->refcount = 0; /* cs_strref will increment it */
     counts.emplace(sr, ss);
-    return ptr;
+    return cs_strref{ptr, cstate};
 }
 
 void cs_strman::unref(char const *ptr) {

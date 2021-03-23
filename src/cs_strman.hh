@@ -58,7 +58,7 @@ struct cs_strman {
     /* this will use the provided memory, assuming it is a fresh string that
      * is yet to be added; the memory must be allocated with alloc_buf()
      */
-    char const *steal(char *ptr);
+    cs_strref steal(char *ptr);
 
     /* decrements the reference count and removes it from the system if
      * that reaches zero; likewise, only safe with pointers that are managed

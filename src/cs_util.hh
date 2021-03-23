@@ -18,13 +18,6 @@ cs_float cs_parse_float(
     std::string_view input, std::string_view *end = nullptr
 );
 
-struct cs_strman;
-struct cs_shared_state;
-
-inline cs_strref cs_make_strref(char const *p, cs_shared_state *cs) {
-    return cs_strref{p, cs};
-}
-
 } /* namespace cscript */
 
 #endif /* LIBCUBESCRIPT_CS_UTIL_HH */

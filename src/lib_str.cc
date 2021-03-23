@@ -65,10 +65,7 @@ void cs_init_lib_string(cs_state &cs) {
         for (std::size_t i = 0; i < inps.size(); ++i) {
             buf[i] = tolower(inps[i]);
         }
-        auto const *cbuf = ics->strman->steal(buf);
-        auto sr = cs_make_strref(cbuf, ics);
-        ics->strman->unref(cbuf);
-        res.set_str(sr);
+        res.set_str(ics->strman->steal(buf));
     });
 
     cs.new_command("strupper", "s", [](auto &ccs, auto args, auto &res) {
@@ -78,10 +75,7 @@ void cs_init_lib_string(cs_state &cs) {
         for (std::size_t i = 0; i < inps.size(); ++i) {
             buf[i] = toupper(inps[i]);
         }
-        auto const *cbuf = ics->strman->steal(buf);
-        auto sr = cs_make_strref(cbuf, ics);
-        ics->strman->unref(cbuf);
-        res.set_str(sr);
+        res.set_str(ics->strman->steal(buf));
     });
 
     cs.new_command("escape", "s", [](auto &ccs, auto args, auto &res) {
