@@ -234,6 +234,270 @@ LIBCUBESCRIPT_EXPORT void *cs_state::alloc(void *ptr, size_t os, size_t ns) {
     return p_state->alloc(ptr, os, ns);
 }
 
+template<typename SF>
+inline void cs_override_var(cs_state &cs, cs_var *v, int &vflags, SF sf) {
+    if ((cs.identflags & CS_IDF_OVERRIDDEN) || (vflags & CS_IDF_OVERRIDE)) {
+        if (vflags & CS_IDF_PERSIST) {
+            throw cs_error{
+                cs, "cannot override persistent variable '%s'",
+                v->get_name().data()
+            };
+        }
+        if (!(vflags & CS_IDF_OVERRIDDEN)) {
+            sf();
+            vflags |= CS_IDF_OVERRIDDEN;
+        }
+    } else {
+        if (vflags & CS_IDF_OVERRIDDEN) {
+            vflags &= ~CS_IDF_OVERRIDDEN;
+        }
+    }
+}
+
+LIBCUBESCRIPT_EXPORT void cs_state::set_var_int(
+    std::string_view name, cs_int v, bool dofunc, bool doclamp
+) {
+    cs_ident *id = get_ident(name);
+    if (!id || id->is_ivar()) {
+        return;
+    }
+    cs_ivar_impl *iv = static_cast<cs_ivar_impl *>(id);
+    cs_override_var(
+        *this, iv, iv->p_flags,
+        [&iv]() { iv->p_overrideval = iv->get_value(); }
+    );
+    if (doclamp) {
+        iv->set_value(std::clamp(v, iv->get_val_min(), iv->get_val_max()));
+    } else {
+        iv->set_value(v);
+    }
+    if (dofunc) {
+        iv->changed(*this);
+    }
+}
+
+LIBCUBESCRIPT_EXPORT void cs_state::set_var_float(
+    std::string_view name, cs_float v, bool dofunc, bool doclamp
+) {
+    cs_ident *id = get_ident(name);
+    if (!id || id->is_fvar()) {
+        return;
+    }
+    cs_fvar_impl *fv = static_cast<cs_fvar_impl *>(id);
+    cs_override_var(
+        *this, fv, fv->p_flags,
+        [&fv]() { fv->p_overrideval = fv->get_value(); }
+    );
+    if (doclamp) {
+        fv->set_value(std::clamp(v, fv->get_val_min(), fv->get_val_max()));
+    } else {
+        fv->set_value(v);
+    }
+    if (dofunc) {
+        fv->changed(*this);
+    }
+}
+
+LIBCUBESCRIPT_EXPORT void cs_state::set_var_str(
+    std::string_view name, std::string_view v, bool dofunc
+) {
+    cs_ident *id = get_ident(name);
+    if (!id || id->is_svar()) {
+        return;
+    }
+    cs_svar_impl *sv = static_cast<cs_svar_impl *>(id);
+    cs_override_var(
+        *this, sv, sv->p_flags,
+        [&sv]() { sv->p_overrideval = sv->get_value(); }
+    );
+    sv->set_value(cs_strref{p_state, v});
+    if (dofunc) {
+        sv->changed(*this);
+    }
+}
+
+LIBCUBESCRIPT_EXPORT std::optional<cs_int>
+cs_state::get_var_int(std::string_view name) {
+    cs_ident *id = get_ident(name);
+    if (!id || id->is_ivar()) {
+        return std::nullopt;
+    }
+    return static_cast<cs_ivar *>(id)->get_value();
+}
+
+LIBCUBESCRIPT_EXPORT std::optional<cs_float>
+cs_state::get_var_float(std::string_view name) {
+    cs_ident *id = get_ident(name);
+    if (!id || id->is_fvar()) {
+        return std::nullopt;
+    }
+    return static_cast<cs_fvar *>(id)->get_value();
+}
+
+LIBCUBESCRIPT_EXPORT std::optional<cs_strref>
+cs_state::get_var_str(std::string_view name) {
+    cs_ident *id = get_ident(name);
+    if (!id || id->is_svar()) {
+        return std::nullopt;
+    }
+    return cs_strref{p_state, static_cast<cs_svar *>(id)->get_value()};
+}
+
+LIBCUBESCRIPT_EXPORT std::optional<cs_int>
+cs_state::get_var_min_int(std::string_view name) {
+    cs_ident *id = get_ident(name);
+    if (!id || id->is_ivar()) {
+        return std::nullopt;
+    }
+    return static_cast<cs_ivar *>(id)->get_val_min();
+}
+
+LIBCUBESCRIPT_EXPORT std::optional<cs_int>
+cs_state::get_var_max_int(std::string_view name) {
+    cs_ident *id = get_ident(name);
+    if (!id || id->is_ivar()) {
+        return std::nullopt;
+    }
+    return static_cast<cs_ivar *>(id)->get_val_max();
+}
+
+LIBCUBESCRIPT_EXPORT std::optional<cs_float>
+cs_state::get_var_min_float(std::string_view name) {
+    cs_ident *id = get_ident(name);
+    if (!id || id->is_fvar()) {
+        return std::nullopt;
+    }
+    return static_cast<cs_fvar *>(id)->get_val_min();
+}
+
+LIBCUBESCRIPT_EXPORT std::optional<cs_float>
+cs_state::get_var_max_float(std::string_view name) {
+    cs_ident *id = get_ident(name);
+    if (!id || id->is_fvar()) {
+        return std::nullopt;
+    }
+    return static_cast<cs_fvar *>(id)->get_val_max();
+}
+
+LIBCUBESCRIPT_EXPORT std::optional<cs_strref>
+cs_state::get_alias_val(std::string_view name) {
+    cs_alias *a = get_alias(name);
+    if (!a) {
+        return std::nullopt;
+    }
+    if ((a->get_index() < MaxArguments) && !ident_is_used_arg(a, *this)) {
+        return std::nullopt;
+    }
+    return a->get_value().get_str();
+}
+
+cs_int cs_clamp_var(cs_state &cs, cs_ivar *iv, cs_int v) {
+    if (v < iv->get_val_min()) {
+        v = iv->get_val_min();
+    } else if (v > iv->get_val_max()) {
+        v = iv->get_val_max();
+    } else {
+        return v;
+    }
+    throw cs_error{
+        cs,
+        (iv->get_flags() & CS_IDF_HEX)
+            ? (
+                (iv->get_val_min() <= 255)
+                    ? "valid range for '%s' is %d..0x%X"
+                    : "valid range for '%s' is 0x%X..0x%X"
+            )
+            : "valid range for '%s' is %d..%d",
+        iv->get_name().data(), iv->get_val_min(), iv->get_val_max()
+    };
+}
+
+LIBCUBESCRIPT_EXPORT void cs_state::set_var_int_checked(cs_ivar *iv, cs_int v) {
+    if (iv->get_flags() & CS_IDF_READONLY) {
+        throw cs_error{
+            *this, "variable '%s' is read only", iv->get_name().data()
+        };
+    }
+    cs_ivar_impl *ivp = static_cast<cs_ivar_impl *>(iv);
+    cs_override_var(
+        *this, iv, ivp->p_flags,
+        [&ivp]() { ivp->p_overrideval = ivp->p_storage; }
+    );
+    if ((v < iv->get_val_min()) || (v > iv->get_val_max())) {
+        v = cs_clamp_var(*this, iv, v);
+    }
+    iv->set_value(v);
+    ivp->changed(*this);
+}
+
+LIBCUBESCRIPT_EXPORT void cs_state::set_var_int_checked(
+    cs_ivar *iv, std::span<cs_value> args
+) {
+    cs_int v = args[0].force_int();
+    if ((iv->get_flags() & CS_IDF_HEX) && (args.size() > 1)) {
+        v = (v << 16) | (args[1].force_int() << 8);
+        if (args.size() > 2) {
+            v |= args[2].force_int();
+        }
+    }
+    set_var_int_checked(iv, v);
+}
+
+cs_float cs_clamp_fvar(cs_state &cs, cs_fvar *fv, cs_float v) {
+    if (v < fv->get_val_min()) {
+        v = fv->get_val_min();
+    } else if (v > fv->get_val_max()) {
+        v = fv->get_val_max();
+    } else {
+        return v;
+    }
+    cs_value vmin{cs}, vmax{cs};
+    vmin.set_float(fv->get_val_min());
+    vmax.set_float(fv->get_val_max());
+    throw cs_error(
+        cs, "valid range for '%s' is %s..%s", fv->get_name().data(),
+        vmin.force_str(), vmax.force_str()
+    );
+    return v;
+}
+
+LIBCUBESCRIPT_EXPORT void cs_state::set_var_float_checked(
+    cs_fvar *fv, cs_float v
+) {
+    if (fv->get_flags() & CS_IDF_READONLY) {
+        throw cs_error{
+            *this, "variable '%s' is read only", fv->get_name().data()
+        };
+    }
+    cs_fvar_impl *fvp = static_cast<cs_fvar_impl *>(fv);
+    cs_override_var(
+        *this, fv, fvp->p_flags,
+        [&fvp]() { fvp->p_overrideval = fvp->p_storage; }
+    );
+    if ((v < fv->get_val_min()) || (v > fv->get_val_max())) {
+        v = cs_clamp_fvar(*this, fv, v);
+    }
+    fv->set_value(v);
+    fvp->changed(*this);
+}
+
+LIBCUBESCRIPT_EXPORT void cs_state::set_var_str_checked(
+    cs_svar *sv, std::string_view v
+) {
+    if (sv->get_flags() & CS_IDF_READONLY) {
+        throw cs_error{
+            *this, "variable '%s' is read only", sv->get_name().data()
+        };
+    }
+    cs_svar_impl *svp = static_cast<cs_svar_impl *>(sv);
+    cs_override_var(
+        *this, sv, svp->p_flags,
+        [&svp]() { svp->p_overrideval = svp->p_storage; }
+    );
+    sv->set_value(cs_strref{p_state, v});
+    svp->changed(*this);
+}
+
 LIBCUBESCRIPT_EXPORT void cs_state::init_libs(int libs) {
     if (libs & CS_LIB_MATH) {
         cs_init_lib_math(*this);
