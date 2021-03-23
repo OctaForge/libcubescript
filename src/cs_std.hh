@@ -33,15 +33,15 @@ inline void call_with_cleanup(F1 &&dof, F2 &&clf) {
 /* a simple static array with elements constructed using ctor args */
 
 template<typename T, std::size_t N>
-struct cs_valarray {
+struct valarray {
     template<typename ...A>
-    cs_valarray(A &&...args) {
+    valarray(A &&...args) {
         for (std::size_t i = 0; i < N; ++i) {
             new (&stor[i]) T{std::forward<A>(args)...};
         }
     }
 
-    ~cs_valarray() {
+    ~valarray() {
         for (std::size_t i = 0; i < N; ++i) {
             reinterpret_cast<T *>(&stor[i])->~T();
         }
@@ -57,11 +57,11 @@ struct cs_valarray {
 /* a value buffer */
 
 template<typename T>
-struct cs_valbuf {
-    cs_valbuf() = delete;
+struct valbuf {
+    valbuf() = delete;
 
-    cs_valbuf(cs_shared_state *cs): buf{cs_allocator<T>{cs}} {}
-    cs_valbuf(cs_state &cs): buf{cs_allocator<T>{cs}} {}
+    valbuf(internal_state *cs): buf{std_allocator<T>{cs}} {}
+    valbuf(state &cs): buf{std_allocator<T>{cs}} {}
 
     using size_type = std::size_t;
     using value_type = T;
@@ -94,17 +94,17 @@ struct cs_valbuf {
     T *data() { return &buf[0]; }
     T const *data() const { return &buf[0]; }
 
-    std::vector<T, cs_allocator<T>> buf;
+    std::vector<T, std_allocator<T>> buf;
 };
 
 /* specialization of value buffer for bytes */
 
-struct cs_charbuf: cs_valbuf<char> {
-    cs_charbuf(cs_shared_state *cs): cs_valbuf<char>{cs} {}
-    cs_charbuf(cs_state &cs): cs_valbuf<char>{cs} {}
+struct charbuf: valbuf<char> {
+    charbuf(internal_state *cs): valbuf<char>{cs} {}
+    charbuf(state &cs): valbuf<char>{cs} {}
 
     void append(char const *beg, char const *end) {
-        cs_valbuf<char>::append(beg, end);
+        valbuf<char>::append(beg, end);
     }
 
     void append(std::string_view v) {

@@ -9,18 +9,18 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
-static cs_state *rd_cs = nullptr;
+static cs::state *rd_cs = nullptr;
 
 inline char *ln_complete_list(char const *buf, int state) {
     static std::string_view cmd;
-    static std::span<cs_ident *> itr;
+    static std::span<cs::ident *> itr;
 
     if (!state) {
         cmd = get_complete_cmd(buf);
         itr = rd_cs->get_idents();
     }
 
-    for (cs_ident *id: itr) {
+    for (cs::ident *id: itr) {
         if (!id->is_command()) {
             continue;
         }
@@ -43,7 +43,7 @@ inline char **ln_complete(char const *buf, int, int) {
 }
 
 inline void ln_hint() {
-    cs_command *cmd = get_hint_cmd(*rd_cs, rl_line_buffer);
+    cs::command *cmd = get_hint_cmd(*rd_cs, rl_line_buffer);
     if (!cmd) {
         rl_redisplay();
         return;
@@ -59,13 +59,13 @@ inline void ln_hint() {
     rl_replace_line(old.data(), 0);
 }
 
-inline void init_lineedit(cs_state &cs, std::string_view) {
+inline void init_lineedit(cs::state &cs, std::string_view) {
     rd_cs = &cs;
     rl_attempted_completion_function = ln_complete;
     rl_redisplay_function = ln_hint;
 }
 
-inline std::optional<std::string> read_line(cs_state &, cs_svar *pr) {
+inline std::optional<std::string> read_line(cs::state &, cs::string_var *pr) {
     auto line = readline(pr->get_value().data());
     if (!line) {
         return std::string();
@@ -75,7 +75,7 @@ inline std::optional<std::string> read_line(cs_state &, cs_svar *pr) {
     return ret;
 }
 
-inline void add_history(cs_state &, std::string_view line) {
+inline void add_history(cs::state &, std::string_view line) {
     /* backed by std::string so it's terminated */
     add_history(line.data());
 }

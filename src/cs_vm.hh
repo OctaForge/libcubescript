@@ -1,5 +1,5 @@
-#ifndef LIBCUBESCRIPT_CS_VM_HH
-#define LIBCUBESCRIPT_CS_VM_HH
+#ifndef LIBCUBESCRIPT_VM_HH
+#define LIBCUBESCRIPT_VM_HH
 
 #include "cubescript/cubescript.hh"
 
@@ -21,13 +21,13 @@ static constexpr int DummyIdx = MaxArguments;
 static constexpr int NumargsIdx = MaxArguments + 1;
 static constexpr int DbgaliasIdx = MaxArguments + 2;
 
-static const int cs_valtypet[] = {
-    CS_VAL_NULL, CS_VAL_INT, CS_VAL_FLOAT, CS_VAL_STRING,
-    CS_VAL_CODE, CS_VAL_IDENT
+static const int valtypet[] = {
+    VAL_NULL, VAL_INT, VAL_FLOAT, VAL_STRING,
+    VAL_CODE, VAL_IDENT
 };
 
-static inline int cs_vtype_to_int(cs_value_type v) {
-    return cs_valtypet[int(v)];
+static inline int vtype_to_int(value_type v) {
+    return valtypet[int(v)];
 }
 
 struct CsBreakException {
@@ -40,24 +40,24 @@ template<typename T>
 constexpr size_t CsTypeStorageSize =
     (sizeof(T) - 1) / sizeof(uint32_t) + 1;
 
-struct cs_gen_state {
-    cs_state &cs;
-    cs_gen_state *prevps;
+struct codegen_state {
+    state &cs;
+    codegen_state *prevps;
     bool parsing = true;
-    cs_valbuf<uint32_t> code;
+    valbuf<uint32_t> code;
     char const *source, *send;
     size_t current_line;
     std::string_view src_name;
 
-    cs_gen_state() = delete;
-    cs_gen_state(cs_state &csr):
+    codegen_state() = delete;
+    codegen_state(state &csr):
         cs{csr}, prevps{csr.p_pstate}, code{cs},
         source{}, send{}, current_line{1}, src_name{}
     {
         csr.p_pstate = this;
     }
 
-    ~cs_gen_state() {
+    ~codegen_state() {
         done();
     }
 
@@ -70,13 +70,13 @@ struct cs_gen_state {
     }
 
     std::string_view get_str();
-    cs_charbuf get_str_dup();
+    charbuf get_str_dup();
 
     std::string_view get_word();
 
     void gen_str(std::string_view word) {
         if (word.size() <= 3) {
-            uint32_t op = CS_CODE_VAL_INT | CS_RET_STRING;
+            uint32_t op = BC_INST_VAL_INT | BC_RET_STRING;
             for (size_t i = 0; i < word.size(); ++i) {
                 op |= uint32_t(
                     static_cast<unsigned char>(word[i])
@@ -85,7 +85,7 @@ struct cs_gen_state {
             code.push_back(op);
             return;
         }
-        code.push_back(CS_CODE_VAL | CS_RET_STRING | (word.size() << 8));
+        code.push_back(BC_INST_VAL | BC_RET_STRING | (word.size() << 8));
         auto it = reinterpret_cast<uint32_t const *>(word.data());
         code.append(it, it + (word.size() / sizeof(uint32_t)));
         size_t esz = word.size() % sizeof(uint32_t);
@@ -99,50 +99,50 @@ struct cs_gen_state {
     }
 
     void gen_str() {
-        code.push_back(CS_CODE_VAL_INT | CS_RET_STRING);
+        code.push_back(BC_INST_VAL_INT | BC_RET_STRING);
     }
 
     void gen_null() {
-        code.push_back(CS_CODE_VAL_INT | CS_RET_NULL);
+        code.push_back(BC_INST_VAL_INT | BC_RET_NULL);
     }
 
-    void gen_int(cs_int i = 0) {
+    void gen_int(integer_type i = 0) {
         if (i >= -0x800000 && i <= 0x7FFFFF) {
-            code.push_back(CS_CODE_VAL_INT | CS_RET_INT | (i << 8));
+            code.push_back(BC_INST_VAL_INT | BC_RET_INT | (i << 8));
         } else {
             union {
-                cs_int i;
-                uint32_t u[CsTypeStorageSize<cs_int>];
+                integer_type i;
+                uint32_t u[CsTypeStorageSize<integer_type>];
             } c;
             c.i = i;
-            code.push_back(CS_CODE_VAL | CS_RET_INT);
-            code.append(c.u, c.u + CsTypeStorageSize<cs_int>);
+            code.push_back(BC_INST_VAL | BC_RET_INT);
+            code.append(c.u, c.u + CsTypeStorageSize<integer_type>);
         }
     }
 
     void gen_int(std::string_view word);
 
-    void gen_float(cs_float f = 0.0f) {
-        if (cs_int(f) == f && f >= -0x800000 && f <= 0x7FFFFF) {
-            code.push_back(CS_CODE_VAL_INT | CS_RET_FLOAT | (cs_int(f) << 8));
+    void gen_float(float_type f = 0.0f) {
+        if (integer_type(f) == f && f >= -0x800000 && f <= 0x7FFFFF) {
+            code.push_back(BC_INST_VAL_INT | BC_RET_FLOAT | (integer_type(f) << 8));
         } else {
             union {
-                cs_float f;
-                uint32_t u[CsTypeStorageSize<cs_float>];
+                float_type f;
+                uint32_t u[CsTypeStorageSize<float_type>];
             } c;
             c.f = f;
-            code.push_back(CS_CODE_VAL | CS_RET_FLOAT);
-            code.append(c.u, c.u + CsTypeStorageSize<cs_float>);
+            code.push_back(BC_INST_VAL | BC_RET_FLOAT);
+            code.append(c.u, c.u + CsTypeStorageSize<float_type>);
         }
     }
 
     void gen_float(std::string_view word);
 
-    void gen_ident(cs_ident *id) {
+    void gen_ident(ident *id) {
         code.push_back(
             ((id->get_index() < MaxArguments)
-                ? CS_CODE_IDENT_ARG
-                : CS_CODE_IDENT
+                ? BC_INST_IDENT_ARG
+                : BC_INST_IDENT
             ) | (id->get_index() << 8)
         );
     }
@@ -160,7 +160,7 @@ struct cs_gen_state {
         int line = 0
     );
 
-    void gen_main(std::string_view s, int ret_type = CS_VAL_ANY);
+    void gen_main(std::string_view s, int ret_type = VAL_ANY);
 
     void next_char() {
         if (source == send) {
@@ -187,26 +187,23 @@ struct cs_gen_state {
     void skip_comments();
 };
 
-void bcode_ref(uint32_t *code);
-void bcode_unref(uint32_t *code);
-
 template<typename F>
-static void cs_do_args(cs_state &cs, F body) {
+static void call_with_args(state &cs, F body) {
     if (!cs.p_callstack) {
         body();
         return;
     }
-    cs_valarray<cs_ident_stack, MaxArguments> argstack{cs};
+    valarray<ident_stack, MaxArguments> argstack{cs};
     int argmask1 = cs.p_callstack->usedargs;
     for (int i = 0; argmask1; argmask1 >>= 1, ++i) {
         if (argmask1 & 1) {
-            static_cast<cs_alias_impl *>(cs.p_state->identmap[i])->undo_arg(
+            static_cast<alias_impl *>(cs.p_state->identmap[i])->undo_arg(
                 argstack[i]
             );
         }
     }
-    cs_ident_link *prevstack = cs.p_callstack->next;
-    cs_ident_link aliaslink = {
+    ident_link *prevstack = cs.p_callstack->next;
+    ident_link aliaslink = {
         cs.p_callstack->id, cs.p_callstack,
         prevstack ? prevstack->usedargs : ((1 << MaxArguments) - 1),
         prevstack ? prevstack->argstack : nullptr
@@ -220,7 +217,7 @@ static void cs_do_args(cs_state &cs, F body) {
         int argmask2 = cs.p_callstack->usedargs;
         for (int i = 0; argmask2; argmask2 >>= 1, ++i) {
             if (argmask2 & 1) {
-                static_cast<cs_alias_impl *>(cs.p_state->identmap[i])->redo_arg(
+                static_cast<alias_impl *>(cs.p_state->identmap[i])->redo_arg(
                     argstack[i]
                 );
             }
@@ -230,4 +227,4 @@ static void cs_do_args(cs_state &cs, F body) {
 
 } /* namespace cscript */
 
-#endif /* LIBCUBESCRIPT_CS_VM_HH */
+#endif /* LIBCUBESCRIPT_VM_HH */

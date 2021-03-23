@@ -9,8 +9,8 @@ namespace cscript {
 
 /* string/word parsers are also useful to have public */
 
-LIBCUBESCRIPT_EXPORT char const *cs_parse_string(
-    cs_state &cs, std::string_view str, size_t &nlines
+LIBCUBESCRIPT_EXPORT char const *parse_string(
+    state &cs, std::string_view str, size_t &nlines
 ) {
     size_t nl = 0;
     nlines = nl;
@@ -54,7 +54,7 @@ LIBCUBESCRIPT_EXPORT char const *cs_parse_string(
 end:
     nlines = nl;
     if ((beg == end) || (*beg != '\"')) {
-        throw cs_error{
+        throw error{
             cs, "unfinished string '%s'",
             std::string_view{orig, std::size_t(beg - orig)}
         };
@@ -62,8 +62,8 @@ end:
     return ++beg;
 }
 
-LIBCUBESCRIPT_EXPORT char const *cs_parse_word(
-    cs_state &cs, std::string_view str
+LIBCUBESCRIPT_EXPORT char const *parse_word(
+    state &cs, std::string_view str
 ) {
     char const *it = str.begin();
     char const *end = str.end();
@@ -88,20 +88,20 @@ LIBCUBESCRIPT_EXPORT char const *cs_parse_word(
                 break;
             case '[':
                 ++it;
-                it = cs_parse_word(cs, std::string_view{
+                it = parse_word(cs, std::string_view{
                     it, std::size_t(end - it)
                 });
                 if ((it == end) || (*it != ']')) {
-                    throw cs_error{cs, "missing \"]\""};
+                    throw error{cs, "missing \"]\""};
                 }
                 break;
             case '(':
                 ++it;
-                it = cs_parse_word(cs, std::string_view{
+                it = parse_word(cs, std::string_view{
                     it, std::size_t(end - it)
                 });
                 if ((it == end) || (*it != ')')) {
-                    throw cs_error{cs, "missing \")\""};
+                    throw error{cs, "missing \")\""};
                 }
                 break;
             case ']':
@@ -128,7 +128,7 @@ static inline void p_set_end(
     *end = std::string_view{nbeg, nend};
 }
 /* this function assumes the input is definitely a hex digit */
-static inline cs_int p_hexd_to_int(char c) {
+static inline integer_type p_hexd_to_int(char c) {
     if (c >= 97) { /* a-f */
         return (c - 'a') + 10;
     } else if (c >= 65) { /* A-F */
@@ -146,17 +146,17 @@ static inline bool p_check_neg(char const *&input) {
     return neg;
 }
 
-cs_int parse_int(std::string_view input, std::string_view *endstr) {
+integer_type parse_int(std::string_view input, std::string_view *endstr) {
     char const *beg = input.begin();
     char const *end = input.end();
     char const *orig = beg;
     beg = p_skip_white(beg, end);
     if (beg == end) {
         p_set_end(orig, end, endstr);
-        return cs_int(0);
+        return integer_type(0);
     }
     bool neg = p_check_neg(beg);
-    cs_int ret = 0;
+    integer_type ret = 0;
     char const *past = beg;
     if ((end - beg) >= 2) {
         std::string_view pfx = std::string_view{beg, 2};
@@ -188,7 +188,7 @@ done:
 }
 
 template<bool Hex, char e1 = Hex ? 'p' : 'e', char e2 = Hex ? 'P' : 'E'>
-static inline bool p_read_exp(char const *&beg, char const *end, cs_int &fn) {
+static inline bool p_read_exp(char const *&beg, char const *end, integer_type &fn) {
     if (beg == end) {
         return true;
     }
@@ -202,7 +202,7 @@ static inline bool p_read_exp(char const *&beg, char const *end, cs_int &fn) {
     if ((beg == end) || !std::isdigit(*beg)) {
         return false;
     }
-    cs_int exp = 0;
+    integer_type exp = 0;
     while ((beg != end) && std::isdigit(*beg)) {
         exp = exp * 10 + (*beg++ - '0');
     }
@@ -215,9 +215,9 @@ static inline bool p_read_exp(char const *&beg, char const *end, cs_int &fn) {
 
 template<bool Hex>
 static inline bool parse_gen_float(
-    char const *&beg, char const *end, std::string_view *endstr, cs_float &ret
+    char const *&beg, char const *end, std::string_view *endstr, float_type &ret
 ) {
-    auto read_digits = [&beg, end](double r, cs_int &n) {
+    auto read_digits = [&beg, end](double r, integer_type &n) {
         while (
             (beg != end) &&
             (Hex ? std::isxdigit(*beg) : std::isdigit(*beg))
@@ -232,7 +232,7 @@ static inline bool parse_gen_float(
         }
         return r;
     };
-    cs_int wn = 0, fn = 0;
+    integer_type wn = 0, fn = 0;
     double r = read_digits(0.0, wn);
     if ((beg != end) && (*beg == '.')) {
         ++beg;
@@ -247,24 +247,24 @@ static inline bool parse_gen_float(
         p_set_end(beg, end, endstr);
     }
     if (Hex) {
-        ret = cs_float(ldexp(r, fn * 4));
+        ret = float_type(ldexp(r, fn * 4));
     } else {
-        ret = cs_float(r * pow(10, fn));
+        ret = float_type(r * pow(10, fn));
     }
     return true;
 }
 
-cs_float parse_float(std::string_view input, std::string_view *endstr) {
+float_type parse_float(std::string_view input, std::string_view *endstr) {
     char const *beg = input.begin();
     char const *end = input.end();
     char const *orig = beg;
     beg = p_skip_white(beg, end);
     if (beg == end) {
         p_set_end(orig, end, endstr);
-        return cs_float(0);
+        return float_type(0);
     }
     bool neg = p_check_neg(beg);
-    cs_float ret = cs_float(0);
+    float_type ret = float_type(0);
     if ((end - beg) >= 2) {
         std::string_view pfx = std::string_view{beg, 2};
         if ((pfx == "0x") || (pfx == "0X")) {
@@ -307,7 +307,7 @@ bool is_valid_name(std::string_view s) {
 
 /* list parser public implementation */
 
-LIBCUBESCRIPT_EXPORT bool cs_list_parser::parse() {
+LIBCUBESCRIPT_EXPORT bool list_parser::parse() {
     skip_until_item();
     if (p_input_beg == p_input_end) {
         return false;
@@ -315,7 +315,7 @@ LIBCUBESCRIPT_EXPORT bool cs_list_parser::parse() {
     switch (*p_input_beg) {
         case '"': {
             char const *qi = p_input_beg;
-            p_input_beg = cs_parse_string(*p_state, get_input());
+            p_input_beg = parse_string(*p_state, get_input());
             p_quoted_item = std::string_view{qi, p_input_beg};
             p_item = p_quoted_item.substr(1, p_quoted_item.size() - 2);
             break;
@@ -338,7 +338,7 @@ LIBCUBESCRIPT_EXPORT bool cs_list_parser::parse() {
                     case '"':
                         /* the quote is needed in str parsing */
                         --p_input_beg;
-                        p_input_beg = cs_parse_string(*p_state, get_input());
+                        p_input_beg = parse_string(*p_state, get_input());
                         break;
                     case '/':
                         if (
@@ -375,7 +375,7 @@ endblock:
         case ']':
             return false;
         default: {
-            char const *e = cs_parse_word(*p_state, get_input());
+            char const *e = parse_word(*p_state, get_input());
             p_quoted_item = p_item = std::string_view{p_input_beg, e};
             p_input_beg = e;
             break;
@@ -388,7 +388,7 @@ endblock:
     return true;
 }
 
-LIBCUBESCRIPT_EXPORT std::size_t cs_list_parser::count() {
+LIBCUBESCRIPT_EXPORT std::size_t list_parser::count() {
     size_t ret = 0;
     while (parse()) {
         ++ret;
@@ -396,16 +396,16 @@ LIBCUBESCRIPT_EXPORT std::size_t cs_list_parser::count() {
     return ret;
 }
 
-LIBCUBESCRIPT_EXPORT cs_strref cs_list_parser::get_item() const {
+LIBCUBESCRIPT_EXPORT string_ref list_parser::get_item() const {
     if (!p_quoted_item.empty() && (p_quoted_item.front() == '"')) {
-        cs_charbuf buf{*p_state};
-        cs_unescape_string(std::back_inserter(buf), p_item);
-        return cs_strref{*p_state, buf.str()};
+        charbuf buf{*p_state};
+        unescape_string(std::back_inserter(buf), p_item);
+        return string_ref{*p_state, buf.str()};
     }
-    return cs_strref{*p_state, p_item};
+    return string_ref{*p_state, p_item};
 }
 
-LIBCUBESCRIPT_EXPORT void cs_list_parser::skip_until_item() {
+LIBCUBESCRIPT_EXPORT void list_parser::skip_until_item() {
     for (;;) {
         while (p_input_beg != p_input_end) {
             char c = *p_input_beg;

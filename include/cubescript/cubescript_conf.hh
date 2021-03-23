@@ -2,12 +2,12 @@
 #define LIBCUBESCRIPT_CUBESCRIPT_CONF_HH
 
 namespace cscript {
-    using cs_int = int;
-    using cs_float = float;
+    using integer_type = int;
+    using float_type = float;
 
-    constexpr auto const CS_INT_FORMAT = "%d";
-    constexpr auto const CS_FLOAT_FORMAT = "%.7g";
-    constexpr auto const CS_ROUND_FLOAT_FORMAT = "%.1f";
+    constexpr auto const INT_FORMAT = "%d";
+    constexpr auto const FLOAT_FORMAT = "%.7g";
+    constexpr auto const ROUND_FLOAT_FORMAT = "%.1f";
 } /* namespace cscript */
 
 #endif /* LIBCUBESCRIPT_CUBESCRIPT_CONF_HH */

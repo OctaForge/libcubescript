@@ -9,7 +9,7 @@
 
 #include <cubescript/cubescript.hh>
 
-using namespace cscript;
+namespace cs = cscript;
 
 std::string_view version = "CubeScript 0.0.1";
 
@@ -124,11 +124,11 @@ inline void fill_cmd_args(std::string &writer, std::string_view args) {
     }
 }
 
-inline cs_command *get_hint_cmd(cs_state &cs, std::string_view buf) {
+inline cs::command *get_hint_cmd(cs::state &cs, std::string_view buf) {
     std::string_view nextchars = "([;";
     auto lp = buf.find_first_of(nextchars);
     if (lp != buf.npos) {
-        cs_command *cmd = get_hint_cmd(cs, buf.substr(1, buf.size() - 1));
+        cs::command *cmd = get_hint_cmd(cs, buf.substr(1, buf.size() - 1));
         if (cmd) {
             return cmd;
         }
@@ -179,23 +179,23 @@ void print_version() {
     printf("%s\n", version.data());
 }
 
-static cs_state *scs = nullptr;
+static cs::state *scs = nullptr;
 static void do_sigint(int n) {
     /* in case another SIGINT happens, terminate normally */
     signal(n, SIG_DFL);
-    scs->set_call_hook([](cs_state &cs) {
+    scs->set_call_hook([](cs::state &cs) {
         cs.set_call_hook(nullptr);
-        throw cscript::cs_error(cs, "<execution interrupted>");
+        throw cs::error{cs, "<execution interrupted>"};
     });
 }
 
 /* an example of what var printer would look like in real usage */
-static void repl_print_var(cs_state const &cs, cs_var const &var) {
+static void repl_print_var(cs::state const &cs, cs::global_var const &var) {
     switch (var.get_type()) {
-        case cs_ident_type::IVAR: {
-            auto &iv = static_cast<cs_ivar const &>(var);
+        case cs::ident_type::IVAR: {
+            auto &iv = static_cast<cs::integer_var const &>(var);
             auto val = iv.get_value();
-            if (!(iv.get_flags() & CS_IDF_HEX) || (val < 0)) {
+            if (!(iv.get_flags() & cs::IDENT_FLAG_HEX) || (val < 0)) {
                 std::printf("%s = %d\n", iv.get_name().data(), val);
             } else if (iv.get_val_max() == 0xFFFFFF) {
                 std::printf(
@@ -208,8 +208,8 @@ static void repl_print_var(cs_state const &cs, cs_var const &var) {
             }
             break;
         }
-        case cs_ident_type::FVAR: {
-            auto &fv = static_cast<cs_fvar const &>(var);
+        case cs::ident_type::FVAR: {
+            auto &fv = static_cast<cs::float_var const &>(var);
             auto val = fv.get_value();
             if (std::floor(val) == val) {
                 std::printf("%s = %.1f", fv.get_name().data(), val);
@@ -218,8 +218,8 @@ static void repl_print_var(cs_state const &cs, cs_var const &var) {
             }
             break;
         }
-        case cs_ident_type::SVAR: {
-            auto &sv = static_cast<cs_svar const &>(var);
+        case cs::ident_type::SVAR: {
+            auto &sv = static_cast<cs::string_var const &>(var);
             auto val = std::string_view{sv.get_value()};
             if (val.find('"') == val.npos) {
                 std::printf("%s = \"%s\"", sv.get_name().data(), val.data());
@@ -233,7 +233,9 @@ static void repl_print_var(cs_state const &cs, cs_var const &var) {
     }
 }
 
-static bool do_run_file(cs_state &cs, std::string_view fname, cs_value &ret) {
+static bool do_run_file(
+    cs::state &cs, std::string_view fname, cs::any_value &ret
+) {
     FILE *f = std::fopen(fname.data(), "rb");
     if (!f) {
         return false;
@@ -260,8 +262,8 @@ static bool do_run_file(cs_state &cs, std::string_view fname, cs_value &ret) {
     return true;
 }
 
-static bool do_call(cs_state &cs, std::string_view line, bool file = false) {
-    cs_value ret{cs};
+static bool do_call(cs::state &cs, std::string_view line, bool file = false) {
+    cs::any_value ret{cs};
     scs = &cs;
     signal(SIGINT, do_sigint);
     try {
@@ -272,7 +274,7 @@ static bool do_call(cs_state &cs, std::string_view line, bool file = false) {
         } else {
             cs.run(line, ret);
         }
-    } catch (cscript::cs_error const &e) {
+    } catch (cs::error const &e) {
         signal(SIGINT, SIG_DFL);
         scs = nullptr;
         std::string_view terr = e.what();
@@ -295,20 +297,20 @@ static bool do_call(cs_state &cs, std::string_view line, bool file = false) {
         );
         if (e.get_stack().get()) {
             std::string str;
-            cscript::cs_print_stack(std::back_inserter(str), e.get_stack());
+            cs::print_stack(std::back_inserter(str), e.get_stack());
             std::printf("%s\n", str.data());
         }
         return false;
     }
     signal(SIGINT, SIG_DFL);
     scs = nullptr;
-    if (ret.get_type() != cs_value_type::NONE) {
+    if (ret.get_type() != cs::value_type::NONE) {
         std::printf("%s\n", std::string_view{ret.get_str()}.data());
     }
     return false;
 }
 
-static void do_tty(cs_state &cs) {
+static void do_tty(cs::state &cs) {
     auto prompt = cs.new_svar("PROMPT", "> ");
     auto prompt2 = cs.new_svar("PROMPT2", ">> ");
 
@@ -349,16 +351,16 @@ static void do_tty(cs_state &cs) {
 }
 
 int main(int argc, char **argv) {
-    cs_state gcs;
+    cs::state gcs;
     gcs.set_var_printer(repl_print_var);
     gcs.init_libs();
 
     gcs.new_command("exec", "s", [](auto &cs, auto args, auto &) {
         auto file = args[0].get_str();
-        cs_value val{cs};
+        cs::any_value val{cs};
         bool ret = do_run_file(cs, file, val);
         if (!ret) {
-            throw cscript::cs_error(
+            throw cs::error(
                 cs, "could not run file \"%s\"", file
             );
         }

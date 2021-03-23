@@ -10,55 +10,55 @@
 
 namespace cscript {
 
-struct cs_state;
-struct cs_shared_state;
-struct cs_strman;
+struct state;
+struct internal_state;
+struct string_pool;
 
 template<typename T>
-struct cs_allocator {
+struct std_allocator {
     using value_type = T;
 
-    inline cs_allocator(cs_shared_state *s);
-    inline cs_allocator(cs_state &cs);
+    inline std_allocator(internal_state *s);
+    inline std_allocator(state &cs);
 
     template<typename U>
-    cs_allocator(cs_allocator<U> const &a): state{a.state} {};
+    std_allocator(std_allocator<U> const &a): istate{a.istate} {};
 
     inline T *allocate(std::size_t n);
     inline void deallocate(T *p, std::size_t n);
 
     template<typename U>
-    bool operator==(cs_allocator<U> const &a) {
-        return state == a.state;
+    bool operator==(std_allocator<U> const &a) {
+        return istate == a.istate;
     }
 
-    cs_shared_state *state;
+    internal_state *istate;
 };
 
-struct cs_shared_state {
-    using allocator_type = cs_allocator<
-        std::pair<std::string_view const, cs_ident *>
+struct internal_state {
+    using allocator_type = std_allocator<
+        std::pair<std::string_view const, ident *>
     >;
-    cs_alloc_cb allocf;
+    alloc_func allocf;
     void *aptr;
 
     std::unordered_map<
-        std::string_view, cs_ident *,
+        std::string_view, ident *,
         std::hash<std::string_view>,
         std::equal_to<std::string_view>,
         allocator_type
     > idents;
-    std::vector<cs_ident *, cs_allocator<cs_ident *>> identmap;
+    std::vector<ident *, std_allocator<ident *>> identmap;
 
-    cs_vprint_cb varprintf;
-    cs_strman *strman;
+    var_print_func varprintf;
+    string_pool *strman;
     empty_block *empty;
 
-    cs_shared_state() = delete;
+    internal_state() = delete;
 
-    cs_shared_state(cs_alloc_cb af, void *data);
+    internal_state(alloc_func af, void *data);
 
-    ~cs_shared_state();
+    ~internal_state();
 
     void *alloc(void *ptr, size_t os, size_t ns);
 
@@ -91,24 +91,24 @@ struct cs_shared_state {
     }
 };
 
-inline cs_shared_state *cs_get_sstate(cs_state &cs) {
+inline internal_state *state_get_internal(state &cs) {
     return cs.p_state;
 }
 
 template<typename T>
-inline cs_allocator<T>::cs_allocator(cs_shared_state *s): state{s} {}
+inline std_allocator<T>::std_allocator(internal_state *s): istate{s} {}
 
 template<typename T>
-inline cs_allocator<T>::cs_allocator(cs_state &s): state{cs_get_sstate(s)} {}
+inline std_allocator<T>::std_allocator(state &s): istate{state_get_internal(s)} {}
 
 template<typename T>
-inline T *cs_allocator<T>::allocate(std::size_t n) {
-    return static_cast<T *>(state->alloc(nullptr, 0, n * sizeof(T)));
+inline T *std_allocator<T>::allocate(std::size_t n) {
+    return static_cast<T *>(istate->alloc(nullptr, 0, n * sizeof(T)));
 }
 
 template<typename T>
-inline void cs_allocator<T>::deallocate(T *p, std::size_t n) {
-    state->alloc(p, n, 0);
+inline void std_allocator<T>::deallocate(T *p, std::size_t n) {
+    istate->alloc(p, n, 0);
 }
 
 } /* namespace cscript */

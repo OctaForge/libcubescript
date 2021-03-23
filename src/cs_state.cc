@@ -8,21 +8,21 @@
 
 namespace cscript {
 
-cs_shared_state::cs_shared_state(cs_alloc_cb af, void *data):
+internal_state::internal_state(alloc_func af, void *data):
     allocf{af}, aptr{data},
     idents{allocator_type{this}},
     identmap{allocator_type{this}},
     varprintf{},
-    strman{create<cs_strman>(this)},
+    strman{create<string_pool>(this)},
     empty{bcode_init_empty(this)}
 {}
 
-cs_shared_state::~cs_shared_state() {
+internal_state::~internal_state() {
      bcode_free_empty(this, empty);
      destroy(strman);
 }
 
-void *cs_shared_state::alloc(void *ptr, size_t os, size_t ns) {
+void *internal_state::alloc(void *ptr, size_t os, size_t ns) {
     void *p = allocf(aptr, ptr, os, ns);
     if (!p && ns) {
         throw std::bad_alloc{};
@@ -30,7 +30,7 @@ void *cs_shared_state::alloc(void *ptr, size_t os, size_t ns) {
     return p;
 }
 
-static void *cs_default_alloc(void *, void *p, size_t, size_t ns) {
+static void *default_alloc(void *, void *p, size_t, size_t ns) {
     if (!ns) {
         std::free(p);
         return nullptr;
@@ -38,88 +38,88 @@ static void *cs_default_alloc(void *, void *p, size_t, size_t ns) {
     return std::realloc(p, ns);
 }
 
-void cs_init_lib_base(cs_state &cs);
-void cs_init_lib_math(cs_state &cs);
-void cs_init_lib_string(cs_state &cs);
-void cs_init_lib_list(cs_state &cs);
+void init_lib_base(state &cs);
+void init_lib_math(state &cs);
+void init_lib_string(state &cs);
+void init_lib_list(state &cs);
 
 /* public interfaces */
 
-cs_state::cs_state(): cs_state{cs_default_alloc, nullptr} {}
+state::state(): state{default_alloc, nullptr} {}
 
-cs_state::cs_state(cs_alloc_cb func, void *data):
+state::state(alloc_func func, void *data):
     p_state{nullptr}, p_callhook{}
 {
-    cs_command *p;
+    command *p;
 
     if (!func) {
-        func = cs_default_alloc;
+        func = default_alloc;
     }
     /* allocator is not set up yet, use func directly */
-    p_state = static_cast<cs_shared_state *>(
-        func(data, nullptr, 0, sizeof(cs_shared_state))
+    p_state = static_cast<internal_state *>(
+        func(data, nullptr, 0, sizeof(internal_state))
     );
     /* allocator will be set up in the constructor */
-    new (p_state) cs_shared_state{func, data};
+    new (p_state) internal_state{func, data};
     p_owner = true;
 
     /* will be used as message storage for errors */
-    p_errbuf = p_state->create<cs_charbuf>(*this);
+    p_errbuf = p_state->create<charbuf>(*this);
 
     for (int i = 0; i < MaxArguments; ++i) {
         char buf[32];
         snprintf(buf, sizeof(buf), "arg%d", i + 1);
-        new_ident(static_cast<char const *>(buf), CS_IDF_ARG);
+        new_ident(static_cast<char const *>(buf), IDENT_FLAG_ARG);
     }
 
-    cs_ident *id = new_ident("//dummy");
+    ident *id = new_ident("//dummy");
     if (id->get_index() != DummyIdx) {
-        throw cs_internal_error{"invalid dummy index"};
+        throw internal_error{"invalid dummy index"};
     }
 
     id = new_ivar("numargs", MaxArguments, 0, 0);
     if (id->get_index() != NumargsIdx) {
-        throw cs_internal_error{"invalid numargs index"};
+        throw internal_error{"invalid numargs index"};
     }
 
     id = new_ivar("dbgalias", 0, 1000, 4);
     if (id->get_index() != DbgaliasIdx) {
-        throw cs_internal_error{"invalid dbgalias index"};
+        throw internal_error{"invalid dbgalias index"};
     }
 
     p = new_command("do", "e", [](auto &cs, auto args, auto &res) {
         cs.run(args[0].get_code(), res);
     });
-    static_cast<cs_command_impl *>(p)->p_type = ID_DO;
+    static_cast<command_impl *>(p)->p_type = ID_DO;
 
     p = new_command("doargs", "e", [](auto &cs, auto args, auto &res) {
-        cs_do_args(cs, [&cs, &res, &args]() {
+        call_with_args(cs, [&cs, &res, &args]() {
             cs.run(args[0].get_code(), res);
         });
     });
-    static_cast<cs_command_impl *>(p)->p_type = ID_DOARGS;
+    static_cast<command_impl *>(p)->p_type = ID_DOARGS;
 
     p = new_command("if", "tee", [](auto &cs, auto args, auto &res) {
         cs.run((args[0].get_bool() ? args[1] : args[2]).get_code(), res);
     });
-    static_cast<cs_command_impl *>(p)->p_type = ID_IF;
+    static_cast<command_impl *>(p)->p_type = ID_IF;
 
     p = new_command("result", "t", [](auto &, auto args, auto &res) {
         res = std::move(args[0]);
     });
-    static_cast<cs_command_impl *>(p)->p_type = ID_RESULT;
+    static_cast<command_impl *>(p)->p_type = ID_RESULT;
 
     p = new_command("!", "t", [](auto &, auto args, auto &res) {
         res.set_int(!args[0].get_bool());
     });
-    static_cast<cs_command_impl *>(p)->p_type = ID_NOT;
+    static_cast<command_impl *>(p)->p_type = ID_NOT;
 
     p = new_command("&&", "E1V", [](auto &cs, auto args, auto &res) {
         if (args.empty()) {
             res.set_int(1);
         } else {
             for (size_t i = 0; i < args.size(); ++i) {
-                cs_bcode *code = args[i].get_code();
+                bcode *code = args[i].get_code();
                 if (code) {
                     cs.run(code, res);
                 } else {
@@ -131,14 +131,14 @@ cs_state::cs_state(cs_alloc_cb func, void *data):
             }
         }
     });
-    static_cast<cs_command_impl *>(p)->p_type = ID_AND;
+    static_cast<command_impl *>(p)->p_type = ID_AND;
 
     p = new_command("||", "E1V", [](auto &cs, auto args, auto &res) {
         if (args.empty()) {
             res.set_int(0);
         } else {
             for (size_t i = 0; i < args.size(); ++i) {
-                cs_bcode *code = args[i].get_code();
+                bcode *code = args[i].get_code();
                 if (code) {
                     cs.run(code, res);
                 } else {
@@ -150,134 +150,134 @@ cs_state::cs_state(cs_alloc_cb func, void *data):
             }
         }
     });
-    static_cast<cs_command_impl *>(p)->p_type = ID_OR;
+    static_cast<command_impl *>(p)->p_type = ID_OR;
 
     p = new_command("local", "", nullptr);
-    static_cast<cs_command_impl *>(p)->p_type = ID_LOCAL;
+    static_cast<command_impl *>(p)->p_type = ID_LOCAL;
 
     p = new_command("break", "", [](auto &cs, auto, auto &) {
         if (cs.is_in_loop()) {
             throw CsBreakException{};
         } else {
-            throw cs_error{cs, "no loop to break"};
+            throw error{cs, "no loop to break"};
         }
     });
-    static_cast<cs_command_impl *>(p)->p_type = ID_BREAK;
+    static_cast<command_impl *>(p)->p_type = ID_BREAK;
 
     p = new_command("continue", "", [](auto &cs, auto, auto &) {
         if (cs.is_in_loop()) {
             throw CsContinueException{};
         } else {
-            throw cs_error{cs, "no loop to continue"};
+            throw error{cs, "no loop to continue"};
         }
     });
-    static_cast<cs_command_impl *>(p)->p_type = ID_CONTINUE;
+    static_cast<command_impl *>(p)->p_type = ID_CONTINUE;
 
-    cs_init_lib_base(*this);
+    init_lib_base(*this);
 }
 
-LIBCUBESCRIPT_EXPORT cs_state::~cs_state() {
+LIBCUBESCRIPT_EXPORT state::~state() {
     destroy();
 }
 
-LIBCUBESCRIPT_EXPORT void cs_state::destroy() {
+LIBCUBESCRIPT_EXPORT void state::destroy() {
     if (!p_state || !p_owner) {
         return;
     }
     for (auto &p: p_state->idents) {
-        cs_ident *i = p.second;
-        cs_alias *a = i->get_alias();
+        ident *i = p.second;
+        alias *a = i->get_alias();
         if (a) {
             a->get_value().force_none();
-            static_cast<cs_alias_impl *>(a)->clean_code();
+            static_cast<alias_impl *>(a)->clean_code();
         }
         p_state->destroy(i->p_impl);
     }
-    p_state->destroy(static_cast<cs_charbuf *>(p_errbuf));
+    p_state->destroy(static_cast<charbuf *>(p_errbuf));
     p_state->destroy(p_state);
 }
 
-cs_state::cs_state(cs_shared_state *s):
+state::state(internal_state *s):
     p_state(s), p_owner(false)
 {}
 
-LIBCUBESCRIPT_EXPORT cs_state cs_state::new_thread() {
-    return cs_state{p_state};
+LIBCUBESCRIPT_EXPORT state state::new_thread() {
+    return state{p_state};
 }
 
-LIBCUBESCRIPT_EXPORT cs_hook_cb cs_state::set_call_hook(cs_hook_cb func) {
+LIBCUBESCRIPT_EXPORT hook_func state::set_call_hook(hook_func func) {
     auto hk = std::move(p_callhook);
     p_callhook = std::move(func);
     return hk;
 }
 
-LIBCUBESCRIPT_EXPORT cs_hook_cb const &cs_state::get_call_hook() const {
+LIBCUBESCRIPT_EXPORT hook_func const &state::get_call_hook() const {
     return p_callhook;
 }
 
-LIBCUBESCRIPT_EXPORT cs_hook_cb &cs_state::get_call_hook() {
+LIBCUBESCRIPT_EXPORT hook_func &state::get_call_hook() {
     return p_callhook;
 }
 
-LIBCUBESCRIPT_EXPORT cs_vprint_cb cs_state::set_var_printer(
-    cs_vprint_cb func
+LIBCUBESCRIPT_EXPORT var_print_func state::set_var_printer(
+    var_print_func func
 ) {
     auto fn = std::move(p_state->varprintf);
     p_state->varprintf = std::move(func);
     return fn;
 }
 
-LIBCUBESCRIPT_EXPORT cs_vprint_cb const &cs_state::get_var_printer() const {
+LIBCUBESCRIPT_EXPORT var_print_func const &state::get_var_printer() const {
     return p_state->varprintf;
 }
 
-LIBCUBESCRIPT_EXPORT void cs_state::print_var(cs_var const &v) const {
+LIBCUBESCRIPT_EXPORT void state::print_var(global_var const &v) const {
     if (p_state->varprintf) {
         p_state->varprintf(*this, v);
     }
 }
 
-LIBCUBESCRIPT_EXPORT void *cs_state::alloc(void *ptr, size_t os, size_t ns) {
+LIBCUBESCRIPT_EXPORT void *state::alloc(void *ptr, size_t os, size_t ns) {
     return p_state->alloc(ptr, os, ns);
 }
 
-LIBCUBESCRIPT_EXPORT cs_ident *cs_state::add_ident(
-    cs_ident *id, cs_ident_impl *impl
+LIBCUBESCRIPT_EXPORT ident *state::add_ident(
+    ident *id, ident_impl *impl
 ) {
     if (!id) {
         return nullptr;
     }
     id->p_impl = impl;
     p_state->idents[id->get_name()] = id;
-    static_cast<cs_ident_impl *>(impl)->p_index = p_state->identmap.size();
+    static_cast<ident_impl *>(impl)->p_index = p_state->identmap.size();
     p_state->identmap.push_back(id);
     return p_state->identmap.back();
 }
 
-LIBCUBESCRIPT_EXPORT cs_ident *cs_state::new_ident(
+LIBCUBESCRIPT_EXPORT ident *state::new_ident(
     std::string_view name, int flags
 ) {
-    cs_ident *id = get_ident(name);
+    ident *id = get_ident(name);
     if (!id) {
         if (!is_valid_name(name)) {
-            throw cs_error{
+            throw error{
                 *this, "number %s is not a valid identifier name", name.data()
             };
         }
-        auto *inst = p_state->create<cs_alias_impl>(
-            *this, cs_strref{p_state, name}, flags
+        auto *inst = p_state->create<alias_impl>(
+            *this, string_ref{p_state, name}, flags
         );
         id = add_ident(inst, inst);
     }
     return id;
 }
 
-LIBCUBESCRIPT_EXPORT cs_ident *cs_state::force_ident(cs_value &v) {
+LIBCUBESCRIPT_EXPORT ident *state::force_ident(any_value &v) {
     switch (v.get_type()) {
-        case cs_value_type::IDENT:
+        case value_type::IDENT:
             return v.get_ident();
-        case cs_value_type::STRING: {
-            cs_ident *id = new_ident(v.get_str());
+        case value_type::STRING: {
+            ident *id = new_ident(v.get_str());
             v.set_ident(id);
             return id;
         }
@@ -288,7 +288,7 @@ LIBCUBESCRIPT_EXPORT cs_ident *cs_state::force_ident(cs_value &v) {
     return p_state->identmap[DummyIdx];
 }
 
-LIBCUBESCRIPT_EXPORT cs_ident *cs_state::get_ident(std::string_view name) {
+LIBCUBESCRIPT_EXPORT ident *state::get_ident(std::string_view name) {
     auto id = p_state->idents.find(name);
     if (id != p_state->idents.end()) {
         return id->second;
@@ -296,88 +296,89 @@ LIBCUBESCRIPT_EXPORT cs_ident *cs_state::get_ident(std::string_view name) {
     return nullptr;
 }
 
-LIBCUBESCRIPT_EXPORT cs_alias *cs_state::get_alias(std::string_view name) {
+LIBCUBESCRIPT_EXPORT alias *state::get_alias(std::string_view name) {
     auto id = get_ident(name);
     if (!id || !id->is_alias()) {
         return nullptr;
     }
-    return static_cast<cs_alias *>(id);
+    return static_cast<alias *>(id);
 }
 
-LIBCUBESCRIPT_EXPORT bool cs_state::have_ident(std::string_view name) {
+LIBCUBESCRIPT_EXPORT bool state::have_ident(std::string_view name) {
     return p_state->idents.find(name) != p_state->idents.end();
 }
 
-LIBCUBESCRIPT_EXPORT std::span<cs_ident *> cs_state::get_idents() {
-    return std::span<cs_ident *>{
+LIBCUBESCRIPT_EXPORT std::span<ident *> state::get_idents() {
+    return std::span<ident *>{
         p_state->identmap.data(),
         p_state->identmap.size()
     };
 }
 
-LIBCUBESCRIPT_EXPORT std::span<cs_ident const *> cs_state::get_idents() const {
-    auto ptr = const_cast<cs_ident const **>(p_state->identmap.data());
-    return std::span<cs_ident const *>{ptr, p_state->identmap.size()};
+LIBCUBESCRIPT_EXPORT std::span<ident const *> state::get_idents() const {
+    auto ptr = const_cast<ident const **>(p_state->identmap.data());
+    return std::span<ident const *>{ptr, p_state->identmap.size()};
 }
 
-LIBCUBESCRIPT_EXPORT cs_ivar *cs_state::new_ivar(
-    std::string_view n, cs_int m, cs_int x, cs_int v, cs_var_cb f, int flags
+LIBCUBESCRIPT_EXPORT integer_var *state::new_ivar(
+    std::string_view n, integer_type m, integer_type x, integer_type v,
+    var_cb_func f, int flags
 ) {
-    auto *iv = p_state->create<cs_ivar_impl>(
-        cs_strref{p_state, n}, m, x, v, std::move(f), flags
+    auto *iv = p_state->create<ivar_impl>(
+        string_ref{p_state, n}, m, x, v, std::move(f), flags
     );
     add_ident(iv, iv);
     return iv;
 }
 
-LIBCUBESCRIPT_EXPORT cs_fvar *cs_state::new_fvar(
-    std::string_view n, cs_float m, cs_float x, cs_float v,
-    cs_var_cb f, int flags
+LIBCUBESCRIPT_EXPORT float_var *state::new_fvar(
+    std::string_view n, float_type m, float_type x, float_type v,
+    var_cb_func f, int flags
 ) {
-    auto *fv = p_state->create<cs_fvar_impl>(
-        cs_strref{p_state, n}, m, x, v, std::move(f), flags
+    auto *fv = p_state->create<fvar_impl>(
+        string_ref{p_state, n}, m, x, v, std::move(f), flags
     );
     add_ident(fv, fv);
     return fv;
 }
 
-LIBCUBESCRIPT_EXPORT cs_svar *cs_state::new_svar(
-    std::string_view n, std::string_view v, cs_var_cb f, int flags
+LIBCUBESCRIPT_EXPORT string_var *state::new_svar(
+    std::string_view n, std::string_view v, var_cb_func f, int flags
 ) {
-    auto *sv = p_state->create<cs_svar_impl>(
-        cs_strref{p_state, n}, cs_strref{p_state, v},
-        cs_strref{p_state, ""}, std::move(f), flags
+    auto *sv = p_state->create<svar_impl>(
+        string_ref{p_state, n}, string_ref{p_state, v},
+        string_ref{p_state, ""}, std::move(f), flags
     );
     add_ident(sv, sv);
     return sv;
 }
 
-LIBCUBESCRIPT_EXPORT void cs_state::reset_var(std::string_view name) {
-    cs_ident *id = get_ident(name);
+LIBCUBESCRIPT_EXPORT void state::reset_var(std::string_view name) {
+    ident *id = get_ident(name);
     if (!id) {
-        throw cs_error{*this, "variable %s does not exist", name.data()};
+        throw error{*this, "variable %s does not exist", name.data()};
     }
-    if (id->get_flags() & CS_IDF_READONLY) {
-        throw cs_error{*this, "variable %s is read only", name.data()};
+    if (id->get_flags() & IDENT_FLAG_READONLY) {
+        throw error{*this, "variable %s is read only", name.data()};
     }
     clear_override(*id);
 }
 
-LIBCUBESCRIPT_EXPORT void cs_state::touch_var(std::string_view name) {
-    cs_ident *id = get_ident(name);
+LIBCUBESCRIPT_EXPORT void state::touch_var(std::string_view name) {
+    ident *id = get_ident(name);
     if (id && id->is_var()) {
-        static_cast<cs_var_impl *>(id->p_impl)->changed(*this);
+        static_cast<var_impl *>(id->p_impl)->changed(*this);
     }
 }
 
-LIBCUBESCRIPT_EXPORT void cs_state::set_alias(
-    std::string_view name, cs_value v
+LIBCUBESCRIPT_EXPORT void state::set_alias(
+    std::string_view name, any_value v
 ) {
-    cs_ident *id = get_ident(name);
+    ident *id = get_ident(name);
     if (id) {
         switch (id->get_type()) {
-            case cs_ident_type::ALIAS: {
-                cs_alias_impl *a = static_cast<cs_alias_impl *>(id);
+            case ident_type::ALIAS: {
+                alias_impl *a = static_cast<alias_impl *>(id);
                 if (a->get_index() < MaxArguments) {
                     a->set_arg(*this, v);
                 } else {
@@ -385,33 +386,33 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_alias(
                 }
                 return;
             }
-            case cs_ident_type::IVAR:
-                set_var_int_checked(static_cast<cs_ivar *>(id), v.get_int());
+            case ident_type::IVAR:
+                set_var_int_checked(static_cast<integer_var *>(id), v.get_int());
                 break;
-            case cs_ident_type::FVAR:
-                set_var_float_checked(static_cast<cs_fvar *>(id), v.get_float());
+            case ident_type::FVAR:
+                set_var_float_checked(static_cast<float_var *>(id), v.get_float());
                 break;
-            case cs_ident_type::SVAR:
-                set_var_str_checked(static_cast<cs_svar *>(id), v.get_str());
+            case ident_type::SVAR:
+                set_var_str_checked(static_cast<string_var *>(id), v.get_str());
                 break;
             default:
-                throw cs_error{
+                throw error{
                     *this, "cannot redefine builtin %s with an alias",
                     id->get_name().data()
                 };
         }
     } else if (!is_valid_name(name)) {
-        throw cs_error{*this, "cannot alias invalid name '%s'", name.data()};
+        throw error{*this, "cannot alias invalid name '%s'", name.data()};
     } else {
-        auto *a = p_state->create<cs_alias_impl>(
-            *this, cs_strref{p_state, name}, std::move(v), identflags
+        auto *a = p_state->create<alias_impl>(
+            *this, string_ref{p_state, name}, std::move(v), identflags
         );
         add_ident(a, a);
     }
 }
 
-LIBCUBESCRIPT_EXPORT cs_command *cs_state::new_command(
-    std::string_view name, std::string_view args, cs_command_cb func
+LIBCUBESCRIPT_EXPORT command *state::new_command(
+    std::string_view name, std::string_view args, command_func func
 ) {
     int nargs = 0;
     for (auto fmt = args.begin(); fmt != args.end(); ++fmt) {
@@ -459,39 +460,39 @@ LIBCUBESCRIPT_EXPORT cs_command *cs_state::new_command(
                 return nullptr;
         }
     }
-    auto *cmd = p_state->create<cs_command_impl>(
-        cs_strref{p_state, name}, cs_strref{p_state, args}, nargs,
+    auto *cmd = p_state->create<command_impl>(
+        string_ref{p_state, name}, string_ref{p_state, args}, nargs,
         std::move(func)
     );
     add_ident(cmd, cmd);
     return cmd;
 }
 
-LIBCUBESCRIPT_EXPORT void cs_state::clear_override(cs_ident &id) {
-    if (!(id.get_flags() & CS_IDF_OVERRIDDEN)) {
+LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
+    if (!(id.get_flags() & IDENT_FLAG_OVERRIDDEN)) {
         return;
     }
     switch (id.get_type()) {
-        case cs_ident_type::ALIAS: {
-            cs_alias_impl &a = static_cast<cs_alias_impl &>(id);
+        case ident_type::ALIAS: {
+            alias_impl &a = static_cast<alias_impl &>(id);
             a.clean_code();
             a.get_value().set_str("");
             break;
         }
-        case cs_ident_type::IVAR: {
-            cs_ivar_impl &iv = static_cast<cs_ivar_impl &>(id);
+        case ident_type::IVAR: {
+            ivar_impl &iv = static_cast<ivar_impl &>(id);
             iv.set_value(iv.p_overrideval);
             iv.changed(*this);
             break;
         }
-        case cs_ident_type::FVAR: {
-            cs_fvar_impl &fv = static_cast<cs_fvar_impl &>(id);
+        case ident_type::FVAR: {
+            fvar_impl &fv = static_cast<fvar_impl &>(id);
             fv.set_value(fv.p_overrideval);
             fv.changed(*this);
             break;
         }
-        case cs_ident_type::SVAR: {
-            cs_svar_impl &sv = static_cast<cs_svar_impl &>(id);
+        case ident_type::SVAR: {
+            svar_impl &sv = static_cast<svar_impl &>(id);
             sv.set_value(sv.p_overrideval);
             sv.changed(*this);
             break;
@@ -499,44 +500,44 @@ LIBCUBESCRIPT_EXPORT void cs_state::clear_override(cs_ident &id) {
         default:
             break;
     }
-    id.p_impl->p_flags &= ~CS_IDF_OVERRIDDEN;
+    id.p_impl->p_flags &= ~IDENT_FLAG_OVERRIDDEN;
 }
 
-LIBCUBESCRIPT_EXPORT void cs_state::clear_overrides() {
+LIBCUBESCRIPT_EXPORT void state::clear_overrides() {
     for (auto &p: p_state->idents) {
         clear_override(*(p.second));
     }
 }
 
 template<typename SF>
-inline void cs_override_var(cs_state &cs, cs_var *v, int &vflags, SF sf) {
-    if ((cs.identflags & CS_IDF_OVERRIDDEN) || (vflags & CS_IDF_OVERRIDE)) {
-        if (vflags & CS_IDF_PERSIST) {
-            throw cs_error{
+inline void override_var(state &cs, global_var *v, int &vflags, SF sf) {
+    if ((cs.identflags & IDENT_FLAG_OVERRIDDEN) || (vflags & IDENT_FLAG_OVERRIDE)) {
+        if (vflags & IDENT_FLAG_PERSIST) {
+            throw error{
                 cs, "cannot override persistent variable '%s'",
                 v->get_name().data()
             };
         }
-        if (!(vflags & CS_IDF_OVERRIDDEN)) {
+        if (!(vflags & IDENT_FLAG_OVERRIDDEN)) {
             sf();
-            vflags |= CS_IDF_OVERRIDDEN;
+            vflags |= IDENT_FLAG_OVERRIDDEN;
         }
     } else {
-        if (vflags & CS_IDF_OVERRIDDEN) {
-            vflags &= ~CS_IDF_OVERRIDDEN;
+        if (vflags & IDENT_FLAG_OVERRIDDEN) {
+            vflags &= ~IDENT_FLAG_OVERRIDDEN;
         }
     }
 }
 
-LIBCUBESCRIPT_EXPORT void cs_state::set_var_int(
-    std::string_view name, cs_int v, bool dofunc, bool doclamp
+LIBCUBESCRIPT_EXPORT void state::set_var_int(
+    std::string_view name, integer_type v, bool dofunc, bool doclamp
 ) {
-    cs_ident *id = get_ident(name);
+    ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return;
     }
-    cs_ivar_impl *iv = static_cast<cs_ivar_impl *>(id);
-    cs_override_var(
+    ivar_impl *iv = static_cast<ivar_impl *>(id);
+    override_var(
         *this, iv, iv->p_flags,
         [&iv]() { iv->p_overrideval = iv->get_value(); }
     );
@@ -550,15 +551,15 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_var_int(
     }
 }
 
-LIBCUBESCRIPT_EXPORT void cs_state::set_var_float(
-    std::string_view name, cs_float v, bool dofunc, bool doclamp
+LIBCUBESCRIPT_EXPORT void state::set_var_float(
+    std::string_view name, float_type v, bool dofunc, bool doclamp
 ) {
-    cs_ident *id = get_ident(name);
+    ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return;
     }
-    cs_fvar_impl *fv = static_cast<cs_fvar_impl *>(id);
-    cs_override_var(
+    fvar_impl *fv = static_cast<fvar_impl *>(id);
+    override_var(
         *this, fv, fv->p_flags,
         [&fv]() { fv->p_overrideval = fv->get_value(); }
     );
@@ -572,90 +573,90 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_var_float(
     }
 }
 
-LIBCUBESCRIPT_EXPORT void cs_state::set_var_str(
+LIBCUBESCRIPT_EXPORT void state::set_var_str(
     std::string_view name, std::string_view v, bool dofunc
 ) {
-    cs_ident *id = get_ident(name);
+    ident *id = get_ident(name);
     if (!id || id->is_svar()) {
         return;
     }
-    cs_svar_impl *sv = static_cast<cs_svar_impl *>(id);
-    cs_override_var(
+    svar_impl *sv = static_cast<svar_impl *>(id);
+    override_var(
         *this, sv, sv->p_flags,
         [&sv]() { sv->p_overrideval = sv->get_value(); }
     );
-    sv->set_value(cs_strref{p_state, v});
+    sv->set_value(string_ref{p_state, v});
     if (dofunc) {
         sv->changed(*this);
     }
 }
 
-LIBCUBESCRIPT_EXPORT std::optional<cs_int>
-cs_state::get_var_int(std::string_view name) {
-    cs_ident *id = get_ident(name);
+LIBCUBESCRIPT_EXPORT std::optional<integer_type>
+state::get_var_int(std::string_view name) {
+    ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return std::nullopt;
     }
-    return static_cast<cs_ivar *>(id)->get_value();
+    return static_cast<integer_var *>(id)->get_value();
 }
 
-LIBCUBESCRIPT_EXPORT std::optional<cs_float>
-cs_state::get_var_float(std::string_view name) {
-    cs_ident *id = get_ident(name);
+LIBCUBESCRIPT_EXPORT std::optional<float_type>
+state::get_var_float(std::string_view name) {
+    ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return std::nullopt;
     }
-    return static_cast<cs_fvar *>(id)->get_value();
+    return static_cast<float_var *>(id)->get_value();
 }
 
-LIBCUBESCRIPT_EXPORT std::optional<cs_strref>
-cs_state::get_var_str(std::string_view name) {
-    cs_ident *id = get_ident(name);
+LIBCUBESCRIPT_EXPORT std::optional<string_ref>
+state::get_var_str(std::string_view name) {
+    ident *id = get_ident(name);
     if (!id || id->is_svar()) {
         return std::nullopt;
     }
-    return cs_strref{p_state, static_cast<cs_svar *>(id)->get_value()};
+    return string_ref{p_state, static_cast<string_var *>(id)->get_value()};
 }
 
-LIBCUBESCRIPT_EXPORT std::optional<cs_int>
-cs_state::get_var_min_int(std::string_view name) {
-    cs_ident *id = get_ident(name);
+LIBCUBESCRIPT_EXPORT std::optional<integer_type>
+state::get_var_min_int(std::string_view name) {
+    ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return std::nullopt;
     }
-    return static_cast<cs_ivar *>(id)->get_val_min();
+    return static_cast<integer_var *>(id)->get_val_min();
 }
 
-LIBCUBESCRIPT_EXPORT std::optional<cs_int>
-cs_state::get_var_max_int(std::string_view name) {
-    cs_ident *id = get_ident(name);
+LIBCUBESCRIPT_EXPORT std::optional<integer_type>
+state::get_var_max_int(std::string_view name) {
+    ident *id = get_ident(name);
     if (!id || id->is_ivar()) {
         return std::nullopt;
     }
-    return static_cast<cs_ivar *>(id)->get_val_max();
+    return static_cast<integer_var *>(id)->get_val_max();
 }
 
-LIBCUBESCRIPT_EXPORT std::optional<cs_float>
-cs_state::get_var_min_float(std::string_view name) {
-    cs_ident *id = get_ident(name);
+LIBCUBESCRIPT_EXPORT std::optional<float_type>
+state::get_var_min_float(std::string_view name) {
+    ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return std::nullopt;
     }
-    return static_cast<cs_fvar *>(id)->get_val_min();
+    return static_cast<float_var *>(id)->get_val_min();
 }
 
-LIBCUBESCRIPT_EXPORT std::optional<cs_float>
-cs_state::get_var_max_float(std::string_view name) {
-    cs_ident *id = get_ident(name);
+LIBCUBESCRIPT_EXPORT std::optional<float_type>
+state::get_var_max_float(std::string_view name) {
+    ident *id = get_ident(name);
     if (!id || id->is_fvar()) {
         return std::nullopt;
     }
-    return static_cast<cs_fvar *>(id)->get_val_max();
+    return static_cast<float_var *>(id)->get_val_max();
 }
 
-LIBCUBESCRIPT_EXPORT std::optional<cs_strref>
-cs_state::get_alias_val(std::string_view name) {
-    cs_alias *a = get_alias(name);
+LIBCUBESCRIPT_EXPORT std::optional<string_ref>
+state::get_alias_val(std::string_view name) {
+    alias *a = get_alias(name);
     if (!a) {
         return std::nullopt;
     }
@@ -665,7 +666,7 @@ cs_state::get_alias_val(std::string_view name) {
     return a->get_value().get_str();
 }
 
-cs_int cs_clamp_var(cs_state &cs, cs_ivar *iv, cs_int v) {
+integer_type clamp_var(state &cs, integer_var *iv, integer_type v) {
     if (v < iv->get_val_min()) {
         v = iv->get_val_min();
     } else if (v > iv->get_val_max()) {
@@ -673,9 +674,9 @@ cs_int cs_clamp_var(cs_state &cs, cs_ivar *iv, cs_int v) {
     } else {
         return v;
     }
-    throw cs_error{
+    throw error{
         cs,
-        (iv->get_flags() & CS_IDF_HEX)
+        (iv->get_flags() & IDENT_FLAG_HEX)
             ? (
                 (iv->get_val_min() <= 255)
                     ? "valid range for '%s' is %d..0x%X"
@@ -686,29 +687,31 @@ cs_int cs_clamp_var(cs_state &cs, cs_ivar *iv, cs_int v) {
     };
 }
 
-LIBCUBESCRIPT_EXPORT void cs_state::set_var_int_checked(cs_ivar *iv, cs_int v) {
-    if (iv->get_flags() & CS_IDF_READONLY) {
-        throw cs_error{
+LIBCUBESCRIPT_EXPORT void state::set_var_int_checked(
+    integer_var *iv, integer_type v
+) {
+    if (iv->get_flags() & IDENT_FLAG_READONLY) {
+        throw error{
             *this, "variable '%s' is read only", iv->get_name().data()
         };
     }
-    cs_ivar_impl *ivp = static_cast<cs_ivar_impl *>(iv);
-    cs_override_var(
+    ivar_impl *ivp = static_cast<ivar_impl *>(iv);
+    override_var(
         *this, iv, ivp->p_flags,
         [&ivp]() { ivp->p_overrideval = ivp->p_storage; }
     );
     if ((v < iv->get_val_min()) || (v > iv->get_val_max())) {
-        v = cs_clamp_var(*this, iv, v);
+        v = clamp_var(*this, iv, v);
     }
     iv->set_value(v);
     ivp->changed(*this);
 }
 
-LIBCUBESCRIPT_EXPORT void cs_state::set_var_int_checked(
-    cs_ivar *iv, std::span<cs_value> args
+LIBCUBESCRIPT_EXPORT void state::set_var_int_checked(
+    integer_var *iv, std::span<any_value> args
 ) {
-    cs_int v = args[0].force_int();
-    if ((iv->get_flags() & CS_IDF_HEX) && (args.size() > 1)) {
+    integer_type v = args[0].force_int();
+    if ((iv->get_flags() & IDENT_FLAG_HEX) && (args.size() > 1)) {
         v = (v << 16) | (args[1].force_int() << 8);
         if (args.size() > 2) {
             v |= args[2].force_int();
@@ -717,7 +720,7 @@ LIBCUBESCRIPT_EXPORT void cs_state::set_var_int_checked(
     set_var_int_checked(iv, v);
 }
 
-cs_float cs_clamp_fvar(cs_state &cs, cs_fvar *fv, cs_float v) {
+float_type clamp_fvar(state &cs, float_var *fv, float_type v) {
     if (v < fv->get_val_min()) {
         v = fv->get_val_min();
     } else if (v > fv->get_val_max()) {
@@ -725,62 +728,62 @@ cs_float cs_clamp_fvar(cs_state &cs, cs_fvar *fv, cs_float v) {
     } else {
         return v;
     }
-    cs_value vmin{cs}, vmax{cs};
+    any_value vmin{cs}, vmax{cs};
     vmin.set_float(fv->get_val_min());
     vmax.set_float(fv->get_val_max());
-    throw cs_error{
+    throw error{
         cs, "valid range for '%s' is %s..%s", fv->get_name().data(),
         vmin.force_str(), vmax.force_str()
     };
     return v;
 }
 
-LIBCUBESCRIPT_EXPORT void cs_state::set_var_float_checked(
-    cs_fvar *fv, cs_float v
+LIBCUBESCRIPT_EXPORT void state::set_var_float_checked(
+    float_var *fv, float_type v
 ) {
-    if (fv->get_flags() & CS_IDF_READONLY) {
-        throw cs_error{
+    if (fv->get_flags() & IDENT_FLAG_READONLY) {
+        throw error{
             *this, "variable '%s' is read only", fv->get_name().data()
         };
     }
-    cs_fvar_impl *fvp = static_cast<cs_fvar_impl *>(fv);
-    cs_override_var(
+    fvar_impl *fvp = static_cast<fvar_impl *>(fv);
+    override_var(
         *this, fv, fvp->p_flags,
         [&fvp]() { fvp->p_overrideval = fvp->p_storage; }
     );
     if ((v < fv->get_val_min()) || (v > fv->get_val_max())) {
-        v = cs_clamp_fvar(*this, fv, v);
+        v = clamp_fvar(*this, fv, v);
     }
     fv->set_value(v);
     fvp->changed(*this);
 }
 
-LIBCUBESCRIPT_EXPORT void cs_state::set_var_str_checked(
-    cs_svar *sv, std::string_view v
+LIBCUBESCRIPT_EXPORT void state::set_var_str_checked(
+    string_var *sv, std::string_view v
 ) {
-    if (sv->get_flags() & CS_IDF_READONLY) {
-        throw cs_error{
+    if (sv->get_flags() & IDENT_FLAG_READONLY) {
+        throw error{
             *this, "variable '%s' is read only", sv->get_name().data()
         };
     }
-    cs_svar_impl *svp = static_cast<cs_svar_impl *>(sv);
-    cs_override_var(
+    svar_impl *svp = static_cast<svar_impl *>(sv);
+    override_var(
         *this, sv, svp->p_flags,
         [&svp]() { svp->p_overrideval = svp->p_storage; }
     );
-    sv->set_value(cs_strref{p_state, v});
+    sv->set_value(string_ref{p_state, v});
     svp->changed(*this);
 }
 
-LIBCUBESCRIPT_EXPORT void cs_state::init_libs(int libs) {
-    if (libs & CS_LIB_MATH) {
-        cs_init_lib_math(*this);
+LIBCUBESCRIPT_EXPORT void state::init_libs(int libs) {
+    if (libs & LIB_MATH) {
+        init_lib_math(*this);
     }
-    if (libs & CS_LIB_STRING) {
-        cs_init_lib_string(*this);
+    if (libs & LIB_STRING) {
+        init_lib_string(*this);
     }
-    if (libs & CS_LIB_LIST) {
-        cs_init_lib_list(*this);
+    if (libs & LIB_LIST) {
+        init_lib_list(*this);
     }
 }
 

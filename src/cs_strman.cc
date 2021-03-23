@@ -4,18 +4,18 @@
 
 namespace cscript {
 
-struct cs_strref_state {
+struct string_ref_state {
     std::size_t length;
     std::size_t refcount;
 };
 
-inline cs_strref_state *get_ref_state(char const *ptr) {
-    return const_cast<cs_strref_state *>(
-        reinterpret_cast<cs_strref_state const *>(ptr)
+inline string_ref_state *get_ref_state(char const *ptr) {
+    return const_cast<string_ref_state *>(
+        reinterpret_cast<string_ref_state const *>(ptr)
     ) - 1;
 }
 
-char const *cs_strman::add(std::string_view str) {
+char const *string_pool::add(std::string_view str) {
     auto it = counts.find(str);
     /* already present: just increment ref */
     if (it != counts.end()) {
@@ -36,13 +36,13 @@ char const *cs_strman::add(std::string_view str) {
     return strp;
 }
 
-char const *cs_strman::ref(char const *ptr) {
+char const *string_pool::ref(char const *ptr) {
     auto *ss = get_ref_state(ptr);
     ++ss->refcount;
     return ptr;
 }
 
-cs_strref cs_strman::steal(char *ptr) {
+string_ref string_pool::steal(char *ptr) {
     auto *ss = get_ref_state(ptr);
     auto sr = std::string_view{ptr, ss->length};
     /* much like add(), but we already have memory */
@@ -51,16 +51,16 @@ cs_strref cs_strman::steal(char *ptr) {
         auto *st = it->second;
         if (st) {
             /* the buffer is superfluous now */
-            cstate->alloc(ss, ss->length + sizeof(cs_strref_state) + 1, 0);
-            return cs_strref{reinterpret_cast<char const *>(st + 1), cstate};
+            cstate->alloc(ss, ss->length + sizeof(string_ref_state) + 1, 0);
+            return string_ref{reinterpret_cast<char const *>(st + 1), cstate};
         }
     }
-    ss->refcount = 0; /* cs_strref will increment it */
+    ss->refcount = 0; /* string_ref will increment it */
     counts.emplace(sr, ss);
-    return cs_strref{ptr, cstate};
+    return string_ref{ptr, cstate};
 }
 
-void cs_strman::unref(char const *ptr) {
+void string_pool::unref(char const *ptr) {
     auto *ss = get_ref_state(ptr);
     if (!--ss->refcount) {
         /* refcount zero, so ditch it
@@ -70,16 +70,16 @@ void cs_strman::unref(char const *ptr) {
         auto it = counts.find(sr);
         if (it == counts.end()) {
             /* internal error: this should *never* happen */
-            throw cs_internal_error{"no refcount"};
+            throw internal_error{"no refcount"};
         }
         /* we're freeing the key */
         counts.erase(it);
         /* dealloc */
-        cstate->alloc(ss, ss->length + sizeof(cs_strref_state) + 1, 0);
+        cstate->alloc(ss, ss->length + sizeof(string_ref_state) + 1, 0);
     }
 }
 
-char const *cs_strman::find(std::string_view str) const {
+char const *string_pool::find(std::string_view str) const {
     auto it = counts.find(str);
     if (it == counts.end()) {
         return nullptr;
@@ -87,18 +87,18 @@ char const *cs_strman::find(std::string_view str) const {
     return reinterpret_cast<char const *>(it->second + 1);
 }
 
-std::string_view cs_strman::get(char const *ptr) const {
+std::string_view string_pool::get(char const *ptr) const {
     auto *ss = get_ref_state(ptr);
     return std::string_view{ptr, ss->length};
 }
 
-char *cs_strman::alloc_buf(std::size_t len) const {
-    auto mem = cstate->alloc(nullptr, 0, len + sizeof(cs_strref_state) + 1);
+char *string_pool::alloc_buf(std::size_t len) const {
+    auto mem = cstate->alloc(nullptr, 0, len + sizeof(string_ref_state) + 1);
     if (!mem) {
-        throw cs_internal_error{"allocation failed"};
+        throw internal_error{"allocation failed"};
     }
     /* write length and initial refcount */
-    auto *sst = static_cast<cs_strref_state *>(mem);
+    auto *sst = static_cast<string_ref_state *>(mem);
     sst->length = len;
     sst->refcount = 1;
     /* pre-terminate */
@@ -112,48 +112,48 @@ char *cs_strman::alloc_buf(std::size_t len) const {
 
 /* strref */
 
-LIBCUBESCRIPT_EXPORT cs_strref::cs_strref(
-    cs_shared_state *cs, std::string_view str
+LIBCUBESCRIPT_EXPORT string_ref::string_ref(
+    internal_state *cs, std::string_view str
 ): p_state{cs}
 {
     p_str = cs->strman->add(str);
 }
 
-LIBCUBESCRIPT_EXPORT cs_strref::cs_strref(cs_state &cs, std::string_view str):
+LIBCUBESCRIPT_EXPORT string_ref::string_ref(state &cs, std::string_view str):
     p_state{cs.p_state}
 {
     p_str = p_state->strman->add(str);
 }
 
-LIBCUBESCRIPT_EXPORT cs_strref::cs_strref(cs_strref const &ref):
+LIBCUBESCRIPT_EXPORT string_ref::string_ref(string_ref const &ref):
     p_state{ref.p_state}, p_str{ref.p_str}
 {
     p_state->strman->ref(p_str);
 }
 
-/* this can be used by friends to do quick cs_strref creation */
-LIBCUBESCRIPT_EXPORT cs_strref::cs_strref(char const *p, cs_shared_state *cs):
+/* this can be used by friends to do quick string_ref creation */
+LIBCUBESCRIPT_EXPORT string_ref::string_ref(char const *p, internal_state *cs):
     p_state{cs}
 {
     p_str = p_state->strman->ref(p);
 }
 
-LIBCUBESCRIPT_EXPORT cs_strref::~cs_strref() {
+LIBCUBESCRIPT_EXPORT string_ref::~string_ref() {
     p_state->strman->unref(p_str);
 }
 
-LIBCUBESCRIPT_EXPORT cs_strref &cs_strref::operator=(cs_strref const &ref) {
+LIBCUBESCRIPT_EXPORT string_ref &string_ref::operator=(string_ref const &ref) {
     p_str = ref.p_str;
     p_state = ref.p_state;
     p_state->strman->ref(p_str);
     return *this;
 }
 
-LIBCUBESCRIPT_EXPORT cs_strref::operator std::string_view() const {
+LIBCUBESCRIPT_EXPORT string_ref::operator std::string_view() const {
     return p_state->strman->get(p_str);
 }
 
-LIBCUBESCRIPT_EXPORT bool cs_strref::operator==(cs_strref const &s) const {
+LIBCUBESCRIPT_EXPORT bool string_ref::operator==(string_ref const &s) const {
     return p_str == s.p_str;
 }
 

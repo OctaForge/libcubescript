@@ -4,11 +4,11 @@
 
 namespace cscript {
 
-LIBCUBESCRIPT_EXPORT char *cs_error::request_buf(
-    cs_state &cs, std::size_t bufs, char *&sp
+LIBCUBESCRIPT_EXPORT char *error::request_buf(
+    state &cs, std::size_t bufs, char *&sp
 ) {
-    cs_charbuf &cb = *static_cast<cs_charbuf *>(cs.p_errbuf);
-    cs_gen_state *gs = cs.p_pstate;
+    charbuf &cb = *static_cast<charbuf *>(cs.p_errbuf);
+    codegen_state *gs = cs.p_pstate;
     cb.clear();
     std::size_t sz = 0;
     if (gs) {
@@ -30,7 +30,7 @@ LIBCUBESCRIPT_EXPORT char *cs_error::request_buf(
                 nsz = std::snprintf(cb.data(), sz, "%zu: ", gs->current_line);
             }
             if (nsz <= 0) {
-                throw cs_internal_error{"format error"};
+                throw internal_error{"format error"};
             } else if (std::size_t(nsz) < sz) {
                 sz = std::size_t(nsz);
                 break;
@@ -43,24 +43,24 @@ LIBCUBESCRIPT_EXPORT char *cs_error::request_buf(
     return &cb[sz];
 }
 
-LIBCUBESCRIPT_EXPORT cs_stack_state cs_error::save_stack(cs_state &cs) {
-    cs_ivar *dalias = static_cast<cs_ivar *>(cs.p_state->identmap[DbgaliasIdx]);
+LIBCUBESCRIPT_EXPORT stack_state error::save_stack(state &cs) {
+    integer_var *dalias = static_cast<integer_var *>(cs.p_state->identmap[DbgaliasIdx]);
     if (!dalias->get_value()) {
-        return cs_stack_state(cs, nullptr, !!cs.p_callstack);
+        return stack_state(cs, nullptr, !!cs.p_callstack);
     }
     int total = 0, depth = 0;
-    for (cs_ident_link *l = cs.p_callstack; l; l = l->next) {
+    for (ident_link *l = cs.p_callstack; l; l = l->next) {
         total++;
     }
     if (!total) {
-        return cs_stack_state(cs, nullptr, false);
+        return stack_state(cs, nullptr, false);
     }
-    cs_stack_state_node *st = cs.p_state->create_array<cs_stack_state_node>(
+    stack_state_node *st = cs.p_state->create_array<stack_state_node>(
         std::min(total, dalias->get_value())
     );
-    cs_stack_state_node *ret = st, *nd = st;
+    stack_state_node *ret = st, *nd = st;
     ++st;
-    for (cs_ident_link *l = cs.p_callstack; l; l = l->next) {
+    for (ident_link *l = cs.p_callstack; l; l = l->next) {
         ++depth;
         if (depth < dalias->get_value()) {
             nd->id = l->id;
@@ -77,7 +77,7 @@ LIBCUBESCRIPT_EXPORT cs_stack_state cs_error::save_stack(cs_state &cs) {
             nd->next = nullptr;
         }
     }
-    return cs_stack_state(cs, ret, total > dalias->get_value());
+    return stack_state(cs, ret, total > dalias->get_value());
 }
 
 } /* namespace cscript */

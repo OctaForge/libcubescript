@@ -4,10 +4,10 @@
 #include <optional>
 #include <string>
 
-inline void init_lineedit(cs_state &, std::string_view) {
+inline void init_lineedit(cs::state &, std::string_view) {
 }
 
-inline std::optional<std::string> read_line(cs_state &, cs_svar *pr) {
+inline std::optional<std::string> read_line(cs::state &, cs::string_var *pr) {
     std::string lbuf;
     char buf[512];
     printf("%s", pr->get_value().data());
@@ -21,7 +21,7 @@ inline std::optional<std::string> read_line(cs_state &, cs_svar *pr) {
     return std::move(lbuf);
 }
 
-inline void add_history(cs_state &, std::string_view) {
+inline void add_history(cs::state &, std::string_view) {
 }
 
 #endif

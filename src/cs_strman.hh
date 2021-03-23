@@ -11,7 +11,7 @@
 
 namespace cscript {
 
-struct cs_strref_state;
+struct string_ref_state;
 
 /* string manager
  *
@@ -29,19 +29,19 @@ struct cs_strref_state;
  * for now we don't bother...
  */
 
-struct cs_strman {
-    using allocator_type = cs_allocator<
-        std::pair<std::string_view const, cs_strref_state *>
+struct string_pool {
+    using allocator_type = std_allocator<
+        std::pair<std::string_view const, string_ref_state *>
     >;
-    cs_strman() = delete;
-    cs_strman(cs_shared_state *cs): cstate{cs}, counts{allocator_type{cs}} {}
-    ~cs_strman() {}
+    string_pool() = delete;
+    string_pool(internal_state *cs): cstate{cs}, counts{allocator_type{cs}} {}
+    ~string_pool() {}
 
-    cs_strman(cs_strman const &) = delete;
-    cs_strman(cs_strman &&) = delete;
+    string_pool(string_pool const &) = delete;
+    string_pool(string_pool &&) = delete;
 
-    cs_strman &operator=(cs_strman const &) = delete;
-    cs_strman &operator=(cs_strman &&) = delete;
+    string_pool &operator=(string_pool const &) = delete;
+    string_pool &operator=(string_pool &&) = delete;
 
     /* adds a string into the manager using any source, and returns a managed
      * version; this is "slow" as it has to hash the string and potentially
@@ -58,7 +58,7 @@ struct cs_strman {
     /* this will use the provided memory, assuming it is a fresh string that
      * is yet to be added; the memory must be allocated with alloc_buf()
      */
-    cs_strref steal(char *ptr);
+    string_ref steal(char *ptr);
 
     /* decrements the reference count and removes it from the system if
      * that reaches zero; likewise, only safe with pointers that are managed
@@ -78,9 +78,9 @@ struct cs_strman {
      */
     char *alloc_buf(std::size_t len) const;
 
-    cs_shared_state *cstate;
+    internal_state *cstate;
     std::unordered_map<
-        std::string_view, cs_strref_state *,
+        std::string_view, string_ref_state *,
         std::hash<std::string_view>,
         std::equal_to<std::string_view>,
         allocator_type

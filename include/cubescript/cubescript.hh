@@ -37,16 +37,16 @@
 
 namespace cscript {
 
-static_assert(std::is_integral_v<cs_int>, "cs_int must be integral");
-static_assert(std::is_signed_v<cs_int>, "cs_int must be signed");
-static_assert(std::is_floating_point_v<cs_float>, "cs_float must be floating point");
+static_assert(std::is_integral_v<integer_type>, "integer_type must be integral");
+static_assert(std::is_signed_v<integer_type>, "integer_type must be signed");
+static_assert(std::is_floating_point_v<float_type>, "float_type must be floating point");
 
-struct cs_internal_error: std::runtime_error {
+struct internal_error: std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
 template<typename R, typename ...A>
-struct cs_callable {
+struct callable {
 private:
     struct base {
         base(base const &);
@@ -102,7 +102,7 @@ private:
     static inline bool f_not_null(CR C::*p) { return !!p; }
 
     template<typename T>
-    static inline bool f_not_null(cs_callable<T> const &f) { return !!f; }
+    static inline bool f_not_null(callable<T> const &f) { return !!f; }
 
     bool small_storage() {
         return (static_cast<void *>(p_func) == &p_stor);
@@ -120,11 +120,11 @@ private:
     }
 
 public:
-    cs_callable() noexcept: p_func{nullptr} {}
-    cs_callable(std::nullptr_t) noexcept: p_func{nullptr} {}
-    cs_callable(std::nullptr_t, alloc_f, void *) noexcept: p_func{nullptr} {}
+    callable() noexcept: p_func{nullptr} {}
+    callable(std::nullptr_t) noexcept: p_func{nullptr} {}
+    callable(std::nullptr_t, alloc_f, void *) noexcept: p_func{nullptr} {}
 
-    cs_callable(cs_callable &&f) noexcept {
+    callable(callable &&f) noexcept {
         if (!f.p_func) {
             p_func = nullptr;
         } else if (f.small_storage()) {
@@ -137,7 +137,7 @@ public:
     }
 
     template<typename F>
-    cs_callable(F func, alloc_f af, void *ud) {
+    callable(F func, alloc_f af, void *ud) {
         if (!f_not_null(func)) {
             return;
         }
@@ -161,9 +161,9 @@ public:
         }
     }
 
-    cs_callable &operator=(cs_callable const &) = delete;
+    callable &operator=(callable const &) = delete;
 
-    cs_callable &operator=(cs_callable &&f) noexcept {
+    callable &operator=(callable &&f) noexcept {
         cleanup();
         if (f.p_func == nullptr) {
             p_func = nullptr;
@@ -177,23 +177,23 @@ public:
         return *this;
     }
 
-    cs_callable &operator=(std::nullptr_t) noexcept {
+    callable &operator=(std::nullptr_t) noexcept {
         cleanup();
         p_func = nullptr;
         return *this;
     }
 
     template<typename F>
-    cs_callable &operator=(F &&func) {
-        cs_callable{std::forward<F>(func)}.swap(*this);
+    callable &operator=(F &&func) {
+        callable{std::forward<F>(func)}.swap(*this);
         return *this;
     }
 
-    ~cs_callable() {
+    ~callable() {
         cleanup();
     }
 
-    void swap(cs_callable &f) noexcept {
+    void swap(callable &f) noexcept {
         std::aligned_storage_t<sizeof(p_stor)> tmp_stor;
         if (small_storage() && f.small_storage()) {
             auto *t = as_base(&tmp_stor);
@@ -241,73 +241,73 @@ public:
     }
 };
 
-using cs_alloc_cb = void *(*)(void *, void *, size_t, size_t);
+using alloc_func = void *(*)(void *, void *, size_t, size_t);
 
-struct cs_state;
-struct cs_ident;
-struct cs_value;
-struct cs_var;
+struct state;
+struct ident;
+struct any_value;
+struct global_var;
 
-using cs_hook_cb    = cs_callable<void, cs_state &>;
-using cs_var_cb     = cs_callable<void, cs_state &, cs_ident &>;
-using cs_vprint_cb  = cs_callable<void, cs_state const &, cs_var const &>;
-using cs_command_cb = cs_callable<
-    void, cs_state &, std::span<cs_value>, cs_value &
+using hook_func      = callable<void, state &>;
+using var_cb_func    = callable<void, state &, ident &>;
+using var_print_func = callable<void, state const &, global_var const &>;
+using command_func   = callable<
+    void, state &, std::span<any_value>, any_value &
 >;
 
 enum {
-    CS_IDF_PERSIST    = 1 << 0,
-    CS_IDF_OVERRIDE   = 1 << 1,
-    CS_IDF_HEX        = 1 << 2,
-    CS_IDF_READONLY   = 1 << 3,
-    CS_IDF_OVERRIDDEN = 1 << 4,
-    CS_IDF_UNKNOWN    = 1 << 5,
-    CS_IDF_ARG        = 1 << 6
+    IDENT_FLAG_PERSIST    = 1 << 0,
+    IDENT_FLAG_OVERRIDE   = 1 << 1,
+    IDENT_FLAG_HEX        = 1 << 2,
+    IDENT_FLAG_READONLY   = 1 << 3,
+    IDENT_FLAG_OVERRIDDEN = 1 << 4,
+    IDENT_FLAG_UNKNOWN    = 1 << 5,
+    IDENT_FLAG_ARG        = 1 << 6
 };
 
-struct cs_bcode;
-struct cs_shared_state;
-struct cs_ident_impl;
+struct bcode;
+struct internal_state;
+struct ident_impl;
 
-struct LIBCUBESCRIPT_EXPORT cs_bcode_ref {
-    cs_bcode_ref():
+struct LIBCUBESCRIPT_EXPORT bcode_ref {
+    bcode_ref():
         p_code(nullptr)
     {}
-    cs_bcode_ref(cs_bcode *v);
-    cs_bcode_ref(cs_bcode_ref const &v);
-    cs_bcode_ref(cs_bcode_ref &&v):
+    bcode_ref(bcode *v);
+    bcode_ref(bcode_ref const &v);
+    bcode_ref(bcode_ref &&v):
         p_code(v.p_code)
     {
         v.p_code = nullptr;
     }
 
-    ~cs_bcode_ref();
+    ~bcode_ref();
 
-    cs_bcode_ref &operator=(cs_bcode_ref const &v);
-    cs_bcode_ref &operator=(cs_bcode_ref &&v);
+    bcode_ref &operator=(bcode_ref const &v);
+    bcode_ref &operator=(bcode_ref &&v);
 
     operator bool() const { return p_code != nullptr; }
-    operator cs_bcode *() const { return p_code; }
+    operator bcode *() const { return p_code; }
 
 private:
-    cs_bcode *p_code;
+    bcode *p_code;
 };
 
-LIBCUBESCRIPT_EXPORT bool cs_code_is_empty(cs_bcode *code);
+LIBCUBESCRIPT_EXPORT bool code_is_empty(bcode *code);
 
-struct LIBCUBESCRIPT_EXPORT cs_strref {
-    friend struct cs_value;
-    friend struct cs_strman;
+struct LIBCUBESCRIPT_EXPORT string_ref {
+    friend struct any_value;
+    friend struct string_pool;
 
-    cs_strref() = delete;
-    cs_strref(cs_shared_state *cs, std::string_view str);
-    cs_strref(cs_state &cs, std::string_view str);
+    string_ref() = delete;
+    string_ref(internal_state *cs, std::string_view str);
+    string_ref(state &cs, std::string_view str);
 
-    cs_strref(cs_strref const &ref);
+    string_ref(string_ref const &ref);
 
-    ~cs_strref();
+    ~string_ref();
 
-    cs_strref &operator=(cs_strref const &ref);
+    string_ref &operator=(string_ref const &ref);
 
     operator std::string_view() const;
 
@@ -322,55 +322,55 @@ struct LIBCUBESCRIPT_EXPORT cs_strref {
         return std::string_view{*this}.data();
     }
 
-    bool operator==(cs_strref const &s) const;
+    bool operator==(string_ref const &s) const;
 
 private:
     /* for internal use only */
-    cs_strref(char const *p, cs_shared_state *cs);
+    string_ref(char const *p, internal_state *cs);
 
-    cs_shared_state *p_state;
+    internal_state *p_state;
     char const *p_str;
 };
 
-enum class cs_value_type {
+enum class value_type {
     NONE = 0, INT, FLOAT, STRING, CODE, IDENT
 };
 
-struct LIBCUBESCRIPT_EXPORT cs_value {
-    cs_value() = delete;
-    ~cs_value();
+struct LIBCUBESCRIPT_EXPORT any_value {
+    any_value() = delete;
+    ~any_value();
 
-    cs_value(cs_state &);
-    cs_value(cs_shared_state &);
+    any_value(state &);
+    any_value(internal_state &);
 
-    cs_value(cs_value const &);
-    cs_value(cs_value &&v);
+    any_value(any_value const &);
+    any_value(any_value &&v);
 
-    cs_value &operator=(cs_value const &);
-    cs_value &operator=(cs_value &&);
+    any_value &operator=(any_value const &);
+    any_value &operator=(any_value &&);
 
-    cs_value_type get_type() const;
+    value_type get_type() const;
 
-    void set_int(cs_int val);
-    void set_float(cs_float val);
+    void set_int(integer_type val);
+    void set_float(float_type val);
     void set_str(std::string_view val);
-    void set_str(cs_strref const &val);
+    void set_str(string_ref const &val);
     void set_none();
-    void set_code(cs_bcode *val);
-    void set_ident(cs_ident *val);
+    void set_code(bcode *val);
+    void set_ident(ident *val);
 
-    cs_strref get_str() const;
-    cs_int get_int() const;
-    cs_float get_float() const;
-    cs_bcode *get_code() const;
-    cs_ident *get_ident() const;
-    void get_val(cs_value &r) const;
+    string_ref get_str() const;
+    integer_type get_int() const;
+    float_type get_float() const;
+    bcode *get_code() const;
+    ident *get_ident() const;
+    void get_val(any_value &r) const;
 
     bool get_bool() const;
 
     void force_none();
-    cs_float force_float();
-    cs_int force_int();
+    float_type force_float();
+    integer_type force_int();
     std::string_view force_str();
 
     bool code_is_empty() const;
@@ -378,174 +378,174 @@ struct LIBCUBESCRIPT_EXPORT cs_value {
 private:
     template<typename T>
     struct stor_t {
-        cs_shared_state *state;
+        internal_state *state;
         T val;
     };
 
-    cs_shared_state *state() const {
+    internal_state *get_state() const {
         return reinterpret_cast<stor_t<void *> const *>(&p_stor)->state;
     }
 
     std::aligned_union_t<1,
-        stor_t<cs_int>,
-        stor_t<cs_float>,
+        stor_t<integer_type>,
+        stor_t<float_type>,
         stor_t<void *>,
-        cs_strref
+        string_ref
     > p_stor;
-    cs_value_type p_type;
+    value_type p_type;
 };
 
-struct cs_ident_stack {
-    cs_value val_s;
-    cs_ident_stack *next;
+struct ident_stack {
+    any_value val_s;
+    ident_stack *next;
 
-    cs_ident_stack(cs_state &cs): val_s{cs}, next{nullptr} {}
+    ident_stack(state &cs): val_s{cs}, next{nullptr} {}
 };
 
-struct cs_error;
-struct cs_gen_state;
+struct error;
+struct codegen_state;
 
-enum class cs_ident_type {
+enum class ident_type {
     IVAR = 0, FVAR, SVAR, COMMAND, ALIAS, SPECIAL
 };
 
-struct cs_var;
-struct cs_ivar;
-struct cs_fvar;
-struct cs_svar;
-struct cs_alias;
-struct cs_command;
+struct global_var;
+struct integer_var;
+struct float_var;
+struct string_var;
+struct alias;
+struct command;
 
-struct LIBCUBESCRIPT_EXPORT cs_ident {
+struct LIBCUBESCRIPT_EXPORT ident {
     int get_raw_type() const;
-    cs_ident_type get_type() const;
+    ident_type get_type() const;
     std::string_view get_name() const;
     int get_flags() const;
     int get_index() const;
 
     bool is_alias() const;
-    cs_alias *get_alias();
-    cs_alias const *get_alias() const;
+    alias *get_alias();
+    alias const *get_alias() const;
 
     bool is_command() const;
-    cs_command *get_command();
-    cs_command const *get_command() const;
+    command *get_command();
+    command const *get_command() const;
 
     bool is_special() const;
 
     bool is_var() const;
-    cs_var *get_var();
-    cs_var const *get_var() const;
+    global_var *get_var();
+    global_var const *get_var() const;
 
     bool is_ivar() const;
-    cs_ivar *get_ivar();
-    cs_ivar const *get_ivar() const;
+    integer_var *get_ivar();
+    integer_var const *get_ivar() const;
 
     bool is_fvar() const;
-    cs_fvar *get_fvar();
-    cs_fvar const *get_fvar() const;
+    float_var *get_fvar();
+    float_var const *get_fvar() const;
 
     bool is_svar() const;
-    cs_svar *get_svar();
-    cs_svar const *get_svar() const;
+    string_var *get_svar();
+    string_var const *get_svar() const;
 
 protected:
-    cs_ident() = default;
+    ident() = default;
 
 private:
-    friend struct cs_state;
+    friend struct state;
 
-    cs_ident_impl *p_impl{};
+    ident_impl *p_impl{};
 };
 
-struct LIBCUBESCRIPT_EXPORT cs_var: cs_ident {
+struct LIBCUBESCRIPT_EXPORT global_var: ident {
 protected:
-    cs_var() = default;
+    global_var() = default;
 };
 
-struct LIBCUBESCRIPT_EXPORT cs_ivar: cs_var {
-    cs_int get_val_min() const;
-    cs_int get_val_max() const;
+struct LIBCUBESCRIPT_EXPORT integer_var: global_var {
+    integer_type get_val_min() const;
+    integer_type get_val_max() const;
 
-    cs_int get_value() const;
-    void set_value(cs_int val);
-
-protected:
-    cs_ivar() = default;
-};
-
-struct LIBCUBESCRIPT_EXPORT cs_fvar: cs_var {
-    cs_float get_val_min() const;
-    cs_float get_val_max() const;
-
-    cs_float get_value() const;
-    void set_value(cs_float val);
+    integer_type get_value() const;
+    void set_value(integer_type val);
 
 protected:
-    cs_fvar() = default;
+    integer_var() = default;
 };
 
-struct LIBCUBESCRIPT_EXPORT cs_svar: cs_var {
-    cs_strref get_value() const;
-    void set_value(cs_strref val);
+struct LIBCUBESCRIPT_EXPORT float_var: global_var {
+    float_type get_val_min() const;
+    float_type get_val_max() const;
+
+    float_type get_value() const;
+    void set_value(float_type val);
 
 protected:
-    cs_svar() = default;
+    float_var() = default;
 };
 
-struct LIBCUBESCRIPT_EXPORT cs_alias: cs_ident {
-    cs_value get_value() const;
-    void get_cval(cs_value &v) const;
+struct LIBCUBESCRIPT_EXPORT string_var: global_var {
+    string_ref get_value() const;
+    void set_value(string_ref val);
 
 protected:
-    cs_alias() = default;
+    string_var() = default;
 };
 
-struct cs_command: cs_ident {
+struct LIBCUBESCRIPT_EXPORT alias: ident {
+    any_value get_value() const;
+    void get_cval(any_value &v) const;
+
+protected:
+    alias() = default;
+};
+
+struct command: ident {
     std::string_view get_args() const;
     int get_num_args() const;
 
 protected:
-    cs_command() = default;
+    command() = default;
 };
 
-struct cs_ident_link;
+struct ident_link;
 
 enum {
-    CS_LIB_MATH   = 1 << 0,
-    CS_LIB_STRING = 1 << 1,
-    CS_LIB_LIST   = 1 << 2,
-    CS_LIB_ALL    = 0b111
+    LIB_MATH   = 1 << 0,
+    LIB_STRING = 1 << 1,
+    LIB_LIST   = 1 << 2,
+    LIB_ALL    = 0b111
 };
 
-enum class cs_loop_state {
+enum class loop_state {
     NORMAL = 0, BREAK, CONTINUE
 };
 
-struct LIBCUBESCRIPT_EXPORT cs_state {
-    friend struct cs_error;
-    friend struct cs_strman;
-    friend struct cs_strref;
-    friend struct cs_value;
-    friend struct cs_gen_state;
-    friend inline cs_shared_state *cs_get_sstate(cs_state &);
+struct LIBCUBESCRIPT_EXPORT state {
+    friend struct error;
+    friend struct string_pool;
+    friend struct string_ref;
+    friend struct any_value;
+    friend struct codegen_state;
+    friend inline internal_state *state_get_internal(state &);
 
-    cs_shared_state *p_state;
-    cs_ident_link *p_callstack = nullptr;
+    internal_state *p_state;
+    ident_link *p_callstack = nullptr;
 
     int identflags = 0;
 
-    cs_state();
-    cs_state(cs_alloc_cb func, void *data);
-    virtual ~cs_state();
+    state();
+    state(alloc_func func, void *data);
+    virtual ~state();
 
-    cs_state(cs_state const &) = delete;
-    cs_state(cs_state &&s) {
+    state(state const &) = delete;
+    state(state &&s) {
         swap(s);
     }
 
-    cs_state &operator=(cs_state const &) = delete;
-    cs_state &operator=(cs_state &&s) {
+    state &operator=(state const &) = delete;
+    state &operator=(state &&s) {
         swap(s);
         s.destroy();
         return *this;
@@ -553,7 +553,7 @@ struct LIBCUBESCRIPT_EXPORT cs_state {
 
     void destroy();
 
-    void swap(cs_state &s) {
+    void swap(state &s) {
         std::swap(p_state, s.p_state);
         std::swap(p_callstack, s.p_callstack);
         std::swap(identflags, s.identflags);
@@ -563,217 +563,219 @@ struct LIBCUBESCRIPT_EXPORT cs_state {
         std::swap(p_callhook, s.p_callhook);
     }
 
-    cs_state new_thread();
+    state new_thread();
 
     template<typename F>
-    cs_hook_cb set_call_hook(F &&f) {
+    hook_func set_call_hook(F &&f) {
         return std::move(set_call_hook(
-            cs_hook_cb{std::forward<F>(f), callable_alloc, this}
+            hook_func{std::forward<F>(f), callable_alloc, this}
         ));
     }
-    cs_hook_cb const &get_call_hook() const;
-    cs_hook_cb &get_call_hook();
+    hook_func const &get_call_hook() const;
+    hook_func &get_call_hook();
 
     template<typename F>
-    cs_vprint_cb set_var_printer(F &&f) {
+    var_print_func set_var_printer(F &&f) {
         return std::move(set_var_printer(
-            cs_vprint_cb{std::forward<F>(f), callable_alloc, this}
+            var_print_func{std::forward<F>(f), callable_alloc, this}
         ));
     }
-    cs_vprint_cb const &get_var_printer() const;
+    var_print_func const &get_var_printer() const;
 
-    void init_libs(int libs = CS_LIB_ALL);
+    void init_libs(int libs = LIB_ALL);
 
-    void clear_override(cs_ident &id);
+    void clear_override(ident &id);
     void clear_overrides();
 
-    cs_ident *new_ident(std::string_view name, int flags = CS_IDF_UNKNOWN);
-    cs_ident *force_ident(cs_value &v);
+    ident *new_ident(std::string_view name, int flags = IDENT_FLAG_UNKNOWN);
+    ident *force_ident(any_value &v);
 
     template<typename F>
-    cs_ivar *new_ivar(
-        std::string_view name, cs_int m, cs_int x, cs_int v,
+    integer_var *new_ivar(
+        std::string_view name, integer_type m, integer_type x, integer_type v,
         F &&f, int flags = 0
     ) {
         return new_ivar(
             name, m, x, v,
-            cs_var_cb{std::forward<F>(f), callable_alloc, this}, flags
+            var_cb_func{std::forward<F>(f), callable_alloc, this}, flags
         );
     }
-    cs_ivar *new_ivar(std::string_view name, cs_int m, cs_int x, cs_int v) {
-        return new_ivar(name, m, x, v, cs_var_cb{}, 0);
+    integer_var *new_ivar(
+        std::string_view name, integer_type m, integer_type x, integer_type v
+    ) {
+        return new_ivar(name, m, x, v, var_cb_func{}, 0);
     }
 
     template<typename F>
-    cs_fvar *new_fvar(
-        std::string_view name, cs_float m, cs_float x, cs_float v,
+    float_var *new_fvar(
+        std::string_view name, float_type m, float_type x, float_type v,
         F &&f, int flags = 0
     ) {
         return new_fvar(
             name, m, x, v,
-            cs_var_cb{std::forward<F>(f), callable_alloc, this}, flags
+            var_cb_func{std::forward<F>(f), callable_alloc, this}, flags
         );
     }
-    cs_fvar *new_fvar(
-        std::string_view name, cs_float m, cs_float x, cs_float v
+    float_var *new_fvar(
+        std::string_view name, float_type m, float_type x, float_type v
     ) {
-        return new_fvar(name, m, x, v, cs_var_cb{}, 0);
+        return new_fvar(name, m, x, v, var_cb_func{}, 0);
     }
 
     template<typename F>
-    cs_svar *new_svar(
+    string_var *new_svar(
         std::string_view name, std::string_view v, F &&f, int flags = 0
     ) {
         return new_svar(
             name, v,
-            cs_var_cb{std::forward<F>(f), callable_alloc, this}, flags
+            var_cb_func{std::forward<F>(f), callable_alloc, this}, flags
         );
     }
-    cs_svar *new_svar(std::string_view name, std::string_view v) {
-        return new_svar(name, v, cs_var_cb{}, 0);
+    string_var *new_svar(std::string_view name, std::string_view v) {
+        return new_svar(name, v, var_cb_func{}, 0);
     }
 
     template<typename F>
-    cs_command *new_command(
+    command *new_command(
         std::string_view name, std::string_view args, F &&f
     ) {
         return new_command(
             name, args,
-            cs_command_cb{std::forward<F>(f), callable_alloc, this}
+            command_func{std::forward<F>(f), callable_alloc, this}
         );
     }
 
-    cs_ident *get_ident(std::string_view name);
-    cs_alias *get_alias(std::string_view name);
+    ident *get_ident(std::string_view name);
+    alias *get_alias(std::string_view name);
     bool have_ident(std::string_view name);
 
-    std::span<cs_ident *> get_idents();
-    std::span<cs_ident const *> get_idents() const;
+    std::span<ident *> get_idents();
+    std::span<ident const *> get_idents() const;
 
     void reset_var(std::string_view name);
     void touch_var(std::string_view name);
 
-    void run(cs_bcode *code, cs_value &ret);
-    void run(std::string_view code, cs_value &ret);
-    void run(std::string_view code, cs_value &ret, std::string_view source);
-    void run(cs_ident *id, std::span<cs_value> args, cs_value &ret);
+    void run(bcode *code, any_value &ret);
+    void run(std::string_view code, any_value &ret);
+    void run(std::string_view code, any_value &ret, std::string_view source);
+    void run(ident *id, std::span<any_value> args, any_value &ret);
 
-    cs_value run(cs_bcode *code);
-    cs_value run(std::string_view code);
-    cs_value run(std::string_view code, std::string_view source);
-    cs_value run(cs_ident *id, std::span<cs_value> args);
+    any_value run(bcode *code);
+    any_value run(std::string_view code);
+    any_value run(std::string_view code, std::string_view source);
+    any_value run(ident *id, std::span<any_value> args);
 
-    cs_loop_state run_loop(cs_bcode *code, cs_value &ret);
-    cs_loop_state run_loop(cs_bcode *code);
+    loop_state run_loop(bcode *code, any_value &ret);
+    loop_state run_loop(bcode *code);
 
     bool is_in_loop() const {
         return p_inloop;
     }
 
-    void set_alias(std::string_view name, cs_value v);
+    void set_alias(std::string_view name, any_value v);
 
     void set_var_int(
-        std::string_view name, cs_int v,
+        std::string_view name, integer_type v,
         bool dofunc = true, bool doclamp = true
     );
     void set_var_float(
-        std::string_view name, cs_float v,
+        std::string_view name, float_type v,
         bool dofunc  = true, bool doclamp = true
     );
     void set_var_str(
         std::string_view name, std::string_view v, bool dofunc = true
     );
 
-    void set_var_int_checked(cs_ivar *iv, cs_int v);
-    void set_var_int_checked(cs_ivar *iv, std::span<cs_value> args);
-    void set_var_float_checked(cs_fvar *fv, cs_float v);
-    void set_var_str_checked(cs_svar *fv, std::string_view v);
+    void set_var_int_checked(integer_var *iv, integer_type v);
+    void set_var_int_checked(integer_var *iv, std::span<any_value> args);
+    void set_var_float_checked(float_var *fv, float_type v);
+    void set_var_str_checked(string_var *fv, std::string_view v);
 
-    std::optional<cs_int> get_var_int(std::string_view name);
-    std::optional<cs_float> get_var_float(std::string_view name);
-    std::optional<cs_strref> get_var_str(std::string_view name);
+    std::optional<integer_type> get_var_int(std::string_view name);
+    std::optional<float_type> get_var_float(std::string_view name);
+    std::optional<string_ref> get_var_str(std::string_view name);
 
-    std::optional<cs_int> get_var_min_int(std::string_view name);
-    std::optional<cs_int> get_var_max_int(std::string_view name);
+    std::optional<integer_type> get_var_min_int(std::string_view name);
+    std::optional<integer_type> get_var_max_int(std::string_view name);
 
-    std::optional<cs_float> get_var_min_float(std::string_view name);
-    std::optional<cs_float> get_var_max_float(std::string_view name);
+    std::optional<float_type> get_var_min_float(std::string_view name);
+    std::optional<float_type> get_var_max_float(std::string_view name);
 
-    std::optional<cs_strref> get_alias_val(std::string_view name);
+    std::optional<string_ref> get_alias_val(std::string_view name);
 
-    void print_var(cs_var const &v) const;
+    void print_var(global_var const &v) const;
 
 private:
-    cs_hook_cb set_call_hook(cs_hook_cb func);
-    cs_vprint_cb set_var_printer(cs_vprint_cb func);
+    hook_func set_call_hook(hook_func func);
+    var_print_func set_var_printer(var_print_func func);
 
-    cs_ivar *new_ivar(
-        std::string_view n, cs_int m, cs_int x, cs_int v,
-        cs_var_cb f, int flags
+    integer_var *new_ivar(
+        std::string_view n, integer_type m, integer_type x, integer_type v,
+        var_cb_func f, int flags
     );
-    cs_fvar *new_fvar(
-        std::string_view n, cs_float m, cs_float x, cs_float v,
-        cs_var_cb f, int flags
+    float_var *new_fvar(
+        std::string_view n, float_type m, float_type x, float_type v,
+        var_cb_func f, int flags
     );
-    cs_svar *new_svar(
-        std::string_view n, std::string_view v, cs_var_cb f, int flags
+    string_var *new_svar(
+        std::string_view n, std::string_view v, var_cb_func f, int flags
     );
 
-    cs_command *new_command(
-        std::string_view name, std::string_view args, cs_command_cb func
+    command *new_command(
+        std::string_view name, std::string_view args, command_func func
     );
 
     static void *callable_alloc(
         void *data, void *p, std::size_t os, std::size_t ns
     ) {
-        return static_cast<cs_state *>(data)->alloc(p, os, ns);
+        return static_cast<state *>(data)->alloc(p, os, ns);
     }
 
-    LIBCUBESCRIPT_LOCAL cs_state(cs_shared_state *s);
+    LIBCUBESCRIPT_LOCAL state(internal_state *s);
 
-    cs_ident *add_ident(cs_ident *id, cs_ident_impl *impl);
+    ident *add_ident(ident *id, ident_impl *impl);
 
     void *alloc(void *ptr, size_t olds, size_t news);
 
-    cs_gen_state *p_pstate = nullptr;
+    codegen_state *p_pstate = nullptr;
     void *p_errbuf = nullptr;
     int p_inloop = 0;
     bool p_owner = false;
 
-    cs_hook_cb p_callhook;
+    hook_func p_callhook;
 };
 
-struct cs_stack_state_node {
-    cs_stack_state_node const *next;
-    cs_ident const *id;
+struct stack_state_node {
+    stack_state_node const *next;
+    ident const *id;
     int index;
 };
 
-struct cs_stack_state {
-    cs_stack_state() = delete;
-    cs_stack_state(cs_state &cs, cs_stack_state_node *nd = nullptr, bool gap = false);
-    cs_stack_state(cs_stack_state const &) = delete;
-    cs_stack_state(cs_stack_state &&st);
-    ~cs_stack_state();
+struct stack_state {
+    stack_state() = delete;
+    stack_state(state &cs, stack_state_node *nd = nullptr, bool gap = false);
+    stack_state(stack_state const &) = delete;
+    stack_state(stack_state &&st);
+    ~stack_state();
 
-    cs_stack_state &operator=(cs_stack_state const &) = delete;
-    cs_stack_state &operator=(cs_stack_state &&);
+    stack_state &operator=(stack_state const &) = delete;
+    stack_state &operator=(stack_state &&);
 
-    cs_stack_state_node const *get() const;
+    stack_state_node const *get() const;
     bool gap() const;
 
 private:
-    cs_state &p_state;
-    cs_stack_state_node *p_node;
+    state &p_state;
+    stack_state_node *p_node;
     bool p_gap;
 };
 
-struct LIBCUBESCRIPT_EXPORT cs_error {
-    friend struct cs_state;
+struct LIBCUBESCRIPT_EXPORT error {
+    friend struct state;
 
-    cs_error() = delete;
-    cs_error(cs_error const &) = delete;
-    cs_error(cs_error &&v):
+    error() = delete;
+    error(error const &) = delete;
+    error(error &&v):
         p_errmsg(v.p_errmsg), p_stack(std::move(v.p_stack))
     {}
 
@@ -781,15 +783,15 @@ struct LIBCUBESCRIPT_EXPORT cs_error {
         return p_errmsg;
     }
 
-    cs_stack_state &get_stack() {
+    stack_state &get_stack() {
         return p_stack;
     }
 
-    cs_stack_state const &get_stack() const {
+    stack_state const &get_stack() const {
         return p_stack;
     }
 
-    cs_error(cs_state &cs, std::string_view msg):
+    error(state &cs, std::string_view msg):
         p_errmsg(), p_stack(cs)
     {
         char *sp;
@@ -801,7 +803,7 @@ struct LIBCUBESCRIPT_EXPORT cs_error {
     }
 
     template<typename ...A>
-    cs_error(cs_state &cs, std::string_view msg, A const &...args):
+    error(state &cs, std::string_view msg, A const &...args):
         p_errmsg(), p_stack(cs)
     {
         std::size_t sz = msg.size() + 64;
@@ -810,7 +812,7 @@ struct LIBCUBESCRIPT_EXPORT cs_error {
             buf = request_buf(cs, sz, sp);
             int written = std::snprintf(buf, sz, msg.data(), args...);
             if (written <= 0) {
-                throw cs_internal_error{"format error"};
+                throw internal_error{"format error"};
             } else if (std::size_t(written) <= sz) {
                 break;
             }
@@ -821,41 +823,41 @@ struct LIBCUBESCRIPT_EXPORT cs_error {
     }
 
 private:
-    cs_stack_state save_stack(cs_state &cs);
-    char *request_buf(cs_state &cs, std::size_t bufs, char *&sp);
+    stack_state save_stack(state &cs);
+    char *request_buf(state &cs, std::size_t bufs, char *&sp);
 
     std::string_view p_errmsg;
-    cs_stack_state p_stack;
+    stack_state p_stack;
 };
 
-struct LIBCUBESCRIPT_EXPORT cs_stacked_value: cs_value {
-    cs_stacked_value(cs_state &cs, cs_ident *id = nullptr);
-    ~cs_stacked_value();
+struct LIBCUBESCRIPT_EXPORT stacked_value: any_value {
+    stacked_value(state &cs, ident *id = nullptr);
+    ~stacked_value();
 
-    cs_stacked_value(cs_stacked_value const &) = delete;
-    cs_stacked_value(cs_stacked_value &&) = delete;
+    stacked_value(stacked_value const &) = delete;
+    stacked_value(stacked_value &&) = delete;
 
-    cs_stacked_value &operator=(cs_stacked_value const &) = delete;
-    cs_stacked_value &operator=(cs_stacked_value &&v) = delete;
+    stacked_value &operator=(stacked_value const &) = delete;
+    stacked_value &operator=(stacked_value &&v) = delete;
 
-    cs_stacked_value &operator=(cs_value const &v);
-    cs_stacked_value &operator=(cs_value &&v);
+    stacked_value &operator=(any_value const &v);
+    stacked_value &operator=(any_value &&v);
 
-    bool set_alias(cs_ident *id);
-    cs_alias *get_alias() const;
+    bool set_alias(ident *id);
+    alias *get_alias() const;
     bool has_alias() const;
 
     bool push();
     bool pop();
 
 private:
-    cs_alias *p_a;
-    cs_ident_stack p_stack;
+    alias *p_a;
+    ident_stack p_stack;
     bool p_pushed;
 };
 
-struct LIBCUBESCRIPT_EXPORT cs_list_parser {
-    cs_list_parser(cs_state &cs, std::string_view s = std::string_view{}):
+struct LIBCUBESCRIPT_EXPORT list_parser {
+    list_parser(state &cs, std::string_view s = std::string_view{}):
         p_state{&cs}, p_input_beg{s.data()}, p_input_end{s.data() + s.size()}
      {}
 
@@ -871,7 +873,7 @@ struct LIBCUBESCRIPT_EXPORT cs_list_parser {
     bool parse();
     std::size_t count();
 
-    cs_strref get_item() const;
+    string_ref get_item() const;
 
     std::string_view get_raw_item() const { return p_item; }
     std::string_view get_quoted_item() const { return p_quoted_item; }
@@ -879,7 +881,7 @@ struct LIBCUBESCRIPT_EXPORT cs_list_parser {
     void skip_until_item();
 
 private:
-    cs_state *p_state;
+    state *p_state;
     char const *p_input_beg, *p_input_end;
 
     std::string_view p_item{};
@@ -887,28 +889,28 @@ private:
 };
 
 
-LIBCUBESCRIPT_EXPORT char const *cs_parse_string(
-    cs_state &cs, std::string_view str, size_t &nlines
+LIBCUBESCRIPT_EXPORT char const *parse_string(
+    state &cs, std::string_view str, size_t &nlines
 );
 
-inline char const *cs_parse_string(
-    cs_state &cs, std::string_view str
+inline char const *parse_string(
+    state &cs, std::string_view str
 ) {
     size_t nlines;
-    return cs_parse_string(cs, str, nlines);
+    return parse_string(cs, str, nlines);
 }
 
-LIBCUBESCRIPT_EXPORT char const *cs_parse_word(
-    cs_state &cs, std::string_view str
+LIBCUBESCRIPT_EXPORT char const *parse_word(
+    state &cs, std::string_view str
 );
 
-LIBCUBESCRIPT_EXPORT cs_strref cs_concat_values(
-    cs_state &cs, std::span<cs_value> vals,
+LIBCUBESCRIPT_EXPORT string_ref concat_values(
+    state &cs, std::span<any_value> vals,
     std::string_view sep = std::string_view{}
 );
 
 template<typename R>
-inline R cs_escape_string(R writer, std::string_view str) {
+inline R escape_string(R writer, std::string_view str) {
     *writer++ = '"';
     for (auto c: str) {
         switch (c) {
@@ -925,7 +927,7 @@ inline R cs_escape_string(R writer, std::string_view str) {
 }
 
 template<typename R>
-inline R cs_unescape_string(R writer, std::string_view str) {
+inline R unescape_string(R writer, std::string_view str) {
     for (auto it = str.begin(); it != str.end(); ++it) {
         if (*it == '^') {
             ++it;
@@ -963,7 +965,7 @@ inline R cs_unescape_string(R writer, std::string_view str) {
 }
 
 template<typename R>
-inline R cs_print_stack(R writer, cs_stack_state const &st) {
+inline R print_stack(R writer, stack_state const &st) {
     char buf[32] = {0};
     auto nd = st.get();
     while (nd) {

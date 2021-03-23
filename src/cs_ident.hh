@@ -11,28 +11,28 @@ enum {
     ID_NOT, ID_AND, ID_OR
 };
 
-struct cs_ident_link {
-    cs_ident *id;
-    cs_ident_link *next;
+struct ident_link {
+    ident *id;
+    ident_link *next;
     int usedargs;
-    cs_ident_stack *argstack;
+    ident_stack *argstack;
 };
 
-struct cs_ident_impl {
-    cs_ident_impl() = delete;
-    cs_ident_impl(cs_ident_impl const &) = delete;
-    cs_ident_impl(cs_ident_impl &&) = delete;
+struct ident_impl {
+    ident_impl() = delete;
+    ident_impl(ident_impl const &) = delete;
+    ident_impl(ident_impl &&) = delete;
 
     /* trigger destructors for all inherited members properly */
-    virtual ~cs_ident_impl() {};
+    virtual ~ident_impl() {};
 
-    cs_ident_impl &operator=(cs_ident_impl const &) = delete;
-    cs_ident_impl &operator=(cs_ident_impl &&) = delete;
+    ident_impl &operator=(ident_impl const &) = delete;
+    ident_impl &operator=(ident_impl &&) = delete;
 
-    cs_ident_impl(cs_ident_type tp, cs_strref name, int flags = 0);
+    ident_impl(ident_type tp, string_ref name, int flags = 0);
 
-    cs_strref p_name;
-    /* represents the cs_ident_type above, but internally it has a wider
+    string_ref p_name;
+    /* represents the ident_type above, but internally it has a wider
      * variety of values, so it's an int here (maps to an internal enum)
      */
     int p_type, p_flags;
@@ -40,79 +40,79 @@ struct cs_ident_impl {
     int p_index = -1;
 };
 
-struct cs_var_impl: cs_ident_impl {
-    cs_var_impl(
-        cs_ident_type tp, cs_strref name, cs_var_cb func, int flags = 0
+struct var_impl: ident_impl {
+    var_impl(
+        ident_type tp, string_ref name, var_cb_func func, int flags = 0
     );
 
-    cs_var_cb cb_var;
+    var_cb_func cb_var;
 
-    void changed(cs_state &cs);
+    void changed(state &cs);
 };
 
-struct cs_ivar_impl: cs_var_impl, cs_ivar {
-    cs_ivar_impl(
-        cs_strref n, cs_int m, cs_int x, cs_int v, cs_var_cb f, int flags
+struct ivar_impl: var_impl, integer_var {
+    ivar_impl(
+        string_ref n, integer_type m, integer_type x, integer_type v, var_cb_func f, int flags
     );
 
-    cs_int p_storage, p_minval, p_maxval, p_overrideval;
+    integer_type p_storage, p_minval, p_maxval, p_overrideval;
 };
 
-struct cs_fvar_impl: cs_var_impl, cs_fvar {
-    cs_fvar_impl(
-        cs_strref n, cs_float m, cs_float x, cs_float v,
-        cs_var_cb f, int flags
+struct fvar_impl: var_impl, float_var {
+    fvar_impl(
+        string_ref n, float_type m, float_type x, float_type v,
+        var_cb_func f, int flags
     );
 
-    cs_float p_storage, p_minval, p_maxval, p_overrideval;
+    float_type p_storage, p_minval, p_maxval, p_overrideval;
 };
 
-struct cs_svar_impl: cs_var_impl, cs_svar {
-    cs_svar_impl(
-        cs_strref n, cs_strref v, cs_strref ov, cs_var_cb f, int flags
+struct svar_impl: var_impl, string_var {
+    svar_impl(
+        string_ref n, string_ref v, string_ref ov, var_cb_func f, int flags
     );
 
-    cs_strref p_storage, p_overrideval;
+    string_ref p_storage, p_overrideval;
 };
 
-struct cs_alias_impl: cs_ident_impl, cs_alias {
-    cs_alias_impl(cs_state &cs, cs_strref n, cs_strref a, int flags);
-    cs_alias_impl(cs_state &cs, cs_strref n, std::string_view a, int flags);
-    cs_alias_impl(cs_state &cs, cs_strref n, cs_int a, int flags);
-    cs_alias_impl(cs_state &cs, cs_strref n, cs_float a, int flags);
-    cs_alias_impl(cs_state &cs, cs_strref n, int flags);
-    cs_alias_impl(cs_state &cs, cs_strref n, cs_value v, int flags);
+struct alias_impl: ident_impl, alias {
+    alias_impl(state &cs, string_ref n, string_ref a, int flags);
+    alias_impl(state &cs, string_ref n, std::string_view a, int flags);
+    alias_impl(state &cs, string_ref n, integer_type a, int flags);
+    alias_impl(state &cs, string_ref n, float_type a, int flags);
+    alias_impl(state &cs, string_ref n, int flags);
+    alias_impl(state &cs, string_ref n, any_value v, int flags);
 
-    void push_arg(cs_value &v, cs_ident_stack &st, bool um = true);
+    void push_arg(any_value &v, ident_stack &st, bool um = true);
     void pop_arg();
-    void undo_arg(cs_ident_stack &st);
-    void redo_arg(cs_ident_stack &st);
-    void set_arg(cs_state &cs, cs_value &v);
-    void set_alias(cs_state &cs, cs_value &v);
+    void undo_arg(ident_stack &st);
+    void redo_arg(ident_stack &st);
+    void set_arg(state &cs, any_value &v);
+    void set_alias(state &cs, any_value &v);
 
     void clean_code();
-    cs_bcode *compile_code(cs_state &cs);
+    bcode *compile_code(state &cs);
 
-    cs_bcode *p_acode;
-    cs_ident_stack *p_astack;
-    cs_value p_val;
+    bcode *p_acode;
+    ident_stack *p_astack;
+    any_value p_val;
 };
 
-struct cs_command_impl: cs_ident_impl, cs_command {
-    cs_command_impl(
-        cs_strref name, cs_strref args, int numargs, cs_command_cb func
+struct command_impl: ident_impl, command {
+    command_impl(
+        string_ref name, string_ref args, int numargs, command_func func
     );
 
-    void call(cs_state &cs, std::span<cs_value> args, cs_value &ret) {
+    void call(state &cs, std::span<any_value> args, any_value &ret) {
         p_cb_cftv(cs, args, ret);
     }
 
-    cs_strref p_cargs;
-    cs_command_cb p_cb_cftv;
+    string_ref p_cargs;
+    command_func p_cb_cftv;
     int p_numargs;
 };
 
-bool ident_is_used_arg(cs_ident *id, cs_state &cs);
+bool ident_is_used_arg(ident *id, state &cs);
 
 } /* namespace cscript */
 

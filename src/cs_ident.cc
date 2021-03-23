@@ -5,27 +5,27 @@
 
 namespace cscript {
 
-cs_ident_impl::cs_ident_impl(cs_ident_type tp, cs_strref nm, int fl):
+ident_impl::ident_impl(ident_type tp, string_ref nm, int fl):
     p_name{nm}, p_type{int(tp)}, p_flags{fl}
 {}
 
-cs_var_impl::cs_var_impl(
-    cs_ident_type tp, cs_strref name, cs_var_cb f, int fl
+var_impl::var_impl(
+    ident_type tp, string_ref name, var_cb_func f, int fl
 ):
-    cs_ident_impl{tp, name, fl}, cb_var{std::move(f)}
+    ident_impl{tp, name, fl}, cb_var{std::move(f)}
 {}
 
-void cs_var_impl::changed(cs_state &cs) {
+void var_impl::changed(state &cs) {
     if (cb_var) {
         switch (p_type) {
             case ID_IVAR:
-                cb_var(cs, *static_cast<cs_ivar_impl *>(this));
+                cb_var(cs, *static_cast<ivar_impl *>(this));
                 break;
             case ID_FVAR:
-                cb_var(cs, *static_cast<cs_fvar_impl *>(this));
+                cb_var(cs, *static_cast<fvar_impl *>(this));
                 break;
             case ID_SVAR:
-                cb_var(cs, *static_cast<cs_svar_impl *>(this));
+                cb_var(cs, *static_cast<svar_impl *>(this));
                 break;
             default:
                 break;
@@ -33,80 +33,80 @@ void cs_var_impl::changed(cs_state &cs) {
     }
 }
 
-cs_ivar_impl::cs_ivar_impl(
-    cs_strref name, cs_int m, cs_int x, cs_int v, cs_var_cb f, int fl
+ivar_impl::ivar_impl(
+    string_ref name, integer_type m, integer_type x, integer_type v, var_cb_func f, int fl
 ):
-    cs_var_impl{
-        cs_ident_type::IVAR, name, std::move(f),
-        fl | ((m > x) ? CS_IDF_READONLY : 0)
+    var_impl{
+        ident_type::IVAR, name, std::move(f),
+        fl | ((m > x) ? IDENT_FLAG_READONLY : 0)
     },
     p_storage{v}, p_minval{m}, p_maxval{x}, p_overrideval{0}
 {}
 
-cs_fvar_impl::cs_fvar_impl(
-    cs_strref name, cs_float m, cs_float x, cs_float v, cs_var_cb f, int fl
+fvar_impl::fvar_impl(
+    string_ref name, float_type m, float_type x, float_type v, var_cb_func f, int fl
 ):
-    cs_var_impl{
-        cs_ident_type::FVAR, name, std::move(f),
-        fl | ((m > x) ? CS_IDF_READONLY : 0)
+    var_impl{
+        ident_type::FVAR, name, std::move(f),
+        fl | ((m > x) ? IDENT_FLAG_READONLY : 0)
     },
     p_storage{v}, p_minval{m}, p_maxval{x}, p_overrideval{0}
 {}
 
-cs_svar_impl::cs_svar_impl(
-    cs_strref name, cs_strref v, cs_strref ov, cs_var_cb f, int fl
+svar_impl::svar_impl(
+    string_ref name, string_ref v, string_ref ov, var_cb_func f, int fl
 ):
-    cs_var_impl{cs_ident_type::SVAR, name, std::move(f), fl},
+    var_impl{ident_type::SVAR, name, std::move(f), fl},
     p_storage{v}, p_overrideval{ov}
 {}
 
-cs_alias_impl::cs_alias_impl(
-    cs_state &cs, cs_strref name, cs_strref a, int fl
+alias_impl::alias_impl(
+    state &cs, string_ref name, string_ref a, int fl
 ):
-    cs_ident_impl{cs_ident_type::ALIAS, name, fl},
+    ident_impl{ident_type::ALIAS, name, fl},
     p_acode{nullptr}, p_astack{nullptr}, p_val{cs}
 {
     p_val.set_str(a);
 }
 
-cs_alias_impl::cs_alias_impl(
-    cs_state &cs, cs_strref name, std::string_view a, int fl
+alias_impl::alias_impl(
+    state &cs, string_ref name, std::string_view a, int fl
 ):
-    cs_ident_impl{cs_ident_type::ALIAS, name, fl},
+    ident_impl{ident_type::ALIAS, name, fl},
     p_acode{nullptr}, p_astack{nullptr}, p_val{cs}
 {
     p_val.set_str(a);
 }
 
-cs_alias_impl::cs_alias_impl(cs_state &cs, cs_strref name, cs_int a, int fl):
-    cs_ident_impl{cs_ident_type::ALIAS, name, fl},
+alias_impl::alias_impl(state &cs, string_ref name, integer_type a, int fl):
+    ident_impl{ident_type::ALIAS, name, fl},
     p_acode{nullptr}, p_astack{nullptr}, p_val{cs}
 {
     p_val.set_int(a);
 }
 
-cs_alias_impl::cs_alias_impl(cs_state &cs, cs_strref name, cs_float a, int fl):
-    cs_ident_impl{cs_ident_type::ALIAS, name, fl},
+alias_impl::alias_impl(state &cs, string_ref name, float_type a, int fl):
+    ident_impl{ident_type::ALIAS, name, fl},
     p_acode{nullptr}, p_astack{nullptr}, p_val{cs}
 {
     p_val.set_float(a);
 }
 
-cs_alias_impl::cs_alias_impl(cs_state &cs, cs_strref name, int fl):
-    cs_ident_impl{cs_ident_type::ALIAS, name, fl},
+alias_impl::alias_impl(state &cs, string_ref name, int fl):
+    ident_impl{ident_type::ALIAS, name, fl},
     p_acode{nullptr}, p_astack{nullptr}, p_val{cs}
 {
     p_val.set_none();
 }
 
-cs_alias_impl::cs_alias_impl(cs_state &cs, cs_strref name, cs_value v, int fl):
-    cs_ident_impl{cs_ident_type::ALIAS, name, fl},
+alias_impl::alias_impl(state &cs, string_ref name, any_value v, int fl):
+    ident_impl{ident_type::ALIAS, name, fl},
     p_acode{nullptr}, p_astack{nullptr}, p_val{cs}
 {
     p_val = v;
 }
 
-void cs_alias_impl::push_arg(cs_value &v, cs_ident_stack &st, bool um) {
+void alias_impl::push_arg(any_value &v, ident_stack &st, bool um) {
     if (p_astack == &st) {
         /* prevent cycles and unnecessary code elsewhere */
         p_val = std::move(v);
@@ -119,22 +119,22 @@ void cs_alias_impl::push_arg(cs_value &v, cs_ident_stack &st, bool um) {
     p_val = std::move(v);
     clean_code();
     if (um) {
-        p_flags &= ~CS_IDF_UNKNOWN;
+        p_flags &= ~IDENT_FLAG_UNKNOWN;
     }
 }
 
-void cs_alias_impl::pop_arg() {
+void alias_impl::pop_arg() {
     if (!p_astack) {
         return;
     }
-    cs_ident_stack *st = p_astack;
+    ident_stack *st = p_astack;
     p_val = std::move(p_astack->val_s);
     clean_code();
     p_astack = st->next;
 }
 
-void cs_alias_impl::undo_arg(cs_ident_stack &st) {
-    cs_ident_stack *prev = p_astack;
+void alias_impl::undo_arg(ident_stack &st) {
+    ident_stack *prev = p_astack;
     st.val_s = std::move(p_val);
     st.next = prev;
     p_astack = prev->next;
@@ -142,15 +142,15 @@ void cs_alias_impl::undo_arg(cs_ident_stack &st) {
     clean_code();
 }
 
-void cs_alias_impl::redo_arg(cs_ident_stack &st) {
-    cs_ident_stack *prev = st.next;
+void alias_impl::redo_arg(ident_stack &st) {
+    ident_stack *prev = st.next;
     prev->val_s = std::move(p_val);
     p_astack = prev;
     p_val = std::move(st.val_s);
     clean_code();
 }
 
-void cs_alias_impl::set_arg(cs_state &cs, cs_value &v) {
+void alias_impl::set_arg(state &cs, any_value &v) {
     if (ident_is_used_arg(this, cs)) {
         p_val = std::move(v);
         clean_code();
@@ -160,41 +160,41 @@ void cs_alias_impl::set_arg(cs_state &cs, cs_value &v) {
     }
 }
 
-void cs_alias_impl::set_alias(cs_state &cs, cs_value &v) {
+void alias_impl::set_alias(state &cs, any_value &v) {
     p_val = std::move(v);
     clean_code();
     p_flags = (p_flags & cs.identflags) | cs.identflags;
 }
 
-void cs_alias_impl::clean_code() {
+void alias_impl::clean_code() {
     if (p_acode) {
         bcode_decr(p_acode->get_raw());
         p_acode = nullptr;
     }
 }
 
-cs_bcode *cs_alias_impl::compile_code(cs_state &cs) {
+bcode *alias_impl::compile_code(state &cs) {
     if (!p_acode) {
-        cs_gen_state gs(cs);
+        codegen_state gs(cs);
         gs.code.reserve(64);
         gs.gen_main(get_value().get_str());
         /* i wish i could steal the memory somehow */
         uint32_t *code = bcode_alloc(cs, gs.code.size());
         memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
         bcode_incr(code);
-        p_acode = reinterpret_cast<cs_bcode *>(code);
+        p_acode = reinterpret_cast<bcode *>(code);
     }
     return p_acode;
 }
 
-cs_command_impl::cs_command_impl(
-    cs_strref name, cs_strref args, int nargs, cs_command_cb f
+command_impl::command_impl(
+    string_ref name, string_ref args, int nargs, command_func f
 ):
-    cs_ident_impl{cs_ident_type::COMMAND, name, 0},
+    ident_impl{ident_type::COMMAND, name, 0},
     p_cargs{args}, p_cb_cftv{std::move(f)}, p_numargs{nargs}
 {}
 
-bool ident_is_used_arg(cs_ident *id, cs_state &cs) {
+bool ident_is_used_arg(ident *id, state &cs) {
     if (!cs.p_callstack) {
         return true;
     }
@@ -203,74 +203,74 @@ bool ident_is_used_arg(cs_ident *id, cs_state &cs) {
 
 /* public interface */
 
-LIBCUBESCRIPT_EXPORT int cs_ident::get_raw_type() const {
+LIBCUBESCRIPT_EXPORT int ident::get_raw_type() const {
     return p_impl->p_type;
 }
 
-LIBCUBESCRIPT_EXPORT cs_ident_type cs_ident::get_type() const {
+LIBCUBESCRIPT_EXPORT ident_type ident::get_type() const {
     if (p_impl->p_type > ID_ALIAS) {
-        return cs_ident_type::SPECIAL;
+        return ident_type::SPECIAL;
     }
-    return cs_ident_type(p_impl->p_type);
+    return ident_type(p_impl->p_type);
 }
 
-LIBCUBESCRIPT_EXPORT std::string_view cs_ident::get_name() const {
+LIBCUBESCRIPT_EXPORT std::string_view ident::get_name() const {
     return p_impl->p_name;
 }
 
-LIBCUBESCRIPT_EXPORT int cs_ident::get_flags() const {
+LIBCUBESCRIPT_EXPORT int ident::get_flags() const {
     return p_impl->p_flags;
 }
 
-LIBCUBESCRIPT_EXPORT int cs_ident::get_index() const {
+LIBCUBESCRIPT_EXPORT int ident::get_index() const {
     return p_impl->p_index;
 }
 
-LIBCUBESCRIPT_EXPORT bool cs_ident::is_alias() const {
-    return get_type() == cs_ident_type::ALIAS;
+LIBCUBESCRIPT_EXPORT bool ident::is_alias() const {
+    return get_type() == ident_type::ALIAS;
 }
 
-LIBCUBESCRIPT_EXPORT cs_alias *cs_ident::get_alias() {
+LIBCUBESCRIPT_EXPORT alias *ident::get_alias() {
     if (!is_alias()) {
         return nullptr;
     }
-    return static_cast<cs_alias *>(this);
+    return static_cast<alias *>(this);
 }
 
-LIBCUBESCRIPT_EXPORT cs_alias const *cs_ident::get_alias() const {
+LIBCUBESCRIPT_EXPORT alias const *ident::get_alias() const {
     if (!is_alias()) {
         return nullptr;
     }
-    return static_cast<cs_alias const *>(this);
+    return static_cast<alias const *>(this);
 }
 
-LIBCUBESCRIPT_EXPORT bool cs_ident::is_command() const {
-    return get_type() == cs_ident_type::COMMAND;
+LIBCUBESCRIPT_EXPORT bool ident::is_command() const {
+    return get_type() == ident_type::COMMAND;
 }
 
-LIBCUBESCRIPT_EXPORT cs_command *cs_ident::get_command() {
+LIBCUBESCRIPT_EXPORT command *ident::get_command() {
     if (!is_command()) {
         return nullptr;
     }
-    return static_cast<cs_command_impl *>(this);
+    return static_cast<command_impl *>(this);
 }
 
-LIBCUBESCRIPT_EXPORT cs_command const *cs_ident::get_command() const {
+LIBCUBESCRIPT_EXPORT command const *ident::get_command() const {
     if (!is_command()) {
         return nullptr;
     }
-    return static_cast<cs_command_impl const *>(this);
+    return static_cast<command_impl const *>(this);
 }
 
-LIBCUBESCRIPT_EXPORT bool cs_ident::is_special() const {
-    return get_type() == cs_ident_type::SPECIAL;
+LIBCUBESCRIPT_EXPORT bool ident::is_special() const {
+    return get_type() == ident_type::SPECIAL;
 }
 
-LIBCUBESCRIPT_EXPORT bool cs_ident::is_var() const {
+LIBCUBESCRIPT_EXPORT bool ident::is_var() const {
     switch (get_type()) {
-        case cs_ident_type::IVAR:
-        case cs_ident_type::FVAR:
-        case cs_ident_type::SVAR:
+        case ident_type::IVAR:
+        case ident_type::FVAR:
+        case ident_type::SVAR:
             return true;
         default:
             break;
@@ -278,128 +278,128 @@ LIBCUBESCRIPT_EXPORT bool cs_ident::is_var() const {
     return false;
 }
 
-LIBCUBESCRIPT_EXPORT cs_var *cs_ident::get_var() {
+LIBCUBESCRIPT_EXPORT global_var *ident::get_var() {
     if (!is_var()) {
         return nullptr;
     }
-    return static_cast<cs_var *>(this);
+    return static_cast<global_var *>(this);
 }
 
-LIBCUBESCRIPT_EXPORT cs_var const *cs_ident::get_var() const {
+LIBCUBESCRIPT_EXPORT global_var const *ident::get_var() const {
     if (!is_var()) {
         return nullptr;
     }
-    return static_cast<cs_var const *>(this);
+    return static_cast<global_var const *>(this);
 }
 
-LIBCUBESCRIPT_EXPORT bool cs_ident::is_ivar() const {
-    return get_type() == cs_ident_type::IVAR;
+LIBCUBESCRIPT_EXPORT bool ident::is_ivar() const {
+    return get_type() == ident_type::IVAR;
 }
 
-LIBCUBESCRIPT_EXPORT cs_ivar *cs_ident::get_ivar() {
+LIBCUBESCRIPT_EXPORT integer_var *ident::get_ivar() {
     if (!is_ivar()) {
         return nullptr;
     }
-    return static_cast<cs_ivar *>(this);
+    return static_cast<integer_var *>(this);
 }
 
-LIBCUBESCRIPT_EXPORT cs_ivar const *cs_ident::get_ivar() const {
+LIBCUBESCRIPT_EXPORT integer_var const *ident::get_ivar() const {
     if (!is_ivar()) {
         return nullptr;
     }
-    return static_cast<cs_ivar const *>(this);
+    return static_cast<integer_var const *>(this);
 }
 
-LIBCUBESCRIPT_EXPORT bool cs_ident::is_fvar() const {
-    return get_type() == cs_ident_type::FVAR;
+LIBCUBESCRIPT_EXPORT bool ident::is_fvar() const {
+    return get_type() == ident_type::FVAR;
 }
 
-LIBCUBESCRIPT_EXPORT cs_fvar *cs_ident::get_fvar() {
+LIBCUBESCRIPT_EXPORT float_var *ident::get_fvar() {
     if (!is_fvar()) {
         return nullptr;
     }
-    return static_cast<cs_fvar *>(this);
+    return static_cast<float_var *>(this);
 }
 
-LIBCUBESCRIPT_EXPORT cs_fvar const *cs_ident::get_fvar() const {
+LIBCUBESCRIPT_EXPORT float_var const *ident::get_fvar() const {
     if (!is_fvar()) {
         return nullptr;
     }
-    return static_cast<cs_fvar const *>(this);
+    return static_cast<float_var const *>(this);
 }
 
-LIBCUBESCRIPT_EXPORT bool cs_ident::is_svar() const {
-    return get_type() == cs_ident_type::SVAR;
+LIBCUBESCRIPT_EXPORT bool ident::is_svar() const {
+    return get_type() == ident_type::SVAR;
 }
 
-LIBCUBESCRIPT_EXPORT cs_svar *cs_ident::get_svar() {
+LIBCUBESCRIPT_EXPORT string_var *ident::get_svar() {
     if (!is_svar()) {
         return nullptr;
     }
-    return static_cast<cs_svar *>(this);
+    return static_cast<string_var *>(this);
 }
 
-LIBCUBESCRIPT_EXPORT cs_svar const *cs_ident::get_svar() const {
+LIBCUBESCRIPT_EXPORT string_var const *ident::get_svar() const {
     if (!is_svar()) {
         return nullptr;
     }
-    return static_cast<cs_svar const *>(this);
+    return static_cast<string_var const *>(this);
 }
 
-LIBCUBESCRIPT_EXPORT cs_int cs_ivar::get_val_min() const {
-    return static_cast<cs_ivar_impl const *>(this)->p_minval;
+LIBCUBESCRIPT_EXPORT integer_type integer_var::get_val_min() const {
+    return static_cast<ivar_impl const *>(this)->p_minval;
 }
 
-LIBCUBESCRIPT_EXPORT cs_int cs_ivar::get_val_max() const {
-    return static_cast<cs_ivar_impl const *>(this)->p_maxval;
+LIBCUBESCRIPT_EXPORT integer_type integer_var::get_val_max() const {
+    return static_cast<ivar_impl const *>(this)->p_maxval;
 }
 
-LIBCUBESCRIPT_EXPORT cs_int cs_ivar::get_value() const {
-    return static_cast<cs_ivar_impl const *>(this)->p_storage;
+LIBCUBESCRIPT_EXPORT integer_type integer_var::get_value() const {
+    return static_cast<ivar_impl const *>(this)->p_storage;
 }
 
-LIBCUBESCRIPT_EXPORT void cs_ivar::set_value(cs_int val) {
-    static_cast<cs_ivar_impl *>(this)->p_storage = val;
+LIBCUBESCRIPT_EXPORT void integer_var::set_value(integer_type val) {
+    static_cast<ivar_impl *>(this)->p_storage = val;
 }
 
-LIBCUBESCRIPT_EXPORT cs_float cs_fvar::get_val_min() const {
-    return static_cast<cs_fvar_impl const *>(this)->p_minval;
+LIBCUBESCRIPT_EXPORT float_type float_var::get_val_min() const {
+    return static_cast<fvar_impl const *>(this)->p_minval;
 }
 
-LIBCUBESCRIPT_EXPORT cs_float cs_fvar::get_val_max() const {
-    return static_cast<cs_fvar_impl const *>(this)->p_maxval;
+LIBCUBESCRIPT_EXPORT float_type float_var::get_val_max() const {
+    return static_cast<fvar_impl const *>(this)->p_maxval;
 }
 
-LIBCUBESCRIPT_EXPORT cs_float cs_fvar::get_value() const {
-    return static_cast<cs_fvar_impl const *>(this)->p_storage;
+LIBCUBESCRIPT_EXPORT float_type float_var::get_value() const {
+    return static_cast<fvar_impl const *>(this)->p_storage;
 }
 
-LIBCUBESCRIPT_EXPORT void cs_fvar::set_value(cs_float val) {
-    static_cast<cs_fvar_impl *>(this)->p_storage = val;
+LIBCUBESCRIPT_EXPORT void float_var::set_value(float_type val) {
+    static_cast<fvar_impl *>(this)->p_storage = val;
 }
 
-LIBCUBESCRIPT_EXPORT cs_strref cs_svar::get_value() const {
-    return static_cast<cs_svar_impl const *>(this)->p_storage;
+LIBCUBESCRIPT_EXPORT string_ref string_var::get_value() const {
+    return static_cast<svar_impl const *>(this)->p_storage;
 }
 
-LIBCUBESCRIPT_EXPORT void cs_svar::set_value(cs_strref val) {
-    static_cast<cs_svar_impl *>(this)->p_storage = val;
+LIBCUBESCRIPT_EXPORT void string_var::set_value(string_ref val) {
+    static_cast<svar_impl *>(this)->p_storage = val;
 }
 
-LIBCUBESCRIPT_EXPORT cs_value cs_alias::get_value() const {
-    return static_cast<cs_alias_impl const *>(this)->p_val;
+LIBCUBESCRIPT_EXPORT any_value alias::get_value() const {
+    return static_cast<alias_impl const *>(this)->p_val;
 }
 
-void cs_alias::get_cval(cs_value &v) const {
-    auto *imp = static_cast<cs_alias_impl const *>(this);
+void alias::get_cval(any_value &v) const {
+    auto *imp = static_cast<alias_impl const *>(this);
     switch (imp->p_val.get_type()) {
-        case cs_value_type::STRING:
+        case value_type::STRING:
             v = imp->p_val;
             break;
-        case cs_value_type::INT:
+        case value_type::INT:
             v.set_int(imp->p_val.get_int());
             break;
-        case cs_value_type::FLOAT:
+        case value_type::FLOAT:
             v.set_float(imp->p_val.get_float());
             break;
         default:
@@ -408,12 +408,12 @@ void cs_alias::get_cval(cs_value &v) const {
     }
 }
 
-LIBCUBESCRIPT_EXPORT std::string_view cs_command::get_args() const {
-    return static_cast<cs_command_impl const *>(this)->p_cargs;
+LIBCUBESCRIPT_EXPORT std::string_view command::get_args() const {
+    return static_cast<command_impl const *>(this)->p_cargs;
 }
 
-LIBCUBESCRIPT_EXPORT int cs_command::get_num_args() const {
-    return static_cast<cs_command_impl const *>(this)->p_numargs;
+LIBCUBESCRIPT_EXPORT int command::get_num_args() const {
+    return static_cast<command_impl const *>(this)->p_numargs;
 }
 
 } /* namespace cscript */
