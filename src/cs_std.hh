@@ -120,11 +120,6 @@ struct cs_charbuf: cs_valbuf<char> {
     }
 };
 
-/* literal parsing */
-
-cs_int parse_int(std::string_view input, std::string_view *end = nullptr);
-cs_float parse_float(std::string_view input, std::string_view *end = nullptr);
-
 } /* namespace cscript */
 
 #endif

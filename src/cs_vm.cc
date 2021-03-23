@@ -1,6 +1,7 @@
 #include <cubescript/cubescript.hh>
 #include "cs_vm.hh"
 #include "cs_std.hh"
+#include "cs_parser.hh"
 
 #include <cstdio>
 #include <limits>
@@ -1262,7 +1263,7 @@ litval:
                 cs_ident *id = cs.get_ident(idn);
                 if (!id) {
 noid:
-                    if (cs_check_num(idn)) {
+                    if (!is_valid_name(idn)) {
                         goto litval;
                     }
                     result.force_none();

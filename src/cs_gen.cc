@@ -1,6 +1,7 @@
 #include <cubescript/cubescript.hh>
 #include "cs_vm.hh"
 #include "cs_std.hh"
+#include "cs_parser.hh"
 
 #include <ctype.h>
 
@@ -1310,7 +1311,7 @@ noid:
             idname.push_back('\0');
             cs_ident *id = gs.cs.get_ident(idname.str_term());
             if (!id) {
-                if (!cs_check_num(idname.str_term())) {
+                if (is_valid_name(idname.str_term())) {
                     gs.gen_str(idname.str_term());
                     goto noid;
                 }

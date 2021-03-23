@@ -187,8 +187,6 @@ struct cs_gen_state {
     void skip_comments();
 };
 
-bool cs_check_num(std::string_view s);
-
 void bcode_ref(uint32_t *code);
 void bcode_unref(uint32_t *code);
 
