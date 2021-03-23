@@ -231,51 +231,6 @@ LIBCUBESCRIPT_EXPORT void cs_state::print_var(cs_var const &v) const {
     }
 }
 
-LIBCUBESCRIPT_EXPORT cs_value cs_alias::get_value() const {
-    return static_cast<cs_alias_impl const *>(this)->p_val;
-}
-
-void cs_alias::get_cval(cs_value &v) const {
-    auto *imp = static_cast<cs_alias_impl const *>(this);
-    switch (imp->p_val.get_type()) {
-        case cs_value_type::STRING:
-            v = imp->p_val;
-            break;
-        case cs_value_type::INT:
-            v.set_int(imp->p_val.get_int());
-            break;
-        case cs_value_type::FLOAT:
-            v.set_float(imp->p_val.get_float());
-            break;
-        default:
-            v.set_none();
-            break;
-    }
-}
-
-int cs_ident::get_raw_type() const {
-    return p_impl->p_type;
-}
-
-cs_ident_type cs_ident::get_type() const {
-    if (p_impl->p_type > ID_ALIAS) {
-        return cs_ident_type::SPECIAL;
-    }
-    return cs_ident_type(p_impl->p_type);
-}
-
-std::string_view cs_ident::get_name() const {
-    return p_impl->p_name;
-}
-
-int cs_ident::get_flags() const {
-    return p_impl->p_flags;
-}
-
-int cs_ident::get_index() const {
-    return p_impl->p_index;
-}
-
 LIBCUBESCRIPT_EXPORT cs_command *cs_state::new_command(
     std::string_view name, std::string_view args, cs_command_cb func
 ) {

@@ -203,6 +203,29 @@ bool ident_is_used_arg(cs_ident *id, cs_state &cs) {
 
 /* public interface */
 
+LIBCUBESCRIPT_EXPORT int cs_ident::get_raw_type() const {
+    return p_impl->p_type;
+}
+
+LIBCUBESCRIPT_EXPORT cs_ident_type cs_ident::get_type() const {
+    if (p_impl->p_type > ID_ALIAS) {
+        return cs_ident_type::SPECIAL;
+    }
+    return cs_ident_type(p_impl->p_type);
+}
+
+LIBCUBESCRIPT_EXPORT std::string_view cs_ident::get_name() const {
+    return p_impl->p_name;
+}
+
+LIBCUBESCRIPT_EXPORT int cs_ident::get_flags() const {
+    return p_impl->p_flags;
+}
+
+LIBCUBESCRIPT_EXPORT int cs_ident::get_index() const {
+    return p_impl->p_index;
+}
+
 LIBCUBESCRIPT_EXPORT bool cs_ident::is_alias() const {
     return get_type() == cs_ident_type::ALIAS;
 }
@@ -361,6 +384,28 @@ LIBCUBESCRIPT_EXPORT cs_strref cs_svar::get_value() const {
 
 LIBCUBESCRIPT_EXPORT void cs_svar::set_value(cs_strref val) {
     static_cast<cs_svar_impl *>(this)->p_storage = val;
+}
+
+LIBCUBESCRIPT_EXPORT cs_value cs_alias::get_value() const {
+    return static_cast<cs_alias_impl const *>(this)->p_val;
+}
+
+void cs_alias::get_cval(cs_value &v) const {
+    auto *imp = static_cast<cs_alias_impl const *>(this);
+    switch (imp->p_val.get_type()) {
+        case cs_value_type::STRING:
+            v = imp->p_val;
+            break;
+        case cs_value_type::INT:
+            v.set_int(imp->p_val.get_int());
+            break;
+        case cs_value_type::FLOAT:
+            v.set_float(imp->p_val.get_float());
+            break;
+        default:
+            v.set_none();
+            break;
+    }
 }
 
 LIBCUBESCRIPT_EXPORT std::string_view cs_command::get_args() const {
