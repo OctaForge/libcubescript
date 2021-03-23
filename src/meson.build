@@ -21,22 +21,18 @@ libcubescript_src = [
     'lib_str.cc'
 ]
 
-libcubescript_lib = both_libraries('cubescript',
+libcubescript_target = library('cubescript',
     libcubescript_src,
     include_directories: libcubescript_includes + [include_directories('.')],
     cpp_args: extra_cxxflags,
     install: true,
+    pic: true,
     version: meson.project_version()
 )
 
 libcubescript = declare_dependency(
     include_directories: libcubescript_includes,
-    link_with: libcubescript_lib.get_shared_lib()
-)
-
-libcubescript_static = declare_dependency(
-    include_directories: libcubescript_includes,
-    link_with: libcubescript_lib.get_static_lib()
+    link_with: libcubescript_target
 )
 
 install_headers(libcubescript_header_src, install_dir: dir_package_include)

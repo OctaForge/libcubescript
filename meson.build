@@ -32,7 +32,7 @@ subdir('tools')
 pkg = import('pkgconfig')
 
 pkg.generate(
-    libraries: libcubescript_lib,
+    libraries: libcubescript_target,
     version: meson.project_version(),
     name: 'libcubescript',
     filebase: 'libcubescript',
