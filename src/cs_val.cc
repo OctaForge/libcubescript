@@ -427,4 +427,30 @@ bool cs_stacked_value::pop() {
     return true;
 }
 
+/* public utilities */
+
+LIBCUBESCRIPT_EXPORT cs_strref cs_concat_values(
+    cs_state &cs, std::span<cs_value> vals, std::string_view sep
+) {
+    cs_charbuf buf{cs};
+    for (std::size_t i = 0; i < vals.size(); ++i) {
+        switch (vals[i].get_type()) {
+            case cs_value_type::INT:
+            case cs_value_type::FLOAT:
+            case cs_value_type::STRING:
+                std::ranges::copy(
+                    cs_value{vals[i]}.force_str(), std::back_inserter(buf)
+                );
+                break;
+            default:
+                break;
+        }
+        if (i == (vals.size() - 1)) {
+            break;
+        }
+        std::ranges::copy(sep, std::back_inserter(buf));
+    }
+    return cs_strref{cs, buf.str()};
+}
+
 } /* namespace cscript */

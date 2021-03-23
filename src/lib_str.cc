@@ -90,11 +90,11 @@ void cs_init_lib_string(cs_state &cs) {
     });
 
     cs.new_command("concat", "V", [](auto &ccs, auto args, auto &res) {
-        res.set_str(value_list_concat(ccs, args, " "));
+        res.set_str(cs_concat_values(ccs, args, " "));
     });
 
     cs.new_command("concatword", "V", [](auto &ccs, auto args, auto &res) {
-        res.set_str(value_list_concat(ccs, args));
+        res.set_str(cs_concat_values(ccs, args));
     });
 
     cs.new_command("format", "V", [](auto &ccs, auto args, auto &res) {

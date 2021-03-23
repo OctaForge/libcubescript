@@ -230,7 +230,7 @@ static inline void callcommand(
             case 'C': {
                 i = std::max(i + 1, numargs);
                 cs_value tv{cs};
-                tv.set_str(value_list_concat(
+                tv.set_str(cs_concat_values(
                     cs, std::span{args, std::size_t(i)}, " "
                 ));
                 static_cast<cs_command_impl *>(id)->call(
@@ -1146,7 +1146,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
                 result.force_none();
                 {
                     cs_value tv{cs};
-                    tv.set_str(value_list_concat(cs, std::span{
+                    tv.set_str(cs_concat_values(cs, std::span{
                         &args[offset], callargs
                     }, " "));
                     id->call(cs, std::span<cs_value>{&tv, 1}, result);
@@ -1165,7 +1165,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
             case CS_CODE_CONC_W | CS_RET_FLOAT:
             case CS_CODE_CONC_W | CS_RET_INT: {
                 std::size_t numconc = op >> 8;
-                auto buf = value_list_concat(
+                auto buf = cs_concat_values(
                     cs, std::span{&args[numargs - numconc], numconc},
                     ((op & CS_CODE_OP_MASK) == CS_CODE_CONC) ? " " : ""
                 );
@@ -1181,7 +1181,7 @@ static uint32_t *runcode(cs_state &cs, uint32_t *code, cs_value &result) {
             case CS_CODE_CONC_M | CS_RET_FLOAT:
             case CS_CODE_CONC_M | CS_RET_INT: {
                 std::size_t numconc = op >> 8;
-                auto buf = value_list_concat(
+                auto buf = cs_concat_values(
                     cs, std::span{&args[numargs - numconc], numconc}
                 );
                 numargs = numargs - numconc;

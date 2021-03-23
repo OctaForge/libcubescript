@@ -12,7 +12,7 @@ namespace cscript {
 std::string_view cs_gen_state::get_str() {
     size_t nl;
     char const *beg = source;
-    source = util::parse_string(
+    source = cs_parse_string(
         cs, std::string_view{source, std::size_t(send - source)}, nl
     );
     current_line += nl - 1;
@@ -92,7 +92,7 @@ void cs_gen_state::skip_comments() {
 
 std::string_view cs_gen_state::get_word() {
     char const *beg = source;
-    source = util::parse_word(
+    source = cs_parse_word(
         cs, std::string_view{source, std::size_t(send - source)}
     );
     return std::string_view{beg, std::size_t(source - beg)};
@@ -484,7 +484,7 @@ static bool compileblockstr(cs_gen_state &gs, char const *str, char const *send)
                 break;
             case '\"': {
                 char const *start = str;
-                str = util::parse_string(
+                str = cs_parse_string(
                     gs.cs, std::string_view{str, send}
                 );
                 memcpy(&buf[len], start, std::size_t(str - start));
