@@ -374,6 +374,8 @@ struct LIBCUBESCRIPT_EXPORT any_value {
     float_type force_float();
     integer_type force_int();
     std::string_view force_str();
+    bcode *force_code(state &cs);
+    ident *force_ident(state &cs);
 
     bool code_is_empty() const;
 
@@ -589,7 +591,6 @@ struct LIBCUBESCRIPT_EXPORT state {
     void clear_overrides();
 
     ident *new_ident(std::string_view name, int flags = IDENT_FLAG_UNKNOWN);
-    ident *force_ident(any_value &v);
 
     template<typename F>
     integer_var *new_ivar(

@@ -2,6 +2,7 @@
 #include "cs_gen.hh"
 #include "cs_std.hh"
 #include "cs_parser.hh"
+#include "cs_state.hh"
 
 #include <cmath>
 
@@ -246,6 +247,36 @@ std::string_view any_value::force_str() {
     return std::string_view(*std::launder(
         reinterpret_cast<string_ref const *>(&p_stor)
     ));
+}
+
+bcode *any_value::force_code(state &cs) {
+    switch (get_type()) {
+        case value_type::CODE:
+            return csv_get<bcode *>(&p_stor);
+        default:
+            break;
+    }
+    codegen_state gs{cs};
+    gs.code.reserve(64);
+    gs.gen_main(get_str());
+    gs.done();
+    uint32_t *cbuf = bcode_alloc(cs, gs.code.size());
+    std::memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(std::uint32_t));
+    auto *bc = reinterpret_cast<bcode *>(cbuf + 1);
+    set_code(bc);
+    return bc;
+}
+
+ident *any_value::force_ident(state &cs) {
+    switch (get_type()) {
+        case value_type::IDENT:
+            return csv_get<ident *>(&p_stor);
+        default:
+            break;
+    }
+    auto *id = cs.new_ident(get_str());
+    set_ident(id);
+    return id;
 }
 
 integer_type any_value::get_int() const {

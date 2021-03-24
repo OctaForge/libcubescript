@@ -273,22 +273,6 @@ LIBCUBESCRIPT_EXPORT ident *state::new_ident(
     return id;
 }
 
-LIBCUBESCRIPT_EXPORT ident *state::force_ident(any_value &v) {
-    switch (v.get_type()) {
-        case value_type::IDENT:
-            return v.get_ident();
-        case value_type::STRING: {
-            ident *id = new_ident(v.get_str());
-            v.set_ident(id);
-            return id;
-        }
-        default:
-            break;
-    }
-    v.set_ident(p_state->identmap[ID_IDX_DUMMY]);
-    return p_state->identmap[ID_IDX_DUMMY];
-}
-
 LIBCUBESCRIPT_EXPORT ident *state::get_ident(std::string_view name) {
     auto id = p_state->idents.find(name);
     if (id != p_state->idents.end()) {

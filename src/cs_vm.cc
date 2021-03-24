@@ -62,35 +62,6 @@ bool stack_state::gap() const {
     return p_gap;
 }
 
-static inline uint32_t *forcecode(state &cs, any_value &v) {
-    auto *code = v.get_code();
-    if (!code) {
-        codegen_state gs(cs);
-        gs.code.reserve(64);
-        gs.gen_main(v.get_str());
-        gs.done();
-        uint32_t *cbuf = bcode_alloc(cs, gs.code.size());
-        memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(uint32_t));
-        v.set_code(reinterpret_cast<bcode *>(cbuf + 1));
-        code = v.get_code();
-    }
-    return code->get_raw();
-}
-
-static inline void forcecond(state &cs, any_value &v) {
-    switch (v.get_type()) {
-        case value_type::STRING:
-            if (!std::string_view{v.get_str()}.empty()) {
-                forcecode(cs, v);
-            } else {
-                v.set_int(0);
-            }
-            break;
-        default:
-            break;
-    }
-}
-
 static inline void force_arg(any_value &v, int type) {
     switch (type) {
         case BC_RET_STRING:
@@ -192,8 +163,13 @@ static inline void callcommand(
                     }
                     args[i].set_none();
                     fakeargs++;
-                } else {
-                    forcecond(cs, args[i]);
+                } else if (args[i].get_type() == value_type::STRING) {
+                    auto str = std::string_view{args[i].get_str()};
+                    if (str.empty()) {
+                        args[i].set_int(0);
+                    } else {
+                        args[i].force_code(cs);
+                    }
                 }
                 break;
             case 'e':
@@ -206,7 +182,7 @@ static inline void callcommand(
                     );
                     fakeargs++;
                 } else {
-                    forcecode(cs, args[i]);
+                    args[i].force_code(cs);
                 }
                 break;
             case 'r':
@@ -217,7 +193,7 @@ static inline void callcommand(
                     args[i].set_ident(cs.p_state->identmap[ID_IDX_DUMMY]);
                     fakeargs++;
                 } else {
-                    cs.force_ident(args[i]);
+                    args[i].force_ident(cs);
                 }
                 break;
             case '$':
@@ -1295,9 +1271,9 @@ noid:
                     case ID_LOCAL: {
                         valarray<ident_stack, MAX_ARGUMENTS> locals{cs};
                         for (size_t j = 0; j < size_t(callargs); ++j) {
-                            push_alias(cs, cs.force_ident(
-                                args[offset + j]
-                            ), locals[j]);
+                            push_alias(
+                                cs, args[offset + j].force_ident(cs), locals[j]
+                            );
                         }
                         call_with_cleanup([&]() {
                             code = runcode(cs, code, result);
