@@ -4,6 +4,7 @@
 #include <cubescript/cubescript.hh>
 
 #include <cstddef>
+#include <new>
 #include <utility>
 #include <type_traits>
 #include <string_view>
@@ -43,12 +44,12 @@ struct valarray {
 
     ~valarray() {
         for (std::size_t i = 0; i < N; ++i) {
-            reinterpret_cast<T *>(&stor[i])->~T();
+            std::launder(reinterpret_cast<T *>(&stor[i]))->~T();
         }
     }
 
     T &operator[](std::size_t i) {
-        return *reinterpret_cast<T *>(&stor[i]);
+        return *std::launder(reinterpret_cast<T *>(&stor[i]));
     }
 
     std::aligned_storage_t<sizeof(T), alignof(T)> stor[N];

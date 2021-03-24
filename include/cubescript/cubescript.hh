@@ -11,6 +11,7 @@
 #include <memory>
 #include <utility>
 #include <span>
+#include <new>
 
 #include "cubescript_conf.hh"
 
@@ -68,9 +69,9 @@ private:
         }
 
         virtual R operator()(A &&...args) {
-            return std::invoke(
-                *reinterpret_cast<F *>(&p_stor), std::forward<A>(args)...
-            );
+            return std::invoke(*std::launder(
+                reinterpret_cast<F *>(&p_stor)
+            ), std::forward<A>(args)...);
         }
 
     private:
@@ -114,7 +115,7 @@ private:
         }
         p_func->~base();
         if (!small_storage()) {
-            auto &ad = *reinterpret_cast<f_alloc *>(&p_stor);
+            auto &ad = *std::launder(reinterpret_cast<f_alloc *>(&p_stor));
             ad.af(ad.ud, p_func, ad.asize, 0);
         }
     }
@@ -145,7 +146,7 @@ public:
             auto *p = static_cast<void *>(&p_stor);
             p_func = ::new (p) store<F>{std::move(func)};
         } else {
-            auto &ad = *reinterpret_cast<f_alloc *>(&p_stor);
+            auto &ad = *std::launder(reinterpret_cast<f_alloc *>(&p_stor));
             ad.af = af;
             ad.ud = ud;
             ad.asize = sizeof(store<F>);
@@ -383,7 +384,9 @@ private:
     };
 
     internal_state *get_state() const {
-        return reinterpret_cast<stor_t<void *> const *>(&p_stor)->state;
+        return std::launder(
+            reinterpret_cast<stor_t<void *> const *>(&p_stor)
+        )->state;
     }
 
     std::aligned_union_t<1,
