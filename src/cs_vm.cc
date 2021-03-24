@@ -84,9 +84,9 @@ static inline void force_arg(any_value &v, int type) {
 
 static inline void callcommand(
     state &cs, command_impl *id, any_value *args, any_value &res,
-    int numargs, bool lookup = false
+    std::size_t nargs, bool lookup = false
 ) {
-    int i = -1, fakeargs = 0;
+    int i = -1, fakeargs = 0, numargs = int(nargs);
     bool rep = false;
     auto fmt = id->get_args();
     for (auto it = fmt.begin(); it != fmt.end(); ++it) {
@@ -238,20 +238,25 @@ static inline void callcommand(
     );
 }
 
-static uint32_t *runcode(state &cs, uint32_t *code, any_value &result);
+static std::uint32_t *runcode(
+    state &cs, std::uint32_t *code, any_value &result
+);
 
 static inline void call_alias(
     state &cs, alias *a, any_value *args, any_value &result,
-    int callargs, int &nargs, int offset, int skip, uint32_t op
+    std::size_t callargs, std::size_t &nargs,
+    std::size_t offset, std::size_t skip, std::uint32_t op
 ) {
-    integer_var *anargs = static_cast<integer_var *>(cs.p_state->identmap[ID_IDX_NUMARGS]);
+    integer_var *anargs = static_cast<integer_var *>(
+        cs.p_state->identmap[ID_IDX_NUMARGS]
+    );
     valarray<ident_stack, MAX_ARGUMENTS> argstack{cs};
-    for(int i = 0; i < callargs; i++) {
+    for(std::size_t i = 0; i < callargs; i++) {
         static_cast<alias_impl *>(cs.p_state->identmap[i])->push_arg(
             args[offset + i], argstack[i], false
         );
     }
-    int oldargs = anargs->get_value();
+    auto oldargs = anargs->get_value();
     anargs->set_value(callargs);
     int oldflags = cs.identflags;
     cs.identflags |= a->get_flags()&IDENT_FLAG_OVERRIDDEN;
@@ -259,7 +264,9 @@ static inline void call_alias(
         a, cs.p_tstate->callstack, (1<<callargs)-1, &argstack[0]
     };
     cs.p_tstate->callstack = &aliaslink;
-    uint32_t *codep = static_cast<alias_impl *>(a)->compile_code(cs)->get_raw();
+    std::uint32_t *codep = static_cast<
+        alias_impl *
+    >(a)->compile_code(cs)->get_raw();
     bcode_incr(codep);
     call_with_cleanup([&]() {
         runcode(cs, codep+1, result);
@@ -267,7 +274,7 @@ static inline void call_alias(
         bcode_decr(codep);
         cs.p_tstate->callstack = aliaslink.next;
         cs.identflags = oldflags;
-        for (int i = 0; i < callargs; i++) {
+        for (std::size_t i = 0; i < callargs; i++) {
             static_cast<alias_impl *>(cs.p_state->identmap[i])->pop_arg();
         }
         int argmask = aliaslink.usedargs & int(~0U << callargs);
@@ -280,7 +287,7 @@ static inline void call_alias(
             }
         }
         force_arg(result, op & BC_INST_RET_MASK);
-        anargs->set_value(oldargs);
+        anargs->set_value(integer_type(oldargs));
         nargs = offset - skip;
     });
 }
@@ -288,20 +295,20 @@ static inline void call_alias(
 static constexpr int MaxRunDepth = 255;
 static thread_local int rundepth = 0;
 
-struct RunDepthRef {
-    RunDepthRef() = delete;
-    RunDepthRef(state &cs) {
+struct run_depth_guard {
+    run_depth_guard() = delete;
+    run_depth_guard(state &cs) {
         if (rundepth >= MaxRunDepth) {
             throw error(cs, "exceeded recursion limit");
         }
         ++rundepth;
     }
-    RunDepthRef(RunDepthRef const &) = delete;
-    RunDepthRef(RunDepthRef &&) = delete;
-    ~RunDepthRef() { --rundepth; }
+    run_depth_guard(run_depth_guard const &) = delete;
+    run_depth_guard(run_depth_guard &&) = delete;
+    ~run_depth_guard() { --rundepth; }
 };
 
-static inline alias *get_lookup_id(state &cs, uint32_t op) {
+static inline alias *get_lookup_id(state &cs, std::uint32_t op) {
     ident *id = cs.p_state->identmap[op >> 8];
     if (id->get_flags() & IDENT_FLAG_UNKNOWN) {
         throw error(cs, "unknown alias lookup: %s", id->get_name().data());
@@ -309,7 +316,7 @@ static inline alias *get_lookup_id(state &cs, uint32_t op) {
     return static_cast<alias *>(id);
 }
 
-static inline alias *get_lookuparg_id(state &cs, uint32_t op) {
+static inline alias *get_lookuparg_id(state &cs, std::uint32_t op) {
     ident *id = cs.p_state->identmap[op >> 8];
     if (!ident_is_used_arg(id, cs)) {
         return nullptr;
@@ -318,7 +325,7 @@ static inline alias *get_lookuparg_id(state &cs, uint32_t op) {
 }
 
 static inline int get_lookupu_type(
-    state &cs, any_value &arg, ident *&id, uint32_t op
+    state &cs, any_value &arg, ident *&id, std::uint32_t op
 ) {
     if (arg.get_type() != value_type::STRING) {
         return -2; /* default case */
@@ -357,17 +364,36 @@ static inline int get_lookupu_type(
     throw error(cs, "unknown alias lookup: %s", arg.get_str().data());
 }
 
-static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
+struct stack_guard {
+    state *csp;
+    std::size_t oldtop;
+
+    stack_guard() = delete;
+    stack_guard(state &cs):
+        csp{&cs}, oldtop{cs.p_tstate->vmstack.size()}
+    {}
+
+    ~stack_guard() {
+        csp->p_tstate->vmstack.resize(oldtop, any_value{*csp});
+    }
+
+    stack_guard(stack_guard const &) = delete;
+    stack_guard(stack_guard &&) = delete;
+};
+
+static std::uint32_t *runcode(
+    state &cs, std::uint32_t *code, any_value &result
+) {
     result.set_none();
-    RunDepthRef level{cs}; /* incr and decr on scope exit */
-    int numargs = 0;
-    valarray<any_value, MAX_ARGUMENTS + MAX_RESULTS> args{cs};
+    run_depth_guard level{cs}; /* incr and decr on scope exit */
+    stack_guard guard{cs}; /* resize back to original */
+    auto &args = cs.p_tstate->vmstack;
     auto &chook = cs.get_call_hook();
     if (chook) {
         chook(cs);
     }
     for (;;) {
-        uint32_t op = *code++;
+        std::uint32_t op = *code++;
         switch (op & 0xFF) {
             case BC_INST_START:
             case BC_INST_OFFSET:
@@ -409,24 +435,24 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                 continue;
 
             case BC_INST_NOT | BC_RET_STRING:
-                --numargs;
-                result.set_str(args[numargs].get_bool() ? "0" : "1");
+                result.set_str(args.back().get_bool() ? "0" : "1");
+                args.pop_back();
                 continue;
             case BC_INST_NOT | BC_RET_NULL:
             case BC_INST_NOT | BC_RET_INT:
-                --numargs;
-                result.set_int(!args[numargs].get_bool());
+                result.set_int(!args.back().get_bool());
+                args.pop_back();
                 continue;
             case BC_INST_NOT | BC_RET_FLOAT:
-                --numargs;
-                result.set_float(float_type(!args[numargs].get_bool()));
+                result.set_float(float_type(!args.back().get_bool()));
+                args.pop_back();
                 continue;
 
             case BC_INST_POP:
-                numargs -= 1;
+                args.pop_back();
                 continue;
             case BC_INST_ENTER:
-                code = runcode(cs, code, args[numargs++]);
+                code = runcode(cs, code, args.emplace_back(cs));
                 continue;
             case BC_INST_ENTER_RESULT:
                 code = runcode(cs, code, result);
@@ -444,22 +470,23 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                 force_arg(result, op & BC_INST_RET_MASK);
             /* fallthrough */
             case BC_INST_RESULT_ARG | BC_RET_NULL:
-                args[numargs++] = std::move(result);
+                args.emplace_back(std::move(result));
                 continue;
             case BC_INST_PRINT:
                 cs.print_var(*static_cast<global_var *>(cs.p_state->identmap[op >> 8]));
                 continue;
 
             case BC_INST_LOCAL: {
-                int numlocals = op >> 8, offset = numargs - numlocals;
+                std::size_t numlocals = op >> 8;
+                std::size_t offset = args.size() - numlocals;
                 valarray<ident_stack, MAX_ARGUMENTS> locals{cs};
-                for (int i = 0; i < numlocals; ++i) {
+                for (std::size_t i = 0; i < numlocals; ++i) {
                     push_alias(cs, args[offset + i].get_ident(), locals[i]);
                 }
                 call_with_cleanup([&]() {
                     code = runcode(cs, code, result);
                 }, [&]() {
-                    for (int i = offset; i < numargs; i++) {
+                    for (std::size_t i = offset; i < args.size(); ++i) {
                         pop_alias(args[i].get_ident());
                     }
                 });
@@ -471,7 +498,9 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
             case BC_INST_DO_ARGS | BC_RET_INT:
             case BC_INST_DO_ARGS | BC_RET_FLOAT:
                 call_with_args(cs, [&]() {
-                    cs.run(args[--numargs].get_code(), result);
+                    auto v = std::move(args.back());
+                    args.pop_back();
+                    cs.run(v.get_code(), result);
                     force_arg(result, op & BC_INST_RET_MASK);
                 });
                 continue;
@@ -479,37 +508,43 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
             case BC_INST_DO | BC_RET_NULL:
             case BC_INST_DO | BC_RET_STRING:
             case BC_INST_DO | BC_RET_INT:
-            case BC_INST_DO | BC_RET_FLOAT:
-                cs.run(args[--numargs].get_code(), result);
+            case BC_INST_DO | BC_RET_FLOAT: {
+                auto v = std::move(args.back());
+                args.pop_back();
+                cs.run(v.get_code(), result);
                 force_arg(result, op & BC_INST_RET_MASK);
                 continue;
+            }
 
             case BC_INST_JUMP: {
-                uint32_t len = op >> 8;
+                std::uint32_t len = op >> 8;
                 code += len;
                 continue;
             }
             case BC_INST_JUMP_B | BC_INST_FLAG_TRUE: {
-                uint32_t len = op >> 8;
-                if (args[--numargs].get_bool()) {
+                std::uint32_t len = op >> 8;
+                if (args.back().get_bool()) {
                     code += len;
                 }
+                args.pop_back();
                 continue;
             }
             case BC_INST_JUMP_B | BC_INST_FLAG_FALSE: {
-                uint32_t len = op >> 8;
-                if (!args[--numargs].get_bool()) {
+                std::uint32_t len = op >> 8;
+                if (!args.back().get_bool()) {
                     code += len;
                 }
+                args.pop_back();
                 continue;
             }
             case BC_INST_JUMP_RESULT | BC_INST_FLAG_TRUE: {
-                uint32_t len = op >> 8;
-                --numargs;
-                if (args[numargs].get_type() == value_type::CODE) {
-                    cs.run(args[numargs].get_code(), result);
+                std::uint32_t len = op >> 8;
+                auto v = std::move(args.back());
+                args.pop_back();
+                if (v.get_type() == value_type::CODE) {
+                    cs.run(v.get_code(), result);
                 } else {
-                    result = std::move(args[numargs]);
+                    result = std::move(v);
                 }
                 if (result.get_bool()) {
                     code += len;
@@ -517,12 +552,13 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                 continue;
             }
             case BC_INST_JUMP_RESULT | BC_INST_FLAG_FALSE: {
-                uint32_t len = op >> 8;
-                --numargs;
-                if (args[numargs].get_type() == value_type::CODE) {
-                    cs.run(args[numargs].get_code(), result);
+                std::uint32_t len = op >> 8;
+                auto v = std::move(args.back());
+                args.pop_back();
+                if (v.get_type() == value_type::CODE) {
+                    cs.run(v.get_code(), result);
                 } else {
-                    result = std::move(args[numargs]);
+                    result = std::move(v);
                 }
                 if (!result.get_bool()) {
                     code += len;
@@ -545,11 +581,11 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                 break;
 
             case BC_INST_VAL | BC_RET_STRING: {
-                uint32_t len = op >> 8;
-                args[numargs++].set_str(std::string_view{
+                std::uint32_t len = op >> 8;
+                args.emplace_back(cs).set_str(std::string_view{
                     reinterpret_cast<char const *>(code), len
                 });
-                code += len / sizeof(uint32_t) + 1;
+                code += len / sizeof(std::uint32_t) + 1;
                 continue;
             }
             case BC_INST_VAL_INT | BC_RET_STRING: {
@@ -559,100 +595,109 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                     char((op >> 24) & 0xFF), '\0'
                 };
                 /* gotta cast or r.size() == potentially 3 */
-                args[numargs++].set_str(static_cast<char const *>(s));
+                args.emplace_back(cs).set_str(static_cast<char const *>(s));
                 continue;
             }
             case BC_INST_VAL | BC_RET_NULL:
             case BC_INST_VAL_INT | BC_RET_NULL:
-                args[numargs++].set_none();
+                args.emplace_back(cs).set_none();
                 continue;
             case BC_INST_VAL | BC_RET_INT:
-                args[numargs++].set_int(
+                args.emplace_back(cs).set_int(
                     *reinterpret_cast<integer_type const *>(code)
                 );
                 code += bc_store_size<integer_type>;
                 continue;
             case BC_INST_VAL_INT | BC_RET_INT:
-                args[numargs++].set_int(integer_type(op) >> 8);
+                args.emplace_back(cs).set_int(integer_type(op) >> 8);
                 continue;
             case BC_INST_VAL | BC_RET_FLOAT:
-                args[numargs++].set_float(
+                args.emplace_back(cs).set_float(
                     *reinterpret_cast<float_type const *>(code)
                 );
                 code += bc_store_size<float_type>;
                 continue;
             case BC_INST_VAL_INT | BC_RET_FLOAT:
-                args[numargs++].set_float(float_type(integer_type(op) >> 8));
+                args.emplace_back(cs).set_float(
+                    float_type(integer_type(op) >> 8)
+                );
                 continue;
 
-            case BC_INST_DUP | BC_RET_NULL:
-                args[numargs - 1].get_val(args[numargs]);
-                numargs++;
+            case BC_INST_DUP | BC_RET_NULL: {
+                auto &v = args.back();
+                v.get_val(args.emplace_back(cs));
                 continue;
-            case BC_INST_DUP | BC_RET_INT:
-                args[numargs].set_int(args[numargs - 1].get_int());
-                numargs++;
+            }
+            case BC_INST_DUP | BC_RET_INT: {
+                auto &v = args.back();
+                args.emplace_back(cs).set_int(v.get_int());
                 continue;
-            case BC_INST_DUP | BC_RET_FLOAT:
-                args[numargs].set_float(args[numargs - 1].get_float());
-                numargs++;
+            }
+            case BC_INST_DUP | BC_RET_FLOAT: {
+                auto &v = args.back();
+                args.emplace_back(cs).set_float(v.get_float());
                 continue;
-            case BC_INST_DUP | BC_RET_STRING:
-                args[numargs] = args[numargs - 1];
-                args[numargs].force_str();
-                numargs++;
+            }
+            case BC_INST_DUP | BC_RET_STRING: {
+                auto &v = args.back();
+                auto &nv = args.emplace_back(cs);
+                nv = v;
+                nv.force_str();
                 continue;
+            }
 
             case BC_INST_FORCE | BC_RET_STRING:
-                args[numargs - 1].force_str();
+                args.back().force_str();
                 continue;
             case BC_INST_FORCE | BC_RET_INT:
-                args[numargs - 1].force_int();
+                args.back().force_int();
                 continue;
             case BC_INST_FORCE | BC_RET_FLOAT:
-                args[numargs - 1].force_float();
+                args.back().force_float();
                 continue;
 
             case BC_INST_RESULT | BC_RET_NULL:
-                result = std::move(args[--numargs]);
+                result = std::move(args.back());
+                args.pop_back();
                 continue;
             case BC_INST_RESULT | BC_RET_STRING:
             case BC_INST_RESULT | BC_RET_INT:
             case BC_INST_RESULT | BC_RET_FLOAT:
-                result = std::move(args[--numargs]);
+                result = std::move(args.back());
+                args.pop_back();
                 force_arg(result, op & BC_INST_RET_MASK);
                 continue;
 
             case BC_INST_EMPTY | BC_RET_NULL:
-                args[numargs++].set_code(
+                args.emplace_back(cs).set_code(
                     bcode_get_empty(state_get_internal(cs)->empty, VAL_NULL)
                 );
                 break;
             case BC_INST_EMPTY | BC_RET_STRING:
-                args[numargs++].set_code(
+                args.emplace_back(cs).set_code(
                     bcode_get_empty(state_get_internal(cs)->empty, VAL_STRING)
                 );
                 break;
             case BC_INST_EMPTY | BC_RET_INT:
-                args[numargs++].set_code(
+                args.emplace_back(cs).set_code(
                     bcode_get_empty(state_get_internal(cs)->empty, VAL_INT)
                 );
                 break;
             case BC_INST_EMPTY | BC_RET_FLOAT:
-                args[numargs++].set_code(
+                args.emplace_back(cs).set_code(
                     bcode_get_empty(state_get_internal(cs)->empty, VAL_FLOAT)
                 );
                 break;
             case BC_INST_BLOCK: {
-                uint32_t len = op >> 8;
-                args[numargs++].set_code(
+                std::uint32_t len = op >> 8;
+                args.emplace_back(cs).set_code(
                     reinterpret_cast<bcode *>(code + 1)
                 );
                 code += len;
                 continue;
             }
             case BC_INST_COMPILE: {
-                any_value &arg = args[numargs - 1];
+                any_value &arg = args.back();
                 codegen_state gs(cs);
                 switch (arg.get_type()) {
                     case value_type::INT:
@@ -682,15 +727,18 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                         break;
                 }
                 gs.done();
-                uint32_t *cbuf = bcode_alloc(gs.cs, gs.code.size());
-                memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(uint32_t));
+                std::uint32_t *cbuf = bcode_alloc(gs.cs, gs.code.size());
+                std::memcpy(
+                    cbuf, gs.code.data(),
+                    gs.code.size() * sizeof(std::uint32_t)
+                );
                 arg.set_code(
                     reinterpret_cast<bcode *>(cbuf + 1)
                 );
                 continue;
             }
             case BC_INST_COND: {
-                any_value &arg = args[numargs - 1];
+                any_value &arg = args.back();
                 switch (arg.get_type()) {
                     case value_type::STRING: {
                         std::string_view s = arg.get_str();
@@ -699,10 +747,12 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                             gs.code.reserve(64);
                             gs.gen_main(s);
                             gs.done();
-                            uint32_t *cbuf = bcode_alloc(gs.cs, gs.code.size());
-                            memcpy(
+                            std::uint32_t *cbuf = bcode_alloc(
+                                gs.cs, gs.code.size()
+                            );
+                            std::memcpy(
                                 cbuf, gs.code.data(),
-                                gs.code.size() * sizeof(uint32_t)
+                                gs.code.size() * sizeof(std::uint32_t)
                             );
                             arg.set_code(reinterpret_cast<bcode *>(cbuf + 1));
                         } else {
@@ -717,7 +767,7 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
             }
 
             case BC_INST_IDENT:
-                args[numargs++].set_ident(cs.p_state->identmap[op >> 8]);
+                args.emplace_back(cs).set_ident(cs.p_state->identmap[op >> 8]);
                 continue;
             case BC_INST_IDENT_ARG: {
                 alias *a = static_cast<alias *>(
@@ -731,11 +781,11 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                     );
                     cs.p_tstate->callstack->usedargs |= 1 << a->get_index();
                 }
-                args[numargs++].set_ident(a);
+                args.emplace_back(cs).set_ident(a);
                 continue;
             }
             case BC_INST_IDENT_U: {
-                any_value &arg = args[numargs - 1];
+                any_value &arg = args.back();
                 ident *id = cs.p_state->identmap[ID_IDX_DUMMY];
                 if (arg.get_type() == value_type::STRING) {
                     id = cs.new_ident(arg.get_str());
@@ -754,7 +804,7 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
 
             case BC_INST_LOOKUP_U | BC_RET_STRING: {
                 ident *id = nullptr;
-                any_value &arg = args[numargs - 1];
+                any_value &arg = args.back();
                 switch (get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
                         arg = static_cast<alias *>(id)->get_value();
@@ -778,23 +828,26 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                         continue;
                 }
             }
-            case BC_INST_LOOKUP | BC_RET_STRING:
-                args[numargs] = get_lookup_id(cs, op)->get_value();
-                args[numargs++].force_str();
+            case BC_INST_LOOKUP | BC_RET_STRING: {
+                auto &v = args.emplace_back(cs);
+                v = get_lookup_id(cs, op)->get_value();
+                v.force_str();
                 continue;
+            }
             case BC_INST_LOOKUP_ARG | BC_RET_STRING: {
                 alias *a = get_lookuparg_id(cs, op);
                 if (!a) {
-                    args[numargs++].set_str("");
+                    args.emplace_back(cs).set_str("");
                 } else {
-                    args[numargs] = a->get_value();
-                    args[numargs++].force_str();
+                    auto &v = args.emplace_back(cs);
+                    v = a->get_value();
+                    v.force_str();
                 }
                 continue;
             }
             case BC_INST_LOOKUP_U | BC_RET_INT: {
                 ident *id = nullptr;
-                any_value &arg = args[numargs - 1];
+                any_value &arg = args.back();
                 switch (get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
                         arg.set_int(
@@ -822,22 +875,22 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                 }
             }
             case BC_INST_LOOKUP | BC_RET_INT:
-                args[numargs++].set_int(
+                args.emplace_back(cs).set_int(
                     get_lookup_id(cs, op)->get_value().get_int()
                 );
                 continue;
             case BC_INST_LOOKUP_ARG | BC_RET_INT: {
                 alias *a = get_lookuparg_id(cs, op);
                 if (!a) {
-                    args[numargs++].set_int(0);
+                    args.emplace_back(cs).set_int(0);
                 } else {
-                    args[numargs++].set_int(a->get_value().get_int());
+                    args.emplace_back(cs).set_int(a->get_value().get_int());
                 }
                 continue;
             }
             case BC_INST_LOOKUP_U | BC_RET_FLOAT: {
                 ident *id = nullptr;
-                any_value &arg = args[numargs - 1];
+                any_value &arg = args.back();
                 switch (get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
                         arg.set_float(
@@ -867,22 +920,22 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                 }
             }
             case BC_INST_LOOKUP | BC_RET_FLOAT:
-                args[numargs++].set_float(
+                args.emplace_back(cs).set_float(
                     get_lookup_id(cs, op)->get_value().get_float()
                 );
                 continue;
             case BC_INST_LOOKUP_ARG | BC_RET_FLOAT: {
                 alias *a = get_lookuparg_id(cs, op);
                 if (!a) {
-                    args[numargs++].set_float(float_type(0));
+                    args.emplace_back(cs).set_float(float_type(0));
                 } else {
-                    args[numargs++].set_float(a->get_value().get_float());
+                    args.emplace_back(cs).set_float(a->get_value().get_float());
                 }
                 continue;
             }
             case BC_INST_LOOKUP_U | BC_RET_NULL: {
                 ident *id = nullptr;
-                any_value &arg = args[numargs - 1];
+                any_value &arg = args.back();
                 switch (get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
                         static_cast<alias *>(id)->get_value().get_val(arg);
@@ -906,21 +959,23 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                 }
             }
             case BC_INST_LOOKUP | BC_RET_NULL:
-                get_lookup_id(cs, op)->get_value().get_val(args[numargs++]);
+                get_lookup_id(cs, op)->get_value().get_val(
+                    args.emplace_back(cs)
+                );
                 continue;
             case BC_INST_LOOKUP_ARG | BC_RET_NULL: {
                 alias *a = get_lookuparg_id(cs, op);
                 if (!a) {
-                    args[numargs++].set_none();
+                    args.emplace_back(cs).set_none();
                 } else {
-                    a->get_value().get_val(args[numargs++]);
+                    a->get_value().get_val(args.emplace_back(cs));
                 }
                 continue;
             }
 
             case BC_INST_LOOKUP_MU | BC_RET_STRING: {
                 ident *id = nullptr;
-                any_value &arg = args[numargs - 1];
+                any_value &arg = args.back();
                 switch (get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
                         arg = static_cast<alias *>(id)->get_value();
@@ -944,23 +999,26 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                         continue;
                 }
             }
-            case BC_INST_LOOKUP_M | BC_RET_STRING:
-                args[numargs] = get_lookup_id(cs, op)->get_value();
-                args[numargs++].force_str();
+            case BC_INST_LOOKUP_M | BC_RET_STRING: {
+                auto &v = args.emplace_back(cs);
+                v = get_lookup_id(cs, op)->get_value();
+                v.force_str();
                 continue;
+            }
             case BC_INST_LOOKUP_MARG | BC_RET_STRING: {
                 alias *a = get_lookuparg_id(cs, op);
                 if (!a) {
-                    args[numargs++].set_str("");
+                    args.emplace_back(cs).set_str("");
                 } else {
-                    args[numargs] = a->get_value();
-                    args[numargs++].force_str();
+                    auto &v = args.emplace_back(cs);
+                    v = a->get_value();
+                    v.force_str();
                 }
                 continue;
             }
             case BC_INST_LOOKUP_MU | BC_RET_NULL: {
                 ident *id = nullptr;
-                any_value &arg = args[numargs - 1];
+                any_value &arg = args.back();
                 switch (get_lookupu_type(cs, arg, id, op)) {
                     case ID_ALIAS:
                         static_cast<alias *>(id)->get_cval(arg);
@@ -982,104 +1040,126 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                 }
             }
             case BC_INST_LOOKUP_M | BC_RET_NULL:
-                get_lookup_id(cs, op)->get_cval(args[numargs++]);
+                get_lookup_id(cs, op)->get_cval(args.emplace_back(cs));
                 continue;
             case BC_INST_LOOKUP_MARG | BC_RET_NULL: {
                 alias *a = get_lookuparg_id(cs, op);
                 if (!a) {
-                    args[numargs++].set_none();
+                    args.emplace_back(cs).set_none();
                 } else {
-                    a->get_cval(args[numargs++]);
+                    a->get_cval(args.emplace_back(cs));
                 }
                 continue;
             }
 
             case BC_INST_SVAR | BC_RET_STRING:
             case BC_INST_SVAR | BC_RET_NULL:
-                args[numargs++].set_str(static_cast<string_var *>(
+                args.emplace_back(cs).set_str(static_cast<string_var *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value());
                 continue;
             case BC_INST_SVAR | BC_RET_INT:
-                args[numargs++].set_int(parse_int(static_cast<string_var *>(
-                    cs.p_state->identmap[op >> 8]
-                )->get_value()));
+                args.emplace_back(cs).set_int(parse_int(
+                    static_cast<string_var *>(
+                        cs.p_state->identmap[op >> 8]
+                    )->get_value()
+                 ));
                 continue;
             case BC_INST_SVAR | BC_RET_FLOAT:
-                args[numargs++].set_float(parse_float(static_cast<string_var *>(
-                    cs.p_state->identmap[op >> 8]
-                )->get_value()));
+                args.emplace_back(cs).set_float(parse_float(
+                    static_cast<string_var *>(
+                        cs.p_state->identmap[op >> 8]
+                    )->get_value()
+                ));
                 continue;
-            case BC_INST_SVAR1:
+            case BC_INST_SVAR1: {
+                auto v = std::move(args.back());
+                args.pop_back();
                 cs.set_var_str_checked(
                     static_cast<string_var *>(cs.p_state->identmap[op >> 8]),
-                    args[--numargs].get_str()
+                    v.get_str()
                 );
                 continue;
+            }
 
             case BC_INST_IVAR | BC_RET_INT:
             case BC_INST_IVAR | BC_RET_NULL:
-                args[numargs++].set_int(static_cast<integer_var *>(
+                args.emplace_back(cs).set_int(static_cast<integer_var *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value());
                 continue;
-            case BC_INST_IVAR | BC_RET_STRING:
-                args[numargs].set_int(static_cast<integer_var *>(
+            case BC_INST_IVAR | BC_RET_STRING: {
+                auto &v = args.emplace_back(cs);
+                v.set_int(static_cast<integer_var *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value());
-                args[numargs++].force_str();
+                v.force_str();
                 continue;
+            }
             case BC_INST_IVAR | BC_RET_FLOAT:
-                args[numargs++].set_float(float_type(static_cast<integer_var *>(
-                    cs.p_state->identmap[op >> 8]
-                )->get_value()));
+                args.emplace_back(cs).set_float(float_type(
+                    static_cast<integer_var *>(
+                        cs.p_state->identmap[op >> 8]
+                    )->get_value()
+                ));
                 continue;
-            case BC_INST_IVAR1:
+            case BC_INST_IVAR1: {
+                auto v = std::move(args.back());
+                args.pop_back();
                 cs.set_var_int_checked(
                     static_cast<integer_var *>(cs.p_state->identmap[op >> 8]),
-                    args[--numargs].get_int()
+                    v.get_int()
                 );
                 continue;
-            case BC_INST_IVAR2:
-                numargs -= 2;
+            }
+            case BC_INST_IVAR2: {
+                auto v1 = std::move(args.back()); args.pop_back();
+                auto v2 = std::move(args.back()); args.pop_back();
                 cs.set_var_int_checked(
                     static_cast<integer_var *>(cs.p_state->identmap[op >> 8]),
-                    (args[numargs].get_int() << 16)
-                        | (args[numargs + 1].get_int() << 8)
+                    (v2.get_int() << 16) | (v1.get_int() << 8)
                 );
                 continue;
-            case BC_INST_IVAR3:
-                numargs -= 3;
+            }
+            case BC_INST_IVAR3: {
+                auto v1 = std::move(args.back()); args.pop_back();
+                auto v2 = std::move(args.back()); args.pop_back();
+                auto v3 = std::move(args.back()); args.pop_back();
                 cs.set_var_int_checked(
                     static_cast<integer_var *>(cs.p_state->identmap[op >> 8]),
-                    (args[numargs].get_int() << 16)
-                        | (args[numargs + 1].get_int() << 8)
-                        | (args[numargs + 2].get_int()));
+                    (v3.get_int() << 16) | (v2.get_int() << 8) | (v1.get_int())
+                );
                 continue;
+            }
 
             case BC_INST_FVAR | BC_RET_FLOAT:
             case BC_INST_FVAR | BC_RET_NULL:
-                args[numargs++].set_float(static_cast<float_var *>(
+                args.emplace_back(cs).set_float(static_cast<float_var *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value());
                 continue;
-            case BC_INST_FVAR | BC_RET_STRING:
-                args[numargs].set_int(static_cast<float_var *>(
+            case BC_INST_FVAR | BC_RET_STRING: {
+                auto &v = args.emplace_back(cs);
+                v.set_int(static_cast<float_var *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value());
-                args[numargs++].force_str();
+                v.force_str();
                 continue;
+            }
             case BC_INST_FVAR | BC_RET_INT:
-                args[numargs++].set_int(int(static_cast<float_var *>(
+                args.emplace_back(cs).set_int(int(static_cast<float_var *>(
                     cs.p_state->identmap[op >> 8]
                 )->get_value()));
                 continue;
-            case BC_INST_FVAR1:
+            case BC_INST_FVAR1: {
+                auto &v = args.back();
                 cs.set_var_float_checked(
                     static_cast<float_var *>(cs.p_state->identmap[op >> 8]),
-                    args[--numargs].get_float()
+                    v.get_float()
                 );
+                args.pop_back();
                 continue;
+            }
 
             case BC_INST_COM | BC_RET_NULL:
             case BC_INST_COM | BC_RET_STRING:
@@ -1088,13 +1168,13 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                 command_impl *id = static_cast<command_impl *>(
                     cs.p_state->identmap[op >> 8]
                 );
-                int offset = numargs - id->get_num_args();
+                std::size_t offset = args.size() - id->get_num_args();
                 result.force_none();
                 id->call(cs, std::span<any_value>{
-                    &args[0] + offset, std::size_t(id->get_num_args())
+                    &args[offset], std::size_t(id->get_num_args())
                 }, result);
                 force_arg(result, op & BC_INST_RET_MASK);
-                numargs = offset;
+                args.resize(offset, any_value{cs});
                 continue;
             }
 
@@ -1105,12 +1185,12 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                 command_impl *id = static_cast<command_impl *>(
                     cs.p_state->identmap[op >> 13]
                 );
-                std::size_t callargs = (op >> 8) & 0x1F,
-                            offset = numargs - callargs;
+                std::size_t callargs = (op >> 8) & 0x1F;
+                std::size_t offset = args.size() - callargs;
                 result.force_none();
                 id->call(cs, std::span{&args[offset], callargs}, result);
                 force_arg(result, op & BC_INST_RET_MASK);
-                numargs = offset;
+                args.resize(offset, any_value{cs});
                 continue;
             }
             case BC_INST_COM_C | BC_RET_NULL:
@@ -1121,7 +1201,7 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                     cs.p_state->identmap[op >> 13]
                 );
                 std::size_t callargs = (op >> 8) & 0x1F,
-                            offset = numargs - callargs;
+                            offset = args.size() - callargs;
                 result.force_none();
                 {
                     any_value tv{cs};
@@ -1131,7 +1211,7 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                     id->call(cs, std::span<any_value>{&tv, 1}, result);
                 }
                 force_arg(result, op & BC_INST_RET_MASK);
-                numargs = offset;
+                args.resize(offset, any_value{cs});
                 continue;
             }
 
@@ -1145,13 +1225,11 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
             case BC_INST_CONC_W | BC_RET_INT: {
                 std::size_t numconc = op >> 8;
                 auto buf = concat_values(
-                    cs, std::span{&args[numargs - numconc], numconc},
+                    cs, std::span{&args[args.size() - numconc], numconc},
                     ((op & BC_INST_OP_MASK) == BC_INST_CONC) ? " " : ""
                 );
-                numargs = numargs - numconc;
-                args[numargs].set_str(buf);
-                force_arg(args[numargs], op & BC_INST_RET_MASK);
-                numargs++;
+                args.resize(args.size() - numconc, any_value{cs});
+                force_arg(args.emplace_back(cs), op & BC_INST_RET_MASK);
                 continue;
             }
 
@@ -1161,9 +1239,9 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
             case BC_INST_CONC_M | BC_RET_INT: {
                 std::size_t numconc = op >> 8;
                 auto buf = concat_values(
-                    cs, std::span{&args[numargs - numconc], numconc}
+                    cs, std::span{&args[args.size() - numconc], numconc}
                 );
-                numargs = numargs - numconc;
+                args.resize(args.size() - numconc, any_value{cs});
                 result.set_str(buf);
                 force_arg(result, op & BC_INST_RET_MASK);
                 continue;
@@ -1172,19 +1250,22 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
             case BC_INST_ALIAS:
                 static_cast<alias_impl *>(
                     cs.p_state->identmap[op >> 8]
-                )->set_alias(cs, args[--numargs]);
+                )->set_alias(cs, args.back());
+                args.pop_back();
                 continue;
             case BC_INST_ALIAS_ARG:
                 static_cast<alias_impl *>(
                     cs.p_state->identmap[op >> 8]
-                )->set_arg(cs, args[--numargs]);
+                )->set_arg(cs, args.back());
+                args.pop_back();
                 continue;
-            case BC_INST_ALIAS_U:
-                numargs -= 2;
-                cs.set_alias(
-                    args[numargs].get_str(), std::move(args[numargs + 1])
-                );
+            case BC_INST_ALIAS_U: {
+                auto v = std::move(args.back());
+                args.pop_back();
+                cs.set_alias(args.back().get_str(), std::move(v));
+                args.pop_back();
                 continue;
+            }
 
             case BC_INST_CALL | BC_RET_NULL:
             case BC_INST_CALL | BC_RET_STRING:
@@ -1192,7 +1273,9 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
             case BC_INST_CALL | BC_RET_INT: {
                 result.force_none();
                 ident *id = cs.p_state->identmap[op >> 13];
-                int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
+                std::size_t callargs = (op >> 8) & 0x1F;
+                std::size_t nnargs = args.size();
+                std::size_t offset = nnargs - callargs;
                 if (id->get_flags() & IDENT_FLAG_UNKNOWN) {
                     force_arg(result, op & BC_INST_RET_MASK);
                     throw error(
@@ -1201,8 +1284,9 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                 }
                 call_alias(
                     cs, static_cast<alias *>(id), &args[0], result, callargs,
-                    numargs, offset, 0, op
+                    nnargs, offset, 0, op
                 );
+                args.resize(nnargs, any_value{cs});
                 continue;
             }
             case BC_INST_CALL_ARG | BC_RET_NULL:
@@ -1211,16 +1295,19 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
             case BC_INST_CALL_ARG | BC_RET_INT: {
                 result.force_none();
                 ident *id = cs.p_state->identmap[op >> 13];
-                int callargs = (op >> 8) & 0x1F, offset = numargs - callargs;
+                std::size_t callargs = (op >> 8) & 0x1F;
+                std::size_t nnargs = args.size();
+                std::size_t offset = nnargs - callargs;
                 if (!ident_is_used_arg(id, cs)) {
-                    numargs = offset;
+                    args.resize(offset, any_value{cs});
                     force_arg(result, op & BC_INST_RET_MASK);
                     continue;
                 }
                 call_alias(
                     cs, static_cast<alias *>(id), &args[0], result, callargs,
-                    numargs, offset, 0, op
+                    nnargs, offset, 0, op
                 );
+                args.resize(nnargs, any_value{cs});
                 continue;
             }
 
@@ -1228,13 +1315,15 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
             case BC_INST_CALL_U | BC_RET_STRING:
             case BC_INST_CALL_U | BC_RET_FLOAT:
             case BC_INST_CALL_U | BC_RET_INT: {
-                int callargs = op >> 8, offset = numargs - callargs;
+                std::size_t callargs = op >> 8;
+                std::size_t nnargs = args.size();
+                std::size_t offset = nnargs - callargs;
                 any_value &idarg = args[offset - 1];
                 if (idarg.get_type() != value_type::STRING) {
 litval:
                     result = std::move(idarg);
                     force_arg(result, op & BC_INST_RET_MASK);
-                    numargs = offset - 1;
+                    args.resize(offset - 1, any_value{cs});
                     continue;
                 }
                 auto idn = idarg.get_str();
@@ -1255,7 +1344,7 @@ noid:
                 switch (id->get_raw_type()) {
                     default:
                         if (!ident_has_cb(id)) {
-                            numargs = offset - 1;
+                            args.resize(offset - 1, any_value{cs});
                             force_arg(result, op & BC_INST_RET_MASK);
                             continue;
                         }
@@ -1266,7 +1355,7 @@ noid:
                             &args[offset], result, callargs
                         );
                         force_arg(result, op & BC_INST_RET_MASK);
-                        numargs = offset - 1;
+                        args.resize(offset - 1, any_value{cs});
                         continue;
                     case ID_LOCAL: {
                         valarray<ident_stack, MAX_ARGUMENTS> locals{cs};
@@ -1293,7 +1382,7 @@ noid:
                                 std::span{&args[offset], std::size_t(callargs)}
                             );
                         }
-                        numargs = offset - 1;
+                        args.resize(offset - 1, any_value{cs});
                         force_arg(result, op & BC_INST_RET_MASK);
                         continue;
                     case ID_FVAR:
@@ -1305,7 +1394,7 @@ noid:
                                 args[offset].force_float()
                             );
                         }
-                        numargs = offset - 1;
+                        args.resize(offset - 1, any_value{cs});
                         force_arg(result, op & BC_INST_RET_MASK);
                         continue;
                     case ID_SVAR:
@@ -1317,7 +1406,7 @@ noid:
                                 args[offset].force_str()
                             );
                         }
-                        numargs = offset - 1;
+                        args.resize(offset - 1, any_value{cs});
                         force_arg(result, op & BC_INST_RET_MASK);
                         continue;
                     case ID_ALIAS: {
@@ -1326,7 +1415,7 @@ noid:
                             (a->get_index() < MAX_ARGUMENTS) &&
                             !ident_is_used_arg(a, cs)
                         ) {
-                            numargs = offset - 1;
+                            args.resize(offset - 1, any_value{cs});
                             force_arg(result, op & BC_INST_RET_MASK);
                             continue;
                         }
@@ -1334,9 +1423,10 @@ noid:
                             goto noid;
                         }
                         call_alias(
-                            cs, a, &args[0], result, callargs, numargs,
+                            cs, a, &args[0], result, callargs, nnargs,
                             offset, 1, op
                         );
+                        args.resize(nnargs, any_value{cs});
                         continue;
                     }
                 }
@@ -1347,7 +1437,7 @@ noid:
 }
 
 void state::run(bcode *code, any_value &ret) {
-    runcode(*this, reinterpret_cast<uint32_t *>(code), ret);
+    runcode(*this, reinterpret_cast<std::uint32_t *>(code), ret);
 }
 
 static void do_run(
@@ -1359,11 +1449,14 @@ static void do_run(
     gs.code.reserve(64);
     gs.gen_main(code, VAL_ANY);
     gs.done();
-    uint32_t *cbuf = bcode_alloc(gs.cs, gs.code.size());
-    memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(uint32_t));
+    std::uint32_t *cbuf = bcode_alloc(gs.cs, gs.code.size());
+    std::memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(std::uint32_t));
     bcode_incr(cbuf);
-    runcode(cs, cbuf + 1, ret);
-    bcode_decr(cbuf);
+    call_with_cleanup([&cs, cbuf, &ret]() {
+        runcode(cs, cbuf + 1, ret);
+    }, [cbuf]() {
+        bcode_decr(cbuf);
+    });
 }
 
 void state::run(std::string_view code, any_value &ret) {
@@ -1377,9 +1470,9 @@ void state::run(
 }
 
 void state::run(ident *id, std::span<any_value> args, any_value &ret) {
-    int nargs = int(args.size());
+    std::size_t nargs = args.size();
     ret.set_none();
-    RunDepthRef level{*this}; /* incr and decr on scope exit */
+    run_depth_guard level{*this}; /* incr and decr on scope exit */
     if (id) {
         switch (id->get_type()) {
             default:
@@ -1388,7 +1481,9 @@ void state::run(ident *id, std::span<any_value> args, any_value &ret) {
                 }
             /* fallthrough */
             case ident_type::COMMAND:
-                if (nargs < static_cast<command_impl *>(id)->get_num_args()) {
+                if (nargs < std::size_t(
+                    static_cast<command_impl *>(id)->get_num_args()
+                )) {
                     valarray<any_value, MAX_ARGUMENTS> buf{*this};
                     for (std::size_t i = 0; i < args.size(); ++i) {
                         buf[i] = args[i];

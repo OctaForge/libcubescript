@@ -17,6 +17,8 @@ struct thread_state {
     ident_link *callstack{};
     /* current codegen state for diagnostics */
     codegen_state *cstate{};
+    /* value stack for VM */
+    valbuf<any_value> vmstack;
     /* per-thread storage buffer for error messages */
     charbuf errbuf;
     /* we can attach a hook to vm events */
@@ -24,15 +26,9 @@ struct thread_state {
     /* loop nesting level */
     int loop_level = 0;
 
-    thread_state(internal_state *cs):
-        errbuf{cs}
-    {}
+    thread_state(internal_state *cs);
 
-    hook_func set_hook(hook_func f) {
-        auto hk = std::move(call_hook);
-        call_hook = std::move(f);
-        return hk;
-    }
+    hook_func set_hook(hook_func f);
 
     hook_func &get_hook() { return call_hook; }
     hook_func const &get_hook() const { return call_hook; }

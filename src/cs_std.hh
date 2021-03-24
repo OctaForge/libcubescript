@@ -15,19 +15,16 @@ namespace cubescript {
 
 /* run func, call the second one after finishing */
 
-template<typename F>
-struct CsScopeExit {
-    template<typename FF>
-    CsScopeExit(FF &&f): func(std::forward<FF>(f)) {}
-    ~CsScopeExit() {
-        func();
-    }
-    std::decay_t<F> func;
-};
-
 template<typename F1, typename F2>
 inline void call_with_cleanup(F1 &&dof, F2 &&clf) {
-    CsScopeExit<F2> cleanup(std::forward<F2>(clf));
+    struct scope_exit {
+        scope_exit(std::decay_t<F2> &f): func(&f) {}
+        ~scope_exit() {
+            (*func)();
+        }
+        std::decay_t<F2> *func;
+    };
+    scope_exit cleanup(clf);
     dof();
 }
 
@@ -72,8 +69,17 @@ struct valbuf {
     void reserve(std::size_t s) { buf.reserve(s); }
     void resize(std::size_t s) { buf.resize(s); }
 
+    void resize(std::size_t s, value_type const &v) {
+        buf.resize(s, v);
+    }
+
     void append(T const *beg, T const *end) {
         buf.insert(buf.end(), beg, end);
+    }
+
+    template<typename ...A>
+    reference emplace_back(A &&...args) {
+        return buf.emplace_back(std::forward<A>(args)...);
     }
 
     void push_back(T const &v) { buf.push_back(v); }
