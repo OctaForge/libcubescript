@@ -3,7 +3,8 @@
 #include "cs_bcode.hh"
 #include "cs_state.hh"
 #include "cs_strman.hh"
-#include "cs_vm.hh" // FIXME, only Max Arguments
+#include "cs_gen.hh" // FIXME, only MAX_ARGUMENTS
+#include "cs_vm.hh" // break/continue, call_with_args
 #include "cs_parser.hh"
 
 namespace cubescript {
@@ -66,24 +67,24 @@ state::state(alloc_func func, void *data):
     /* will be used as message storage for errors */
     p_errbuf = p_state->create<charbuf>(*this);
 
-    for (int i = 0; i < MaxArguments; ++i) {
+    for (int i = 0; i < MAX_ARGUMENTS; ++i) {
         char buf[32];
         snprintf(buf, sizeof(buf), "arg%d", i + 1);
         new_ident(static_cast<char const *>(buf), IDENT_FLAG_ARG);
     }
 
     ident *id = new_ident("//dummy");
-    if (id->get_index() != DummyIdx) {
+    if (id->get_index() != ID_IDX_DUMMY) {
         throw internal_error{"invalid dummy index"};
     }
 
-    id = new_ivar("numargs", MaxArguments, 0, 0);
-    if (id->get_index() != NumargsIdx) {
+    id = new_ivar("numargs", MAX_ARGUMENTS, 0, 0);
+    if (id->get_index() != ID_IDX_NUMARGS) {
         throw internal_error{"invalid numargs index"};
     }
 
     id = new_ivar("dbgalias", 0, 1000, 4);
-    if (id->get_index() != DbgaliasIdx) {
+    if (id->get_index() != ID_IDX_DBGALIAS) {
         throw internal_error{"invalid dbgalias index"};
     }
 
@@ -157,7 +158,7 @@ state::state(alloc_func func, void *data):
 
     p = new_command("break", "", [](auto &cs, auto, auto &) {
         if (cs.is_in_loop()) {
-            throw CsBreakException{};
+            throw break_exception{};
         } else {
             throw error{cs, "no loop to break"};
         }
@@ -166,7 +167,7 @@ state::state(alloc_func func, void *data):
 
     p = new_command("continue", "", [](auto &cs, auto, auto &) {
         if (cs.is_in_loop()) {
-            throw CsContinueException{};
+            throw continue_exception{};
         } else {
             throw error{cs, "no loop to continue"};
         }
@@ -284,8 +285,8 @@ LIBCUBESCRIPT_EXPORT ident *state::force_ident(any_value &v) {
         default:
             break;
     }
-    v.set_ident(p_state->identmap[DummyIdx]);
-    return p_state->identmap[DummyIdx];
+    v.set_ident(p_state->identmap[ID_IDX_DUMMY]);
+    return p_state->identmap[ID_IDX_DUMMY];
 }
 
 LIBCUBESCRIPT_EXPORT ident *state::get_ident(std::string_view name) {
@@ -379,7 +380,7 @@ LIBCUBESCRIPT_EXPORT void state::set_alias(
         switch (id->get_type()) {
             case ident_type::ALIAS: {
                 alias_impl *a = static_cast<alias_impl *>(id);
-                if (a->get_index() < MaxArguments) {
+                if (a->get_index() < MAX_ARGUMENTS) {
                     a->set_arg(*this, v);
                 } else {
                     a->set_alias(*this, v);
@@ -429,7 +430,7 @@ LIBCUBESCRIPT_EXPORT command *state::new_command(
             case 'e':
             case 'r':
             case '$':
-                if (nargs < MaxArguments) {
+                if (nargs < MAX_ARGUMENTS) {
                     ++nargs;
                 }
                 break;
@@ -446,7 +447,7 @@ LIBCUBESCRIPT_EXPORT command *state::new_command(
                 if ((fmt[1] != 'C') && (fmt[1] != 'V')) {
                     return nullptr;
                 }
-                if (nargs < MaxArguments) {
+                if (nargs < MAX_ARGUMENTS) {
                     fmt -= *fmt - '0' + 1;
                 }
                 break;
@@ -660,7 +661,7 @@ state::get_alias_val(std::string_view name) {
     if (!a) {
         return std::nullopt;
     }
-    if ((a->get_index() < MaxArguments) && !ident_is_used_arg(a, *this)) {
+    if ((a->get_index() < MAX_ARGUMENTS) && !ident_is_used_arg(a, *this)) {
         return std::nullopt;
     }
     return a->get_value().get_str();

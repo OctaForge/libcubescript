@@ -1,6 +1,6 @@
 #include <cubescript/cubescript.hh>
 
-#include "cs_vm.hh"
+#include "cs_gen.hh"
 
 namespace cubescript {
 
@@ -44,7 +44,7 @@ LIBCUBESCRIPT_EXPORT char *error::request_buf(
 }
 
 LIBCUBESCRIPT_EXPORT stack_state error::save_stack(state &cs) {
-    integer_var *dalias = static_cast<integer_var *>(cs.p_state->identmap[DbgaliasIdx]);
+    integer_var *dalias = static_cast<integer_var *>(cs.p_state->identmap[ID_IDX_DBGALIAS]);
     if (!dalias->get_value()) {
         return stack_state(cs, nullptr, !!cs.p_callstack);
     }

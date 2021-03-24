@@ -16,14 +16,14 @@ static inline bool ident_has_cb(ident *id) {
 }
 
 static inline void push_alias(state &cs, ident *id, ident_stack &st) {
-    if (id->is_alias() && (id->get_index() >= MaxArguments)) {
+    if (id->is_alias() && (id->get_index() >= MAX_ARGUMENTS)) {
         any_value nv{cs};
         static_cast<alias_impl *>(id)->push_arg(nv, st);
     }
 }
 
 static inline void pop_alias(ident *id) {
-    if (id->is_alias() && (id->get_index() >= MaxArguments)) {
+    if (id->is_alias() && (id->get_index() >= MAX_ARGUMENTS)) {
         static_cast<alias_impl *>(id)->pop_arg();
     }
 }
@@ -214,7 +214,7 @@ static inline void callcommand(
                     if (rep) {
                         break;
                     }
-                    args[i].set_ident(cs.p_state->identmap[DummyIdx]);
+                    args[i].set_ident(cs.p_state->identmap[ID_IDX_DUMMY]);
                     fakeargs++;
                 } else {
                     cs.force_ident(args[i]);
@@ -268,8 +268,8 @@ static inline void call_alias(
     state &cs, alias *a, any_value *args, any_value &result,
     int callargs, int &nargs, int offset, int skip, uint32_t op
 ) {
-    integer_var *anargs = static_cast<integer_var *>(cs.p_state->identmap[NumargsIdx]);
-    valarray<ident_stack, MaxArguments> argstack{cs};
+    integer_var *anargs = static_cast<integer_var *>(cs.p_state->identmap[ID_IDX_NUMARGS]);
+    valarray<ident_stack, MAX_ARGUMENTS> argstack{cs};
     for(int i = 0; i < callargs; i++) {
         static_cast<alias_impl *>(cs.p_state->identmap[i])->push_arg(
             args[offset + i], argstack[i], false
@@ -354,7 +354,7 @@ static inline int get_lookupu_type(
                 if (id->get_flags() & IDENT_FLAG_UNKNOWN) {
                     break;
                 }
-                if ((id->get_index() < MaxArguments) && !ident_is_used_arg(id, cs)) {
+                if ((id->get_index() < MAX_ARGUMENTS) && !ident_is_used_arg(id, cs)) {
                     return ID_UNKNOWN;
                 }
                 return ID_ALIAS;
@@ -366,7 +366,7 @@ static inline int get_lookupu_type(
                 return ID_FVAR;
             case ident_type::COMMAND: {
                 arg.set_none();
-                valarray<any_value, MaxArguments> buf{cs};
+                valarray<any_value, MAX_ARGUMENTS> buf{cs};
                 callcommand(
                     cs, static_cast<command_impl *>(id),
                     &buf[0], arg, 0, true
@@ -385,7 +385,7 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
     result.set_none();
     RunDepthRef level{cs}; /* incr and decr on scope exit */
     int numargs = 0;
-    valarray<any_value, MaxArguments + MaxResults> args{cs};
+    valarray<any_value, MAX_ARGUMENTS + MAX_RESULTS> args{cs};
     auto &chook = cs.get_call_hook();
     if (chook) {
         chook(cs);
@@ -476,7 +476,7 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
 
             case BC_INST_LOCAL: {
                 int numlocals = op >> 8, offset = numargs - numlocals;
-                valarray<ident_stack, MaxArguments> locals{cs};
+                valarray<ident_stack, MAX_ARGUMENTS> locals{cs};
                 for (int i = 0; i < numlocals; ++i) {
                     push_alias(cs, args[offset + i].get_ident(), locals[i]);
                 }
@@ -555,14 +555,14 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
             }
             case BC_INST_BREAK | BC_INST_FLAG_FALSE:
                 if (cs.is_in_loop()) {
-                    throw CsBreakException();
+                    throw break_exception();
                 } else {
                     throw error(cs, "no loop to break");
                 }
                 break;
             case BC_INST_BREAK | BC_INST_FLAG_TRUE:
                 if (cs.is_in_loop()) {
-                    throw CsContinueException();
+                    throw continue_exception();
                 } else {
                     throw error(cs, "no loop to continue");
                 }
@@ -594,7 +594,7 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                 args[numargs++].set_int(
                     *reinterpret_cast<integer_type const *>(code)
                 );
-                code += CsTypeStorageSize<integer_type>;
+                code += bc_store_size<integer_type>;
                 continue;
             case BC_INST_VAL_INT | BC_RET_INT:
                 args[numargs++].set_int(integer_type(op) >> 8);
@@ -603,7 +603,7 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                 args[numargs++].set_float(
                     *reinterpret_cast<float_type const *>(code)
                 );
-                code += CsTypeStorageSize<float_type>;
+                code += bc_store_size<float_type>;
                 continue;
             case BC_INST_VAL_INT | BC_RET_FLOAT:
                 args[numargs++].set_float(float_type(integer_type(op) >> 8));
@@ -759,11 +759,11 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
             }
             case BC_INST_IDENT_U: {
                 any_value &arg = args[numargs - 1];
-                ident *id = cs.p_state->identmap[DummyIdx];
+                ident *id = cs.p_state->identmap[ID_IDX_DUMMY];
                 if (arg.get_type() == value_type::STRING) {
                     id = cs.new_ident(arg.get_str());
                 }
-                if ((id->get_index() < MaxArguments) && !ident_is_used_arg(id, cs)) {
+                if ((id->get_index() < MAX_ARGUMENTS) && !ident_is_used_arg(id, cs)) {
                     any_value nv{cs};
                     static_cast<alias_impl *>(id)->push_arg(
                         nv, cs.p_callstack->argstack[id->get_index()], false
@@ -1291,7 +1291,7 @@ noid:
                         numargs = offset - 1;
                         continue;
                     case ID_LOCAL: {
-                        valarray<ident_stack, MaxArguments> locals{cs};
+                        valarray<ident_stack, MAX_ARGUMENTS> locals{cs};
                         for (size_t j = 0; j < size_t(callargs); ++j) {
                             push_alias(cs, cs.force_ident(
                                 args[offset + j]
@@ -1345,7 +1345,7 @@ noid:
                     case ID_ALIAS: {
                         alias *a = static_cast<alias *>(id);
                         if (
-                            (a->get_index() < MaxArguments) &&
+                            (a->get_index() < MAX_ARGUMENTS) &&
                             !ident_is_used_arg(a, cs)
                         ) {
                             numargs = offset - 1;
@@ -1411,7 +1411,7 @@ void state::run(ident *id, std::span<any_value> args, any_value &ret) {
             /* fallthrough */
             case ident_type::COMMAND:
                 if (nargs < static_cast<command_impl *>(id)->get_num_args()) {
-                    valarray<any_value, MaxArguments> buf{*this};
+                    valarray<any_value, MAX_ARGUMENTS> buf{*this};
                     for (std::size_t i = 0; i < args.size(); ++i) {
                         buf[i] = args[i];
                     }
@@ -1455,7 +1455,7 @@ void state::run(ident *id, std::span<any_value> args, any_value &ret) {
             case ident_type::ALIAS: {
                 alias *a = static_cast<alias *>(id);
                 if (
-                    (a->get_index() < MaxArguments) && !ident_is_used_arg(a, *this)
+                    (a->get_index() < MAX_ARGUMENTS) && !ident_is_used_arg(a, *this)
                 ) {
                     break;
                 }
@@ -1499,10 +1499,10 @@ loop_state state::run_loop(bcode *code, any_value &ret) {
     ++p_inloop;
     try {
         run(code, ret);
-    } catch (CsBreakException) {
+    } catch (break_exception) {
         --p_inloop;
         return loop_state::BREAK;
-    } catch (CsContinueException) {
+    } catch (continue_exception) {
         --p_inloop;
         return loop_state::CONTINUE;
     } catch (...) {

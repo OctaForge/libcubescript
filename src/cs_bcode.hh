@@ -26,6 +26,11 @@ enum {
     VAL_POP, VAL_COND
 };
 
+template<typename T>
+constexpr std::size_t bc_store_size = (
+    sizeof(T) - 1
+) / sizeof(std::uint32_t) + 1;
+
 /* instruction: uint32 [length 24][retflag 2][opcode 6] */
 enum {
     BC_INST_START = 0,

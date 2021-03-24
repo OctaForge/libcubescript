@@ -1,5 +1,5 @@
 #include <cubescript/cubescript.hh>
-#include "cs_vm.hh"
+#include "cs_gen.hh"
 #include "cs_std.hh"
 #include "cs_parser.hh"
 

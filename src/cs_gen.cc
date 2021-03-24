@@ -1,5 +1,5 @@
 #include <cubescript/cubescript.hh>
-#include "cs_vm.hh"
+#include "cs_gen.hh"
 #include "cs_std.hh"
 #include "cs_parser.hh"
 
@@ -213,11 +213,11 @@ static inline void compileunescapestr(codegen_state &gs) {
 }
 
 static bool compilearg(
-    codegen_state &gs, int wordtype, int prevargs = MaxResults,
+    codegen_state &gs, int wordtype, int prevargs = MAX_RESULTS,
     charbuf *word = nullptr
 );
 
-static void compilelookup(codegen_state &gs, int ltype, int prevargs = MaxResults) {
+static void compilelookup(codegen_state &gs, int ltype, int prevargs = MAX_RESULTS) {
     charbuf lookup{gs.cs};
     gs.next_char();
     switch (gs.current()) {
@@ -294,7 +294,7 @@ lookupid:
                                 return;
                             case VAL_COND:
                                 gs.code.push_back(
-                                    (id->get_index() < MaxArguments
+                                    (id->get_index() < MAX_ARGUMENTS
                                         ? BC_INST_LOOKUP_MARG
                                         : BC_INST_LOOKUP_M
                                     ) | (id->get_index() << 8)
@@ -303,7 +303,7 @@ lookupid:
                             case VAL_CODE:
                             case VAL_IDENT:
                                 gs.code.push_back(
-                                    (id->get_index() < MaxArguments
+                                    (id->get_index() < MAX_ARGUMENTS
                                         ? BC_INST_LOOKUP_MARG
                                         : BC_INST_LOOKUP_M
                                     ) | BC_RET_STRING | (id->get_index() << 8)
@@ -311,7 +311,7 @@ lookupid:
                                 break;
                             default:
                                 gs.code.push_back(
-                                    (id->get_index() < MaxArguments
+                                    (id->get_index() < MAX_ARGUMENTS
                                         ? BC_INST_LOOKUP_ARG
                                         : BC_INST_LOOKUP
                                     ) | ret_code(ltype, BC_RET_STRING) |
@@ -322,7 +322,7 @@ lookupid:
                         goto done;
                     case ident_type::COMMAND: {
                         int comtype = BC_INST_COM, numargs = 0;
-                        if (prevargs >= MaxResults) {
+                        if (prevargs >= MAX_RESULTS) {
                             gs.code.push_back(BC_INST_ENTER);
                         }
                         auto fmt = static_cast<command_impl *>(id)->get_args();
@@ -391,7 +391,7 @@ lookupid:
                             comtype | ret_code(ltype) | (id->get_index() << 8)
                         );
                         gs.code.push_back(
-                            (prevargs >= MaxResults
+                            (prevargs >= MAX_RESULTS
                                 ? BC_INST_EXIT
                                 : BC_INST_RESULT_ARG
                             ) | ret_code(ltype)
@@ -403,7 +403,7 @@ lookupid:
                                 (id->get_index() << 13)
                         );
                         gs.code.push_back(
-                            (prevargs >= MaxResults
+                            (prevargs >= MAX_RESULTS
                                 ? BC_INST_EXIT
                                 : BC_INST_RESULT_ARG
                             ) | ret_code(ltype)
@@ -557,7 +557,7 @@ lookupid:
                         goto done;
                     case ident_type::ALIAS:
                         gs.code.push_back(
-                            (id->get_index() < MaxArguments
+                            (id->get_index() < MAX_ARGUMENTS
                                 ? BC_INST_LOOKUP_MARG
                                 : BC_INST_LOOKUP_M
                             ) | (id->get_index() << 8)
@@ -615,10 +615,10 @@ static void compileblockmain(codegen_state &gs, int wordtype, int prevargs) {
                     throw error(gs.cs, "too many @s");
                     return;
                 }
-                if (!concs && prevargs >= MaxResults) {
+                if (!concs && prevargs >= MAX_RESULTS) {
                     gs.code.push_back(BC_INST_ENTER);
                 }
-                if (concs + 2 > MaxArguments) {
+                if (concs + 2 > MAX_ARGUMENTS) {
                     gs.code.push_back(BC_INST_CONC_W | BC_RET_STRING | (concs << 8));
                     concs = 1;
                 }
@@ -631,7 +631,7 @@ static void compileblockmain(codegen_state &gs, int wordtype, int prevargs) {
                 if (concs) {
                     start = gs.source;
                     curline = gs.current_line;
-                } else if (prevargs >= MaxResults) {
+                } else if (prevargs >= MAX_RESULTS) {
                     gs.code.pop_back();
                 }
                 break;
@@ -669,7 +669,7 @@ static void compileblockmain(codegen_state &gs, int wordtype, int prevargs) {
         }
     }
     if (concs) {
-        if (prevargs >= MaxResults) {
+        if (prevargs >= MAX_RESULTS) {
             gs.code.push_back(BC_INST_CONC_M | ret_code(wordtype) | (concs << 8));
             gs.code.push_back(BC_INST_EXIT | ret_code(wordtype));
         } else {
@@ -773,7 +773,7 @@ static bool compilearg(
             return true;
         case '(':
             gs.next_char();
-            if (prevargs >= MaxResults) {
+            if (prevargs >= MAX_RESULTS) {
                 gs.code.push_back(BC_INST_ENTER);
                 compilestatements(gs, VAL_ANY, ')');
                 gs.code.push_back(BC_INST_EXIT | ret_code(wordtype));
@@ -870,7 +870,7 @@ static void compile_cmd(
                     fakeargs++;
                 } else if ((it + 1) == fmt.end()) {
                     int numconc = 1;
-                    while ((numargs + numconc) < MaxArguments) {
+                    while ((numargs + numconc) < MAX_ARGUMENTS) {
                         more = compilearg(
                             gs, VAL_STRING, prevargs + numargs + numconc
                         );
@@ -1003,7 +1003,7 @@ static void compile_cmd(
             case 'C': /* concatenated string */
                 comtype = BC_INST_COM_C;
                 if (more) {
-                    while (numargs < MaxArguments) {
+                    while (numargs < MAX_ARGUMENTS) {
                         more = compilearg(gs, VAL_ANY, prevargs + numargs);
                         if (!more) {
                             break;
@@ -1015,7 +1015,7 @@ static void compile_cmd(
             case 'V': /* varargs */
                 comtype = BC_INST_COM_V;
                 if (more) {
-                    while (numargs < MaxArguments) {
+                    while (numargs < MAX_ARGUMENTS) {
                         more = compilearg(gs, VAL_ANY, prevargs + numargs);
                         if (!more) {
                             break;
@@ -1028,12 +1028,12 @@ static void compile_cmd(
             case '2':
             case '3':
             case '4':
-                if (more && (numargs < MaxArguments)) {
+                if (more && (numargs < MAX_ARGUMENTS)) {
                     int numrep = *it - '0' + 1;
                     it -= numrep;
                     rep = true;
                 } else {
-                    while (numargs > MaxArguments) {
+                    while (numargs > MAX_ARGUMENTS) {
                         gs.code.push_back(BC_INST_POP);
                         --numargs;
                     }
@@ -1051,7 +1051,7 @@ compilecomv:
 
 static void compile_alias(codegen_state &gs, alias *id, bool &more, int prevargs) {
     int numargs = 0;
-    while (numargs < MaxArguments) {
+    while (numargs < MAX_ARGUMENTS) {
         more = compilearg(gs, VAL_ANY, prevargs + numargs);
         if (!more) {
             break;
@@ -1059,7 +1059,7 @@ static void compile_alias(codegen_state &gs, alias *id, bool &more, int prevargs
         ++numargs;
     }
     gs.code.push_back(
-        (id->get_index() < MaxArguments ? BC_INST_CALL_ARG : BC_INST_CALL)
+        (id->get_index() < MAX_ARGUMENTS ? BC_INST_CALL_ARG : BC_INST_CALL)
             | (numargs << 8) | (id->get_index() << 13)
     );
 }
@@ -1067,7 +1067,7 @@ static void compile_alias(codegen_state &gs, alias *id, bool &more, int prevargs
 static void compile_local(codegen_state &gs, bool &more, int prevargs) {
     int numargs = 0;
     if (more) {
-        while (numargs < MaxArguments) {
+        while (numargs < MAX_ARGUMENTS) {
             more = compilearg(gs, VAL_IDENT, prevargs + numargs);
             if (!more) {
                 break;
@@ -1169,7 +1169,7 @@ static void compile_and_or(
     } else {
         numargs++;
         int start = gs.code.size(), end = start;
-        while (numargs < MaxArguments) {
+        while (numargs < MAX_ARGUMENTS) {
             more = compilearg(gs, VAL_COND, prevargs + numargs);
             if (!more) {
                 break;
@@ -1183,7 +1183,7 @@ static void compile_and_or(
             end = gs.code.size();
         }
         if (more) {
-            while (numargs < MaxArguments) {
+            while (numargs < MAX_ARGUMENTS) {
                 more = compilearg(gs, VAL_COND, prevargs + numargs);
                 if (!more) {
                     break;
@@ -1249,7 +1249,7 @@ static void compilestatements(codegen_state &gs, int rettype, int brak, int prev
                                         gs.gen_str();
                                     }
                                     gs.code.push_back(
-                                        (id->get_index() < MaxArguments
+                                        (id->get_index() < MAX_ARGUMENTS
                                             ? BC_INST_ALIAS_ARG
                                             : BC_INST_ALIAS
                                         ) | (id->get_index() << 8)
@@ -1299,7 +1299,7 @@ static void compilestatements(codegen_state &gs, int rettype, int brak, int prev
         if (idname.empty()) {
 noid:
             int numargs = 0;
-            while (numargs < MaxArguments) {
+            while (numargs < MAX_ARGUMENTS) {
                 more = compilearg(gs, VAL_ANY, prevargs + numargs);
                 if (!more) {
                     break;
@@ -1412,7 +1412,7 @@ noid:
                             int numargs = 0;
                             do {
                                 ++numargs;
-                            } while (numargs < MaxArguments && (
+                            } while (numargs < MAX_ARGUMENTS && (
                                 more = compilearg(
                                     gs, VAL_ANY, prevargs + numargs
                                 )

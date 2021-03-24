@@ -2,7 +2,7 @@
 
 #include "cs_std.hh"
 #include "cs_ident.hh"
-#include "cs_vm.hh" // FIXME, only Max Arguments
+#include "cs_gen.hh" // FIXME, only MAX_ARGUMENTS
 
 namespace cubescript {
 
@@ -154,7 +154,7 @@ void init_lib_base(state &gcs) {
 
     gcs.new_command("pushif", "rte", [](auto &cs, auto args, auto &res) {
         stacked_value idv{cs, args[0].get_ident()};
-        if (!idv.has_alias() || (idv.get_alias()->get_index() < MaxArguments)) {
+        if (!idv.has_alias() || (idv.get_alias()->get_index() < MAX_ARGUMENTS)) {
             return;
         }
         if (args[1].get_bool()) {
@@ -298,7 +298,7 @@ end:
 
     gcs.new_command("push", "rte", [](auto &cs, auto args, auto &res) {
         stacked_value idv{cs, args[0].get_ident()};
-        if (!idv.has_alias() || (idv.get_alias()->get_index() < MaxArguments)) {
+        if (!idv.has_alias() || (idv.get_alias()->get_index() < MAX_ARGUMENTS)) {
             return;
         }
         idv = args[1];

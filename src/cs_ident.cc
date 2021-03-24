@@ -1,7 +1,7 @@
 #include "cs_ident.hh"
 
 #include "cs_bcode.hh"
-#include "cs_vm.hh"
+#include "cs_gen.hh"
 
 namespace cubescript {
 
