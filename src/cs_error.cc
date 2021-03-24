@@ -1,14 +1,15 @@
 #include <cubescript/cubescript.hh>
 
 #include "cs_gen.hh"
+#include "cs_thread.hh"
 
 namespace cubescript {
 
 LIBCUBESCRIPT_EXPORT char *error::request_buf(
     state &cs, std::size_t bufs, char *&sp
 ) {
-    charbuf &cb = *static_cast<charbuf *>(cs.p_errbuf);
-    codegen_state *gs = cs.p_pstate;
+    charbuf &cb = cs.p_tstate->errbuf;
+    codegen_state *gs = cs.p_tstate->cstate;
     cb.clear();
     std::size_t sz = 0;
     if (gs) {
@@ -44,12 +45,14 @@ LIBCUBESCRIPT_EXPORT char *error::request_buf(
 }
 
 LIBCUBESCRIPT_EXPORT stack_state error::save_stack(state &cs) {
-    integer_var *dalias = static_cast<integer_var *>(cs.p_state->identmap[ID_IDX_DBGALIAS]);
+    integer_var *dalias = static_cast<integer_var *>(
+        cs.p_state->identmap[ID_IDX_DBGALIAS]
+    );
     if (!dalias->get_value()) {
-        return stack_state(cs, nullptr, !!cs.p_callstack);
+        return stack_state(cs, nullptr, !!cs.p_tstate->callstack);
     }
     int total = 0, depth = 0;
-    for (ident_link *l = cs.p_callstack; l; l = l->next) {
+    for (ident_link *l = cs.p_tstate->callstack; l; l = l->next) {
         total++;
     }
     if (!total) {
@@ -60,7 +63,7 @@ LIBCUBESCRIPT_EXPORT stack_state error::save_stack(state &cs) {
     );
     stack_state_node *ret = st, *nd = st;
     ++st;
-    for (ident_link *l = cs.p_callstack; l; l = l->next) {
+    for (ident_link *l = cs.p_tstate->callstack; l; l = l->next) {
         ++depth;
         if (depth < dalias->get_value()) {
             nd->id = l->id;

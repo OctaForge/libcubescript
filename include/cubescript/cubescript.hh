@@ -268,6 +268,7 @@ enum {
 
 struct bcode;
 struct internal_state;
+struct thread_state;
 struct ident_impl;
 
 struct LIBCUBESCRIPT_EXPORT bcode_ref {
@@ -534,7 +535,7 @@ struct LIBCUBESCRIPT_EXPORT state {
     friend inline internal_state *state_get_internal(state &);
 
     internal_state *p_state;
-    ident_link *p_callstack = nullptr;
+    thread_state *p_tstate;
 
     int identflags = 0;
 
@@ -558,12 +559,9 @@ struct LIBCUBESCRIPT_EXPORT state {
 
     void swap(state &s) {
         std::swap(p_state, s.p_state);
-        std::swap(p_callstack, s.p_callstack);
+        std::swap(p_tstate, s.p_tstate);
         std::swap(identflags, s.identflags);
-        std::swap(p_pstate, s.p_pstate);
-        std::swap(p_inloop, s.p_inloop);
         std::swap(p_owner, s.p_owner);
-        std::swap(p_callhook, s.p_callhook);
     }
 
     state new_thread();
@@ -671,9 +669,7 @@ struct LIBCUBESCRIPT_EXPORT state {
     loop_state run_loop(bcode *code, any_value &ret);
     loop_state run_loop(bcode *code);
 
-    bool is_in_loop() const {
-        return p_inloop;
-    }
+    bool is_in_loop() const;
 
     void set_alias(std::string_view name, any_value v);
 
@@ -740,12 +736,7 @@ private:
 
     void *alloc(void *ptr, size_t olds, size_t news);
 
-    codegen_state *p_pstate = nullptr;
-    void *p_errbuf = nullptr;
-    int p_inloop = 0;
     bool p_owner = false;
-
-    hook_func p_callhook;
 };
 
 struct stack_state_node {

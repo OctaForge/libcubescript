@@ -2,6 +2,7 @@
 
 #include "cs_bcode.hh"
 #include "cs_state.hh"
+#include "cs_thread.hh"
 #include "cs_strman.hh"
 #include "cs_gen.hh" // FIXME, only MAX_ARGUMENTS
 #include "cs_vm.hh" // break/continue, call_with_args
@@ -49,7 +50,7 @@ void init_lib_list(state &cs);
 state::state(): state{default_alloc, nullptr} {}
 
 state::state(alloc_func func, void *data):
-    p_state{nullptr}, p_callhook{}
+    p_state{nullptr}
 {
     command *p;
 
@@ -64,8 +65,7 @@ state::state(alloc_func func, void *data):
     new (p_state) internal_state{func, data};
     p_owner = true;
 
-    /* will be used as message storage for errors */
-    p_errbuf = p_state->create<charbuf>(*this);
+    p_tstate = p_state->create<thread_state>(p_state);
 
     for (int i = 0; i < MAX_ARGUMENTS; ++i) {
         char buf[32];
@@ -194,30 +194,30 @@ LIBCUBESCRIPT_EXPORT void state::destroy() {
         }
         p_state->destroy(i->p_impl);
     }
-    p_state->destroy(static_cast<charbuf *>(p_errbuf));
+    p_state->destroy(p_tstate);
     p_state->destroy(p_state);
 }
 
 state::state(internal_state *s):
     p_state(s), p_owner(false)
-{}
+{
+    p_tstate = p_state->create<thread_state>(p_state);
+}
 
 LIBCUBESCRIPT_EXPORT state state::new_thread() {
     return state{p_state};
 }
 
 LIBCUBESCRIPT_EXPORT hook_func state::set_call_hook(hook_func func) {
-    auto hk = std::move(p_callhook);
-    p_callhook = std::move(func);
-    return hk;
+    return p_tstate->set_hook(std::move(func));
 }
 
 LIBCUBESCRIPT_EXPORT hook_func const &state::get_call_hook() const {
-    return p_callhook;
+    return p_tstate->get_hook();
 }
 
 LIBCUBESCRIPT_EXPORT hook_func &state::get_call_hook() {
-    return p_callhook;
+    return p_tstate->get_hook();
 }
 
 LIBCUBESCRIPT_EXPORT var_print_func state::set_var_printer(

@@ -280,16 +280,16 @@ static inline void call_alias(
     int oldflags = cs.identflags;
     cs.identflags |= a->get_flags()&IDENT_FLAG_OVERRIDDEN;
     ident_link aliaslink = {
-        a, cs.p_callstack, (1<<callargs)-1, &argstack[0]
+        a, cs.p_tstate->callstack, (1<<callargs)-1, &argstack[0]
     };
-    cs.p_callstack = &aliaslink;
+    cs.p_tstate->callstack = &aliaslink;
     uint32_t *codep = static_cast<alias_impl *>(a)->compile_code(cs)->get_raw();
     bcode_incr(codep);
     call_with_cleanup([&]() {
         runcode(cs, codep+1, result);
     }, [&]() {
         bcode_decr(codep);
-        cs.p_callstack = aliaslink.next;
+        cs.p_tstate->callstack = aliaslink.next;
         cs.identflags = oldflags;
         for (int i = 0; i < callargs; i++) {
             static_cast<alias_impl *>(cs.p_state->identmap[i])->pop_arg();
@@ -750,9 +750,10 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                 if (!ident_is_used_arg(a, cs)) {
                     any_value nv{cs};
                     static_cast<alias_impl *>(a)->push_arg(
-                        nv, cs.p_callstack->argstack[a->get_index()], false
+                        nv, cs.p_tstate->callstack->argstack[a->get_index()],
+                        false
                     );
-                    cs.p_callstack->usedargs |= 1 << a->get_index();
+                    cs.p_tstate->callstack->usedargs |= 1 << a->get_index();
                 }
                 args[numargs++].set_ident(a);
                 continue;
@@ -766,9 +767,10 @@ static uint32_t *runcode(state &cs, uint32_t *code, any_value &result) {
                 if ((id->get_index() < MAX_ARGUMENTS) && !ident_is_used_arg(id, cs)) {
                     any_value nv{cs};
                     static_cast<alias_impl *>(id)->push_arg(
-                        nv, cs.p_callstack->argstack[id->get_index()], false
+                        nv, cs.p_tstate->callstack->argstack[id->get_index()],
+                        false
                     );
-                    cs.p_callstack->usedargs |= 1 << id->get_index();
+                    cs.p_tstate->callstack->usedargs |= 1 << id->get_index();
                 }
                 arg.set_ident(id);
                 continue;
@@ -1496,17 +1498,17 @@ any_value state::run(ident *id, std::span<any_value> args) {
 }
 
 loop_state state::run_loop(bcode *code, any_value &ret) {
-    ++p_inloop;
+    ++p_tstate->loop_level;
     try {
         run(code, ret);
     } catch (break_exception) {
-        --p_inloop;
+        --p_tstate->loop_level;
         return loop_state::BREAK;
     } catch (continue_exception) {
-        --p_inloop;
+        --p_tstate->loop_level;
         return loop_state::CONTINUE;
     } catch (...) {
-        --p_inloop;
+        --p_tstate->loop_level;
         throw;
     }
     return loop_state::NORMAL;
@@ -1515,6 +1517,10 @@ loop_state state::run_loop(bcode *code, any_value &ret) {
 loop_state state::run_loop(bcode *code) {
     any_value ret{*this};
     return run_loop(code, ret);
+}
+
+bool state::is_in_loop() const {
+    return !!p_tstate->loop_level;
 }
 
 } /* namespace cubescript */

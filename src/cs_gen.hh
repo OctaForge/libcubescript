@@ -11,6 +11,7 @@
 #include "cs_std.hh"
 #include "cs_bcode.hh"
 #include "cs_ident.hh"
+#include "cs_thread.hh"
 
 namespace cubescript {
 
@@ -32,10 +33,10 @@ struct codegen_state {
 
     codegen_state() = delete;
     codegen_state(state &csr):
-        cs{csr}, prevps{csr.p_pstate}, code{cs},
+        cs{csr}, prevps{csr.p_tstate->cstate}, code{cs},
         source{}, send{}, current_line{1}, src_name{}
     {
-        csr.p_pstate = this;
+        csr.p_tstate->cstate = this;
     }
 
     ~codegen_state() {
@@ -46,7 +47,7 @@ struct codegen_state {
         if (!parsing) {
             return;
         }
-        cs.p_pstate = prevps;
+        cs.p_tstate->cstate = prevps;
         parsing = false;
     }
 

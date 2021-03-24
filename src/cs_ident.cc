@@ -2,6 +2,7 @@
 
 #include "cs_bcode.hh"
 #include "cs_gen.hh"
+#include "cs_thread.hh"
 
 namespace cubescript {
 
@@ -155,8 +156,8 @@ void alias_impl::set_arg(state &cs, any_value &v) {
         p_val = std::move(v);
         clean_code();
     } else {
-        push_arg(v, cs.p_callstack->argstack[get_index()], false);
-        cs.p_callstack->usedargs |= 1 << get_index();
+        push_arg(v, cs.p_tstate->callstack->argstack[get_index()], false);
+        cs.p_tstate->callstack->usedargs |= 1 << get_index();
     }
 }
 
@@ -195,10 +196,10 @@ command_impl::command_impl(
 {}
 
 bool ident_is_used_arg(ident *id, state &cs) {
-    if (!cs.p_callstack) {
+    if (!cs.p_tstate->callstack) {
         return true;
     }
-    return cs.p_callstack->usedargs & (1 << id->get_index());
+    return cs.p_tstate->callstack->usedargs & (1 << id->get_index());
 }
 
 /* public interface */
