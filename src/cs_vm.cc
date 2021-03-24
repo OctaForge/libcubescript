@@ -324,6 +324,23 @@ static inline alias *get_lookuparg_id(state &cs, std::uint32_t op) {
     return static_cast<alias *>(id);
 }
 
+struct stack_guard {
+    state *csp;
+    std::size_t oldtop;
+
+    stack_guard() = delete;
+    stack_guard(state &cs):
+        csp{&cs}, oldtop{cs.p_tstate->vmstack.size()}
+    {}
+
+    ~stack_guard() {
+        csp->p_tstate->vmstack.resize(oldtop, any_value{*csp});
+    }
+
+    stack_guard(stack_guard const &) = delete;
+    stack_guard(stack_guard &&) = delete;
+};
+
 static inline int get_lookupu_type(
     state &cs, any_value &arg, ident *&id, std::uint32_t op
 ) {
@@ -348,12 +365,14 @@ static inline int get_lookupu_type(
             case ident_type::FVAR:
                 return ID_FVAR;
             case ident_type::COMMAND: {
+                stack_guard s{cs}; /* make sure value stack gets restored */
+                auto *cimpl = static_cast<command_impl *>(id);
+                auto &args = cs.p_tstate->vmstack;
+                auto osz = args.size();
+                /* pad with as many empty values as we need */
+                args.resize(osz + cimpl->get_num_args(), any_value{cs});
                 arg.set_none();
-                valarray<any_value, MAX_ARGUMENTS> buf{cs};
-                callcommand(
-                    cs, static_cast<command_impl *>(id),
-                    &buf[0], arg, 0, true
-                );
+                callcommand(cs, cimpl, &args[osz], arg, 0, true);
                 force_arg(arg, op & BC_INST_RET_MASK);
                 return -2; /* ignore */
             }
@@ -363,23 +382,6 @@ static inline int get_lookupu_type(
     }
     throw error(cs, "unknown alias lookup: %s", arg.get_str().data());
 }
-
-struct stack_guard {
-    state *csp;
-    std::size_t oldtop;
-
-    stack_guard() = delete;
-    stack_guard(state &cs):
-        csp{&cs}, oldtop{cs.p_tstate->vmstack.size()}
-    {}
-
-    ~stack_guard() {
-        csp->p_tstate->vmstack.resize(oldtop, any_value{*csp});
-    }
-
-    stack_guard(stack_guard const &) = delete;
-    stack_guard(stack_guard &&) = delete;
-};
 
 static std::uint32_t *runcode(
     state &cs, std::uint32_t *code, any_value &result
@@ -1480,26 +1482,23 @@ void state::run(ident *id, std::span<any_value> args, any_value &ret) {
                     break;
                 }
             /* fallthrough */
-            case ident_type::COMMAND:
-                if (nargs < std::size_t(
-                    static_cast<command_impl *>(id)->get_num_args()
-                )) {
-                    valarray<any_value, MAX_ARGUMENTS> buf{*this};
-                    for (std::size_t i = 0; i < args.size(); ++i) {
-                        buf[i] = args[i];
+            case ident_type::COMMAND: {
+                auto *cimpl = static_cast<command_impl *>(id);
+                if (nargs < std::size_t(cimpl->get_num_args())) {
+                    stack_guard s{*this}; /* restore after call */
+                    auto &targs = p_tstate->vmstack;
+                    auto osz = targs.size();
+                    targs.resize(osz + cimpl->get_num_args(), any_value{*this});
+                    for (std::size_t i = 0; i < nargs; ++i) {
+                        targs[osz + i] = args[i];
                     }
-                    callcommand(
-                        *this, static_cast<command_impl *>(id), &buf[0], ret,
-                        nargs, false
-                    );
+                    callcommand(*this, cimpl, &targs[osz], ret, nargs, false);
                 } else {
-                    callcommand(
-                        *this, static_cast<command_impl *>(id), &args[0],
-                        ret, nargs, false
-                    );
+                    callcommand(*this, cimpl, &args[0], ret, nargs, false);
                 }
                 nargs = 0;
                 break;
+            }
             case ident_type::IVAR:
                 if (args.empty()) {
                     print_var(*static_cast<global_var *>(id));
