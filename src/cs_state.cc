@@ -71,7 +71,7 @@ state::state(alloc_func func, void *data) {
 
     p_tstate->pstate = this;
     p_tstate->istate = statep;
-    p_owner = true;
+    p_tstate->owner = true;
 
     for (int i = 0; i < MAX_ARGUMENTS; ++i) {
         char buf[32];
@@ -188,7 +188,7 @@ LIBCUBESCRIPT_EXPORT state::~state() {
 }
 
 LIBCUBESCRIPT_EXPORT void state::destroy() {
-    if (!p_tstate || !p_owner) {
+    if (!p_tstate || !p_tstate->owner) {
         return;
     }
     auto *sp = p_tstate->istate;
@@ -205,9 +205,7 @@ LIBCUBESCRIPT_EXPORT void state::destroy() {
     sp->destroy(sp);
 }
 
-state::state(internal_state *s):
-    p_owner{false}
-{
+state::state(internal_state *s) {
     p_tstate = s->create<thread_state>(s);
     p_tstate->istate = s;
 }

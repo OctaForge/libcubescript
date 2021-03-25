@@ -560,7 +560,6 @@ struct LIBCUBESCRIPT_EXPORT state {
     void swap(state &s) {
         std::swap(p_tstate, s.p_tstate);
         std::swap(identflags, s.identflags);
-        std::swap(p_owner, s.p_owner);
     }
 
     state new_thread();
@@ -733,8 +732,6 @@ private:
     ident *add_ident(ident *id, ident_impl *impl);
 
     void *alloc(void *ptr, size_t olds, size_t news);
-
-    bool p_owner = false;
 };
 
 struct stack_state_node {

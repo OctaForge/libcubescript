@@ -29,6 +29,8 @@ struct thread_state {
     hook_func call_hook{};
     /* loop nesting level */
     int loop_level = 0;
+    /* whether we own the internal state (i.e. not a side thread */
+    bool owner = false;
 
     thread_state(internal_state *cs);
 
