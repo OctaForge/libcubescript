@@ -260,7 +260,7 @@ bcode *any_value::force_code(state &cs) {
     gs.code.reserve(64);
     gs.gen_main(get_str());
     gs.done();
-    uint32_t *cbuf = bcode_alloc(cs, gs.code.size());
+    uint32_t *cbuf = bcode_alloc(cs.p_tstate->istate, gs.code.size());
     std::memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(std::uint32_t));
     auto *bc = reinterpret_cast<bcode *>(cbuf + 1);
     set_code(bc);

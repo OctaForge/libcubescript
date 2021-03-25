@@ -308,33 +308,35 @@ struct run_depth_guard {
     ~run_depth_guard() { --rundepth; }
 };
 
-static inline alias *get_lookup_id(state &cs, std::uint32_t op) {
-    ident *id = cs.p_tstate->istate->identmap[op >> 8];
+static inline alias *get_lookup_id(thread_state &ts, std::uint32_t op) {
+    ident *id = ts.istate->identmap[op >> 8];
     if (id->get_flags() & IDENT_FLAG_UNKNOWN) {
-        throw error(cs, "unknown alias lookup: %s", id->get_name().data());
+        throw error{
+            *ts.pstate, "unknown alias lookup: %s", id->get_name().data()
+        };
     }
     return static_cast<alias *>(id);
 }
 
-static inline alias *get_lookuparg_id(state &cs, std::uint32_t op) {
-    ident *id = cs.p_tstate->istate->identmap[op >> 8];
-    if (!ident_is_used_arg(id, cs)) {
+static inline alias *get_lookuparg_id(thread_state &ts, std::uint32_t op) {
+    ident *id = ts.istate->identmap[op >> 8];
+    if (!ident_is_used_arg(id, *ts.pstate)) {
         return nullptr;
     }
     return static_cast<alias *>(id);
 }
 
 struct stack_guard {
-    state *csp;
+    thread_state *tsp;
     std::size_t oldtop;
 
     stack_guard() = delete;
-    stack_guard(state &cs):
-        csp{&cs}, oldtop{cs.p_tstate->vmstack.size()}
+    stack_guard(thread_state &ts):
+        tsp{&ts}, oldtop{ts.vmstack.size()}
     {}
 
     ~stack_guard() {
-        csp->p_tstate->vmstack.resize(oldtop, any_value{*csp});
+        tsp->vmstack.resize(oldtop, any_value{*tsp->pstate});
     }
 
     stack_guard(stack_guard const &) = delete;
@@ -369,7 +371,7 @@ static inline int get_lookupu_type(
                 return ID_FVAR;
             case ident_type::COMMAND: {
                 /* make sure value stack gets restored */
-                stack_guard s{*ts.pstate};
+                stack_guard s{ts};
                 auto *cimpl = static_cast<command_impl *>(id);
                 auto &args = ts.vmstack;
                 auto osz = args.size();
@@ -393,7 +395,7 @@ static std::uint32_t *runcode(
     result.set_none();
     auto &cs = *ts.pstate;
     run_depth_guard level{cs}; /* incr and decr on scope exit */
-    stack_guard guard{cs}; /* resize back to original */
+    stack_guard guard{ts}; /* resize back to original */
     auto &args = ts.vmstack;
     auto &chook = cs.get_call_hook();
     if (chook) {
@@ -734,7 +736,7 @@ static std::uint32_t *runcode(
                         break;
                 }
                 gs.done();
-                std::uint32_t *cbuf = bcode_alloc(gs.cs, gs.code.size());
+                std::uint32_t *cbuf = bcode_alloc(ts.istate, gs.code.size());
                 std::memcpy(
                     cbuf, gs.code.data(),
                     gs.code.size() * sizeof(std::uint32_t)
@@ -755,7 +757,7 @@ static std::uint32_t *runcode(
                             gs.gen_main(s);
                             gs.done();
                             std::uint32_t *cbuf = bcode_alloc(
-                                gs.cs, gs.code.size()
+                                ts.istate, gs.code.size()
                             );
                             std::memcpy(
                                 cbuf, gs.code.data(),
@@ -837,12 +839,12 @@ static std::uint32_t *runcode(
             }
             case BC_INST_LOOKUP | BC_RET_STRING: {
                 auto &v = args.emplace_back(cs);
-                v = get_lookup_id(cs, op)->get_value();
+                v = get_lookup_id(ts, op)->get_value();
                 v.force_str();
                 continue;
             }
             case BC_INST_LOOKUP_ARG | BC_RET_STRING: {
-                alias *a = get_lookuparg_id(cs, op);
+                alias *a = get_lookuparg_id(ts, op);
                 if (!a) {
                     args.emplace_back(cs).set_str("");
                 } else {
@@ -883,11 +885,11 @@ static std::uint32_t *runcode(
             }
             case BC_INST_LOOKUP | BC_RET_INT:
                 args.emplace_back(cs).set_int(
-                    get_lookup_id(cs, op)->get_value().get_int()
+                    get_lookup_id(ts, op)->get_value().get_int()
                 );
                 continue;
             case BC_INST_LOOKUP_ARG | BC_RET_INT: {
-                alias *a = get_lookuparg_id(cs, op);
+                alias *a = get_lookuparg_id(ts, op);
                 if (!a) {
                     args.emplace_back(cs).set_int(0);
                 } else {
@@ -928,11 +930,11 @@ static std::uint32_t *runcode(
             }
             case BC_INST_LOOKUP | BC_RET_FLOAT:
                 args.emplace_back(cs).set_float(
-                    get_lookup_id(cs, op)->get_value().get_float()
+                    get_lookup_id(ts, op)->get_value().get_float()
                 );
                 continue;
             case BC_INST_LOOKUP_ARG | BC_RET_FLOAT: {
-                alias *a = get_lookuparg_id(cs, op);
+                alias *a = get_lookuparg_id(ts, op);
                 if (!a) {
                     args.emplace_back(cs).set_float(float_type(0));
                 } else {
@@ -966,12 +968,12 @@ static std::uint32_t *runcode(
                 }
             }
             case BC_INST_LOOKUP | BC_RET_NULL:
-                get_lookup_id(cs, op)->get_value().get_val(
+                get_lookup_id(ts, op)->get_value().get_val(
                     args.emplace_back(cs)
                 );
                 continue;
             case BC_INST_LOOKUP_ARG | BC_RET_NULL: {
-                alias *a = get_lookuparg_id(cs, op);
+                alias *a = get_lookuparg_id(ts, op);
                 if (!a) {
                     args.emplace_back(cs).set_none();
                 } else {
@@ -1008,12 +1010,12 @@ static std::uint32_t *runcode(
             }
             case BC_INST_LOOKUP_M | BC_RET_STRING: {
                 auto &v = args.emplace_back(cs);
-                v = get_lookup_id(cs, op)->get_value();
+                v = get_lookup_id(ts, op)->get_value();
                 v.force_str();
                 continue;
             }
             case BC_INST_LOOKUP_MARG | BC_RET_STRING: {
-                alias *a = get_lookuparg_id(cs, op);
+                alias *a = get_lookuparg_id(ts, op);
                 if (!a) {
                     args.emplace_back(cs).set_str("");
                 } else {
@@ -1047,10 +1049,10 @@ static std::uint32_t *runcode(
                 }
             }
             case BC_INST_LOOKUP_M | BC_RET_NULL:
-                get_lookup_id(cs, op)->get_cval(args.emplace_back(cs));
+                get_lookup_id(ts, op)->get_cval(args.emplace_back(cs));
                 continue;
             case BC_INST_LOOKUP_MARG | BC_RET_NULL: {
-                alias *a = get_lookuparg_id(cs, op);
+                alias *a = get_lookuparg_id(ts, op);
                 if (!a) {
                     args.emplace_back(cs).set_none();
                 } else {
@@ -1456,7 +1458,7 @@ static void do_run(
     gs.code.reserve(64);
     gs.gen_main(code, VAL_ANY);
     gs.done();
-    std::uint32_t *cbuf = bcode_alloc(gs.cs, gs.code.size());
+    std::uint32_t *cbuf = bcode_alloc(cs.p_tstate->istate, gs.code.size());
     std::memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(std::uint32_t));
     bcode_incr(cbuf);
     call_with_cleanup([&cs, cbuf, &ret]() {
@@ -1490,7 +1492,7 @@ void state::run(ident *id, std::span<any_value> args, any_value &ret) {
             case ident_type::COMMAND: {
                 auto *cimpl = static_cast<command_impl *>(id);
                 if (nargs < std::size_t(cimpl->get_num_args())) {
-                    stack_guard s{*this}; /* restore after call */
+                    stack_guard s{*p_tstate}; /* restore after call */
                     auto &targs = p_tstate->vmstack;
                     auto osz = targs.size();
                     targs.resize(osz + cimpl->get_num_args(), any_value{*this});

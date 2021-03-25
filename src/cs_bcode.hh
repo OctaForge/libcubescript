@@ -77,7 +77,7 @@ enum {
     BC_INST_FLAG_FALSE = 0 << BC_INST_RET
 };
 
-std::uint32_t *bcode_alloc(state &cs, std::size_t sz);
+std::uint32_t *bcode_alloc(internal_state *cs, std::size_t sz);
 
 void bcode_incr(std::uint32_t *code);
 void bcode_decr(std::uint32_t *code);

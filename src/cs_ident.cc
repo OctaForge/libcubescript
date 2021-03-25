@@ -180,7 +180,7 @@ bcode *alias_impl::compile_code(state &cs) {
         gs.code.reserve(64);
         gs.gen_main(get_value().get_str());
         /* i wish i could steal the memory somehow */
-        uint32_t *code = bcode_alloc(cs, gs.code.size());
+        uint32_t *code = bcode_alloc(cs.p_tstate->istate, gs.code.size());
         memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
         bcode_incr(code);
         p_acode = reinterpret_cast<bcode *>(code);
