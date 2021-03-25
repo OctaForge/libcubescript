@@ -13,6 +13,8 @@
 
 namespace cubescript {
 
+struct state;
+
 /* run func, call the second one after finishing */
 
 template<typename F1, typename F2>
@@ -59,7 +61,6 @@ struct valbuf {
     valbuf() = delete;
 
     valbuf(internal_state *cs): buf{std_allocator<T>{cs}} {}
-    valbuf(state &cs): buf{std_allocator<T>{cs}} {}
 
     using size_type = std::size_t;
     using value_type = T;
@@ -108,7 +109,7 @@ struct valbuf {
 
 struct charbuf: valbuf<char> {
     charbuf(internal_state *cs): valbuf<char>{cs} {}
-    charbuf(state &cs): valbuf<char>{cs} {}
+    charbuf(state &cs);
 
     void append(char const *beg, char const *end) {
         valbuf<char>::append(beg, end);

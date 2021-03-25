@@ -10,7 +10,6 @@
 
 namespace cubescript {
 
-struct state;
 struct internal_state;
 struct string_pool;
 
@@ -19,7 +18,6 @@ struct std_allocator {
     using value_type = T;
 
     inline std_allocator(internal_state *s);
-    inline std_allocator(state &cs);
 
     template<typename U>
     std_allocator(std_allocator<U> const &a): istate{a.istate} {};
@@ -91,15 +89,8 @@ struct internal_state {
     }
 };
 
-inline internal_state *state_get_internal(state &cs) {
-    return cs.p_state;
-}
-
 template<typename T>
 inline std_allocator<T>::std_allocator(internal_state *s): istate{s} {}
-
-template<typename T>
-inline std_allocator<T>::std_allocator(state &s): istate{state_get_internal(s)} {}
 
 template<typename T>
 inline T *std_allocator<T>::allocate(std::size_t n) {

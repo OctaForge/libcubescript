@@ -1,5 +1,6 @@
 #include "cs_bcode.hh"
 #include "cs_state.hh"
+#include "cs_thread.hh"
 
 namespace cubescript {
 
@@ -44,11 +45,11 @@ struct bcode_hdr {
 
 /* returned address is the 'init' member of the header */
 std::uint32_t *bcode_alloc(state &cs, std::size_t sz) {
-    auto a = std_allocator<std::uint32_t>{cs};
+    auto a = std_allocator<std::uint32_t>{cs.p_tstate->istate};
     std::size_t hdrs = sizeof(bcode_hdr) / sizeof(std::uint32_t);
     auto p = a.allocate(sz + hdrs - 1);
     bcode_hdr *hdr = reinterpret_cast<bcode_hdr *>(p);
-    hdr->cs = state_get_internal(cs);
+    hdr->cs = cs.p_tstate->istate;
     hdr->asize = sz + hdrs - 1;
     return p + hdrs - 1;
 }

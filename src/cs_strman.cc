@@ -1,6 +1,7 @@
 #include <cubescript/cubescript.hh>
 
 #include "cs_strman.hh"
+#include "cs_thread.hh"
 
 namespace cubescript {
 
@@ -120,7 +121,7 @@ LIBCUBESCRIPT_EXPORT string_ref::string_ref(
 }
 
 LIBCUBESCRIPT_EXPORT string_ref::string_ref(state &cs, std::string_view str):
-    p_state{cs.p_state}
+    p_state{cs.p_tstate->istate}
 {
     p_str = p_state->strman->add(str);
 }

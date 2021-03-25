@@ -49,23 +49,29 @@ void init_lib_list(state &cs);
 
 state::state(): state{default_alloc, nullptr} {}
 
-state::state(alloc_func func, void *data):
-    p_state{nullptr}
-{
+state::state(alloc_func func, void *data) {
     command *p;
 
     if (!func) {
         func = default_alloc;
     }
     /* allocator is not set up yet, use func directly */
-    p_state = static_cast<internal_state *>(
+    auto *statep = static_cast<internal_state *>(
         func(data, nullptr, 0, sizeof(internal_state))
     );
     /* allocator will be set up in the constructor */
-    new (p_state) internal_state{func, data};
-    p_owner = true;
+    new (statep) internal_state{func, data};
 
-    p_tstate = p_state->create<thread_state>(p_state);
+    try {
+        p_tstate = statep->create<thread_state>(statep);
+    } catch (...) {
+        statep->destroy(statep);
+        throw;
+    }
+
+    p_tstate->pstate = this;
+    p_tstate->istate = statep;
+    p_owner = true;
 
     for (int i = 0; i < MAX_ARGUMENTS; ++i) {
         char buf[32];
@@ -94,7 +100,7 @@ state::state(alloc_func func, void *data):
     static_cast<command_impl *>(p)->p_type = ID_DO;
 
     p = new_command("doargs", "e", [](auto &cs, auto args, auto &res) {
-        call_with_args(cs, [&cs, &res, &args]() {
+        call_with_args(*cs.p_tstate, [&cs, &res, &args]() {
             cs.run(args[0].get_code(), res);
         });
     });
@@ -182,30 +188,32 @@ LIBCUBESCRIPT_EXPORT state::~state() {
 }
 
 LIBCUBESCRIPT_EXPORT void state::destroy() {
-    if (!p_state || !p_owner) {
+    if (!p_tstate || !p_owner) {
         return;
     }
-    for (auto &p: p_state->idents) {
+    auto *sp = p_tstate->istate;
+    for (auto &p: sp->idents) {
         ident *i = p.second;
         alias *a = i->get_alias();
         if (a) {
             a->get_value().force_none();
             static_cast<alias_impl *>(a)->clean_code();
         }
-        p_state->destroy(i->p_impl);
+        sp->destroy(i->p_impl);
     }
-    p_state->destroy(p_tstate);
-    p_state->destroy(p_state);
+    sp->destroy(p_tstate);
+    sp->destroy(sp);
 }
 
 state::state(internal_state *s):
-    p_state(s), p_owner(false)
+    p_owner{false}
 {
-    p_tstate = p_state->create<thread_state>(p_state);
+    p_tstate = s->create<thread_state>(s);
+    p_tstate->istate = s;
 }
 
 LIBCUBESCRIPT_EXPORT state state::new_thread() {
-    return state{p_state};
+    return state{p_tstate->istate};
 }
 
 LIBCUBESCRIPT_EXPORT hook_func state::set_call_hook(hook_func func) {
@@ -223,23 +231,23 @@ LIBCUBESCRIPT_EXPORT hook_func &state::get_call_hook() {
 LIBCUBESCRIPT_EXPORT var_print_func state::set_var_printer(
     var_print_func func
 ) {
-    auto fn = std::move(p_state->varprintf);
-    p_state->varprintf = std::move(func);
+    auto fn = std::move(p_tstate->istate->varprintf);
+    p_tstate->istate->varprintf = std::move(func);
     return fn;
 }
 
 LIBCUBESCRIPT_EXPORT var_print_func const &state::get_var_printer() const {
-    return p_state->varprintf;
+    return p_tstate->istate->varprintf;
 }
 
 LIBCUBESCRIPT_EXPORT void state::print_var(global_var const &v) const {
-    if (p_state->varprintf) {
-        p_state->varprintf(*this, v);
+    if (p_tstate->istate->varprintf) {
+        p_tstate->istate->varprintf(*this, v);
     }
 }
 
 LIBCUBESCRIPT_EXPORT void *state::alloc(void *ptr, size_t os, size_t ns) {
-    return p_state->alloc(ptr, os, ns);
+    return p_tstate->istate->alloc(ptr, os, ns);
 }
 
 LIBCUBESCRIPT_EXPORT ident *state::add_ident(
@@ -249,10 +257,10 @@ LIBCUBESCRIPT_EXPORT ident *state::add_ident(
         return nullptr;
     }
     id->p_impl = impl;
-    p_state->idents[id->get_name()] = id;
-    static_cast<ident_impl *>(impl)->p_index = p_state->identmap.size();
-    p_state->identmap.push_back(id);
-    return p_state->identmap.back();
+    p_tstate->istate->idents[id->get_name()] = id;
+    static_cast<ident_impl *>(impl)->p_index = p_tstate->istate->identmap.size();
+    p_tstate->istate->identmap.push_back(id);
+    return p_tstate->istate->identmap.back();
 }
 
 LIBCUBESCRIPT_EXPORT ident *state::new_ident(
@@ -265,8 +273,8 @@ LIBCUBESCRIPT_EXPORT ident *state::new_ident(
                 *this, "number %s is not a valid identifier name", name.data()
             };
         }
-        auto *inst = p_state->create<alias_impl>(
-            *this, string_ref{p_state, name}, flags
+        auto *inst = p_tstate->istate->create<alias_impl>(
+            *this, string_ref{p_tstate->istate, name}, flags
         );
         id = add_ident(inst, inst);
     }
@@ -274,8 +282,8 @@ LIBCUBESCRIPT_EXPORT ident *state::new_ident(
 }
 
 LIBCUBESCRIPT_EXPORT ident *state::get_ident(std::string_view name) {
-    auto id = p_state->idents.find(name);
-    if (id != p_state->idents.end()) {
+    auto id = p_tstate->istate->idents.find(name);
+    if (id != p_tstate->istate->idents.end()) {
         return id->second;
     }
     return nullptr;
@@ -290,27 +298,27 @@ LIBCUBESCRIPT_EXPORT alias *state::get_alias(std::string_view name) {
 }
 
 LIBCUBESCRIPT_EXPORT bool state::have_ident(std::string_view name) {
-    return p_state->idents.find(name) != p_state->idents.end();
+    return p_tstate->istate->idents.find(name) != p_tstate->istate->idents.end();
 }
 
 LIBCUBESCRIPT_EXPORT std::span<ident *> state::get_idents() {
     return std::span<ident *>{
-        p_state->identmap.data(),
-        p_state->identmap.size()
+        p_tstate->istate->identmap.data(),
+        p_tstate->istate->identmap.size()
     };
 }
 
 LIBCUBESCRIPT_EXPORT std::span<ident const *> state::get_idents() const {
-    auto ptr = const_cast<ident const **>(p_state->identmap.data());
-    return std::span<ident const *>{ptr, p_state->identmap.size()};
+    auto ptr = const_cast<ident const **>(p_tstate->istate->identmap.data());
+    return std::span<ident const *>{ptr, p_tstate->istate->identmap.size()};
 }
 
 LIBCUBESCRIPT_EXPORT integer_var *state::new_ivar(
     std::string_view n, integer_type m, integer_type x, integer_type v,
     var_cb_func f, int flags
 ) {
-    auto *iv = p_state->create<ivar_impl>(
-        string_ref{p_state, n}, m, x, v, std::move(f), flags
+    auto *iv = p_tstate->istate->create<ivar_impl>(
+        string_ref{p_tstate->istate, n}, m, x, v, std::move(f), flags
     );
     add_ident(iv, iv);
     return iv;
@@ -320,8 +328,8 @@ LIBCUBESCRIPT_EXPORT float_var *state::new_fvar(
     std::string_view n, float_type m, float_type x, float_type v,
     var_cb_func f, int flags
 ) {
-    auto *fv = p_state->create<fvar_impl>(
-        string_ref{p_state, n}, m, x, v, std::move(f), flags
+    auto *fv = p_tstate->istate->create<fvar_impl>(
+        string_ref{p_tstate->istate, n}, m, x, v, std::move(f), flags
     );
     add_ident(fv, fv);
     return fv;
@@ -330,9 +338,9 @@ LIBCUBESCRIPT_EXPORT float_var *state::new_fvar(
 LIBCUBESCRIPT_EXPORT string_var *state::new_svar(
     std::string_view n, std::string_view v, var_cb_func f, int flags
 ) {
-    auto *sv = p_state->create<svar_impl>(
-        string_ref{p_state, n}, string_ref{p_state, v},
-        string_ref{p_state, ""}, std::move(f), flags
+    auto *sv = p_tstate->istate->create<svar_impl>(
+        string_ref{p_tstate->istate, n}, string_ref{p_tstate->istate, v},
+        string_ref{p_tstate->istate, ""}, std::move(f), flags
     );
     add_ident(sv, sv);
     return sv;
@@ -389,8 +397,8 @@ LIBCUBESCRIPT_EXPORT void state::set_alias(
     } else if (!is_valid_name(name)) {
         throw error{*this, "cannot alias invalid name '%s'", name.data()};
     } else {
-        auto *a = p_state->create<alias_impl>(
-            *this, string_ref{p_state, name}, std::move(v), identflags
+        auto *a = p_tstate->istate->create<alias_impl>(
+            *this, string_ref{p_tstate->istate, name}, std::move(v), identflags
         );
         add_ident(a, a);
     }
@@ -445,9 +453,10 @@ LIBCUBESCRIPT_EXPORT command *state::new_command(
                 return nullptr;
         }
     }
-    auto *cmd = p_state->create<command_impl>(
-        string_ref{p_state, name}, string_ref{p_state, args}, nargs,
-        std::move(func)
+    auto *cmd = p_tstate->istate->create<command_impl>(
+        string_ref{p_tstate->istate, name},
+        string_ref{p_tstate->istate, args},
+        nargs, std::move(func)
     );
     add_ident(cmd, cmd);
     return cmd;
@@ -489,7 +498,7 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
 }
 
 LIBCUBESCRIPT_EXPORT void state::clear_overrides() {
-    for (auto &p: p_state->idents) {
+    for (auto &p: p_tstate->istate->idents) {
         clear_override(*(p.second));
     }
 }
@@ -570,7 +579,7 @@ LIBCUBESCRIPT_EXPORT void state::set_var_str(
         *this, sv, sv->p_flags,
         [&sv]() { sv->p_overrideval = sv->get_value(); }
     );
-    sv->set_value(string_ref{p_state, v});
+    sv->set_value(string_ref{p_tstate->istate, v});
     if (dofunc) {
         sv->changed(*this);
     }
@@ -600,7 +609,9 @@ state::get_var_str(std::string_view name) {
     if (!id || id->is_svar()) {
         return std::nullopt;
     }
-    return string_ref{p_state, static_cast<string_var *>(id)->get_value()};
+    return string_ref{
+        p_tstate->istate, static_cast<string_var *>(id)->get_value()
+    };
 }
 
 LIBCUBESCRIPT_EXPORT std::optional<integer_type>
@@ -756,7 +767,7 @@ LIBCUBESCRIPT_EXPORT void state::set_var_str_checked(
         *this, sv, svp->p_flags,
         [&svp]() { svp->p_overrideval = svp->p_storage; }
     );
-    sv->set_value(string_ref{p_state, v});
+    sv->set_value(string_ref{p_tstate->istate, v});
     svp->changed(*this);
 }
 

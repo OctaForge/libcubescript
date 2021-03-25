@@ -22,7 +22,7 @@ std::string_view codegen_state::get_str() {
 }
 
 charbuf codegen_state::get_str_dup() {
-    charbuf buf{cs};
+    charbuf buf{cs.p_tstate->istate};
     unescape_string(std::back_inserter(buf), get_str());
     return buf;
 }
@@ -199,7 +199,7 @@ static inline void compileunescapestr(codegen_state &gs) {
         gs.code.size() + str.size() / sizeof(uint32_t) + 1
     );
     size_t bufs = (gs.code.capacity() - gs.code.size()) * sizeof(uint32_t);
-    auto alloc = std_allocator<char>{gs.cs};
+    auto alloc = std_allocator<char>{gs.cs.p_tstate->istate};
     auto *buf = alloc.allocate(bufs + 1);
     char *wbuf = unescape_string(&buf[0], str);
     memset(
@@ -218,7 +218,7 @@ static bool compilearg(
 );
 
 static void compilelookup(codegen_state &gs, int ltype, int prevargs = MAX_RESULTS) {
-    charbuf lookup{gs.cs};
+    charbuf lookup{gs.cs.p_tstate->istate};
     gs.next_char();
     switch (gs.current()) {
         case '(':
@@ -466,7 +466,7 @@ static bool compileblockstr(codegen_state &gs, char const *str, char const *send
     int startc = gs.code.size();
     gs.code.push_back(BC_INST_VAL | BC_RET_STRING);
     gs.code.reserve(gs.code.size() + (send - str) / sizeof(uint32_t) + 1);
-    auto alloc = std_allocator<char>{gs.cs};
+    auto alloc = std_allocator<char>{gs.cs.p_tstate->istate};
     auto asz = ((send - str) / sizeof(uint32_t) + 1) * sizeof(uint32_t);
     char *buf = alloc.allocate(asz);
     int len = 0;
@@ -519,7 +519,7 @@ done:
 }
 
 static bool compileblocksub(codegen_state &gs, int prevargs) {
-    charbuf lookup{gs.cs};
+    charbuf lookup{gs.cs.p_tstate->istate};
     switch (gs.current()) {
         case '(':
             if (!compilearg(gs, VAL_ANY, prevargs)) {
@@ -1214,7 +1214,7 @@ static void compile_and_or(
 }
 
 static void compilestatements(codegen_state &gs, int rettype, int brak, int prevargs) {
-    charbuf idname{gs.cs};
+    charbuf idname{gs.cs.p_tstate->istate};
     for (;;) {
         gs.skip_comments();
         idname.clear();

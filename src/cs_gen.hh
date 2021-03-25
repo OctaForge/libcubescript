@@ -33,7 +33,7 @@ struct codegen_state {
 
     codegen_state() = delete;
     codegen_state(state &csr):
-        cs{csr}, prevps{csr.p_tstate->cstate}, code{cs},
+        cs{csr}, prevps{csr.p_tstate->cstate}, code{csr.p_tstate->istate},
         source{}, send{}, current_line{1}, src_name{}
     {
         csr.p_tstate->cstate = this;
@@ -122,7 +122,7 @@ struct codegen_state {
     }
 
     void gen_ident() {
-        gen_ident(cs.p_state->identmap[ID_IDX_DUMMY]);
+        gen_ident(cs.p_tstate->istate->identmap[ID_IDX_DUMMY]);
     }
 
     void gen_ident(std::string_view word) {

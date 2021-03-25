@@ -5,6 +5,7 @@
 
 #include "cs_std.hh"
 #include "cs_strman.hh"
+#include "cs_thread.hh"
 
 namespace cubescript {
 
@@ -59,7 +60,7 @@ void init_lib_string(state &cs) {
 
     cs.new_command("strlower", "s", [](auto &ccs, auto args, auto &res) {
         auto inps = std::string_view{args[0].get_str()};
-        auto *ics = state_get_internal(ccs);
+        auto *ics = ccs.p_tstate->istate;
         auto *buf = ics->strman->alloc_buf(inps.size());
         for (std::size_t i = 0; i < inps.size(); ++i) {
             buf[i] = tolower(inps[i]);
@@ -69,7 +70,7 @@ void init_lib_string(state &cs) {
 
     cs.new_command("strupper", "s", [](auto &ccs, auto args, auto &res) {
         auto inps = std::string_view{args[0].get_str()};
-        auto *ics = state_get_internal(ccs);
+        auto *ics = ccs.p_tstate->istate;
         auto *buf = ics->strman->alloc_buf(inps.size());
         for (std::size_t i = 0; i < inps.size(); ++i) {
             buf[i] = toupper(inps[i]);

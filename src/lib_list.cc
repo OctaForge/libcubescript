@@ -4,6 +4,7 @@
 #include <cubescript/cubescript.hh>
 #include "cs_std.hh"
 #include "cs_parser.hh"
+#include "cs_thread.hh"
 
 namespace cubescript {
 
@@ -550,7 +551,7 @@ static void list_sort(
 
     alias *xa = static_cast<alias *>(x), *ya = static_cast<alias *>(y);
 
-    valbuf<ListSortItem> items{cs};
+    valbuf<ListSortItem> items{cs.p_tstate->istate};
     size_t total = 0;
 
     for (list_parser p{cs, list}; p.parse();) {

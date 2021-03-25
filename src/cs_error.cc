@@ -45,8 +45,9 @@ LIBCUBESCRIPT_EXPORT char *error::request_buf(
 }
 
 LIBCUBESCRIPT_EXPORT stack_state error::save_stack(state &cs) {
+    auto &ts = *cs.p_tstate;
     integer_var *dalias = static_cast<integer_var *>(
-        cs.p_state->identmap[ID_IDX_DBGALIAS]
+        ts.istate->identmap[ID_IDX_DBGALIAS]
     );
     if (!dalias->get_value()) {
         return stack_state(cs, nullptr, !!cs.p_tstate->callstack);
@@ -58,7 +59,7 @@ LIBCUBESCRIPT_EXPORT stack_state error::save_stack(state &cs) {
     if (!total) {
         return stack_state(cs, nullptr, false);
     }
-    stack_state_node *st = cs.p_state->create_array<stack_state_node>(
+    stack_state_node *st = ts.istate->create_array<stack_state_node>(
         std::min(total, dalias->get_value())
     );
     stack_state_node *ret = st, *nd = st;

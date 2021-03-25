@@ -83,7 +83,7 @@ static inline void csv_cleanup(value_type tv, T *stor) {
     }
 }
 
-any_value::any_value(state &st): any_value(*st.p_state) {}
+any_value::any_value(state &st): any_value(*st.p_tstate->istate) {}
 
 any_value::any_value(internal_state &st):
     p_stor(), p_type(value_type::NONE)

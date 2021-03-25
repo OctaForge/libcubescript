@@ -534,10 +534,8 @@ struct LIBCUBESCRIPT_EXPORT state {
     friend struct string_ref;
     friend struct any_value;
     friend struct codegen_state;
-    friend inline internal_state *state_get_internal(state &);
 
-    internal_state *p_state;
-    thread_state *p_tstate;
+    thread_state *p_tstate = nullptr;
 
     int identflags = 0;
 
@@ -560,7 +558,6 @@ struct LIBCUBESCRIPT_EXPORT state {
     void destroy();
 
     void swap(state &s) {
-        std::swap(p_state, s.p_state);
         std::swap(p_tstate, s.p_tstate);
         std::swap(identflags, s.identflags);
         std::swap(p_owner, s.p_owner);

@@ -15,6 +15,10 @@ struct codegen_state;
 struct thread_state {
     /* thread call stack */
     ident_link *callstack{};
+    /* the shared state pointer */
+    internal_state *istate{};
+    /* the public state interface */
+    state *pstate{};
     /* current codegen state for diagnostics */
     codegen_state *cstate{};
     /* value stack for VM */

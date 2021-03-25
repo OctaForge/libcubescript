@@ -4,6 +4,7 @@
 #include <cctype>
 
 #include "cs_std.hh"
+#include "cs_thread.hh"
 
 namespace cubescript {
 
@@ -398,7 +399,7 @@ LIBCUBESCRIPT_EXPORT std::size_t list_parser::count() {
 
 LIBCUBESCRIPT_EXPORT string_ref list_parser::get_item() const {
     if (!p_quoted_item.empty() && (p_quoted_item.front() == '"')) {
-        charbuf buf{*p_state};
+        charbuf buf{p_state->p_tstate->istate};
         unescape_string(std::back_inserter(buf), p_item);
         return string_ref{*p_state, buf.str()};
     }

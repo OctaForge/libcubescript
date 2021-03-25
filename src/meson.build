@@ -10,6 +10,7 @@ libcubescript_src = [
     'cs_ident.cc',
     'cs_parser.cc',
     'cs_state.cc',
+    'cs_std.cc',
     'cs_strman.cc',
     'cs_thread.cc',
     'cs_val.cc',
