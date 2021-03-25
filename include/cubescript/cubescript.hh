@@ -529,12 +529,6 @@ enum class loop_state {
 };
 
 struct LIBCUBESCRIPT_EXPORT state {
-    friend struct error;
-    friend struct string_pool;
-    friend struct string_ref;
-    friend struct any_value;
-    friend struct codegen_state;
-
     thread_state *p_tstate = nullptr;
 
     int identflags = 0;
