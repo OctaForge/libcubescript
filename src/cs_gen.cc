@@ -328,10 +328,6 @@ lookupid:
                         auto fmt = static_cast<command_impl *>(id)->get_args();
                         for (char c: fmt) {
                             switch (c) {
-                                case 'S':
-                                    gs.gen_str();
-                                    numargs++;
-                                    break;
                                 case 's':
                                     gs.gen_str(std::string_view{});
                                     numargs++;
@@ -353,7 +349,6 @@ lookupid:
                                     numargs++;
                                     break;
                                 case 'E':
-                                case 'T':
                                 case 't':
                                     gs.gen_null();
                                     numargs++;

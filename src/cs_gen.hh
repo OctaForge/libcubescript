@@ -56,7 +56,7 @@ struct codegen_state {
 
     std::string_view get_word();
 
-    void gen_str(std::string_view word) {
+    void gen_str(std::string_view word = std::string_view{}) {
         if (word.size() <= 3) {
             std::uint32_t op = BC_INST_VAL_INT | BC_RET_STRING;
             for (size_t i = 0; i < word.size(); ++i) {
@@ -76,10 +76,6 @@ struct codegen_state {
         std::uint32_t u;
         std::memcpy(&u, c, sizeof(u));
         code.push_back(u);
-    }
-
-    void gen_str() {
-        code.push_back(BC_INST_VAL_INT | BC_RET_STRING);
     }
 
     void gen_null() {
