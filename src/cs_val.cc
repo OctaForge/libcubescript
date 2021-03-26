@@ -83,7 +83,7 @@ static inline void csv_cleanup(value_type tv, T *stor) {
     }
 }
 
-any_value::any_value(state &st): any_value(*st.p_tstate->istate) {}
+any_value::any_value(state &st): any_value(*st.thread_pointer()->istate) {}
 
 any_value::any_value(internal_state &st):
     p_stor(), p_type(value_type::NONE)
@@ -256,11 +256,11 @@ bcode *any_value::force_code(state &cs) {
         default:
             break;
     }
-    codegen_state gs{*cs.p_tstate};
+    codegen_state gs{*cs.thread_pointer()};
     gs.code.reserve(64);
     gs.gen_main(get_str());
     gs.done();
-    uint32_t *cbuf = bcode_alloc(cs.p_tstate->istate, gs.code.size());
+    uint32_t *cbuf = bcode_alloc(cs.thread_pointer()->istate, gs.code.size());
     std::memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(std::uint32_t));
     auto *bc = reinterpret_cast<bcode *>(cbuf + 1);
     set_code(bc);

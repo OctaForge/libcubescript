@@ -693,7 +693,13 @@ struct LIBCUBESCRIPT_EXPORT state {
 
     void print_var(global_var const &v) const;
 
-    thread_state *p_tstate = nullptr;
+    thread_state *thread_pointer() {
+        return p_tstate;
+    }
+
+    thread_state const *thread_pointer() const {
+        return p_tstate;
+    }
 
 private:
     hook_func set_call_hook(hook_func func);
@@ -726,6 +732,8 @@ private:
     ident *add_ident(ident *id, ident_impl *impl);
 
     void *alloc(void *ptr, size_t olds, size_t news);
+
+    thread_state *p_tstate = nullptr;
 };
 
 struct stack_state {
@@ -776,7 +784,7 @@ struct LIBCUBESCRIPT_EXPORT error {
 
     template<typename ...A>
     error(state &cs, std::string_view msg, A const &...args):
-        error{*cs.p_tstate, msg, args...}
+        error{*cs.thread_pointer(), msg, args...}
     {}
 
     error(thread_state &ts, std::string_view msg):

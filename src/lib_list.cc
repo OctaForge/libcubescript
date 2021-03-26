@@ -551,7 +551,7 @@ static void list_sort(
 
     alias *xa = static_cast<alias *>(x), *ya = static_cast<alias *>(y);
 
-    valbuf<ListSortItem> items{cs.p_tstate->istate};
+    valbuf<ListSortItem> items{cs.thread_pointer()->istate};
     size_t total = 0;
 
     for (list_parser p{cs, list}; p.parse();) {

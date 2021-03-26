@@ -100,7 +100,7 @@ state::state(alloc_func func, void *data) {
     static_cast<command_impl *>(p)->p_type = ID_DO;
 
     p = new_command("doargs", "e", [](auto &cs, auto args, auto &res) {
-        call_with_args(*cs.p_tstate, [&cs, &res, &args]() {
+        call_with_args(*cs.thread_pointer(), [&cs, &res, &args]() {
             cs.run(args[0].get_code(), res);
         });
     });

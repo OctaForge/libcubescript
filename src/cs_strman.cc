@@ -121,7 +121,7 @@ LIBCUBESCRIPT_EXPORT string_ref::string_ref(
 }
 
 LIBCUBESCRIPT_EXPORT string_ref::string_ref(state &cs, std::string_view str):
-    p_state{cs.p_tstate->istate}
+    p_state{cs.thread_pointer()->istate}
 {
     p_str = p_state->strman->add(str);
 }
