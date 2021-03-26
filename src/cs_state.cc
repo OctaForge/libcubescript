@@ -371,9 +371,9 @@ LIBCUBESCRIPT_EXPORT void state::set_alias(
             case ident_type::ALIAS: {
                 alias_impl *a = static_cast<alias_impl *>(id);
                 if (a->get_index() < MAX_ARGUMENTS) {
-                    a->set_arg(*this, v);
+                    a->set_arg(*p_tstate, v);
                 } else {
-                    a->set_alias(*this, v);
+                    a->set_alias(*p_tstate, v);
                 }
                 return;
             }
@@ -654,7 +654,7 @@ state::get_alias_val(std::string_view name) {
     if (!a) {
         return std::nullopt;
     }
-    if ((a->get_index() < MAX_ARGUMENTS) && !ident_is_used_arg(a, *this)) {
+    if ((a->get_index() < MAX_ARGUMENTS) && !ident_is_used_arg(a, *p_tstate)) {
         return std::nullopt;
     }
     return a->get_value().get_str();

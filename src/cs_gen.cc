@@ -14,7 +14,7 @@ std::string_view codegen_state::get_str() {
     size_t nl;
     char const *beg = source;
     source = parse_string(
-        cs, std::string_view{source, std::size_t(send - source)}, nl
+        *ts.pstate, std::string_view{source, std::size_t(send - source)}, nl
     );
     current_line += nl - 1;
     auto ret = std::string_view{beg, std::size_t(source - beg)};
@@ -22,7 +22,7 @@ std::string_view codegen_state::get_str() {
 }
 
 charbuf codegen_state::get_str_dup() {
-    charbuf buf{cs.p_tstate->istate};
+    charbuf buf{ts.istate};
     unescape_string(std::back_inserter(buf), get_str());
     return buf;
 }
@@ -69,7 +69,7 @@ void codegen_state::skip_comments() {
         if (current() == '\\') {
             char c = current(1);
             if ((c != '\r') && (c != '\n')) {
-                throw error(cs, "invalid line break");
+                throw error{*ts.pstate, "invalid line break"};
             }
             /* skip backslash */
             next_char();
@@ -94,7 +94,7 @@ void codegen_state::skip_comments() {
 std::string_view codegen_state::get_word() {
     char const *beg = source;
     source = parse_word(
-        cs, std::string_view{source, std::size_t(send - source)}
+        *ts.pstate, std::string_view{source, std::size_t(send - source)}
     );
     return std::string_view{beg, std::size_t(source - beg)};
 }
@@ -199,7 +199,7 @@ static inline void compileunescapestr(codegen_state &gs) {
         gs.code.size() + str.size() / sizeof(uint32_t) + 1
     );
     size_t bufs = (gs.code.capacity() - gs.code.size()) * sizeof(uint32_t);
-    auto alloc = std_allocator<char>{gs.cs.p_tstate->istate};
+    auto alloc = std_allocator<char>{gs.ts.istate};
     auto *buf = alloc.allocate(bufs + 1);
     char *wbuf = unescape_string(&buf[0], str);
     memset(
@@ -218,7 +218,7 @@ static bool compilearg(
 );
 
 static void compilelookup(codegen_state &gs, int ltype, int prevargs = MAX_RESULTS) {
-    charbuf lookup{gs.cs.p_tstate->istate};
+    charbuf lookup{gs.ts.istate};
     gs.next_char();
     switch (gs.current()) {
         case '(':
@@ -239,7 +239,7 @@ static void compilelookup(codegen_state &gs, int ltype, int prevargs = MAX_RESUL
             if (lookup.empty()) goto invalid;
             lookup.push_back('\0');
 lookupid:
-            ident *id = gs.cs.new_ident(lookup.str_term());
+            ident *id = gs.ts.pstate->new_ident(lookup.str_term());
             if (id) {
                 switch (id->get_type()) {
                     case ident_type::IVAR:
@@ -466,7 +466,7 @@ static bool compileblockstr(codegen_state &gs, char const *str, char const *send
     int startc = gs.code.size();
     gs.code.push_back(BC_INST_VAL | BC_RET_STRING);
     gs.code.reserve(gs.code.size() + (send - str) / sizeof(uint32_t) + 1);
-    auto alloc = std_allocator<char>{gs.cs.p_tstate->istate};
+    auto alloc = std_allocator<char>{gs.ts.istate};
     auto asz = ((send - str) / sizeof(uint32_t) + 1) * sizeof(uint32_t);
     char *buf = alloc.allocate(asz);
     int len = 0;
@@ -486,7 +486,7 @@ static bool compileblockstr(codegen_state &gs, char const *str, char const *send
             case '\"': {
                 char const *start = str;
                 str = parse_string(
-                    gs.cs, std::string_view{str, send}
+                    *gs.ts.pstate, std::string_view{str, send}
                 );
                 memcpy(&buf[len], start, std::size_t(str - start));
                 len += (str - start);
@@ -519,7 +519,7 @@ done:
 }
 
 static bool compileblocksub(codegen_state &gs, int prevargs) {
-    charbuf lookup{gs.cs.p_tstate->istate};
+    charbuf lookup{gs.ts.istate};
     switch (gs.current()) {
         case '(':
             if (!compilearg(gs, VAL_ANY, prevargs)) {
@@ -543,7 +543,7 @@ static bool compileblocksub(codegen_state &gs, int prevargs) {
             }
             lookup.push_back('\0');
 lookupid:
-            ident *id = gs.cs.new_ident(lookup.str_term());
+            ident *id = gs.ts.pstate->new_ident(lookup.str_term());
             if (id) {
                 switch (id->get_type()) {
                     case ident_type::IVAR:
@@ -583,7 +583,7 @@ static void compileblockmain(codegen_state &gs, int wordtype, int prevargs) {
     for (int brak = 1; brak;) {
         switch (gs.skip_until("@\"/[]")) {
             case '\0':
-                throw error(gs.cs, "missing \"]\"");
+                throw error{*gs.ts.pstate, "missing \"]\""};
                 return;
             case '\"':
                 gs.get_str();
@@ -612,7 +612,7 @@ static void compileblockmain(codegen_state &gs, int wordtype, int prevargs) {
                 if (brak > level) {
                     continue;
                 } else if (brak < level) {
-                    throw error(gs.cs, "too many @s");
+                    throw error{*gs.ts.pstate, "too many @s"};
                     return;
                 }
                 if (!concs && prevargs >= MAX_RESULTS) {
@@ -1214,7 +1214,7 @@ static void compile_and_or(
 }
 
 static void compilestatements(codegen_state &gs, int rettype, int brak, int prevargs) {
-    charbuf idname{gs.cs.p_tstate->istate};
+    charbuf idname{gs.ts.istate};
     for (;;) {
         gs.skip_comments();
         idname.clear();
@@ -1240,7 +1240,7 @@ static void compilestatements(codegen_state &gs, int rettype, int brak, int prev
                     gs.next_char();
                     if (!idname.empty()) {
                         idname.push_back('\0');
-                        ident *id = gs.cs.new_ident(idname.str_term());
+                        ident *id = gs.ts.pstate->new_ident(idname.str_term());
                         if (id) {
                             switch (id->get_type()) {
                                 case ident_type::ALIAS:
@@ -1309,7 +1309,7 @@ noid:
             gs.code.push_back(BC_INST_CALL_U | (numargs << 8));
         } else {
             idname.push_back('\0');
-            ident *id = gs.cs.get_ident(idname.str_term());
+            ident *id = gs.ts.pstate->get_ident(idname.str_term());
             if (!id) {
                 if (is_valid_name(idname.str_term())) {
                     gs.gen_str(idname.str_term());
@@ -1435,7 +1435,7 @@ endstatement:
         switch (gs.skip_until(")];/\n")) {
             case '\0':
                 if (gs.current() != brak) {
-                    throw error(gs.cs, "missing \"%c\"", char(brak));
+                    throw error{*gs.ts.pstate, "missing \"%c\"", char(brak)};
                     return;
                 }
                 return;
@@ -1445,7 +1445,7 @@ endstatement:
                     gs.next_char();
                     return;
                 }
-                throw error(gs.cs, "unexpected \"%c\"", gs.current());
+                throw error{*gs.ts.pstate, "unexpected \"%c\"", gs.current()};
                 return;
             case '/':
                 gs.next_char();

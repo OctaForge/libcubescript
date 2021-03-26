@@ -256,7 +256,7 @@ bcode *any_value::force_code(state &cs) {
         default:
             break;
     }
-    codegen_state gs{cs};
+    codegen_state gs{*cs.p_tstate};
     gs.code.reserve(64);
     gs.gen_main(get_str());
     gs.done();

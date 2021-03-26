@@ -266,7 +266,7 @@ static inline void call_alias(
     ts.callstack = &aliaslink;
     std::uint32_t *codep = static_cast<
         alias_impl *
-    >(a)->compile_code(*ts.pstate)->get_raw();
+    >(a)->compile_code(ts)->get_raw();
     bcode_incr(codep);
     call_with_cleanup([&]() {
         runcode(ts, codep+1, result);
@@ -320,7 +320,7 @@ static inline alias *get_lookup_id(thread_state &ts, std::uint32_t op) {
 
 static inline alias *get_lookuparg_id(thread_state &ts, std::uint32_t op) {
     ident *id = ts.istate->identmap[op >> 8];
-    if (!ident_is_used_arg(id, *ts.pstate)) {
+    if (!ident_is_used_arg(id, ts)) {
         return nullptr;
     }
     return static_cast<alias *>(id);
@@ -358,7 +358,7 @@ static inline int get_lookupu_type(
                 }
                 if (
                     (id->get_index() < MAX_ARGUMENTS) &&
-                    !ident_is_used_arg(id, *ts.pstate)
+                    !ident_is_used_arg(id, ts)
                 ) {
                     return ID_UNKNOWN;
                 }
@@ -707,7 +707,7 @@ static std::uint32_t *runcode(
             }
             case BC_INST_COMPILE: {
                 any_value &arg = args.back();
-                codegen_state gs{cs};
+                codegen_state gs{ts};
                 switch (arg.get_type()) {
                     case value_type::INT:
                         gs.code.reserve(8);
@@ -752,7 +752,7 @@ static std::uint32_t *runcode(
                     case value_type::STRING: {
                         std::string_view s = arg.get_str();
                         if (!s.empty()) {
-                            codegen_state gs{cs};
+                            codegen_state gs{ts};
                             gs.code.reserve(64);
                             gs.gen_main(s);
                             gs.done();
@@ -782,7 +782,7 @@ static std::uint32_t *runcode(
                 alias *a = static_cast<alias *>(
                     ts.istate->identmap[op >> 8]
                 );
-                if (!ident_is_used_arg(a, cs)) {
+                if (!ident_is_used_arg(a, ts)) {
                     any_value nv{cs};
                     static_cast<alias_impl *>(a)->push_arg(
                         nv, ts.callstack->argstack[a->get_index()],
@@ -799,7 +799,10 @@ static std::uint32_t *runcode(
                 if (arg.get_type() == value_type::STRING) {
                     id = cs.new_ident(arg.get_str());
                 }
-                if ((id->get_index() < MAX_ARGUMENTS) && !ident_is_used_arg(id, cs)) {
+                if (
+                    (id->get_index() < MAX_ARGUMENTS) &&
+                    !ident_is_used_arg(id, ts)
+                ) {
                     any_value nv{cs};
                     static_cast<alias_impl *>(id)->push_arg(
                         nv, ts.callstack->argstack[id->get_index()],
@@ -1259,13 +1262,13 @@ static std::uint32_t *runcode(
             case BC_INST_ALIAS:
                 static_cast<alias_impl *>(
                     ts.istate->identmap[op >> 8]
-                )->set_alias(cs, args.back());
+                )->set_alias(ts, args.back());
                 args.pop_back();
                 continue;
             case BC_INST_ALIAS_ARG:
                 static_cast<alias_impl *>(
                     ts.istate->identmap[op >> 8]
-                )->set_arg(cs, args.back());
+                )->set_arg(ts, args.back());
                 args.pop_back();
                 continue;
             case BC_INST_ALIAS_U: {
@@ -1307,7 +1310,7 @@ static std::uint32_t *runcode(
                 std::size_t callargs = (op >> 8) & 0x1F;
                 std::size_t nnargs = args.size();
                 std::size_t offset = nnargs - callargs;
-                if (!ident_is_used_arg(id, cs)) {
+                if (!ident_is_used_arg(id, ts)) {
                     args.resize(offset, any_value{cs});
                     force_arg(result, op & BC_INST_RET_MASK);
                     continue;
@@ -1422,7 +1425,7 @@ noid:
                         alias *a = static_cast<alias *>(id);
                         if (
                             (a->get_index() < MAX_ARGUMENTS) &&
-                            !ident_is_used_arg(a, cs)
+                            !ident_is_used_arg(a, ts)
                         ) {
                             args.resize(offset - 1, any_value{cs});
                             force_arg(result, op & BC_INST_RET_MASK);
@@ -1453,7 +1456,7 @@ static void do_run(
     state &cs, std::string_view file, std::string_view code,
     any_value &ret
 ) {
-    codegen_state gs{cs};
+    codegen_state gs{*cs.p_tstate};
     gs.src_name = file;
     gs.code.reserve(64);
     gs.gen_main(code, VAL_ANY);
@@ -1536,7 +1539,8 @@ void state::run(ident *id, std::span<any_value> args, any_value &ret) {
             case ident_type::ALIAS: {
                 alias *a = static_cast<alias *>(id);
                 if (
-                    (a->get_index() < MAX_ARGUMENTS) && !ident_is_used_arg(a, *this)
+                    (a->get_index() < MAX_ARGUMENTS) &&
+                    !ident_is_used_arg(a, *p_tstate)
                 ) {
                     break;
                 }

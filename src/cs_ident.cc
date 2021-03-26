@@ -151,20 +151,20 @@ void alias_impl::redo_arg(ident_stack &st) {
     clean_code();
 }
 
-void alias_impl::set_arg(state &cs, any_value &v) {
-    if (ident_is_used_arg(this, cs)) {
+void alias_impl::set_arg(thread_state &ts, any_value &v) {
+    if (ident_is_used_arg(this, ts)) {
         p_val = std::move(v);
         clean_code();
     } else {
-        push_arg(v, cs.p_tstate->callstack->argstack[get_index()], false);
-        cs.p_tstate->callstack->usedargs |= 1 << get_index();
+        push_arg(v, ts.callstack->argstack[get_index()], false);
+        ts.callstack->usedargs |= 1 << get_index();
     }
 }
 
-void alias_impl::set_alias(state &cs, any_value &v) {
+void alias_impl::set_alias(thread_state &ts, any_value &v) {
     p_val = std::move(v);
     clean_code();
-    p_flags = (p_flags & cs.identflags) | cs.identflags;
+    p_flags = (p_flags & ts.pstate->identflags) | ts.pstate->identflags;
 }
 
 void alias_impl::clean_code() {
@@ -174,13 +174,13 @@ void alias_impl::clean_code() {
     }
 }
 
-bcode *alias_impl::compile_code(state &cs) {
+bcode *alias_impl::compile_code(thread_state &ts) {
     if (!p_acode) {
-        codegen_state gs(cs);
+        codegen_state gs(ts);
         gs.code.reserve(64);
         gs.gen_main(get_value().get_str());
         /* i wish i could steal the memory somehow */
-        uint32_t *code = bcode_alloc(cs.p_tstate->istate, gs.code.size());
+        uint32_t *code = bcode_alloc(ts.istate, gs.code.size());
         memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
         bcode_incr(code);
         p_acode = reinterpret_cast<bcode *>(code);
@@ -195,11 +195,11 @@ command_impl::command_impl(
     p_cargs{args}, p_cb_cftv{std::move(f)}, p_numargs{nargs}
 {}
 
-bool ident_is_used_arg(ident *id, state &cs) {
-    if (!cs.p_tstate->callstack) {
+bool ident_is_used_arg(ident *id, thread_state &ts) {
+    if (!ts.callstack) {
         return true;
     }
-    return cs.p_tstate->callstack->usedargs & (1 << id->get_index());
+    return ts.callstack->usedargs & (1 << id->get_index());
 }
 
 /* public interface */

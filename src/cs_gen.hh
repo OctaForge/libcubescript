@@ -23,7 +23,7 @@ static constexpr int ID_IDX_NUMARGS = MAX_ARGUMENTS + 1;
 static constexpr int ID_IDX_DBGALIAS = MAX_ARGUMENTS + 2;
 
 struct codegen_state {
-    state &cs;
+    thread_state &ts;
     codegen_state *prevps;
     bool parsing = true;
     valbuf<uint32_t> code;
@@ -32,11 +32,11 @@ struct codegen_state {
     std::string_view src_name;
 
     codegen_state() = delete;
-    codegen_state(state &csr):
-        cs{csr}, prevps{csr.p_tstate->cstate}, code{csr.p_tstate->istate},
+    codegen_state(thread_state &tsr):
+        ts{tsr}, prevps{tsr.cstate}, code{tsr.istate},
         source{}, send{}, current_line{1}, src_name{}
     {
-        csr.p_tstate->cstate = this;
+        tsr.cstate = this;
     }
 
     ~codegen_state() {
@@ -47,7 +47,7 @@ struct codegen_state {
         if (!parsing) {
             return;
         }
-        cs.p_tstate->cstate = prevps;
+        ts.cstate = prevps;
         parsing = false;
     }
 
@@ -122,11 +122,11 @@ struct codegen_state {
     }
 
     void gen_ident() {
-        gen_ident(cs.p_tstate->istate->identmap[ID_IDX_DUMMY]);
+        gen_ident(ts.istate->identmap[ID_IDX_DUMMY]);
     }
 
     void gen_ident(std::string_view word) {
-        gen_ident(cs.new_ident(word));
+        gen_ident(ts.pstate->new_ident(word));
     }
 
     void gen_value(

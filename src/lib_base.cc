@@ -87,8 +87,8 @@ void init_lib_base(state &gcs) {
             rc = false;
         }
         ret.set_int(rc);
-        static_cast<alias_impl *>(cret)->set_alias(cs, result);
-        static_cast<alias_impl *>(css)->set_alias(cs, tback);
+        static_cast<alias_impl *>(cret)->set_alias(*cs.p_tstate, result);
+        static_cast<alias_impl *>(css)->set_alias(*cs.p_tstate, tback);
     });
 
     gcs.new_command("?", "ttt", [](auto &, auto args, auto &res) {

@@ -87,11 +87,11 @@ struct alias_impl: ident_impl, alias {
     void pop_arg();
     void undo_arg(ident_stack &st);
     void redo_arg(ident_stack &st);
-    void set_arg(state &cs, any_value &v);
-    void set_alias(state &cs, any_value &v);
+    void set_arg(thread_state &ts, any_value &v);
+    void set_alias(thread_state &ts, any_value &v);
 
     void clean_code();
-    bcode *compile_code(state &cs);
+    bcode *compile_code(thread_state &ts);
 
     bcode *p_acode;
     ident_stack *p_astack;
@@ -112,7 +112,7 @@ struct command_impl: ident_impl, command {
     int p_numargs;
 };
 
-bool ident_is_used_arg(ident *id, state &cs);
+bool ident_is_used_arg(ident *id, thread_state &ts);
 
 } /* namespace cubescript */
 
