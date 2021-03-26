@@ -6,10 +6,10 @@
 namespace cubescript {
 
 LIBCUBESCRIPT_EXPORT char *error::request_buf(
-    state &cs, std::size_t bufs, char *&sp
+    thread_state &ts, std::size_t bufs, char *&sp
 ) {
-    charbuf &cb = cs.p_tstate->errbuf;
-    codegen_state *gs = cs.p_tstate->cstate;
+    charbuf &cb = ts.errbuf;
+    codegen_state *gs = ts.cstate;
     cb.clear();
     std::size_t sz = 0;
     if (gs) {
@@ -44,27 +44,26 @@ LIBCUBESCRIPT_EXPORT char *error::request_buf(
     return &cb[sz];
 }
 
-LIBCUBESCRIPT_EXPORT stack_state error::save_stack(state &cs) {
-    auto &ts = *cs.p_tstate;
+LIBCUBESCRIPT_EXPORT stack_state error::save_stack(thread_state &ts) {
     integer_var *dalias = static_cast<integer_var *>(
         ts.istate->identmap[ID_IDX_DBGALIAS]
     );
     if (!dalias->get_value()) {
-        return stack_state(cs, nullptr, !!cs.p_tstate->callstack);
+        return stack_state{ts, nullptr, !!ts.callstack};
     }
     int total = 0, depth = 0;
-    for (ident_link *l = cs.p_tstate->callstack; l; l = l->next) {
+    for (ident_link *l = ts.callstack; l; l = l->next) {
         total++;
     }
     if (!total) {
-        return stack_state(cs, nullptr, false);
+        return stack_state{ts, nullptr, false};
     }
-    stack_state_node *st = ts.istate->create_array<stack_state_node>(
+    stack_state::node *st = ts.istate->create_array<stack_state::node>(
         std::min(total, dalias->get_value())
     );
-    stack_state_node *ret = st, *nd = st;
+    stack_state::node *ret = st, *nd = st;
     ++st;
-    for (ident_link *l = cs.p_tstate->callstack; l; l = l->next) {
+    for (ident_link *l = ts.callstack; l; l = l->next) {
         ++depth;
         if (depth < dalias->get_value()) {
             nd->id = l->id;
@@ -81,7 +80,7 @@ LIBCUBESCRIPT_EXPORT stack_state error::save_stack(state &cs) {
             nd->next = nullptr;
         }
     }
-    return stack_state(cs, ret, total > dalias->get_value());
+    return stack_state{ts, ret, total > dalias->get_value()};
 }
 
 } /* namespace cubescript */

@@ -28,11 +28,11 @@ static inline void pop_alias(ident *id) {
     }
 }
 
-stack_state::stack_state(state &cs, stack_state_node *nd, bool gap):
-    p_state(cs), p_node(nd), p_gap(gap)
+stack_state::stack_state(thread_state &ts, node *nd, bool gap):
+    p_state{ts}, p_node{nd}, p_gap{gap}
 {}
 stack_state::stack_state(stack_state &&st):
-    p_state(st.p_state), p_node(st.p_node), p_gap(st.p_gap)
+    p_state{st.p_state}, p_node{st.p_node}, p_gap{st.p_gap}
 {
     st.p_node = nullptr;
     st.p_gap = false;
@@ -40,10 +40,10 @@ stack_state::stack_state(stack_state &&st):
 
 stack_state::~stack_state() {
     size_t len = 0;
-    for (stack_state_node const *nd = p_node; nd; nd = nd->next) {
+    for (node const *nd = p_node; nd; nd = nd->next) {
         ++len;
     }
-    p_state.p_tstate->istate->destroy_array(p_node, len);
+    p_state.istate->destroy_array(p_node, len);
 }
 
 stack_state &stack_state::operator=(stack_state &&st) {
@@ -54,7 +54,7 @@ stack_state &stack_state::operator=(stack_state &&st) {
     return *this;
 }
 
-stack_state_node const *stack_state::get() const {
+stack_state::node const *stack_state::get() const {
     return p_node;
 }
 
@@ -297,9 +297,9 @@ static thread_local int rundepth = 0;
 
 struct run_depth_guard {
     run_depth_guard() = delete;
-    run_depth_guard(state &cs) {
+    run_depth_guard(thread_state &ts) {
         if (rundepth >= MaxRunDepth) {
-            throw error(cs, "exceeded recursion limit");
+            throw error{ts, "exceeded recursion limit"};
         }
         ++rundepth;
     }
@@ -394,7 +394,7 @@ static std::uint32_t *runcode(
 ) {
     result.set_none();
     auto &cs = *ts.pstate;
-    run_depth_guard level{cs}; /* incr and decr on scope exit */
+    run_depth_guard level{ts}; /* incr and decr on scope exit */
     stack_guard guard{ts}; /* resize back to original */
     auto &args = ts.vmstack;
     auto &chook = cs.get_call_hook();
@@ -1453,38 +1453,38 @@ void state::run(bcode *code, any_value &ret) {
 }
 
 static void do_run(
-    state &cs, std::string_view file, std::string_view code,
+    thread_state &ts, std::string_view file, std::string_view code,
     any_value &ret
 ) {
-    codegen_state gs{*cs.p_tstate};
+    codegen_state gs{ts};
     gs.src_name = file;
     gs.code.reserve(64);
     gs.gen_main(code, VAL_ANY);
     gs.done();
-    std::uint32_t *cbuf = bcode_alloc(cs.p_tstate->istate, gs.code.size());
+    std::uint32_t *cbuf = bcode_alloc(ts.istate, gs.code.size());
     std::memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(std::uint32_t));
     bcode_incr(cbuf);
-    call_with_cleanup([&cs, cbuf, &ret]() {
-        runcode(*cs.p_tstate, cbuf + 1, ret);
+    call_with_cleanup([&ts, cbuf, &ret]() {
+        runcode(ts, cbuf + 1, ret);
     }, [cbuf]() {
         bcode_decr(cbuf);
     });
 }
 
 void state::run(std::string_view code, any_value &ret) {
-    do_run(*this, std::string_view{}, code, ret);
+    do_run(*p_tstate, std::string_view{}, code, ret);
 }
 
 void state::run(
     std::string_view code, any_value &ret, std::string_view source
 ) {
-    do_run(*this, source, code, ret);
+    do_run(*p_tstate, source, code, ret);
 }
 
 void state::run(ident *id, std::span<any_value> args, any_value &ret) {
     std::size_t nargs = args.size();
     ret.set_none();
-    run_depth_guard level{*this}; /* incr and decr on scope exit */
+    run_depth_guard level{*p_tstate}; /* incr and decr on scope exit */
     if (id) {
         switch (id->get_type()) {
             default:

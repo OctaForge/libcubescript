@@ -69,7 +69,7 @@ void codegen_state::skip_comments() {
         if (current() == '\\') {
             char c = current(1);
             if ((c != '\r') && (c != '\n')) {
-                throw error{*ts.pstate, "invalid line break"};
+                throw error{ts, "invalid line break"};
             }
             /* skip backslash */
             next_char();
@@ -583,7 +583,7 @@ static void compileblockmain(codegen_state &gs, int wordtype, int prevargs) {
     for (int brak = 1; brak;) {
         switch (gs.skip_until("@\"/[]")) {
             case '\0':
-                throw error{*gs.ts.pstate, "missing \"]\""};
+                throw error{gs.ts, "missing \"]\""};
                 return;
             case '\"':
                 gs.get_str();
@@ -612,7 +612,7 @@ static void compileblockmain(codegen_state &gs, int wordtype, int prevargs) {
                 if (brak > level) {
                     continue;
                 } else if (brak < level) {
-                    throw error{*gs.ts.pstate, "too many @s"};
+                    throw error{gs.ts, "too many @s"};
                     return;
                 }
                 if (!concs && prevargs >= MAX_RESULTS) {
@@ -1435,7 +1435,7 @@ endstatement:
         switch (gs.skip_until(")];/\n")) {
             case '\0':
                 if (gs.current() != brak) {
-                    throw error{*gs.ts.pstate, "missing \"%c\"", char(brak)};
+                    throw error{gs.ts, "missing \"%c\"", char(brak)};
                     return;
                 }
                 return;
@@ -1445,7 +1445,7 @@ endstatement:
                     gs.next_char();
                     return;
                 }
-                throw error{*gs.ts.pstate, "unexpected \"%c\"", gs.current()};
+                throw error{gs.ts, "unexpected \"%c\"", gs.current()};
                 return;
             case '/':
                 gs.next_char();

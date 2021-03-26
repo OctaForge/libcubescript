@@ -529,8 +529,6 @@ enum class loop_state {
 };
 
 struct LIBCUBESCRIPT_EXPORT state {
-    thread_state *p_tstate = nullptr;
-
     int identflags = 0;
 
     state();
@@ -695,6 +693,8 @@ struct LIBCUBESCRIPT_EXPORT state {
 
     void print_var(global_var const &v) const;
 
+    thread_state *p_tstate = nullptr;
+
 private:
     hook_func set_call_hook(hook_func func);
     var_print_func set_var_printer(var_print_func func);
@@ -728,15 +728,15 @@ private:
     void *alloc(void *ptr, size_t olds, size_t news);
 };
 
-struct stack_state_node {
-    stack_state_node const *next;
-    ident const *id;
-    int index;
-};
-
 struct stack_state {
+    struct node {
+        node const *next;
+        ident const *id;
+        int index;
+    };
+
     stack_state() = delete;
-    stack_state(state &cs, stack_state_node *nd = nullptr, bool gap = false);
+    stack_state(thread_state &ts, node *nd = nullptr, bool gap = false);
     stack_state(stack_state const &) = delete;
     stack_state(stack_state &&st);
     ~stack_state();
@@ -744,12 +744,12 @@ struct stack_state {
     stack_state &operator=(stack_state const &) = delete;
     stack_state &operator=(stack_state &&);
 
-    stack_state_node const *get() const;
+    node const *get() const;
     bool gap() const;
 
 private:
-    state &p_state;
-    stack_state_node *p_node;
+    thread_state &p_state;
+    node *p_node;
     bool p_gap;
 };
 
@@ -774,25 +774,30 @@ struct LIBCUBESCRIPT_EXPORT error {
         return p_stack;
     }
 
-    error(state &cs, std::string_view msg):
-        p_errmsg(), p_stack(cs)
+    template<typename ...A>
+    error(state &cs, std::string_view msg, A const &...args):
+        error{*cs.p_tstate, msg, args...}
+    {}
+
+    error(thread_state &ts, std::string_view msg):
+        p_errmsg{}, p_stack{ts}
     {
         char *sp;
-        char *buf = request_buf(cs, msg.size(), sp);
+        char *buf = request_buf(ts, msg.size(), sp);
         std::memcpy(buf, msg.data(), msg.size());
         buf[msg.size()] = '\0';
         p_errmsg = std::string_view{sp, buf + msg.size()};
-        p_stack = save_stack(cs);
+        p_stack = save_stack(ts);
     }
 
     template<typename ...A>
-    error(state &cs, std::string_view msg, A const &...args):
-        p_errmsg(), p_stack(cs)
+    error(thread_state &ts, std::string_view msg, A const &...args):
+        p_errmsg{}, p_stack{ts}
     {
         std::size_t sz = msg.size() + 64;
         char *buf, *sp;
         for (;;) {
-            buf = request_buf(cs, sz, sp);
+            buf = request_buf(ts, sz, sp);
             int written = std::snprintf(buf, sz, msg.data(), args...);
             if (written <= 0) {
                 throw internal_error{"format error"};
@@ -802,12 +807,12 @@ struct LIBCUBESCRIPT_EXPORT error {
             sz = std::size_t(written);
         }
         p_errmsg = std::string_view{sp, buf + sz};
-        p_stack = save_stack(cs);
+        p_stack = save_stack(ts);
     }
 
 private:
-    stack_state save_stack(state &cs);
-    char *request_buf(state &cs, std::size_t bufs, char *&sp);
+    stack_state save_stack(thread_state &ts);
+    char *request_buf(thread_state &ts, std::size_t bufs, char *&sp);
 
     std::string_view p_errmsg;
     stack_state p_stack;

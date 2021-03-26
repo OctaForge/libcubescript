@@ -63,7 +63,7 @@ end:
 
 void init_lib_base(state &gcs) {
     gcs.new_command("error", "s", [](auto &cs, auto args, auto &) {
-        throw error(cs, args[0].get_str());
+        throw error{cs, args[0].get_str()};
     });
 
     gcs.new_command("pcall", "err", [](auto &cs, auto args, auto &ret) {

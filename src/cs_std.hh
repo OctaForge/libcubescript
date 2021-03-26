@@ -13,8 +13,6 @@
 
 namespace cubescript {
 
-struct state;
-
 /* run func, call the second one after finishing */
 
 template<typename F1, typename F2>
@@ -110,6 +108,7 @@ struct valbuf {
 struct charbuf: valbuf<char> {
     charbuf(internal_state *cs): valbuf<char>{cs} {}
     charbuf(state &cs);
+    charbuf(thread_state &ts);
 
     void append(char const *beg, char const *end) {
         valbuf<char>::append(beg, end);
