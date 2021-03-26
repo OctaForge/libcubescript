@@ -16,6 +16,31 @@ struct break_exception {
 struct continue_exception {
 };
 
+struct run_depth_guard {
+    run_depth_guard() = delete;
+    run_depth_guard(thread_state &ts);
+    run_depth_guard(run_depth_guard const &) = delete;
+    run_depth_guard(run_depth_guard &&) = delete;
+    ~run_depth_guard();
+};
+
+struct stack_guard {
+    thread_state *tsp;
+    std::size_t oldtop;
+
+    stack_guard() = delete;
+    stack_guard(thread_state &ts):
+        tsp{&ts}, oldtop{ts.vmstack.size()}
+    {}
+
+    ~stack_guard() {
+        tsp->vmstack.resize(oldtop, any_value{*tsp->pstate});
+    }
+
+    stack_guard(stack_guard const &) = delete;
+    stack_guard(stack_guard &&) = delete;
+};
+
 template<typename F>
 static void call_with_args(thread_state &ts, F body) {
     if (!ts.callstack) {
@@ -53,6 +78,21 @@ static void call_with_args(thread_state &ts, F body) {
         }
     });
 }
+
+void exec_command(
+    thread_state &ts, command_impl *id, any_value *args, any_value &res,
+    std::size_t nargs, bool lookup = false
+);
+
+void exec_alias(
+    thread_state &ts, alias *a, any_value *args, any_value &result,
+    std::size_t callargs, std::size_t &nargs,
+    std::size_t offset, std::size_t skip, std::uint32_t op
+);
+
+std::uint32_t *vm_exec(
+    thread_state &ts, std::uint32_t *code, any_value &result
+);
 
 } /* namespace cubescript */
 

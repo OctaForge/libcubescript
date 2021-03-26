@@ -8,13 +8,6 @@
 
 namespace cubescript {
 
-static inline bool ident_has_cb(ident *id) {
-    if (!id->is_command() && !id->is_special()) {
-        return false;
-    }
-    return !!static_cast<command_impl *>(id)->p_cb_cftv;
-}
-
 static inline void push_alias(state &cs, ident *id, ident_stack &st) {
     if (id->is_alias() && (id->get_index() >= MAX_ARGUMENTS)) {
         any_value nv{cs};
@@ -26,40 +19,6 @@ static inline void pop_alias(ident *id) {
     if (id->is_alias() && (id->get_index() >= MAX_ARGUMENTS)) {
         static_cast<alias_impl *>(id)->pop_arg();
     }
-}
-
-stack_state::stack_state(thread_state &ts, node *nd, bool gap):
-    p_state{ts}, p_node{nd}, p_gap{gap}
-{}
-stack_state::stack_state(stack_state &&st):
-    p_state{st.p_state}, p_node{st.p_node}, p_gap{st.p_gap}
-{
-    st.p_node = nullptr;
-    st.p_gap = false;
-}
-
-stack_state::~stack_state() {
-    size_t len = 0;
-    for (node const *nd = p_node; nd; nd = nd->next) {
-        ++len;
-    }
-    p_state.istate->destroy_array(p_node, len);
-}
-
-stack_state &stack_state::operator=(stack_state &&st) {
-    p_node = st.p_node;
-    p_gap = st.p_gap;
-    st.p_node = nullptr;
-    st.p_gap = false;
-    return *this;
-}
-
-stack_state::node const *stack_state::get() const {
-    return p_node;
-}
-
-bool stack_state::gap() const {
-    return p_gap;
 }
 
 static inline void force_arg(any_value &v, int type) {
@@ -82,9 +41,9 @@ static inline void force_arg(any_value &v, int type) {
     }
 }
 
-static inline void callcommand(
+void exec_command(
     thread_state &ts, command_impl *id, any_value *args, any_value &res,
-    std::size_t nargs, bool lookup = false
+    std::size_t nargs, bool lookup
 ) {
     int i = -1, fakeargs = 0, numargs = int(nargs);
     bool rep = false;
@@ -238,11 +197,7 @@ static inline void callcommand(
     );
 }
 
-static std::uint32_t *runcode(
-    thread_state &ts, std::uint32_t *code, any_value &result
-);
-
-static inline void call_alias(
+void exec_alias(
     thread_state &ts, alias *a, any_value *args, any_value &result,
     std::size_t callargs, std::size_t &nargs,
     std::size_t offset, std::size_t skip, std::uint32_t op
@@ -269,7 +224,7 @@ static inline void call_alias(
     >(a)->compile_code(ts)->get_raw();
     bcode_incr(codep);
     call_with_cleanup([&]() {
-        runcode(ts, codep+1, result);
+        vm_exec(ts, codep+1, result);
     }, [&]() {
         bcode_decr(codep);
         ts.callstack = aliaslink.next;
@@ -295,18 +250,14 @@ static inline void call_alias(
 static constexpr int MaxRunDepth = 255;
 static thread_local int rundepth = 0;
 
-struct run_depth_guard {
-    run_depth_guard() = delete;
-    run_depth_guard(thread_state &ts) {
-        if (rundepth >= MaxRunDepth) {
-            throw error{ts, "exceeded recursion limit"};
-        }
-        ++rundepth;
+run_depth_guard::run_depth_guard(thread_state &ts) {
+    if (rundepth >= MaxRunDepth) {
+        throw error{ts, "exceeded recursion limit"};
     }
-    run_depth_guard(run_depth_guard const &) = delete;
-    run_depth_guard(run_depth_guard &&) = delete;
-    ~run_depth_guard() { --rundepth; }
-};
+    ++rundepth;
+}
+
+run_depth_guard::~run_depth_guard() { --rundepth; }
 
 static inline alias *get_lookup_id(thread_state &ts, std::uint32_t op) {
     ident *id = ts.istate->identmap[op >> 8];
@@ -325,23 +276,6 @@ static inline alias *get_lookuparg_id(thread_state &ts, std::uint32_t op) {
     }
     return static_cast<alias *>(id);
 }
-
-struct stack_guard {
-    thread_state *tsp;
-    std::size_t oldtop;
-
-    stack_guard() = delete;
-    stack_guard(thread_state &ts):
-        tsp{&ts}, oldtop{ts.vmstack.size()}
-    {}
-
-    ~stack_guard() {
-        tsp->vmstack.resize(oldtop, any_value{*tsp->pstate});
-    }
-
-    stack_guard(stack_guard const &) = delete;
-    stack_guard(stack_guard &&) = delete;
-};
 
 static inline int get_lookupu_type(
     thread_state &ts, any_value &arg, ident *&id, std::uint32_t op
@@ -378,7 +312,7 @@ static inline int get_lookupu_type(
                 /* pad with as many empty values as we need */
                 args.resize(osz + cimpl->get_num_args(), any_value{*ts.pstate});
                 arg.set_none();
-                callcommand(ts, cimpl, &args[osz], arg, 0, true);
+                exec_command(ts, cimpl, &args[osz], arg, 0, true);
                 force_arg(arg, op & BC_INST_RET_MASK);
                 return -2; /* ignore */
             }
@@ -389,7 +323,7 @@ static inline int get_lookupu_type(
     throw error{*ts.pstate, "unknown alias lookup: %s", arg.get_str().data()};
 }
 
-static std::uint32_t *runcode(
+std::uint32_t *vm_exec(
     thread_state &ts, std::uint32_t *code, any_value &result
 ) {
     result.set_none();
@@ -461,10 +395,10 @@ static std::uint32_t *runcode(
                 args.pop_back();
                 continue;
             case BC_INST_ENTER:
-                code = runcode(ts, code, args.emplace_back(cs));
+                code = vm_exec(ts, code, args.emplace_back(cs));
                 continue;
             case BC_INST_ENTER_RESULT:
-                code = runcode(ts, code, result);
+                code = vm_exec(ts, code, result);
                 continue;
             case BC_INST_EXIT | BC_RET_STRING:
             case BC_INST_EXIT | BC_RET_INT:
@@ -493,7 +427,7 @@ static std::uint32_t *runcode(
                     push_alias(cs, args[offset + i].get_ident(), locals[i]);
                 }
                 call_with_cleanup([&]() {
-                    code = runcode(ts, code, result);
+                    code = vm_exec(ts, code, result);
                 }, [&]() {
                     for (std::size_t i = offset; i < args.size(); ++i) {
                         pop_alias(args[i].get_ident());
@@ -1294,7 +1228,7 @@ static std::uint32_t *runcode(
                         cs, "unknown command: %s", id->get_name().data()
                     };
                 }
-                call_alias(
+                exec_alias(
                     ts, static_cast<alias *>(id), &args[0], result, callargs,
                     nnargs, offset, 0, op
                 );
@@ -1315,7 +1249,7 @@ static std::uint32_t *runcode(
                     force_arg(result, op & BC_INST_RET_MASK);
                     continue;
                 }
-                call_alias(
+                exec_alias(
                     ts, static_cast<alias *>(id), &args[0], result, callargs,
                     nnargs, offset, 0, op
                 );
@@ -1355,14 +1289,14 @@ noid:
                 result.force_none();
                 switch (id->get_raw_type()) {
                     default:
-                        if (!ident_has_cb(id)) {
+                        if (!ident_is_callable(id)) {
                             args.resize(offset - 1, any_value{cs});
                             force_arg(result, op & BC_INST_RET_MASK);
                             continue;
                         }
                     /* fallthrough */
                     case ID_COMMAND:
-                        callcommand(
+                        exec_command(
                             ts, static_cast<command_impl *>(id),
                             &args[offset], result, callargs
                         );
@@ -1377,7 +1311,7 @@ noid:
                             );
                         }
                         call_with_cleanup([&]() {
-                            code = runcode(ts, code, result);
+                            code = vm_exec(ts, code, result);
                         }, [&]() {
                             for (size_t j = 0; j < size_t(callargs); ++j) {
                                 pop_alias(args[offset + j].get_ident());
@@ -1434,7 +1368,7 @@ noid:
                         if (a->get_value().get_type() == value_type::NONE) {
                             goto noid;
                         }
-                        call_alias(
+                        exec_alias(
                             ts, a, &args[0], result, callargs, nnargs,
                             offset, 1, op
                         );
@@ -1446,164 +1380,6 @@ noid:
         }
     }
     return code;
-}
-
-void state::run(bcode *code, any_value &ret) {
-    runcode(*p_tstate, reinterpret_cast<std::uint32_t *>(code), ret);
-}
-
-static void do_run(
-    thread_state &ts, std::string_view file, std::string_view code,
-    any_value &ret
-) {
-    codegen_state gs{ts};
-    gs.src_name = file;
-    gs.code.reserve(64);
-    gs.gen_main(code, VAL_ANY);
-    gs.done();
-    std::uint32_t *cbuf = bcode_alloc(ts.istate, gs.code.size());
-    std::memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(std::uint32_t));
-    bcode_incr(cbuf);
-    call_with_cleanup([&ts, cbuf, &ret]() {
-        runcode(ts, cbuf + 1, ret);
-    }, [cbuf]() {
-        bcode_decr(cbuf);
-    });
-}
-
-void state::run(std::string_view code, any_value &ret) {
-    do_run(*p_tstate, std::string_view{}, code, ret);
-}
-
-void state::run(
-    std::string_view code, any_value &ret, std::string_view source
-) {
-    do_run(*p_tstate, source, code, ret);
-}
-
-void state::run(ident *id, std::span<any_value> args, any_value &ret) {
-    std::size_t nargs = args.size();
-    ret.set_none();
-    run_depth_guard level{*p_tstate}; /* incr and decr on scope exit */
-    if (id) {
-        switch (id->get_type()) {
-            default:
-                if (!ident_has_cb(id)) {
-                    break;
-                }
-            /* fallthrough */
-            case ident_type::COMMAND: {
-                auto *cimpl = static_cast<command_impl *>(id);
-                if (nargs < std::size_t(cimpl->get_num_args())) {
-                    stack_guard s{*p_tstate}; /* restore after call */
-                    auto &targs = p_tstate->vmstack;
-                    auto osz = targs.size();
-                    targs.resize(osz + cimpl->get_num_args(), any_value{*this});
-                    for (std::size_t i = 0; i < nargs; ++i) {
-                        targs[osz + i] = args[i];
-                    }
-                    callcommand(
-                        *p_tstate, cimpl, &targs[osz], ret, nargs, false
-                    );
-                } else {
-                    callcommand(*p_tstate, cimpl, &args[0], ret, nargs, false);
-                }
-                nargs = 0;
-                break;
-            }
-            case ident_type::IVAR:
-                if (args.empty()) {
-                    print_var(*static_cast<global_var *>(id));
-                } else {
-                    set_var_int_checked(static_cast<integer_var *>(id), args);
-                }
-                break;
-            case ident_type::FVAR:
-                if (args.empty()) {
-                    print_var(*static_cast<global_var *>(id));
-                } else {
-                    set_var_float_checked(
-                        static_cast<float_var *>(id), args[0].force_float()
-                    );
-                }
-                break;
-            case ident_type::SVAR:
-                if (args.empty()) {
-                    print_var(*static_cast<global_var *>(id));
-                } else {
-                    set_var_str_checked(
-                        static_cast<string_var *>(id), args[0].force_str()
-                    );
-                }
-                break;
-            case ident_type::ALIAS: {
-                alias *a = static_cast<alias *>(id);
-                if (
-                    (a->get_index() < MAX_ARGUMENTS) &&
-                    !ident_is_used_arg(a, *p_tstate)
-                ) {
-                    break;
-                }
-                if (a->get_value().get_type() == value_type::NONE) {
-                    break;
-                }
-                call_alias(
-                    *p_tstate, a, &args[0], ret, nargs, nargs, 0, 0, BC_RET_NULL
-                );
-                break;
-            }
-        }
-    }
-}
-
-any_value state::run(bcode *code) {
-    any_value ret{*this};
-    run(code, ret);
-    return ret;
-}
-
-any_value state::run(std::string_view code) {
-    any_value ret{*this};
-    run(code, ret);
-    return ret;
-}
-
-any_value state::run(std::string_view code, std::string_view source) {
-    any_value ret{*this};
-    run(code, ret, source);
-    return ret;
-}
-
-any_value state::run(ident *id, std::span<any_value> args) {
-    any_value ret{*this};
-    run(id, args, ret);
-    return ret;
-}
-
-loop_state state::run_loop(bcode *code, any_value &ret) {
-    ++p_tstate->loop_level;
-    try {
-        run(code, ret);
-    } catch (break_exception) {
-        --p_tstate->loop_level;
-        return loop_state::BREAK;
-    } catch (continue_exception) {
-        --p_tstate->loop_level;
-        return loop_state::CONTINUE;
-    } catch (...) {
-        --p_tstate->loop_level;
-        throw;
-    }
-    return loop_state::NORMAL;
-}
-
-loop_state state::run_loop(bcode *code) {
-    any_value ret{*this};
-    return run_loop(code, ret);
-}
-
-bool state::is_in_loop() const {
-    return !!p_tstate->loop_level;
 }
 
 } /* namespace cubescript */

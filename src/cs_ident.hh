@@ -40,6 +40,8 @@ struct ident_impl {
     int p_index = -1;
 };
 
+bool ident_is_callable(ident const *id);
+
 struct var_impl: ident_impl {
     var_impl(
         ident_type tp, string_ref name, var_cb_func func, int flags = 0

@@ -10,6 +10,13 @@ ident_impl::ident_impl(ident_type tp, string_ref nm, int fl):
     p_name{nm}, p_type{int(tp)}, p_flags{fl}
 {}
 
+bool ident_is_callable(ident const *id) {
+    if (!id->is_command() && !id->is_special()) {
+        return false;
+    }
+    return !!static_cast<command_impl const *>(id)->p_cb_cftv;
+}
+
 var_impl::var_impl(
     ident_type tp, string_ref name, var_cb_func f, int fl
 ):

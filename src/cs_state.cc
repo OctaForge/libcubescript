@@ -4,7 +4,7 @@
 #include "cs_state.hh"
 #include "cs_thread.hh"
 #include "cs_strman.hh"
-#include "cs_gen.hh" // FIXME, only MAX_ARGUMENTS
+#include "cs_gen.hh"
 #include "cs_vm.hh" // break/continue, call_with_args
 #include "cs_parser.hh"
 
@@ -779,6 +779,172 @@ LIBCUBESCRIPT_EXPORT void state::init_libs(int libs) {
     if (libs & LIB_LIST) {
         init_lib_list(*this);
     }
+}
+
+LIBCUBESCRIPT_EXPORT void state::run(bcode *code, any_value &ret) {
+    vm_exec(*p_tstate, reinterpret_cast<std::uint32_t *>(code), ret);
+}
+
+static void do_run(
+    thread_state &ts, std::string_view file, std::string_view code,
+    any_value &ret
+) {
+    codegen_state gs{ts};
+    gs.src_name = file;
+    gs.code.reserve(64);
+    gs.gen_main(code, VAL_ANY);
+    gs.done();
+    std::uint32_t *cbuf = bcode_alloc(ts.istate, gs.code.size());
+    std::memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(std::uint32_t));
+    bcode_incr(cbuf);
+    call_with_cleanup([&ts, cbuf, &ret]() {
+        vm_exec(ts, cbuf + 1, ret);
+    }, [cbuf]() {
+        bcode_decr(cbuf);
+    });
+}
+
+LIBCUBESCRIPT_EXPORT void state::run(std::string_view code, any_value &ret) {
+    do_run(*p_tstate, std::string_view{}, code, ret);
+}
+
+LIBCUBESCRIPT_EXPORT void state::run(
+    std::string_view code, any_value &ret, std::string_view source
+) {
+    do_run(*p_tstate, source, code, ret);
+}
+
+LIBCUBESCRIPT_EXPORT void state::run(
+    ident *id, std::span<any_value> args, any_value &ret
+) {
+    std::size_t nargs = args.size();
+    ret.set_none();
+    run_depth_guard level{*p_tstate}; /* incr and decr on scope exit */
+    if (id) {
+        switch (id->get_type()) {
+            default:
+                if (!ident_is_callable(id)) {
+                    break;
+                }
+            /* fallthrough */
+            case ident_type::COMMAND: {
+                auto *cimpl = static_cast<command_impl *>(id);
+                if (nargs < std::size_t(cimpl->get_num_args())) {
+                    stack_guard s{*p_tstate}; /* restore after call */
+                    auto &targs = p_tstate->vmstack;
+                    auto osz = targs.size();
+                    targs.resize(osz + cimpl->get_num_args(), any_value{*this});
+                    for (std::size_t i = 0; i < nargs; ++i) {
+                        targs[osz + i] = args[i];
+                    }
+                    exec_command(
+                        *p_tstate, cimpl, &targs[osz], ret, nargs, false
+                    );
+                } else {
+                    exec_command(
+                        *p_tstate, cimpl, &args[0], ret, nargs, false
+                    );
+                }
+                nargs = 0;
+                break;
+            }
+            case ident_type::IVAR:
+                if (args.empty()) {
+                    print_var(*static_cast<global_var *>(id));
+                } else {
+                    set_var_int_checked(static_cast<integer_var *>(id), args);
+                }
+                break;
+            case ident_type::FVAR:
+                if (args.empty()) {
+                    print_var(*static_cast<global_var *>(id));
+                } else {
+                    set_var_float_checked(
+                        static_cast<float_var *>(id), args[0].force_float()
+                    );
+                }
+                break;
+            case ident_type::SVAR:
+                if (args.empty()) {
+                    print_var(*static_cast<global_var *>(id));
+                } else {
+                    set_var_str_checked(
+                        static_cast<string_var *>(id), args[0].force_str()
+                    );
+                }
+                break;
+            case ident_type::ALIAS: {
+                alias *a = static_cast<alias *>(id);
+                if (
+                    (a->get_index() < MAX_ARGUMENTS) &&
+                    !ident_is_used_arg(a, *p_tstate)
+                ) {
+                    break;
+                }
+                if (a->get_value().get_type() == value_type::NONE) {
+                    break;
+                }
+                exec_alias(
+                    *p_tstate, a, &args[0], ret, nargs, nargs, 0, 0, BC_RET_NULL
+                );
+                break;
+            }
+        }
+    }
+}
+
+LIBCUBESCRIPT_EXPORT any_value state::run(bcode *code) {
+    any_value ret{*this};
+    run(code, ret);
+    return ret;
+}
+
+LIBCUBESCRIPT_EXPORT any_value state::run(std::string_view code) {
+    any_value ret{*this};
+    run(code, ret);
+    return ret;
+}
+
+LIBCUBESCRIPT_EXPORT any_value state::run(
+    std::string_view code, std::string_view source
+) {
+    any_value ret{*this};
+    run(code, ret, source);
+    return ret;
+}
+
+LIBCUBESCRIPT_EXPORT any_value state::run(
+    ident *id, std::span<any_value> args
+) {
+    any_value ret{*this};
+    run(id, args, ret);
+    return ret;
+}
+
+LIBCUBESCRIPT_EXPORT loop_state state::run_loop(bcode *code, any_value &ret) {
+    ++p_tstate->loop_level;
+    try {
+        run(code, ret);
+    } catch (break_exception) {
+        --p_tstate->loop_level;
+        return loop_state::BREAK;
+    } catch (continue_exception) {
+        --p_tstate->loop_level;
+        return loop_state::CONTINUE;
+    } catch (...) {
+        --p_tstate->loop_level;
+        throw;
+    }
+    return loop_state::NORMAL;
+}
+
+LIBCUBESCRIPT_EXPORT loop_state state::run_loop(bcode *code) {
+    any_value ret{*this};
+    return run_loop(code, ret);
+}
+
+LIBCUBESCRIPT_EXPORT bool state::is_in_loop() const {
+    return !!p_tstate->loop_level;
 }
 
 } /* namespace cubescript */

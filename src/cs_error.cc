@@ -5,6 +5,43 @@
 
 namespace cubescript {
 
+LIBCUBESCRIPT_EXPORT stack_state::stack_state(
+    thread_state &ts, node *nd, bool gap
+):
+    p_state{ts}, p_node{nd}, p_gap{gap}
+{}
+
+LIBCUBESCRIPT_EXPORT stack_state::stack_state(stack_state &&st):
+    p_state{st.p_state}, p_node{st.p_node}, p_gap{st.p_gap}
+{
+    st.p_node = nullptr;
+    st.p_gap = false;
+}
+
+LIBCUBESCRIPT_EXPORT stack_state::~stack_state() {
+    size_t len = 0;
+    for (node const *nd = p_node; nd; nd = nd->next) {
+        ++len;
+    }
+    p_state.istate->destroy_array(p_node, len);
+}
+
+LIBCUBESCRIPT_EXPORT stack_state &stack_state::operator=(stack_state &&st) {
+    p_node = st.p_node;
+    p_gap = st.p_gap;
+    st.p_node = nullptr;
+    st.p_gap = false;
+    return *this;
+}
+
+LIBCUBESCRIPT_EXPORT stack_state::node const *stack_state::get() const {
+    return p_node;
+}
+
+LIBCUBESCRIPT_EXPORT bool stack_state::gap() const {
+    return p_gap;
+}
+
 LIBCUBESCRIPT_EXPORT char *error::request_buf(
     thread_state &ts, std::size_t bufs, char *&sp
 ) {
