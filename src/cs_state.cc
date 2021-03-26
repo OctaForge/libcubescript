@@ -413,7 +413,6 @@ LIBCUBESCRIPT_EXPORT command *state::new_command(
             case 'f':
             case 'F':
             case 't':
-            case 'T':
             case 'E':
             case 'N':
             case 's':
