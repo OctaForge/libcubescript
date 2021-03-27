@@ -1,11 +1,17 @@
+option('repl',
+    type: 'feature',
+    value: 'auto',
+    description: 'Enable the REPL (command line tool)'
+)
+
 option('readline',
-    type: 'boolean',
-    value: false,
+    type: 'feature',
+    value: 'auto',
     description: 'Use GNU readline for the REPL'
 )
 
 option('linenoise',
-    type: 'boolean',
-    value: true,
+    type: 'feature',
+    value: 'auto',
     description: 'Use linenoise for the REPL'
 )

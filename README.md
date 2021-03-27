@@ -73,8 +73,8 @@ utilized in the outside native code.
 There are no dependencies (other than a suitable compiler and the standard
 library).
 
-Libostd is built using Meson. Therefore, you need to install Meson and then
-you can compile it as usual. Typically, this will be something like
+Libcubescript is built using `meson`. After installing it, you can do
+something like this:
 
 ~~~
 mkdir build && cd build
@@ -82,14 +82,21 @@ meson ..
 ninja all
 ~~~
 
-Link the libcubescript library together with your application and everything
-should just work. It also builds the REPL.
+Link the `libcubescript` library together with your application and everything
+should just work. It also builds the REPL by default.
 
-The project also bundles the linenoise line editing library which has been
-modified to compile cleanly as C++ (with the same flags as libcubescript).
+The project also bundles the `linenoise` line editing library which has been
+modified to compile cleanly as C++ (with the same flags as `libcubescript`).
 It's used strictly for the REPL only (you don't need it to build libcubescript
 itself). The version in the repository tracks Git revision
 https://github.com/antirez/linenoise/commit/c894b9e59f02203dbe4e2be657572cf88c4230c3.
+
+For the REPL (when not disabled with `-Drepl=disabled`) you have a choice of
+two line editing libraries. The `readline` library can be used (but is always
+disabled by default, so you need to enable it manually). On Unix-like systems,
+`linenoise` can be used (and is fully featured) and is enabled by default; on
+Windows it's disabled. There is also a fallback without any line editing, used
+when you don't have either (but then there is no line editing or history).
 
 ## Licensing
 
