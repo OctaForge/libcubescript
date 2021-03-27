@@ -110,7 +110,7 @@ struct codegen_state {
 
     void gen_ident(ident *id) {
         code.push_back(
-            ((id->get_index() < MAX_ARGUMENTS)
+            ((id->get_flags() & IDENT_FLAG_ARG)
                 ? BC_INST_IDENT_ARG
                 : BC_INST_IDENT
             ) | (id->get_index() << 8)

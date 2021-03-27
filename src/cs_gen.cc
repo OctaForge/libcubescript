@@ -294,7 +294,7 @@ lookupid:
                                 return;
                             case VAL_COND:
                                 gs.code.push_back(
-                                    (id->get_index() < MAX_ARGUMENTS
+                                    ((id->get_flags() & IDENT_FLAG_ARG)
                                         ? BC_INST_LOOKUP_MARG
                                         : BC_INST_LOOKUP_M
                                     ) | (id->get_index() << 8)
@@ -303,7 +303,7 @@ lookupid:
                             case VAL_CODE:
                             case VAL_IDENT:
                                 gs.code.push_back(
-                                    (id->get_index() < MAX_ARGUMENTS
+                                    ((id->get_flags() & IDENT_FLAG_ARG)
                                         ? BC_INST_LOOKUP_MARG
                                         : BC_INST_LOOKUP_M
                                     ) | BC_RET_STRING | (id->get_index() << 8)
@@ -311,7 +311,7 @@ lookupid:
                                 break;
                             default:
                                 gs.code.push_back(
-                                    (id->get_index() < MAX_ARGUMENTS
+                                    ((id->get_flags() & IDENT_FLAG_ARG)
                                         ? BC_INST_LOOKUP_ARG
                                         : BC_INST_LOOKUP
                                     ) | ret_code(ltype, BC_RET_STRING) |
@@ -552,7 +552,7 @@ lookupid:
                         goto done;
                     case ident_type::ALIAS:
                         gs.code.push_back(
-                            (id->get_index() < MAX_ARGUMENTS
+                            ((id->get_flags() & IDENT_FLAG_ARG)
                                 ? BC_INST_LOOKUP_MARG
                                 : BC_INST_LOOKUP_M
                             ) | (id->get_index() << 8)
@@ -1054,7 +1054,7 @@ static void compile_alias(codegen_state &gs, alias *id, bool &more, int prevargs
         ++numargs;
     }
     gs.code.push_back(
-        (id->get_index() < MAX_ARGUMENTS ? BC_INST_CALL_ARG : BC_INST_CALL)
+        ((id->get_flags() & IDENT_FLAG_ARG) ? BC_INST_CALL_ARG : BC_INST_CALL)
             | (numargs << 8) | (id->get_index() << 13)
     );
 }
@@ -1244,7 +1244,7 @@ static void compilestatements(codegen_state &gs, int rettype, int brak, int prev
                                         gs.gen_str();
                                     }
                                     gs.code.push_back(
-                                        (id->get_index() < MAX_ARGUMENTS
+                                        ((id->get_flags() & IDENT_FLAG_ARG)
                                             ? BC_INST_ALIAS_ARG
                                             : BC_INST_ALIAS
                                         ) | (id->get_index() << 8)

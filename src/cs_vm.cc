@@ -9,14 +9,14 @@
 namespace cubescript {
 
 static inline void push_alias(state &cs, ident *id, ident_stack &st) {
-    if (id->is_alias() && (id->get_index() >= MAX_ARGUMENTS)) {
+    if (id->is_alias() && !(id->get_flags() & IDENT_FLAG_ARG)) {
         any_value nv{cs};
         static_cast<alias_impl *>(id)->push_arg(nv, st);
     }
 }
 
 static inline void pop_alias(ident *id) {
-    if (id->is_alias() && (id->get_index() >= MAX_ARGUMENTS)) {
+    if (id->is_alias() && !(id->get_flags() & IDENT_FLAG_ARG)) {
         static_cast<alias_impl *>(id)->pop_arg();
     }
 }
@@ -291,7 +291,7 @@ static inline int get_lookupu_type(
                     break;
                 }
                 if (
-                    (id->get_index() < MAX_ARGUMENTS) &&
+                    (id->get_flags() & IDENT_FLAG_ARG) &&
                     !ident_is_used_arg(id, ts)
                 ) {
                     return ID_UNKNOWN;
@@ -734,7 +734,7 @@ std::uint32_t *vm_exec(
                     id = cs.new_ident(arg.get_str());
                 }
                 if (
-                    (id->get_index() < MAX_ARGUMENTS) &&
+                    (id->get_flags() & IDENT_FLAG_ARG) &&
                     !ident_is_used_arg(id, ts)
                 ) {
                     any_value nv{cs};
@@ -1358,7 +1358,7 @@ noid:
                     case ID_ALIAS: {
                         alias *a = static_cast<alias *>(id);
                         if (
-                            (a->get_index() < MAX_ARGUMENTS) &&
+                            (a->get_flags() & IDENT_FLAG_ARG) &&
                             !ident_is_used_arg(a, ts)
                         ) {
                             args.resize(offset - 1, any_value{cs});
