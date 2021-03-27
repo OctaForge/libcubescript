@@ -729,7 +729,7 @@ std::uint32_t *vm_exec(
                 any_value &arg = args.back();
                 ident *id = ts.istate->identmap[ID_IDX_DUMMY];
                 if (arg.get_type() == value_type::STRING) {
-                    id = cs.new_ident(arg.get_str());
+                    id = cs.new_ident(arg.get_str(), IDENT_FLAG_UNKNOWN);
                 }
                 if (
                     (id->get_flags() & IDENT_FLAG_ARG) &&

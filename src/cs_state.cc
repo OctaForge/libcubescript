@@ -79,7 +79,7 @@ state::state(alloc_func func, void *data) {
         new_ident(static_cast<char const *>(buf), IDENT_FLAG_ARG);
     }
 
-    ident *id = new_ident("//dummy");
+    ident *id = new_ident("//dummy", IDENT_FLAG_UNKNOWN);
     if (id->get_index() != ID_IDX_DUMMY) {
         throw internal_error{"invalid dummy index"};
     }

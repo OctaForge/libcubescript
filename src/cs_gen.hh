@@ -117,7 +117,7 @@ struct codegen_state {
     }
 
     void gen_ident(std::string_view word) {
-        gen_ident(ts.pstate->new_ident(word));
+        gen_ident(ts.pstate->new_ident(word, IDENT_FLAG_UNKNOWN));
     }
 
     void gen_value(

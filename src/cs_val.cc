@@ -274,7 +274,7 @@ ident *any_value::force_ident(state &cs) {
         default:
             break;
     }
-    auto *id = cs.new_ident(get_str());
+    auto *id = cs.new_ident(get_str(), IDENT_FLAG_UNKNOWN);
     set_ident(id);
     return id;
 }

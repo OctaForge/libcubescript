@@ -239,7 +239,9 @@ static void compilelookup(codegen_state &gs, int ltype, int prevargs = MAX_RESUL
             if (lookup.empty()) goto invalid;
             lookup.push_back('\0');
 lookupid:
-            ident *id = gs.ts.pstate->new_ident(lookup.str_term());
+            ident *id = gs.ts.pstate->new_ident(
+                lookup.str_term(), IDENT_FLAG_UNKNOWN
+            );
             if (id) {
                 switch (id->get_type()) {
                     case ident_type::IVAR:
@@ -531,7 +533,9 @@ static bool compileblocksub(codegen_state &gs, int prevargs) {
             }
             lookup.push_back('\0');
 lookupid:
-            ident *id = gs.ts.pstate->new_ident(lookup.str_term());
+            ident *id = gs.ts.pstate->new_ident(
+                lookup.str_term(), IDENT_FLAG_UNKNOWN
+            );
             if (id) {
                 switch (id->get_type()) {
                     case ident_type::IVAR:
@@ -1224,7 +1228,9 @@ static void compilestatements(codegen_state &gs, int rettype, int brak, int prev
                     gs.next_char();
                     if (!idname.empty()) {
                         idname.push_back('\0');
-                        ident *id = gs.ts.pstate->new_ident(idname.str_term());
+                        ident *id = gs.ts.pstate->new_ident(
+                            idname.str_term(), IDENT_FLAG_UNKNOWN
+                        );
                         if (id) {
                             switch (id->get_type()) {
                                 case ident_type::ALIAS:
