@@ -294,28 +294,21 @@ lookupid:
                                 return;
                             case VAL_COND:
                                 gs.code.push_back(
-                                    ((id->get_flags() & IDENT_FLAG_ARG)
-                                        ? BC_INST_LOOKUP_MARG
-                                        : BC_INST_LOOKUP_M
-                                    ) | (id->get_index() << 8)
+                                    BC_INST_LOOKUP_M | (id->get_index() << 8)
                                 );
                                 break;
                             case VAL_CODE:
                             case VAL_IDENT:
                                 gs.code.push_back(
-                                    ((id->get_flags() & IDENT_FLAG_ARG)
-                                        ? BC_INST_LOOKUP_MARG
-                                        : BC_INST_LOOKUP_M
-                                    ) | BC_RET_STRING | (id->get_index() << 8)
+                                    BC_INST_LOOKUP_M | BC_RET_STRING |
+                                    (id->get_index() << 8)
                                 );
                                 break;
                             default:
                                 gs.code.push_back(
-                                    ((id->get_flags() & IDENT_FLAG_ARG)
-                                        ? BC_INST_LOOKUP_ARG
-                                        : BC_INST_LOOKUP
-                                    ) | ret_code(ltype, BC_RET_STRING) |
-                                        (id->get_index() << 8)
+                                    BC_INST_LOOKUP |
+                                    ret_code(ltype, BC_RET_STRING) |
+                                    (id->get_index() << 8)
                                 );
                                 break;
                         }
@@ -552,10 +545,7 @@ lookupid:
                         goto done;
                     case ident_type::ALIAS:
                         gs.code.push_back(
-                            ((id->get_flags() & IDENT_FLAG_ARG)
-                                ? BC_INST_LOOKUP_MARG
-                                : BC_INST_LOOKUP_M
-                            ) | (id->get_index() << 8)
+                            BC_INST_LOOKUP_M | (id->get_index() << 8)
                         );
                         goto done;
                     default:
@@ -1054,8 +1044,7 @@ static void compile_alias(codegen_state &gs, alias *id, bool &more, int prevargs
         ++numargs;
     }
     gs.code.push_back(
-        ((id->get_flags() & IDENT_FLAG_ARG) ? BC_INST_CALL_ARG : BC_INST_CALL)
-            | (numargs << 8) | (id->get_index() << 13)
+        BC_INST_CALL | (numargs << 8) | (id->get_index() << 13)
     );
 }
 
@@ -1244,10 +1233,7 @@ static void compilestatements(codegen_state &gs, int rettype, int brak, int prev
                                         gs.gen_str();
                                     }
                                     gs.code.push_back(
-                                        ((id->get_flags() & IDENT_FLAG_ARG)
-                                            ? BC_INST_ALIAS_ARG
-                                            : BC_INST_ALIAS
-                                        ) | (id->get_index() << 8)
+                                        BC_INST_ALIAS | (id->get_index() << 8)
                                     );
                                     goto endstatement;
                                 case ident_type::IVAR:

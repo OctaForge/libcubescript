@@ -261,18 +261,16 @@ run_depth_guard::~run_depth_guard() { --rundepth; }
 
 static inline alias *get_lookup_id(thread_state &ts, std::uint32_t op) {
     ident *id = ts.istate->identmap[op >> 8];
-    if (id->get_flags() & IDENT_FLAG_UNKNOWN) {
+
+    auto flags = id->get_flags();
+    if (flags & IDENT_FLAG_ARG) {
+        if (!ident_is_used_arg(id, ts)) {
+            return nullptr;
+        }
+    } else if (flags & IDENT_FLAG_UNKNOWN) {
         throw error{
             *ts.pstate, "unknown alias lookup: %s", id->get_name().data()
         };
-    }
-    return static_cast<alias *>(id);
-}
-
-static inline alias *get_lookuparg_id(thread_state &ts, std::uint32_t op) {
-    ident *id = ts.istate->identmap[op >> 8];
-    if (!ident_is_used_arg(id, ts)) {
-        return nullptr;
     }
     return static_cast<alias *>(id);
 }
@@ -709,14 +707,14 @@ std::uint32_t *vm_exec(
                 continue;
             }
 
-            case BC_INST_IDENT:
-                args.emplace_back(cs).set_ident(ts.istate->identmap[op >> 8]);
-                continue;
-            case BC_INST_IDENT_ARG: {
+            case BC_INST_IDENT: {
                 alias *a = static_cast<alias *>(
                     ts.istate->identmap[op >> 8]
                 );
-                if (!ident_is_used_arg(a, ts)) {
+                if (
+                    (a->get_flags() & IDENT_FLAG_ARG) &&
+                    !ident_is_used_arg(a, ts)
+                ) {
                     any_value nv{cs};
                     static_cast<alias_impl *>(a)->push_arg(
                         nv, ts.callstack->argstack[a->get_index()],
@@ -775,13 +773,7 @@ std::uint32_t *vm_exec(
                 }
             }
             case BC_INST_LOOKUP | BC_RET_STRING: {
-                auto &v = args.emplace_back(cs);
-                v = get_lookup_id(ts, op)->get_value();
-                v.force_str();
-                continue;
-            }
-            case BC_INST_LOOKUP_ARG | BC_RET_STRING: {
-                alias *a = get_lookuparg_id(ts, op);
+                alias *a = get_lookup_id(ts, op);
                 if (!a) {
                     args.emplace_back(cs).set_str("");
                 } else {
@@ -820,13 +812,8 @@ std::uint32_t *vm_exec(
                         continue;
                 }
             }
-            case BC_INST_LOOKUP | BC_RET_INT:
-                args.emplace_back(cs).set_int(
-                    get_lookup_id(ts, op)->get_value().get_int()
-                );
-                continue;
-            case BC_INST_LOOKUP_ARG | BC_RET_INT: {
-                alias *a = get_lookuparg_id(ts, op);
+            case BC_INST_LOOKUP | BC_RET_INT: {
+                alias *a = get_lookup_id(ts, op);
                 if (!a) {
                     args.emplace_back(cs).set_int(0);
                 } else {
@@ -865,13 +852,8 @@ std::uint32_t *vm_exec(
                         continue;
                 }
             }
-            case BC_INST_LOOKUP | BC_RET_FLOAT:
-                args.emplace_back(cs).set_float(
-                    get_lookup_id(ts, op)->get_value().get_float()
-                );
-                continue;
-            case BC_INST_LOOKUP_ARG | BC_RET_FLOAT: {
-                alias *a = get_lookuparg_id(ts, op);
+            case BC_INST_LOOKUP | BC_RET_FLOAT: {
+                alias *a = get_lookup_id(ts, op);
                 if (!a) {
                     args.emplace_back(cs).set_float(float_type(0));
                 } else {
@@ -904,13 +886,8 @@ std::uint32_t *vm_exec(
                         continue;
                 }
             }
-            case BC_INST_LOOKUP | BC_RET_NULL:
-                get_lookup_id(ts, op)->get_value().get_val(
-                    args.emplace_back(cs)
-                );
-                continue;
-            case BC_INST_LOOKUP_ARG | BC_RET_NULL: {
-                alias *a = get_lookuparg_id(ts, op);
+            case BC_INST_LOOKUP | BC_RET_NULL: {
+                alias *a = get_lookup_id(ts, op);
                 if (!a) {
                     args.emplace_back(cs).set_none();
                 } else {
@@ -946,13 +923,7 @@ std::uint32_t *vm_exec(
                 }
             }
             case BC_INST_LOOKUP_M | BC_RET_STRING: {
-                auto &v = args.emplace_back(cs);
-                v = get_lookup_id(ts, op)->get_value();
-                v.force_str();
-                continue;
-            }
-            case BC_INST_LOOKUP_MARG | BC_RET_STRING: {
-                alias *a = get_lookuparg_id(ts, op);
+                alias *a = get_lookup_id(ts, op);
                 if (!a) {
                     args.emplace_back(cs).set_str("");
                 } else {
@@ -985,11 +956,8 @@ std::uint32_t *vm_exec(
                         continue;
                 }
             }
-            case BC_INST_LOOKUP_M | BC_RET_NULL:
-                get_lookup_id(ts, op)->get_cval(args.emplace_back(cs));
-                continue;
-            case BC_INST_LOOKUP_MARG | BC_RET_NULL: {
-                alias *a = get_lookuparg_id(ts, op);
+            case BC_INST_LOOKUP_M | BC_RET_NULL: {
+                alias *a = get_lookup_id(ts, op);
                 if (!a) {
                     args.emplace_back(cs).set_none();
                 } else {
@@ -1193,18 +1161,18 @@ std::uint32_t *vm_exec(
                 continue;
             }
 
-            case BC_INST_ALIAS:
-                static_cast<alias_impl *>(
+            case BC_INST_ALIAS: {
+                auto *imp = static_cast<alias_impl *>(
                     ts.istate->identmap[op >> 8]
-                )->set_alias(ts, args.back());
+                );
+                if (imp->get_flags() & IDENT_FLAG_ARG) {
+                    imp->set_arg(ts, args.back());
+                } else {
+                    imp->set_alias(ts, args.back());
+                }
                 args.pop_back();
                 continue;
-            case BC_INST_ALIAS_ARG:
-                static_cast<alias_impl *>(
-                    ts.istate->identmap[op >> 8]
-                )->set_arg(ts, args.back());
-                args.pop_back();
-                continue;
+            }
             case BC_INST_ALIAS_U: {
                 auto v = std::move(args.back());
                 args.pop_back();
@@ -1222,32 +1190,18 @@ std::uint32_t *vm_exec(
                 std::size_t callargs = (op >> 8) & 0x1F;
                 std::size_t nnargs = args.size();
                 std::size_t offset = nnargs - callargs;
-                if (id->get_flags() & IDENT_FLAG_UNKNOWN) {
+                auto flags = id->get_flags();
+                if (flags & IDENT_FLAG_ARG) {
+                    if (!ident_is_used_arg(id, ts)) {
+                        args.resize(offset, any_value{cs});
+                        force_arg(result, op & BC_INST_RET_MASK);
+                        continue;
+                    }
+                } else if (flags & IDENT_FLAG_UNKNOWN) {
                     force_arg(result, op & BC_INST_RET_MASK);
                     throw error{
                         cs, "unknown command: %s", id->get_name().data()
                     };
-                }
-                exec_alias(
-                    ts, static_cast<alias *>(id), &args[0], result, callargs,
-                    nnargs, offset, 0, op
-                );
-                args.resize(nnargs, any_value{cs});
-                continue;
-            }
-            case BC_INST_CALL_ARG | BC_RET_NULL:
-            case BC_INST_CALL_ARG | BC_RET_STRING:
-            case BC_INST_CALL_ARG | BC_RET_FLOAT:
-            case BC_INST_CALL_ARG | BC_RET_INT: {
-                result.force_none();
-                ident *id = ts.istate->identmap[op >> 13];
-                std::size_t callargs = (op >> 8) & 0x1F;
-                std::size_t nnargs = args.size();
-                std::size_t offset = nnargs - callargs;
-                if (!ident_is_used_arg(id, ts)) {
-                    args.resize(offset, any_value{cs});
-                    force_arg(result, op & BC_INST_RET_MASK);
-                    continue;
                 }
                 exec_alias(
                     ts, static_cast<alias *>(id), &args[0], result, callargs,

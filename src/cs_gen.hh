@@ -109,12 +109,7 @@ struct codegen_state {
     void gen_float(std::string_view word);
 
     void gen_ident(ident *id) {
-        code.push_back(
-            ((id->get_flags() & IDENT_FLAG_ARG)
-                ? BC_INST_IDENT_ARG
-                : BC_INST_IDENT
-            ) | (id->get_index() << 8)
-        );
+        code.push_back(BC_INST_IDENT | (id->get_index() << 8));
     }
 
     void gen_ident() {
