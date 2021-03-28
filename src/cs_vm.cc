@@ -1147,20 +1147,6 @@ std::uint32_t *vm_exec(
                 continue;
             }
 
-            case BC_INST_CONC_M | BC_RET_NULL:
-            case BC_INST_CONC_M | BC_RET_STRING:
-            case BC_INST_CONC_M | BC_RET_FLOAT:
-            case BC_INST_CONC_M | BC_RET_INT: {
-                std::size_t numconc = op >> 8;
-                auto buf = concat_values(
-                    cs, std::span{&args[args.size() - numconc], numconc}
-                );
-                args.resize(args.size() - numconc, any_value{cs});
-                result.set_str(buf);
-                force_arg(result, op & BC_INST_RET_MASK);
-                continue;
-            }
-
             case BC_INST_ALIAS: {
                 auto *imp = static_cast<alias_impl *>(
                     ts.istate->identmap[op >> 8]
