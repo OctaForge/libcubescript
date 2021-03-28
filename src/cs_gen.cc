@@ -583,10 +583,6 @@ static void compileblockmain(codegen_state &gs, int wordtype) {
                     throw error{gs.ts, "too many @s"};
                     return;
                 }
-                if (concs + 2 > MAX_ARGUMENTS) {
-                    gs.code.push_back(BC_INST_CONC_W | BC_RET_STRING | (concs << 8));
-                    concs = 1;
-                }
                 if (compileblockstr(gs, start, esc)) {
                     concs++;
                 }

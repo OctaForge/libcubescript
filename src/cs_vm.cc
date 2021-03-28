@@ -917,7 +917,8 @@ std::uint32_t *vm_exec(
                     ((op & BC_INST_OP_MASK) == BC_INST_CONC) ? " " : ""
                 );
                 args.resize(args.size() - numconc, any_value{cs});
-                force_arg(args.emplace_back(cs), op & BC_INST_RET_MASK);
+                args.emplace_back(cs).set_str(buf);
+                force_arg(args.back(), op & BC_INST_RET_MASK);
                 continue;
             }
 
