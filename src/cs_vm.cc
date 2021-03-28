@@ -206,17 +206,19 @@ void exec_alias(
         ts.istate->identmap[ID_IDX_NUMARGS]
     );
     valarray<ident_stack, MAX_ARGUMENTS> argstack{*ts.pstate};
+    argset uargs{};
     for(std::size_t i = 0; i < callargs; i++) {
         static_cast<alias_impl *>(ts.istate->identmap[i])->push_arg(
             args[offset + i], argstack[i], false
         );
+        uargs[i] = true;
     }
     auto oldargs = anargs->get_value();
     anargs->set_value(callargs);
     int oldflags = ts.pstate->identflags;
     ts.pstate->identflags |= a->get_flags()&IDENT_FLAG_OVERRIDDEN;
     ident_link aliaslink = {
-        a, ts.callstack, (1<<callargs)-1, &argstack[0]
+        a, ts.callstack, &argstack[0], uargs
     };
     ts.callstack = &aliaslink;
     std::uint32_t *codep = static_cast<
@@ -229,16 +231,17 @@ void exec_alias(
         bcode_decr(codep);
         ts.callstack = aliaslink.next;
         ts.pstate->identflags = oldflags;
+        auto amask = aliaslink.usedargs;
         for (std::size_t i = 0; i < callargs; i++) {
             static_cast<alias_impl *>(ts.istate->identmap[i])->pop_arg();
+            amask[i] = false;
         }
-        int argmask = aliaslink.usedargs & int(~0U << callargs);
-        for (; argmask; ++callargs) {
-            if (argmask & (1 << callargs)) {
+        for (; amask.any(); ++callargs) {
+            if (amask[callargs]) {
                 static_cast<alias_impl *>(
                     ts.istate->identmap[callargs]
                 )->pop_arg();
-                argmask &= ~(1 << callargs);
+                amask[callargs] = false;
             }
         }
         force_arg(result, op & BC_INST_RET_MASK);
@@ -725,7 +728,7 @@ std::uint32_t *vm_exec(
                         nv, ts.callstack->argstack[a->get_index()],
                         false
                     );
-                    ts.callstack->usedargs |= 1 << a->get_index();
+                    ts.callstack->usedargs[a->get_index()] = true;
                 }
                 args.emplace_back(cs).set_ident(a);
                 continue;
@@ -745,7 +748,7 @@ std::uint32_t *vm_exec(
                         nv, ts.callstack->argstack[id->get_index()],
                         false
                     );
-                    ts.callstack->usedargs |= 1 << id->get_index();
+                    ts.callstack->usedargs[id->get_index()] = true;
                 }
                 arg.set_ident(id);
                 continue;

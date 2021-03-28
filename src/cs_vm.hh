@@ -48,33 +48,38 @@ static void call_with_args(thread_state &ts, F body) {
         return;
     }
     valarray<ident_stack, MAX_ARGUMENTS> argstack{*ts.pstate};
-    int argmask1 = ts.callstack->usedargs;
-    for (int i = 0; argmask1; argmask1 >>= 1, ++i) {
-        if (argmask1 & 1) {
+    auto mask = ts.callstack->usedargs;
+    for (std::size_t i = 0; mask.any(); ++i) {
+        if (mask[0]) {
             static_cast<alias_impl *>(ts.istate->identmap[i])->undo_arg(
                 argstack[i]
             );
         }
+        mask >>= 1;
     }
     ident_link *prevstack = ts.callstack->next;
     ident_link aliaslink = {
         ts.callstack->id, ts.callstack,
-        prevstack ? prevstack->usedargs : ((1 << MAX_ARGUMENTS) - 1),
-        prevstack ? prevstack->argstack : nullptr
+        prevstack ? prevstack->argstack : nullptr,
+        prevstack ? prevstack->usedargs : argset{}
     };
+    if (!prevstack) {
+        aliaslink.usedargs.set();
+    }
     ts.callstack = &aliaslink;
     call_with_cleanup(std::move(body), [&]() {
         if (prevstack) {
             prevstack->usedargs = aliaslink.usedargs;
         }
         ts.callstack = aliaslink.next;
-        int argmask2 = ts.callstack->usedargs;
-        for (int i = 0; argmask2; argmask2 >>= 1, ++i) {
-            if (argmask2 & 1) {
+        auto mask2 = ts.callstack->usedargs;
+        for (std::size_t i = 0; mask.any(); ++i) {
+            if (mask2[0]) {
                 static_cast<alias_impl *>(ts.istate->identmap[i])->redo_arg(
                     argstack[i]
                 );
             }
+            mask2 >>= 1;
         }
     });
 }

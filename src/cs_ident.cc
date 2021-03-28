@@ -164,7 +164,7 @@ void alias_impl::set_arg(thread_state &ts, any_value &v) {
         clean_code();
     } else {
         push_arg(v, ts.callstack->argstack[get_index()], false);
-        ts.callstack->usedargs |= 1 << get_index();
+        ts.callstack->usedargs[get_index()] = true;
     }
 }
 
@@ -206,7 +206,7 @@ bool ident_is_used_arg(ident *id, thread_state &ts) {
     if (!ts.callstack) {
         return true;
     }
-    return ts.callstack->usedargs & (1 << id->get_index());
+    return ts.callstack->usedargs[id->get_index()];
 }
 
 /* public interface */

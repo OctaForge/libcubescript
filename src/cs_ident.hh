@@ -3,7 +3,12 @@
 
 #include <cubescript/cubescript.hh>
 
+#include <bitset>
+
 namespace cubescript {
+
+static constexpr int MAX_ARGUMENTS = 32;
+using argset = std::bitset<MAX_ARGUMENTS>;
 
 enum {
     ID_UNKNOWN = -1, ID_IVAR, ID_FVAR, ID_SVAR, ID_COMMAND, ID_ALIAS,
@@ -14,8 +19,8 @@ enum {
 struct ident_link {
     ident *id;
     ident_link *next;
-    int usedargs;
     ident_stack *argstack;
+    std::bitset<MAX_ARGUMENTS> usedargs;
 };
 
 struct ident_impl {

@@ -15,8 +15,6 @@
 
 namespace cubescript {
 
-static constexpr int MAX_ARGUMENTS = 25;
-
 static constexpr int ID_IDX_DUMMY = MAX_ARGUMENTS;
 static constexpr int ID_IDX_NUMARGS = MAX_ARGUMENTS + 1;
 static constexpr int ID_IDX_DBGALIAS = MAX_ARGUMENTS + 2;
