@@ -73,7 +73,7 @@ static void call_with_args(thread_state &ts, F body) {
         }
         ts.callstack = aliaslink.next;
         auto mask2 = ts.callstack->usedargs;
-        for (std::size_t i = 0; mask.any(); ++i) {
+        for (std::size_t i = 0; mask2.any(); ++i) {
             if (mask2[0]) {
                 static_cast<alias_impl *>(ts.istate->identmap[i])->redo_arg(
                     argstack[i]
