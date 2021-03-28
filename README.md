@@ -89,7 +89,7 @@ The project also bundles the `linenoise` line editing library which has been
 modified to compile cleanly as C++ (with the same flags as `libcubescript`).
 It's used strictly for the REPL only (you don't need it to build libcubescript
 itself). The version in the repository tracks Git revision
-https://github.com/antirez/linenoise/commit/c894b9e59f02203dbe4e2be657572cf88c4230c3.
+https://github.com/antirez/linenoise/commit/97d2850af13c339369093b78abe5265845d78220.
 
 For the REPL (when not disabled with `-Drepl=disabled`) you have a choice of
 two line editing libraries. The `readline` library can be used (but is always
