@@ -7,7 +7,7 @@ namespace cubescript {
 thread_state::thread_state(internal_state *cs):
     vmstack{cs}, errbuf{cs}
 {
-    vmstack.reserve(MAX_ARGUMENTS + MAX_RESULTS);
+    vmstack.reserve(32);
 }
 
 hook_func thread_state::set_hook(hook_func f) {
