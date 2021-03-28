@@ -101,7 +101,7 @@ std::string_view codegen_state::get_word() {
 
 static inline int ret_code(int type, int def = 0) {
     if (type >= VAL_ANY) {
-        return (type == VAL_STRING) ? BC_RET_STRING : def;
+        return def;
     }
     return type << BC_INST_RET;
 }
@@ -295,14 +295,7 @@ lookupid:
                                 return;
                             case VAL_COND:
                                 gs.code.push_back(
-                                    BC_INST_LOOKUP_M | (id->get_index() << 8)
-                                );
-                                break;
-                            case VAL_CODE:
-                            case VAL_IDENT:
-                                gs.code.push_back(
-                                    BC_INST_LOOKUP_M | BC_RET_STRING |
-                                    (id->get_index() << 8)
+                                    BC_INST_LOOKUP | (id->get_index() << 8)
                                 );
                                 break;
                             default:
@@ -400,11 +393,7 @@ lookupid:
     }
     switch (ltype) {
         case VAL_COND:
-            gs.code.push_back(BC_INST_LOOKUP_MU);
-            break;
-        case VAL_CODE:
-        case VAL_IDENT:
-            gs.code.push_back(BC_INST_LOOKUP_MU | BC_RET_STRING);
+            gs.code.push_back(BC_INST_LOOKUP_U);
             break;
         default:
             gs.code.push_back(BC_INST_LOOKUP_U | ret_code(ltype));
@@ -510,7 +499,7 @@ static bool compileblocksub(codegen_state &gs) {
             if (!compilearg(gs, VAL_STRING)) {
                 return false;
             }
-            gs.code.push_back(BC_INST_LOOKUP_MU);
+            gs.code.push_back(BC_INST_LOOKUP_U);
             break;
         case '\"':
             lookup = gs.get_str_dup();
@@ -539,7 +528,7 @@ lookupid:
                         goto done;
                     case ident_type::ALIAS:
                         gs.code.push_back(
-                            BC_INST_LOOKUP_M | (id->get_index() << 8)
+                            BC_INST_LOOKUP | (id->get_index() << 8)
                         );
                         goto done;
                     default:
@@ -547,7 +536,7 @@ lookupid:
                 }
             }
             gs.gen_str(lookup.str_term());
-            gs.code.push_back(BC_INST_LOOKUP_MU);
+            gs.code.push_back(BC_INST_LOOKUP_U);
 done:
             break;
         }

@@ -31,42 +31,170 @@ constexpr std::size_t bc_store_size = (
     sizeof(T) - 1
 ) / sizeof(std::uint32_t) + 1;
 
-/* instruction: uint32 [length 24][retflag 2][opcode 6] */
+/* instructions consist of:
+ *
+ * [D 24][M 2][O 6] == I
+ *
+ * I: instruction
+ * O: opcode
+ * M: type mask
+ * D: data
+ *
+ * also:
+ *
+ * R: result slot
+ *
+ * "force to M" means changing the type of the value as described by the
+ * type mask; this is generally string/integer/float, null in general
+ * preserves the type, except where mentioned
+ */
 enum {
+    /* noop */
     BC_INST_START = 0,
     BC_INST_OFFSET,
-    BC_INST_NULL, BC_INST_TRUE, BC_INST_FALSE, BC_INST_NOT,
+    /* set R to null/true/false according to M */
+    BC_INST_NULL, BC_INST_TRUE, BC_INST_FALSE,
+    /* pop a value off the stack and set R to negated value according to M */
+    BC_INST_NOT,
+    /* pop a value off the stack */
     BC_INST_POP,
-    BC_INST_ENTER, BC_INST_ENTER_RESULT,
-    BC_INST_EXIT, BC_INST_RESULT_ARG,
-    BC_INST_VAL, BC_INST_VAL_INT,
-    BC_INST_DUP,
-    BC_INST_BOOL,
-    BC_INST_BLOCK, BC_INST_EMPTY,
-    BC_INST_COMPILE, BC_INST_COND,
-    BC_INST_FORCE,
+    /* recursively invoke VM from next instruction, push result on the stack */
+    BC_INST_ENTER,
+    /* recursively invoke VM from next instruction, result in R */
+    BC_INST_ENTER_RESULT,
+    /* exit VM, force R according to M */
+    BC_INST_EXIT,
+    /* pop a value off the stack and set R according to M */
     BC_INST_RESULT,
-    BC_INST_IDENT, BC_INST_IDENT_U,
-    BC_INST_COM, BC_INST_COM_C, BC_INST_COM_V,
-    BC_INST_CONC, BC_INST_CONC_W,
-    BC_INST_SVAR, BC_INST_SVAR1,
-    BC_INST_IVAR, BC_INST_IVAR1, BC_INST_IVAR2, BC_INST_IVAR3,
-    BC_INST_FVAR, BC_INST_FVAR1,
-    BC_INST_LOOKUP, BC_INST_LOOKUP_U,
-    BC_INST_LOOKUP_M, BC_INST_LOOKUP_MU,
-    BC_INST_ALIAS, BC_INST_ALIAS_U,
-    BC_INST_CALL, BC_INST_CALL_U,
+    /* push R on the stack according to M */
+    BC_INST_RESULT_ARG,
+    /* force top of the stack according to M */
+    BC_INST_FORCE,
+    /* duplicate top of the stack according to M */
+    BC_INST_DUP,
+    /* push value after I on the stack according to M (length D if string) */
+    BC_INST_VAL,
+    /* push value inside D on the stack according to M
+     *
+     * strings are at most 3 bytes long, integers and floats must be
+     * integral values between -0x800000 and 0x7FFFFF inclusive
+     */
+    BC_INST_VAL_INT,
+    /* print builtin variable with index D using user provided call */
     BC_INST_PRINT,
+    /* pop D aliases off the stack, push their values and recurse the VM
+     * pop their values afterwards (i.e. they are local to the execution)
+     */
     BC_INST_LOCAL,
-    BC_INST_DO, BC_INST_DO_ARGS,
-    BC_INST_JUMP, BC_INST_JUMP_B, BC_INST_JUMP_RESULT,
+    /* pop a value off the stack, execute its bytecode,
+     * result in R according to M
+     */
+    BC_INST_DO,
+    /* like above, except argument aliases are restored to the previous
+     * callstack level before calling (and restored back afterwards)
+     */
+    BC_INST_DO_ARGS,
+    /* jump forward by D instructions */
+    BC_INST_JUMP,
+    /* conditional jump: pop a value off the stack, jump only if considered
+     * true or false (see BC_INST_FLAG_TRUE/FALSE)
+     */
+    BC_INST_JUMP_B,
+    /* conditional jump: pop a value off the stack, if it's bytecode,
+     * eval it (saving the value into R), if it's not, save the value
+     * into R, then jump only if the value is considered true or false
+     * (see BC_INST_FLAG_TRUE/FALSE)
+     */
+    BC_INST_JUMP_RESULT,
+    /* break or continue a loop; if no loop is currently running, raise
+     * an error, otherwise break (if BC_INST_FLAG_FALSE) or continue
+     * (if BC_INST_FLAG_TRUE)
+     */
     BC_INST_BREAK,
+    /* bytecode of length D follows, push on the stack as bytecode */
+    BC_INST_BLOCK,
+    /* push bytecode of (BC_INST_EXIT | M) on the stack */
+    BC_INST_EMPTY,
+    /* compile the value on top of the stack as if it was a string (null for
+     * non-string/integer/float values) */
+    BC_INST_COMPILE,
+    /* compile the value on top of the stack if string; if string is empty,
+     * force to null, if not string, keep as is
+     */
+    BC_INST_COND,
+    /* push ident with index D on the stack; if arg, push val and mark used */
+    BC_INST_IDENT,
+    /* make value on top of stack an ident; if value is string, that is
+     * the ident name, otherwise dummy is used; ident is created if non
+     * existent, and if arg, push val and mark used
+     */
+    BC_INST_IDENT_U,
+    /* lookup the alias with index D and push its value (error if unset) */
+    BC_INST_LOOKUP,
+    /* lookup an unknown ident with the name being given by the string on
+     * top of the stack; if a var or a set alias, update top of the stack
+     * to the ident's value (according to M), else raise error
+     */
+    BC_INST_LOOKUP_U,
+    /* concatenate D values on top of the stack together, with topmost value
+     * being last; push the result according to M
+     */
+    BC_INST_CONC,
+    /* like above but delimit with spaces */
+    BC_INST_CONC_W,
+    /* push the value of svar with index D on the stack according to M */
+    BC_INST_SVAR,
+    /* pop a value off the stack and set svar with index D to it */
+    BC_INST_SVAR1,
+    /* push the value of ivar with index D on the stack according to M */
+    BC_INST_IVAR,
+    /* pop up to 3 values off the stack and set ivar with index D to:
+     *
+     * ivar1: top
+     * ivar2: (top << 8) | ((top - 1) << 16)
+     * ivar3: top | ((top - 1) << 8) | ((top - 2) << 16)
+     */
+    BC_INST_IVAR1, BC_INST_IVAR2, BC_INST_IVAR3,
+    /* push the value of fvar with index D on the stack according to M */
+    BC_INST_FVAR,
+    /* pop a value off the stack and set vvar with index D to it */
+    BC_INST_FVAR1,
+    /* pop a value off the stack and set alias with index D to it */
+    BC_INST_ALIAS,
+    /* pop 2 values off the stack; top is value to set, below is alias name */
+    BC_INST_ALIAS_U,
+    /* call alias with index D[5..] and arg count D[0..5], pop the arguments
+     * off the stack (top being last); if unknown, raise error, store result
+     * in R according to M
+     */
+    BC_INST_CALL,
+    /* given argument count D, pop the arguments off the stack (top being last)
+     * and then pop one more value (that being the ident name); look up the
+     * ident (raise error if non-existent) and then call according to its
+     * type (vars behave as in PRINT); store result in R according to M
+     */
+    BC_INST_CALL_U,
+    /* call builtin command with index D; arguments are popped off the stack,
+     * last argument being topmost; result of the call goes in R according to M
+     */
+    BC_INST_COM,
+    /* call builtin command with index D[5..] and number of arguments D[0..5]
+     * arguments are popped off the stack and passed as is
+     */
+    BC_INST_COM_V,
+    /* call builtin command with index D[5..] and number of arguments D[0..5]
+     * arguments are popped off the stack and concatenated together
+     */
+    BC_INST_COM_C,
 
+    /* opcode mask */
     BC_INST_OP_MASK = 0x3F,
+    /* type mask shift */
     BC_INST_RET = 6,
+    /* type mask, shifted */
     BC_INST_RET_MASK = 0xC0,
 
-    /* return type flags */
+    /* type mask flags */
     BC_RET_NULL   = VAL_NULL << BC_INST_RET,
     BC_RET_STRING = VAL_STRING << BC_INST_RET,
     BC_RET_INT    = VAL_INT << BC_INST_RET,

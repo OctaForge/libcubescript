@@ -398,24 +398,6 @@ LIBCUBESCRIPT_EXPORT any_value alias::get_value() const {
     return static_cast<alias_impl const *>(this)->p_val;
 }
 
-void alias::get_cval(any_value &v) const {
-    auto *imp = static_cast<alias_impl const *>(this);
-    switch (imp->p_val.get_type()) {
-        case value_type::STRING:
-            v = imp->p_val;
-            break;
-        case value_type::INT:
-            v.set_int(imp->p_val.get_int());
-            break;
-        case value_type::FLOAT:
-            v.set_float(imp->p_val.get_float());
-            break;
-        default:
-            v.set_none();
-            break;
-    }
-}
-
 LIBCUBESCRIPT_EXPORT std::string_view command::get_args() const {
     return static_cast<command_impl const *>(this)->p_cargs;
 }

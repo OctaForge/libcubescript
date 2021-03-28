@@ -405,6 +405,19 @@ std::uint32_t *vm_exec(
             /* fallthrough */
             case BC_INST_EXIT | BC_RET_NULL:
                 return code;
+
+            case BC_INST_RESULT | BC_RET_NULL:
+                result = std::move(args.back());
+                args.pop_back();
+                continue;
+            case BC_INST_RESULT | BC_RET_STRING:
+            case BC_INST_RESULT | BC_RET_INT:
+            case BC_INST_RESULT | BC_RET_FLOAT:
+                result = std::move(args.back());
+                args.pop_back();
+                force_arg(result, op & BC_INST_RET_MASK);
+                continue;
+
             case BC_INST_RESULT_ARG | BC_RET_STRING:
             case BC_INST_RESULT_ARG | BC_RET_INT:
             case BC_INST_RESULT_ARG | BC_RET_FLOAT:
@@ -413,6 +426,83 @@ std::uint32_t *vm_exec(
             case BC_INST_RESULT_ARG | BC_RET_NULL:
                 args.emplace_back(std::move(result));
                 continue;
+
+            case BC_INST_FORCE | BC_RET_STRING:
+                args.back().force_str();
+                continue;
+            case BC_INST_FORCE | BC_RET_INT:
+                args.back().force_int();
+                continue;
+            case BC_INST_FORCE | BC_RET_FLOAT:
+                args.back().force_float();
+                continue;
+
+            case BC_INST_DUP | BC_RET_NULL: {
+                auto &v = args.back();
+                v.get_val(args.emplace_back(cs));
+                continue;
+            }
+            case BC_INST_DUP | BC_RET_INT: {
+                auto &v = args.back();
+                args.emplace_back(cs).set_int(v.get_int());
+                continue;
+            }
+            case BC_INST_DUP | BC_RET_FLOAT: {
+                auto &v = args.back();
+                args.emplace_back(cs).set_float(v.get_float());
+                continue;
+            }
+            case BC_INST_DUP | BC_RET_STRING: {
+                auto &v = args.back();
+                auto &nv = args.emplace_back(cs);
+                nv = v;
+                nv.force_str();
+                continue;
+            }
+
+            case BC_INST_VAL | BC_RET_STRING: {
+                std::uint32_t len = op >> 8;
+                args.emplace_back(cs).set_str(std::string_view{
+                    reinterpret_cast<char const *>(code), len
+                });
+                code += len / sizeof(std::uint32_t) + 1;
+                continue;
+            }
+            case BC_INST_VAL_INT | BC_RET_STRING: {
+                char s[4] = {
+                    char((op >> 8) & 0xFF),
+                    char((op >> 16) & 0xFF),
+                    char((op >> 24) & 0xFF), '\0'
+                };
+                /* gotta cast or r.size() == potentially 3 */
+                args.emplace_back(cs).set_str(static_cast<char const *>(s));
+                continue;
+            }
+            case BC_INST_VAL | BC_RET_NULL:
+            case BC_INST_VAL_INT | BC_RET_NULL:
+                args.emplace_back(cs).set_none();
+                continue;
+            case BC_INST_VAL | BC_RET_INT:
+                args.emplace_back(cs).set_int(
+                    *reinterpret_cast<integer_type const *>(code)
+                );
+                code += bc_store_size<integer_type>;
+                continue;
+            case BC_INST_VAL_INT | BC_RET_INT:
+                args.emplace_back(cs).set_int(integer_type(op) >> 8);
+                continue;
+            case BC_INST_VAL | BC_RET_FLOAT:
+                args.emplace_back(cs).set_float(
+                    *reinterpret_cast<float_type const *>(code)
+                );
+                code += bc_store_size<float_type>;
+                continue;
+            case BC_INST_VAL_INT | BC_RET_FLOAT:
+                args.emplace_back(cs).set_float(
+                    float_type(integer_type(op) >> 8)
+                );
+                continue;
+
             case BC_INST_PRINT:
                 cs.print_var(*static_cast<global_var *>(ts.istate->identmap[op >> 8]));
                 continue;
@@ -520,94 +610,6 @@ std::uint32_t *vm_exec(
                     throw error{cs, "no loop to continue"};
                 }
                 break;
-
-            case BC_INST_VAL | BC_RET_STRING: {
-                std::uint32_t len = op >> 8;
-                args.emplace_back(cs).set_str(std::string_view{
-                    reinterpret_cast<char const *>(code), len
-                });
-                code += len / sizeof(std::uint32_t) + 1;
-                continue;
-            }
-            case BC_INST_VAL_INT | BC_RET_STRING: {
-                char s[4] = {
-                    char((op >> 8) & 0xFF),
-                    char((op >> 16) & 0xFF),
-                    char((op >> 24) & 0xFF), '\0'
-                };
-                /* gotta cast or r.size() == potentially 3 */
-                args.emplace_back(cs).set_str(static_cast<char const *>(s));
-                continue;
-            }
-            case BC_INST_VAL | BC_RET_NULL:
-            case BC_INST_VAL_INT | BC_RET_NULL:
-                args.emplace_back(cs).set_none();
-                continue;
-            case BC_INST_VAL | BC_RET_INT:
-                args.emplace_back(cs).set_int(
-                    *reinterpret_cast<integer_type const *>(code)
-                );
-                code += bc_store_size<integer_type>;
-                continue;
-            case BC_INST_VAL_INT | BC_RET_INT:
-                args.emplace_back(cs).set_int(integer_type(op) >> 8);
-                continue;
-            case BC_INST_VAL | BC_RET_FLOAT:
-                args.emplace_back(cs).set_float(
-                    *reinterpret_cast<float_type const *>(code)
-                );
-                code += bc_store_size<float_type>;
-                continue;
-            case BC_INST_VAL_INT | BC_RET_FLOAT:
-                args.emplace_back(cs).set_float(
-                    float_type(integer_type(op) >> 8)
-                );
-                continue;
-
-            case BC_INST_DUP | BC_RET_NULL: {
-                auto &v = args.back();
-                v.get_val(args.emplace_back(cs));
-                continue;
-            }
-            case BC_INST_DUP | BC_RET_INT: {
-                auto &v = args.back();
-                args.emplace_back(cs).set_int(v.get_int());
-                continue;
-            }
-            case BC_INST_DUP | BC_RET_FLOAT: {
-                auto &v = args.back();
-                args.emplace_back(cs).set_float(v.get_float());
-                continue;
-            }
-            case BC_INST_DUP | BC_RET_STRING: {
-                auto &v = args.back();
-                auto &nv = args.emplace_back(cs);
-                nv = v;
-                nv.force_str();
-                continue;
-            }
-
-            case BC_INST_FORCE | BC_RET_STRING:
-                args.back().force_str();
-                continue;
-            case BC_INST_FORCE | BC_RET_INT:
-                args.back().force_int();
-                continue;
-            case BC_INST_FORCE | BC_RET_FLOAT:
-                args.back().force_float();
-                continue;
-
-            case BC_INST_RESULT | BC_RET_NULL:
-                result = std::move(args.back());
-                args.pop_back();
-                continue;
-            case BC_INST_RESULT | BC_RET_STRING:
-            case BC_INST_RESULT | BC_RET_INT:
-            case BC_INST_RESULT | BC_RET_FLOAT:
-                result = std::move(args.back());
-                args.pop_back();
-                force_arg(result, op & BC_INST_RET_MASK);
-                continue;
 
             case BC_INST_EMPTY | BC_RET_NULL:
                 args.emplace_back(cs).set_code(
@@ -772,6 +774,7 @@ std::uint32_t *vm_exec(
                         continue;
                 }
             }
+
             case BC_INST_LOOKUP | BC_RET_STRING: {
                 alias *a = get_lookup_id(ts, op);
                 if (!a) {
@@ -783,6 +786,7 @@ std::uint32_t *vm_exec(
                 }
                 continue;
             }
+
             case BC_INST_LOOKUP_U | BC_RET_INT: {
                 ident *id = nullptr;
                 any_value &arg = args.back();
@@ -892,76 +896,6 @@ std::uint32_t *vm_exec(
                     args.emplace_back(cs).set_none();
                 } else {
                     a->get_value().get_val(args.emplace_back(cs));
-                }
-                continue;
-            }
-
-            case BC_INST_LOOKUP_MU | BC_RET_STRING: {
-                ident *id = nullptr;
-                any_value &arg = args.back();
-                switch (get_lookupu_type(ts, arg, id, op)) {
-                    case ID_ALIAS:
-                        arg = static_cast<alias *>(id)->get_value();
-                        arg.force_str();
-                        continue;
-                    case ID_SVAR:
-                        arg.set_str(static_cast<string_var *>(id)->get_value());
-                        continue;
-                    case ID_IVAR:
-                        arg.set_int(static_cast<integer_var *>(id)->get_value());
-                        arg.force_str();
-                        continue;
-                    case ID_FVAR:
-                        arg.set_float(static_cast<float_var *>(id)->get_value());
-                        arg.force_str();
-                        continue;
-                    case ID_UNKNOWN:
-                        arg.set_str("");
-                        continue;
-                    default:
-                        continue;
-                }
-            }
-            case BC_INST_LOOKUP_M | BC_RET_STRING: {
-                alias *a = get_lookup_id(ts, op);
-                if (!a) {
-                    args.emplace_back(cs).set_str("");
-                } else {
-                    auto &v = args.emplace_back(cs);
-                    v = a->get_value();
-                    v.force_str();
-                }
-                continue;
-            }
-            case BC_INST_LOOKUP_MU | BC_RET_NULL: {
-                ident *id = nullptr;
-                any_value &arg = args.back();
-                switch (get_lookupu_type(ts, arg, id, op)) {
-                    case ID_ALIAS:
-                        static_cast<alias *>(id)->get_cval(arg);
-                        continue;
-                    case ID_SVAR:
-                        arg.set_str(static_cast<string_var *>(id)->get_value());
-                        continue;
-                    case ID_IVAR:
-                        arg.set_int(static_cast<integer_var *>(id)->get_value());
-                        continue;
-                    case ID_FVAR:
-                        arg.set_float(static_cast<float_var *>(id)->get_value());
-                        continue;
-                    case ID_UNKNOWN:
-                        arg.set_none();
-                        continue;
-                    default:
-                        continue;
-                }
-            }
-            case BC_INST_LOOKUP_M | BC_RET_NULL: {
-                alias *a = get_lookup_id(ts, op);
-                if (!a) {
-                    args.emplace_back(cs).set_none();
-                } else {
-                    a->get_cval(args.emplace_back(cs));
                 }
                 continue;
             }

@@ -501,7 +501,6 @@ protected:
 
 struct LIBCUBESCRIPT_EXPORT alias: ident {
     any_value get_value() const;
-    void get_cval(any_value &v) const;
 
 protected:
     alias() = default;
