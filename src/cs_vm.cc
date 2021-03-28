@@ -611,6 +611,15 @@ std::uint32_t *vm_exec(
                 }
                 break;
 
+            case BC_INST_BLOCK: {
+                std::uint32_t len = op >> 8;
+                args.emplace_back(cs).set_code(
+                    reinterpret_cast<bcode *>(code + 1)
+                );
+                code += len;
+                continue;
+            }
+
             case BC_INST_EMPTY | BC_RET_NULL:
                 args.emplace_back(cs).set_code(
                     bcode_get_empty(ts.istate->empty, VAL_NULL)
@@ -631,14 +640,7 @@ std::uint32_t *vm_exec(
                     bcode_get_empty(ts.istate->empty, VAL_FLOAT)
                 );
                 break;
-            case BC_INST_BLOCK: {
-                std::uint32_t len = op >> 8;
-                args.emplace_back(cs).set_code(
-                    reinterpret_cast<bcode *>(code + 1)
-                );
-                code += len;
-                continue;
-            }
+
             case BC_INST_COMPILE: {
                 any_value &arg = args.back();
                 codegen_state gs{ts};
@@ -680,6 +682,7 @@ std::uint32_t *vm_exec(
                 );
                 continue;
             }
+
             case BC_INST_COND: {
                 any_value &arg = args.back();
                 switch (arg.get_type()) {
@@ -900,6 +903,24 @@ std::uint32_t *vm_exec(
                 continue;
             }
 
+            case BC_INST_CONC | BC_RET_NULL:
+            case BC_INST_CONC | BC_RET_STRING:
+            case BC_INST_CONC | BC_RET_FLOAT:
+            case BC_INST_CONC | BC_RET_INT:
+            case BC_INST_CONC_W | BC_RET_NULL:
+            case BC_INST_CONC_W | BC_RET_STRING:
+            case BC_INST_CONC_W | BC_RET_FLOAT:
+            case BC_INST_CONC_W | BC_RET_INT: {
+                std::size_t numconc = op >> 8;
+                auto buf = concat_values(
+                    cs, std::span{&args[args.size() - numconc], numconc},
+                    ((op & BC_INST_OP_MASK) == BC_INST_CONC) ? " " : ""
+                );
+                args.resize(args.size() - numconc, any_value{cs});
+                force_arg(args.emplace_back(cs), op & BC_INST_RET_MASK);
+                continue;
+            }
+
             case BC_INST_SVAR | BC_RET_STRING:
             case BC_INST_SVAR | BC_RET_NULL:
                 args.emplace_back(cs).set_str(static_cast<string_var *>(
@@ -1006,78 +1027,6 @@ std::uint32_t *vm_exec(
                     v.get_float()
                 );
                 args.pop_back();
-                continue;
-            }
-
-            case BC_INST_COM | BC_RET_NULL:
-            case BC_INST_COM | BC_RET_STRING:
-            case BC_INST_COM | BC_RET_FLOAT:
-            case BC_INST_COM | BC_RET_INT: {
-                command_impl *id = static_cast<command_impl *>(
-                    ts.istate->identmap[op >> 8]
-                );
-                std::size_t offset = args.size() - id->get_num_args();
-                result.force_none();
-                id->call(cs, std::span<any_value>{
-                    &args[offset], std::size_t(id->get_num_args())
-                }, result);
-                force_arg(result, op & BC_INST_RET_MASK);
-                args.resize(offset, any_value{cs});
-                continue;
-            }
-
-            case BC_INST_COM_V | BC_RET_NULL:
-            case BC_INST_COM_V | BC_RET_STRING:
-            case BC_INST_COM_V | BC_RET_FLOAT:
-            case BC_INST_COM_V | BC_RET_INT: {
-                command_impl *id = static_cast<command_impl *>(
-                    ts.istate->identmap[op >> 13]
-                );
-                std::size_t callargs = (op >> 8) & 0x1F;
-                std::size_t offset = args.size() - callargs;
-                result.force_none();
-                id->call(cs, std::span{&args[offset], callargs}, result);
-                force_arg(result, op & BC_INST_RET_MASK);
-                args.resize(offset, any_value{cs});
-                continue;
-            }
-            case BC_INST_COM_C | BC_RET_NULL:
-            case BC_INST_COM_C | BC_RET_STRING:
-            case BC_INST_COM_C | BC_RET_FLOAT:
-            case BC_INST_COM_C | BC_RET_INT: {
-                command_impl *id = static_cast<command_impl *>(
-                    ts.istate->identmap[op >> 13]
-                );
-                std::size_t callargs = (op >> 8) & 0x1F,
-                            offset = args.size() - callargs;
-                result.force_none();
-                {
-                    any_value tv{cs};
-                    tv.set_str(concat_values(cs, std::span{
-                        &args[offset], callargs
-                    }, " "));
-                    id->call(cs, std::span<any_value>{&tv, 1}, result);
-                }
-                force_arg(result, op & BC_INST_RET_MASK);
-                args.resize(offset, any_value{cs});
-                continue;
-            }
-
-            case BC_INST_CONC | BC_RET_NULL:
-            case BC_INST_CONC | BC_RET_STRING:
-            case BC_INST_CONC | BC_RET_FLOAT:
-            case BC_INST_CONC | BC_RET_INT:
-            case BC_INST_CONC_W | BC_RET_NULL:
-            case BC_INST_CONC_W | BC_RET_STRING:
-            case BC_INST_CONC_W | BC_RET_FLOAT:
-            case BC_INST_CONC_W | BC_RET_INT: {
-                std::size_t numconc = op >> 8;
-                auto buf = concat_values(
-                    cs, std::span{&args[args.size() - numconc], numconc},
-                    ((op & BC_INST_OP_MASK) == BC_INST_CONC) ? " " : ""
-                );
-                args.resize(args.size() - numconc, any_value{cs});
-                force_arg(args.emplace_back(cs), op & BC_INST_RET_MASK);
                 continue;
             }
 
@@ -1250,6 +1199,60 @@ noid:
                         continue;
                     }
                 }
+            }
+
+            case BC_INST_COM | BC_RET_NULL:
+            case BC_INST_COM | BC_RET_STRING:
+            case BC_INST_COM | BC_RET_FLOAT:
+            case BC_INST_COM | BC_RET_INT: {
+                command_impl *id = static_cast<command_impl *>(
+                    ts.istate->identmap[op >> 8]
+                );
+                std::size_t offset = args.size() - id->get_num_args();
+                result.force_none();
+                id->call(cs, std::span<any_value>{
+                    &args[offset], std::size_t(id->get_num_args())
+                }, result);
+                force_arg(result, op & BC_INST_RET_MASK);
+                args.resize(offset, any_value{cs});
+                continue;
+            }
+
+            case BC_INST_COM_V | BC_RET_NULL:
+            case BC_INST_COM_V | BC_RET_STRING:
+            case BC_INST_COM_V | BC_RET_FLOAT:
+            case BC_INST_COM_V | BC_RET_INT: {
+                command_impl *id = static_cast<command_impl *>(
+                    ts.istate->identmap[op >> 13]
+                );
+                std::size_t callargs = (op >> 8) & 0x1F;
+                std::size_t offset = args.size() - callargs;
+                result.force_none();
+                id->call(cs, std::span{&args[offset], callargs}, result);
+                force_arg(result, op & BC_INST_RET_MASK);
+                args.resize(offset, any_value{cs});
+                continue;
+            }
+            case BC_INST_COM_C | BC_RET_NULL:
+            case BC_INST_COM_C | BC_RET_STRING:
+            case BC_INST_COM_C | BC_RET_FLOAT:
+            case BC_INST_COM_C | BC_RET_INT: {
+                command_impl *id = static_cast<command_impl *>(
+                    ts.istate->identmap[op >> 13]
+                );
+                std::size_t callargs = (op >> 8) & 0x1F,
+                            offset = args.size() - callargs;
+                result.force_none();
+                {
+                    any_value tv{cs};
+                    tv.set_str(concat_values(cs, std::span{
+                        &args[offset], callargs
+                    }, " "));
+                    id->call(cs, std::span<any_value>{&tv, 1}, result);
+                }
+                force_arg(result, op & BC_INST_RET_MASK);
+                args.resize(offset, any_value{cs});
+                continue;
             }
         }
     }
