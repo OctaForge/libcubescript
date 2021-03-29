@@ -7,6 +7,7 @@
 
 #include "cs_std.hh"
 #include "cs_state.hh"
+#include "cs_ident.hh"
 
 namespace cubescript {
 

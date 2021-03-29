@@ -16,6 +16,12 @@ enum {
     ID_NOT, ID_AND, ID_OR
 };
 
+struct ident_stack {
+    any_value val_s;
+    ident_stack *next;
+    ident_stack(state &cs): val_s{cs}, next{nullptr} {}
+};
+
 struct ident_link {
     ident *id;
     ident_link *next;
