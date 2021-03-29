@@ -451,8 +451,14 @@ bool stacked_value::push() {
     if (!p_a) {
         return false;
     }
-    static_cast<alias_impl *>(p_a)->push_arg(*this, p_stack);
-    p_pushed = true;
+    if (!p_pushed) {
+        static_cast<alias_impl *>(p_a)->push_arg(*this, p_stack);
+        p_pushed = true;
+    } else {
+        static_cast<alias_impl *>(p_a)->p_val = std::move(
+            *static_cast<any_value *>(this)
+        );
+    }
     return true;
 }
 

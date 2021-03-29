@@ -115,12 +115,6 @@ alias_impl::alias_impl(state &cs, string_ref name, any_value v, int fl):
 }
 
 void alias_impl::push_arg(any_value &v, ident_stack &st, bool um) {
-    if (p_astack == &st) {
-        /* prevent cycles and unnecessary code elsewhere */
-        p_val = std::move(v);
-        clean_code();
-        return;
-    }
     st.val_s = std::move(p_val);
     st.next = p_astack;
     p_astack = &st;
