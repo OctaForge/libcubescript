@@ -47,12 +47,12 @@ static void call_with_args(thread_state &ts, F body) {
         body();
         return;
     }
-    valarray<ident_stack, MAX_ARGUMENTS> argstack{*ts.pstate};
     auto mask = ts.callstack->usedargs;
+    std::size_t noff = ts.idstack.size();
     for (std::size_t i = 0; mask.any(); ++i) {
         if (mask[0]) {
             static_cast<alias_impl *>(ts.istate->identmap[i])->undo_arg(
-                argstack[i]
+                ts.idstack.emplace_back(*ts.pstate)
             );
         }
         mask >>= 1;
@@ -60,7 +60,6 @@ static void call_with_args(thread_state &ts, F body) {
     ident_link *prevstack = ts.callstack->next;
     ident_link aliaslink = {
         ts.callstack->id, ts.callstack,
-        prevstack ? prevstack->argstack : nullptr,
         prevstack ? prevstack->usedargs : argset{}
     };
     if (!prevstack) {
@@ -73,14 +72,15 @@ static void call_with_args(thread_state &ts, F body) {
         }
         ts.callstack = aliaslink.next;
         auto mask2 = ts.callstack->usedargs;
-        for (std::size_t i = 0; mask2.any(); ++i) {
+        for (std::size_t i = 0, nredo = 0; mask2.any(); ++i) {
             if (mask2[0]) {
                 static_cast<alias_impl *>(ts.istate->identmap[i])->redo_arg(
-                    argstack[i]
+                    ts.idstack[noff + nredo++]
                 );
             }
             mask2 >>= 1;
         }
+        ts.idstack.resize(noff, ident_stack{*ts.pstate});
     });
 }
 

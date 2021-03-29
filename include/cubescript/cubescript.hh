@@ -846,8 +846,8 @@ struct LIBCUBESCRIPT_EXPORT stacked_value: any_value {
     bool pop();
 
 private:
+    state &p_state;
     alias *p_a;
-    ident_stack p_stack;
     bool p_pushed;
 };
 

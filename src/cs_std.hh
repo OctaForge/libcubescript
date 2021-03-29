@@ -28,30 +28,6 @@ inline void call_with_cleanup(F1 &&dof, F2 &&clf) {
     dof();
 }
 
-/* a simple static array with elements constructed using ctor args */
-
-template<typename T, std::size_t N>
-struct valarray {
-    template<typename ...A>
-    valarray(A &&...args) {
-        for (std::size_t i = 0; i < N; ++i) {
-            new (&stor[i]) T{std::forward<A>(args)...};
-        }
-    }
-
-    ~valarray() {
-        for (std::size_t i = 0; i < N; ++i) {
-            std::launder(reinterpret_cast<T *>(&stor[i]))->~T();
-        }
-    }
-
-    T &operator[](std::size_t i) {
-        return *std::launder(reinterpret_cast<T *>(&stor[i]));
-    }
-
-    std::aligned_storage_t<sizeof(T), alignof(T)> stor[N];
-};
-
 /* a value buffer */
 
 template<typename T>

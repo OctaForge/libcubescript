@@ -19,7 +19,6 @@ enum {
 struct ident_link {
     ident *id;
     ident_link *next;
-    ident_stack *argstack;
     std::bitset<MAX_ARGUMENTS> usedargs;
 };
 
@@ -110,9 +109,7 @@ struct command_impl: ident_impl, command {
         string_ref name, string_ref args, int numargs, command_func func
     );
 
-    void call(state &cs, std::span<any_value> args, any_value &ret) {
-        p_cb_cftv(cs, args, ret);
-    }
+    void call(state &cs, std::span<any_value> args, any_value &ret);
 
     string_ref p_cargs;
     command_func p_cb_cftv;

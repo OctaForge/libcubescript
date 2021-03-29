@@ -21,8 +21,10 @@ struct thread_state {
     state *pstate{};
     /* current codegen state for diagnostics */
     codegen_state *cstate{};
-    /* value stack for VM */
+    /* VM stack */
     valbuf<any_value> vmstack;
+    /* alias stack */
+    valbuf<ident_stack> idstack;
     /* per-thread storage buffer for error messages */
     charbuf errbuf;
     /* we can attach a hook to vm events */

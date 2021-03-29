@@ -5,9 +5,10 @@
 namespace cubescript {
 
 thread_state::thread_state(internal_state *cs):
-    vmstack{cs}, errbuf{cs}
+    vmstack{cs}, idstack{cs}, errbuf{cs}
 {
     vmstack.reserve(32);
+    idstack.reserve(MAX_ARGUMENTS);
 }
 
 hook_func thread_state::set_hook(hook_func f) {

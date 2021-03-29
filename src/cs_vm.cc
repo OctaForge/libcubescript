@@ -205,11 +205,11 @@ void exec_alias(
     integer_var *anargs = static_cast<integer_var *>(
         ts.istate->identmap[ID_IDX_NUMARGS]
     );
-    valarray<ident_stack, MAX_ARGUMENTS> argstack{*ts.pstate};
     argset uargs{};
+    std::size_t noff = ts.idstack.size();
     for(std::size_t i = 0; i < callargs; i++) {
         static_cast<alias_impl *>(ts.istate->identmap[i])->push_arg(
-            args[offset + i], argstack[i], false
+            args[offset + i], ts.idstack.emplace_back(*ts.pstate), false
         );
         uargs[i] = true;
     }
@@ -217,9 +217,7 @@ void exec_alias(
     anargs->set_value(callargs);
     int oldflags = ts.pstate->identflags;
     ts.pstate->identflags |= a->get_flags()&IDENT_FLAG_OVERRIDDEN;
-    ident_link aliaslink = {
-        a, ts.callstack, &argstack[0], uargs
-    };
+    ident_link aliaslink = {a, ts.callstack, uargs};
     ts.callstack = &aliaslink;
     std::uint32_t *codep = static_cast<
         alias_impl *
@@ -244,6 +242,7 @@ void exec_alias(
                 amask[callargs] = false;
             }
         }
+        ts.idstack.resize(noff, ident_stack{*ts.pstate});
         force_arg(result, op & BC_INST_RET_MASK);
         anargs->set_value(integer_type(oldargs));
         nargs = offset - skip;
@@ -513,9 +512,12 @@ std::uint32_t *vm_exec(
             case BC_INST_LOCAL: {
                 std::size_t numlocals = op >> 8;
                 std::size_t offset = args.size() - numlocals;
-                valarray<ident_stack, MAX_ARGUMENTS> locals{cs};
+                std::size_t idstsz = ts.idstack.size();
                 for (std::size_t i = 0; i < numlocals; ++i) {
-                    push_alias(cs, args[offset + i].get_ident(), locals[i]);
+                    push_alias(
+                        cs, args[offset + i].get_ident(),
+                        ts.idstack.emplace_back(*ts.pstate)
+                    );
                 }
                 call_with_cleanup([&]() {
                     code = vm_exec(ts, code, result);
@@ -523,6 +525,7 @@ std::uint32_t *vm_exec(
                     for (std::size_t i = offset; i < args.size(); ++i) {
                         pop_alias(args[i].get_ident());
                     }
+                    ts.idstack.resize(idstsz, ident_stack{*ts.pstate});
                 });
                 return code;
             }
@@ -725,7 +728,7 @@ std::uint32_t *vm_exec(
                 ) {
                     any_value nv{cs};
                     static_cast<alias_impl *>(a)->push_arg(
-                        nv, ts.callstack->argstack[a->get_index()],
+                        nv, ts.idstack.emplace_back(*ts.pstate),
                         false
                     );
                     ts.callstack->usedargs[a->get_index()] = true;
@@ -745,7 +748,7 @@ std::uint32_t *vm_exec(
                 ) {
                     any_value nv{cs};
                     static_cast<alias_impl *>(id)->push_arg(
-                        nv, ts.callstack->argstack[id->get_index()],
+                        nv, ts.idstack.emplace_back(*ts.pstate),
                         false
                     );
                     ts.callstack->usedargs[id->get_index()] = true;
@@ -1131,10 +1134,11 @@ noid:
                         args.resize(offset - 1, any_value{cs});
                         continue;
                     case ID_LOCAL: {
-                        valarray<ident_stack, MAX_ARGUMENTS> locals{cs};
+                        std::size_t idstsz = ts.idstack.size();
                         for (size_t j = 0; j < size_t(callargs); ++j) {
                             push_alias(
-                                cs, args[offset + j].force_ident(cs), locals[j]
+                                cs, args[offset + j].force_ident(cs),
+                                ts.idstack.emplace_back(*ts.pstate)
                             );
                         }
                         call_with_cleanup([&]() {
@@ -1143,6 +1147,7 @@ noid:
                             for (size_t j = 0; j < size_t(callargs); ++j) {
                                 pop_alias(args[offset + j].get_ident());
                             }
+                            ts.idstack.resize(idstsz, ident_stack{*ts.pstate});
                         });
                         return code;
                     }

@@ -157,7 +157,7 @@ void alias_impl::set_arg(thread_state &ts, any_value &v) {
         p_val = std::move(v);
         clean_code();
     } else {
-        push_arg(v, ts.callstack->argstack[get_index()], false);
+        push_arg(v, ts.idstack.emplace_back(*ts.pstate), false);
         ts.callstack->usedargs[get_index()] = true;
     }
 }
@@ -195,6 +195,18 @@ command_impl::command_impl(
     ident_impl{ident_type::COMMAND, name, 0},
     p_cargs{args}, p_cb_cftv{std::move(f)}, p_numargs{nargs}
 {}
+
+void command_impl::call(state &cs, std::span<any_value> args, any_value &ret) {
+    auto &ts = *cs.thread_pointer();
+    auto idstsz = ts.idstack.size();
+    try {
+        p_cb_cftv(cs, args, ret);
+    } catch (...) {
+        ts.idstack.resize(idstsz, ident_stack{cs});
+        throw;
+    }
+    ts.idstack.resize(idstsz, ident_stack{cs});
+}
 
 bool ident_is_used_arg(ident *id, thread_state &ts) {
     if (!ts.callstack) {

@@ -411,7 +411,7 @@ bool any_value::get_bool() const {
 /* stacked value for easy stack management */
 
 stacked_value::stacked_value(state &cs, ident *id):
-    any_value(cs), p_a(nullptr), p_stack{cs}, p_pushed(false)
+    any_value{cs}, p_state{cs}, p_a{nullptr}, p_pushed{false}
 {
     set_alias(id);
 }
@@ -451,8 +451,11 @@ bool stacked_value::push() {
     if (!p_a) {
         return false;
     }
+    auto &ts = *p_state.thread_pointer();
     if (!p_pushed) {
-        static_cast<alias_impl *>(p_a)->push_arg(*this, p_stack);
+        static_cast<alias_impl *>(p_a)->push_arg(
+            *this, ts.idstack.emplace_back(p_state)
+        );
         p_pushed = true;
     } else {
         static_cast<alias_impl *>(p_a)->p_val = std::move(
