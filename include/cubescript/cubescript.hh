@@ -826,19 +826,15 @@ struct LIBCUBESCRIPT_EXPORT alias_stack {
     alias_stack &operator=(alias_stack const &) = delete;
     alias_stack &operator=(alias_stack &&v) = delete;
 
-    bool set_alias(ident *id);
-    alias *get_alias() const noexcept;
-    bool has_alias() const noexcept;
+    alias *get_alias() noexcept { return p_alias; }
+    alias const *get_alias() const noexcept { return p_alias; }
 
-    bool push(any_value val);
-    bool pop();
+    bool set(any_value val);
 
     explicit operator bool() const noexcept;
 
 private:
-    state &p_state;
     alias *p_alias;
-    bool p_pushed;
 };
 
 struct LIBCUBESCRIPT_EXPORT stacked_value: any_value {

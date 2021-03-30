@@ -16,7 +16,7 @@ static inline void do_loop(
         any_value idv{cs};
         for (integer_type i = 0; i < n; ++i) {
             idv.set_int(offset + i * step);
-            st.push(idv);
+            st.set(idv);
             if (cond && !cs.run(cond).get_bool()) {
                 break;
             }
@@ -42,7 +42,7 @@ static inline void do_loop_conc(
         any_value idv{cs};
         for (integer_type i = 0; i < n; ++i) {
             idv.set_int(offset + i * step);
-            st.push(idv);
+            st.set(idv);
             any_value v{cs};
             switch (cs.run_loop(body, v)) {
                 case loop_state::BREAK:
@@ -163,7 +163,7 @@ void init_lib_base(state &gcs) {
                 return;
             }
             if (args[1].get_bool()) {
-                st.push(args[1]);
+                st.set(args[1]);
                 cs.run(args[2].get_code(), res);
             }
         }
@@ -306,7 +306,7 @@ end:
             if (st.get_alias()->get_flags() & IDENT_FLAG_ARG) {
                 return;
             }
-            st.push(args[1]);
+            st.set(args[1]);
             cs.run(args[2].get_code(), res);
         }
     });

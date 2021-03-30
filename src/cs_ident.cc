@@ -413,57 +413,31 @@ LIBCUBESCRIPT_EXPORT int command::get_num_args() const {
 
 /* external API for alias stack management */
 
-LIBCUBESCRIPT_EXPORT alias_stack::alias_stack(state &cs, ident *a):
-    p_state{cs}, p_pushed{false}
-{
-    set_alias(a);
+LIBCUBESCRIPT_EXPORT alias_stack::alias_stack(state &cs, ident *a) {
+    if (!a || !a->is_alias()) {
+        p_alias = nullptr;
+        return;
+    }
+    p_alias = static_cast<alias *>(a);
+    static_cast<alias_impl *>(p_alias)->push_arg(
+        cs.thread_pointer()->idstack.emplace_back(cs)
+    );
 }
 
 LIBCUBESCRIPT_EXPORT alias_stack::~alias_stack() {
-    pop();
+    static_cast<alias_impl *>(p_alias)->pop_arg();
 }
 
-LIBCUBESCRIPT_EXPORT bool alias_stack::set_alias(ident *id) {
-    if (!id || !id->is_alias()) {
-        return false;
-    }
-    p_alias = static_cast<alias *>(id);
-    return true;
-}
-
-LIBCUBESCRIPT_EXPORT alias *alias_stack::get_alias() const noexcept {
-    return p_alias;
-}
-
-LIBCUBESCRIPT_EXPORT bool alias_stack::has_alias() const noexcept {
-    return !!p_alias;
-}
-
-LIBCUBESCRIPT_EXPORT bool alias_stack::push(any_value val) {
+LIBCUBESCRIPT_EXPORT bool alias_stack::set(any_value val) {
     if (!p_alias) {
         return false;
     }
-    auto &ts = *p_state.thread_pointer();
-    auto &ap = *static_cast<alias_impl *>(p_alias);
-    if (!p_pushed) {
-        ap.push_arg(ts.idstack.emplace_back(p_state));
-        p_pushed = true;
-    }
-    ap.p_val = std::move(val);
-    return true;
-}
-
-LIBCUBESCRIPT_EXPORT bool alias_stack::pop() {
-    if (!p_pushed || !p_alias) {
-        return false;
-    }
-    static_cast<alias_impl *>(p_alias)->pop_arg();
-    p_pushed = false;
+    static_cast<alias_impl *>(p_alias)->p_val = std::move(val);
     return true;
 }
 
 LIBCUBESCRIPT_EXPORT alias_stack::operator bool() const noexcept {
-    return has_alias();
+    return !!p_alias;
 }
 
 } /* namespace cubescript */
