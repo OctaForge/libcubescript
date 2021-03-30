@@ -408,68 +408,6 @@ bool any_value::get_bool() const {
     }
 }
 
-/* stacked value for easy stack management */
-
-stacked_value::stacked_value(state &cs, ident *id):
-    any_value{cs}, p_state{cs}, p_a{nullptr}, p_pushed{false}
-{
-    set_alias(id);
-}
-
-stacked_value::~stacked_value() {
-    pop();
-    static_cast<any_value *>(this)->~any_value();
-}
-
-stacked_value &stacked_value::operator=(any_value const &v) {
-    *static_cast<any_value *>(this) = v;
-    return *this;
-}
-
-stacked_value &stacked_value::operator=(any_value &&v) {
-    *static_cast<any_value *>(this) = std::move(v);
-    return *this;
-}
-
-bool stacked_value::set_alias(ident *id) {
-    if (!id || !id->is_alias()) {
-        return false;
-    }
-    p_a = static_cast<alias *>(id);
-    return true;
-}
-
-alias *stacked_value::get_alias() const {
-    return p_a;
-}
-
-bool stacked_value::has_alias() const {
-    return p_a != nullptr;
-}
-
-bool stacked_value::push() {
-    if (!p_a) {
-        return false;
-    }
-    auto &ts = *p_state.thread_pointer();
-    auto &ap = *static_cast<alias_impl *>(p_a);
-    if (!p_pushed) {
-        ap.push_arg(ts.idstack.emplace_back(p_state));
-        p_pushed = true;
-    }
-    ap.p_val = std::move(*static_cast<any_value *>(this));
-    return true;
-}
-
-bool stacked_value::pop() {
-    if (!p_pushed || !p_a) {
-        return false;
-    }
-    static_cast<alias_impl *>(p_a)->pop_arg();
-    p_pushed = false;
-    return true;
-}
-
 /* public utilities */
 
 LIBCUBESCRIPT_EXPORT string_ref concat_values(

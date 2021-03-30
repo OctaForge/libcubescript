@@ -76,31 +76,30 @@ static void loop_list_conc(
     state &cs, any_value &res, ident *id, std::string_view list,
     bcode *body, bool space
 ) {
-    stacked_value idv{cs, id};
-    if (!idv.has_alias()) {
-        return;
-    }
-    charbuf r{cs};
-    int n = 0;
-    for (list_parser p{cs, list}; p.parse(); ++n) {
-        idv.set_str(p.get_item());
-        idv.push();
-        if (n && space) {
-            r.push_back(' ');
+    if (alias_stack st{cs, id}; st) {
+        any_value idv{cs};
+        charbuf r{cs};
+        int n = 0;
+        for (list_parser p{cs, list}; p.parse(); ++n) {
+            idv.set_str(p.get_item());
+            st.set(std::move(idv));
+            if (n && space) {
+                r.push_back(' ');
+            }
+            any_value v{cs};
+            switch (cs.run_loop(body, v)) {
+                case loop_state::BREAK:
+                    goto end;
+                case loop_state::CONTINUE:
+                    continue;
+                default:
+                    break;
+            }
+            r.append(v.get_str());
         }
-        any_value v{cs};
-        switch (cs.run_loop(body, v)) {
-            case loop_state::BREAK:
-                goto end;
-            case loop_state::CONTINUE:
-                continue;
-            default:
-                break;
-        }
-        r.append(v.get_str());
-    }
 end:
-    res.set_str(r.str());
+        res.set_str(r.str());
+    }
 }
 
 int list_includes(
@@ -205,44 +204,41 @@ void init_lib_list(state &gcs) {
     });
 
     gcs.new_command("listfind", "rse", [](auto &cs, auto args, auto &res) {
-        stacked_value idv{cs, args[0].get_ident()};
-        if (!idv.has_alias()) {
-            res.set_int(-1);
-            return;
-        }
-        auto body = args[2].get_code();
-        int n = -1;
-        for (list_parser p{cs, args[1].get_str()}; p.parse();) {
-            ++n;
-            idv.set_str(p.get_raw_item());
-            idv.push();
-            if (cs.run(body).get_bool()) {
-                res.set_int(integer_type(n));
-                return;
+        if (alias_stack st{cs, args[0].get_ident()}; st) {
+            any_value idv{cs};
+            auto body = args[2].get_code();
+            int n = -1;
+            for (list_parser p{cs, args[1].get_str()}; p.parse();) {
+                ++n;
+                idv.set_str(p.get_raw_item());
+                st.set(std::move(idv));
+                if (cs.run(body).get_bool()) {
+                    res.set_int(integer_type(n));
+                    return;
+                }
             }
         }
         res.set_int(-1);
     });
 
     gcs.new_command("listassoc", "rse", [](auto &cs, auto args, auto &res) {
-        stacked_value idv{cs, args[0].get_ident()};
-        if (!idv.has_alias()) {
-            return;
-        }
-        auto body = args[2].get_code();
-        int n = -1;
-        for (list_parser p{cs, args[1].get_str()}; p.parse();) {
-            ++n;
-            idv.set_str(p.get_raw_item());
-            idv.push();
-            if (cs.run(body).get_bool()) {
-                if (p.parse()) {
-                    res.set_str(p.get_item());
+        if (alias_stack st{cs, args[0].get_ident()}; st) {
+            any_value idv{cs};
+            auto body = args[2].get_code();
+            int n = -1;
+            for (list_parser p{cs, args[1].get_str()}; p.parse();) {
+                ++n;
+                idv.set_str(p.get_raw_item());
+                st.set(std::move(idv));
+                if (cs.run(body).get_bool()) {
+                    if (p.parse()) {
+                        res.set_str(p.get_item());
+                    }
+                    break;
                 }
-                break;
-            }
-            if (!p.parse()) {
-                break;
+                if (!p.parse()) {
+                    break;
+                }
             }
         }
     });
@@ -292,87 +288,82 @@ void init_lib_list(state &gcs) {
     });
 
     gcs.new_command("looplist", "rse", [](auto &cs, auto args, auto &) {
-        stacked_value idv{cs, args[0].get_ident()};
-        if (!idv.has_alias()) {
-            return;
-        }
-        auto body = args[2].get_code();
-        int n = 0;
-        for (list_parser p{cs, args[1].get_str()}; p.parse(); ++n) {
-            idv.set_str(p.get_item());
-            idv.push();
-            switch (cs.run_loop(body)) {
-                case loop_state::BREAK:
-                    goto end;
-                default: /* continue and normal */
-                    break;
+        if (alias_stack st{cs, args[0].get_ident()}; st) {
+            any_value idv{cs};
+            auto body = args[2].get_code();
+            int n = 0;
+            for (list_parser p{cs, args[1].get_str()}; p.parse(); ++n) {
+                idv.set_str(p.get_item());
+                st.set(std::move(idv));
+                switch (cs.run_loop(body)) {
+                    case loop_state::BREAK:
+                        return;
+                    default: /* continue and normal */
+                        break;
+                }
             }
         }
-end:
-        return;
     });
 
     gcs.new_command("looplist2", "rrse", [](auto &cs, auto args, auto &) {
-        stacked_value idv1{cs, args[0].get_ident()};
-        stacked_value idv2{cs, args[1].get_ident()};
-        if (!idv1.has_alias() || !idv2.has_alias()) {
+        alias_stack st1{cs, args[0].get_ident()};
+        alias_stack st2{cs, args[1].get_ident()};
+        if (!st1 || !st2) {
             return;
         }
+        any_value idv{cs};
         auto body = args[3].get_code();
         int n = 0;
         for (list_parser p{cs, args[2].get_str()}; p.parse(); n += 2) {
-            idv1.set_str(p.get_item());
+            idv.set_str(p.get_item());
+            st1.set(std::move(idv));
             if (p.parse()) {
-                idv2.set_str(p.get_item());
+                idv.set_str(p.get_item());
             } else {
-                idv2.set_str("");
+                idv.set_str("");
             }
-            idv1.push();
-            idv2.push();
+            st2.set(std::move(idv));
             switch (cs.run_loop(body)) {
                 case loop_state::BREAK:
-                    goto end;
+                    return;
                 default: /* continue and normal */
                     break;
             }
         }
-end:
-        return;
     });
 
     gcs.new_command("looplist3", "rrrse", [](auto &cs, auto args, auto &) {
-        stacked_value idv1{cs, args[0].get_ident()};
-        stacked_value idv2{cs, args[1].get_ident()};
-        stacked_value idv3{cs, args[2].get_ident()};
-        if (!idv1.has_alias() || !idv2.has_alias() || !idv3.has_alias()) {
+        alias_stack st1{cs, args[0].get_ident()};
+        alias_stack st2{cs, args[1].get_ident()};
+        alias_stack st3{cs, args[2].get_ident()};
+        if (!st1 || !st2 || !st3) {
             return;
         }
+        any_value idv{cs};
         auto body = args[4].get_code();
         int n = 0;
         for (list_parser p{cs, args[3].get_str()}; p.parse(); n += 3) {
-            idv1.set_str(p.get_item());
+            idv.set_str(p.get_item());
+            st1.set(std::move(idv));
             if (p.parse()) {
-                idv2.set_str(p.get_item());
+                idv.set_str(p.get_item());
             } else {
-                idv2.set_str("");
+                idv.set_str("");
             }
+            st2.set(std::move(idv));
             if (p.parse()) {
-                idv3.set_str(p.get_item());
+                idv.set_str(p.get_item());
             } else {
-                idv3.set_str("");
+                idv.set_str("");
             }
-            idv1.push();
-            idv2.push();
-            idv3.push();
+            st3.set(std::move(idv));
             switch (cs.run_loop(body)) {
                 case loop_state::BREAK:
-                    goto end;
+                    return;
                 default: /* continue and normal */
                     break;
             }
         }
-end:
-        return;
     });
 
     gcs.new_command("looplistconcat", "rse", [](auto &cs, auto args, auto &res) {
@@ -392,41 +383,39 @@ end:
     });
 
     gcs.new_command("listfilter", "rse", [](auto &cs, auto args, auto &res) {
-        stacked_value idv{cs, args[0].get_ident()};
-        if (!idv.has_alias()) {
-            return;
-        }
-        auto body = args[2].get_code();
-        charbuf r{cs};
-        int n = 0;
-        for (list_parser p{cs, args[1].get_str()}; p.parse(); ++n) {
-            idv.set_str(p.get_raw_item());
-            idv.push();
-            if (cs.run(body).get_bool()) {
-                if (r.size()) {
-                    r.push_back(' ');
+        if (alias_stack st{cs, args[0].get_ident()}; st) {
+            any_value idv{cs};
+            auto body = args[2].get_code();
+            charbuf r{cs};
+            int n = 0;
+            for (list_parser p{cs, args[1].get_str()}; p.parse(); ++n) {
+                idv.set_str(p.get_raw_item());
+                st.set(std::move(idv));
+                if (cs.run(body).get_bool()) {
+                    if (r.size()) {
+                        r.push_back(' ');
+                    }
+                    r.append(p.get_quoted_item());
                 }
-                r.append(p.get_quoted_item());
             }
+            res.set_str(r.str());
         }
-        res.set_str(r.str());
     });
 
     gcs.new_command("listcount", "rse", [](auto &cs, auto args, auto &res) {
-        stacked_value idv{cs, args[0].get_ident()};
-        if (!idv.has_alias()) {
-            return;
-        }
-        auto body = args[2].get_code();
-        int n = 0, r = 0;
-        for (list_parser p{cs, args[1].get_str()}; p.parse(); ++n) {
-            idv.set_str(p.get_raw_item());
-            idv.push();
-            if (cs.run(body).get_bool()) {
-                r++;
+        if (alias_stack st{cs, args[0].get_ident()}; st) {
+            any_value idv{cs};
+            auto body = args[2].get_code();
+            int n = 0, r = 0;
+            for (list_parser p{cs, args[1].get_str()}; p.parse(); ++n) {
+                idv.set_str(p.get_raw_item());
+                st.set(std::move(idv));
+                if (cs.run(body).get_bool()) {
+                    r++;
+                }
             }
+            res.set_int(r);
         }
-        res.set_int(r);
     });
 
     gcs.new_command("prettylist", "ss", [](auto &cs, auto args, auto &res) {
@@ -529,14 +518,15 @@ struct ListSortItem {
 
 struct ListSortFun {
     state &cs;
-    stacked_value &xv, &yv;
+    alias_stack &xst, &yst;
     bcode *body;
 
     bool operator()(ListSortItem const &xval, ListSortItem const &yval) {
-        xv.set_str(xval.str);
-        yv.set_str(yval.str);
-        xv.push();
-        yv.push();
+        any_value v{cs};
+        v.set_str(xval.str);
+        xst.set(std::move(v));
+        v.set_str(yval.str);
+        yst.set(std::move(v));
         return cs.run(body).get_bool();
     }
 };
@@ -545,11 +535,14 @@ static void list_sort(
     state &cs, any_value &res, std::string_view list,
     ident *x, ident *y, bcode *body, bcode *unique
 ) {
-    if (x == y || !x->is_alias() || !y->is_alias()) {
+    if (x == y) {
         return;
     }
 
-    alias *xa = static_cast<alias *>(x), *ya = static_cast<alias *>(y);
+    alias_stack xst{cs, x}, yst{cs, y};
+    if (!xst || !yst) {
+        return;
+    }
 
     valbuf<ListSortItem> items{cs.thread_pointer()->istate};
     size_t total = 0;
@@ -565,16 +558,10 @@ static void list_sort(
         return;
     }
 
-    stacked_value xval{cs, xa}, yval{cs, ya};
-    xval.set_none();
-    yval.set_none();
-    xval.push();
-    yval.push();
-
     size_t totaluniq = total;
     size_t nuniq = items.size();
     if (body) {
-        ListSortFun f = { cs, xval, yval, body };
+        ListSortFun f = { cs, xst, yst, body };
         std::sort(items.buf.begin(), items.buf.end(), f);
         if (!code_is_empty(unique)) {
             f.body = unique;
@@ -591,7 +578,7 @@ static void list_sort(
             }
         }
     } else {
-        ListSortFun f = { cs, xval, yval, unique };
+        ListSortFun f = { cs, xst, yst, unique };
         totaluniq = items[0].quote.size();
         nuniq = 1;
         for (size_t i = 1; i < items.size(); i++) {
@@ -609,9 +596,6 @@ static void list_sort(
             }
         }
     }
-
-    xval.pop();
-    yval.pop();
 
     charbuf sorted{cs};
     sorted.reserve(totaluniq + std::max(nuniq - 1, size_t(0)));

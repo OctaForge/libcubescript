@@ -837,32 +837,6 @@ private:
     alias *p_alias;
 };
 
-struct LIBCUBESCRIPT_EXPORT stacked_value: any_value {
-    stacked_value(state &cs, ident *id = nullptr);
-    ~stacked_value();
-
-    stacked_value(stacked_value const &) = delete;
-    stacked_value(stacked_value &&) = delete;
-
-    stacked_value &operator=(stacked_value const &) = delete;
-    stacked_value &operator=(stacked_value &&v) = delete;
-
-    stacked_value &operator=(any_value const &v);
-    stacked_value &operator=(any_value &&v);
-
-    bool set_alias(ident *id);
-    alias *get_alias() const;
-    bool has_alias() const;
-
-    bool push();
-    bool pop();
-
-private:
-    state &p_state;
-    alias *p_a;
-    bool p_pushed;
-};
-
 struct LIBCUBESCRIPT_EXPORT list_parser {
     list_parser(state &cs, std::string_view s = std::string_view{}):
         p_state{&cs}, p_input_beg{s.data()}, p_input_end{s.data() + s.size()}
