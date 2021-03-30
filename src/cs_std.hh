@@ -13,21 +13,6 @@
 
 namespace cubescript {
 
-/* run func, call the second one after finishing */
-
-template<typename F1, typename F2>
-inline void call_with_cleanup(F1 &&dof, F2 &&clf) {
-    struct scope_exit {
-        scope_exit(std::decay_t<F2> &f): func(&f) {}
-        ~scope_exit() {
-            (*func)();
-        }
-        std::decay_t<F2> *func;
-    };
-    scope_exit cleanup(clf);
-    dof();
-}
-
 /* a value buffer */
 
 template<typename T>

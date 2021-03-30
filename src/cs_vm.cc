@@ -224,9 +224,7 @@ void exec_alias(
         alias_impl *
     >(a)->compile_code(ts)->get_raw();
     bcode_incr(codep);
-    call_with_cleanup([&]() {
-        vm_exec(ts, codep+1, result);
-    }, [&]() {
+    auto cleanup = [&]() {
         bcode_decr(codep);
         ts.callstack = aliaslink.next;
         ts.pstate->identflags = oldflags;
@@ -247,7 +245,14 @@ void exec_alias(
         force_arg(result, op & BC_INST_RET_MASK);
         anargs->set_value(integer_type(oldargs));
         nargs = offset - skip;
-    });
+    };
+    try {
+        vm_exec(ts, codep + 1, result);
+    } catch (...) {
+        cleanup();
+        throw;
+    }
+    cleanup();
 }
 
 static constexpr int MaxRunDepth = 255;
@@ -520,14 +525,19 @@ std::uint32_t *vm_exec(
                         ts.idstack.emplace_back(*ts.pstate)
                     );
                 }
-                call_with_cleanup([&]() {
-                    code = vm_exec(ts, code, result);
-                }, [&]() {
+                auto cleanup = [&]() {
                     for (std::size_t i = offset; i < args.size(); ++i) {
                         pop_alias(args[i].get_ident());
                     }
                     ts.idstack.resize(idstsz, ident_stack{*ts.pstate});
-                });
+                };
+                try {
+                    code = vm_exec(ts, code, result);
+                } catch (...) {
+                    cleanup();
+                    throw;
+                }
+                cleanup();
                 return code;
             }
 
@@ -1138,14 +1148,19 @@ noid:
                                 ts.idstack.emplace_back(*ts.pstate)
                             );
                         }
-                        call_with_cleanup([&]() {
-                            code = vm_exec(ts, code, result);
-                        }, [&]() {
+                        auto cleanup = [&]() {
                             for (size_t j = 0; j < size_t(callargs); ++j) {
                                 pop_alias(args[offset + j].get_ident());
                             }
                             ts.idstack.resize(idstsz, ident_stack{*ts.pstate});
-                        });
+                        };
+                        try {
+                            code = vm_exec(ts, code, result);
+                        } catch (...) {
+                            cleanup();
+                            throw;
+                        }
+                        cleanup();
                         return code;
                     }
                     case ID_IVAR:

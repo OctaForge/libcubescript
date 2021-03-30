@@ -66,7 +66,7 @@ static void call_with_args(thread_state &ts, F body) {
         aliaslink.usedargs.set();
     }
     ts.callstack = &aliaslink;
-    call_with_cleanup(std::move(body), [&]() {
+    auto cleanup = [&]() {
         if (prevstack) {
             prevstack->usedargs = aliaslink.usedargs;
         }
@@ -81,7 +81,14 @@ static void call_with_args(thread_state &ts, F body) {
             mask2 >>= 1;
         }
         ts.idstack.resize(noff, ident_stack{*ts.pstate});
-    });
+    };
+    try {
+        body();
+    } catch (...) {
+        cleanup();
+        throw;
+    }
+    cleanup();
 }
 
 void exec_command(

@@ -794,11 +794,13 @@ static void do_run(
     std::uint32_t *cbuf = bcode_alloc(ts.istate, gs.code.size());
     std::memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(std::uint32_t));
     bcode_incr(cbuf);
-    call_with_cleanup([&ts, cbuf, &ret]() {
+    try {
         vm_exec(ts, cbuf + 1, ret);
-    }, [cbuf]() {
+    } catch (...) {
         bcode_decr(cbuf);
-    });
+        throw;
+    }
+    bcode_decr(cbuf);
 }
 
 LIBCUBESCRIPT_EXPORT void state::run(std::string_view code, any_value &ret) {
