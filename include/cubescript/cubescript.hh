@@ -666,8 +666,12 @@ struct LIBCUBESCRIPT_EXPORT list_parser {
 
     string_ref get_item() const;
 
-    std::string_view get_raw_item() const { return p_item; }
-    std::string_view get_quoted_item() const { return p_quoted_item; }
+    std::string_view get_raw_item() const {
+        return std::string_view{p_ibeg, p_iend};
+    }
+    std::string_view get_quoted_item() const {
+        return std::string_view{p_qbeg, p_qend};
+    }
 
     void skip_until_item();
 
@@ -675,8 +679,8 @@ private:
     state *p_state;
     char const *p_input_beg, *p_input_end;
 
-    std::string_view p_item{};
-    std::string_view p_quoted_item{};
+    char const *p_ibeg{}, *p_iend{};
+    char const *p_qbeg{}, *p_qend{};
 };
 
 

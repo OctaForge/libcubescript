@@ -318,8 +318,10 @@ LIBCUBESCRIPT_EXPORT bool list_parser::parse() {
         case '"': {
             char const *qi = p_input_beg;
             p_input_beg = parse_string(*p_state, get_input());
-            p_quoted_item = std::string_view{qi, p_input_beg};
-            p_item = p_quoted_item.substr(1, p_quoted_item.size() - 2);
+            p_qbeg = qi;
+            p_qend = p_input_beg;
+            p_ibeg = p_qbeg + 1;
+            p_iend = p_qend - 1;
             break;
         }
         case '(':
@@ -369,8 +371,10 @@ LIBCUBESCRIPT_EXPORT bool list_parser::parse() {
                 }
             }
 endblock:
-            p_item = std::string_view{ibeg + 1, p_input_beg - 1};
-            p_quoted_item = std::string_view{ibeg, p_input_beg};
+            p_ibeg = ibeg + 1;
+            p_iend = p_input_beg - 1;
+            p_qbeg = ibeg;
+            p_qend = p_input_beg;
             break;
         }
         case ')':
@@ -378,7 +382,8 @@ endblock:
             return false;
         default: {
             char const *e = parse_word(*p_state, get_input());
-            p_quoted_item = p_item = std::string_view{p_input_beg, e};
+            p_ibeg = p_qbeg = p_input_beg;
+            p_iend = p_qend = e;
             p_input_beg = e;
             break;
         }
@@ -399,12 +404,12 @@ LIBCUBESCRIPT_EXPORT std::size_t list_parser::count() {
 }
 
 LIBCUBESCRIPT_EXPORT string_ref list_parser::get_item() const {
-    if (!p_quoted_item.empty() && (p_quoted_item.front() == '"')) {
+    if ((p_qbeg != p_qend) && (*p_qbeg == '"')) {
         charbuf buf{*p_state};
-        unescape_string(std::back_inserter(buf), p_item);
+        unescape_string(std::back_inserter(buf), get_raw_item());
         return string_ref{*p_state, buf.str()};
     }
-    return string_ref{*p_state, p_item};
+    return string_ref{*p_state, get_raw_item()};
 }
 
 LIBCUBESCRIPT_EXPORT void list_parser::skip_until_item() {
