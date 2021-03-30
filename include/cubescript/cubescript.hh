@@ -507,8 +507,6 @@ protected:
     command() = default;
 };
 
-struct ident_link;
-
 enum {
     LIB_MATH   = 1 << 0,
     LIB_STRING = 1 << 1,
@@ -816,6 +814,31 @@ private:
 
     std::string_view p_errmsg;
     stack_state p_stack;
+};
+
+struct LIBCUBESCRIPT_EXPORT alias_stack {
+    alias_stack(state &cs, ident *a);
+    ~alias_stack();
+
+    alias_stack(alias_stack const &) = delete;
+    alias_stack(alias_stack &&) = delete;
+
+    alias_stack &operator=(alias_stack const &) = delete;
+    alias_stack &operator=(alias_stack &&v) = delete;
+
+    bool set_alias(ident *id);
+    alias *get_alias() const noexcept;
+    bool has_alias() const noexcept;
+
+    bool push(any_value val);
+    bool pop();
+
+    explicit operator bool() const noexcept;
+
+private:
+    state &p_state;
+    alias *p_alias;
+    bool p_pushed;
 };
 
 struct LIBCUBESCRIPT_EXPORT stacked_value: any_value {

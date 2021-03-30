@@ -9,55 +9,57 @@ static inline void do_loop(
     state &cs, ident &id, integer_type offset, integer_type n, integer_type step,
     bcode *cond, bcode *body
 ) {
-    stacked_value idv{cs, &id};
-    if (n <= 0 || !idv.has_alias()) {
+    if (n <= 0) {
         return;
     }
-    for (integer_type i = 0; i < n; ++i) {
-        idv.set_int(offset + i * step);
-        idv.push();
-        if (cond && !cs.run(cond).get_bool()) {
-            break;
-        }
-        switch (cs.run_loop(body)) {
-            case loop_state::BREAK:
-                goto end;
-            default: /* continue and normal */
+    if (alias_stack st{cs, &id}; st) {
+        any_value idv{cs};
+        for (integer_type i = 0; i < n; ++i) {
+            idv.set_int(offset + i * step);
+            st.push(idv);
+            if (cond && !cs.run(cond).get_bool()) {
                 break;
+            }
+            switch (cs.run_loop(body)) {
+                case loop_state::BREAK:
+                    return;
+                default: /* continue and normal */
+                    break;
+            }
         }
     }
-end:
-    return;
 }
 
 static inline void do_loop_conc(
     state &cs, any_value &res, ident &id, integer_type offset, integer_type n,
     integer_type step, bcode *body, bool space
 ) {
-    stacked_value idv{cs, &id};
-    if (n <= 0 || !idv.has_alias()) {
+    if (n <= 0) {
         return;
     }
-    charbuf s{cs};
-    for (integer_type i = 0; i < n; ++i) {
-        idv.set_int(offset + i * step);
-        idv.push();
-        any_value v{cs};
-        switch (cs.run_loop(body, v)) {
-            case loop_state::BREAK:
-                goto end;
-            case loop_state::CONTINUE:
-                continue;
-            default:
-                break;
+    if (alias_stack st{cs, &id}; st) {
+        charbuf s{cs};
+        any_value idv{cs};
+        for (integer_type i = 0; i < n; ++i) {
+            idv.set_int(offset + i * step);
+            st.push(idv);
+            any_value v{cs};
+            switch (cs.run_loop(body, v)) {
+                case loop_state::BREAK:
+                    goto end;
+                case loop_state::CONTINUE:
+                    continue;
+                default:
+                    break;
+            }
+            if (space && i) {
+                s.push_back(' ');
+            }
+            s.append(v.get_str());
         }
-        if (space && i) {
-            s.push_back(' ');
-        }
-        s.append(v.get_str());
-    }
 end:
-    res.set_str(s.str());
+        res.set_str(s.str());
+    }
 }
 
 void init_lib_base(state &gcs) {
@@ -66,8 +68,8 @@ void init_lib_base(state &gcs) {
     });
 
     gcs.new_command("pcall", "err", [](auto &cs, auto args, auto &ret) {
-        alias *cret = args[1].get_ident()->get_alias(),
-                *css  = args[2].get_ident()->get_alias();
+        alias *cret = args[1].get_ident()->get_alias();
+        alias *css = args[2].get_ident()->get_alias();
         if (!cret || !css) {
             ret.set_int(0);
             return;
@@ -156,17 +158,14 @@ void init_lib_base(state &gcs) {
     });
 
     gcs.new_command("pushif", "rte", [](auto &cs, auto args, auto &res) {
-        stacked_value idv{cs, args[0].get_ident()};
-        if (!idv.has_alias()) {
-            return;
-        }
-        if (idv.get_alias()->get_flags() & IDENT_FLAG_ARG) {
-            return;
-        }
-        if (args[1].get_bool()) {
-            idv = args[1];
-            idv.push();
-            cs.run(args[2].get_code(), res);
+        if (alias_stack st{cs, args[0].get_ident()}; st) {
+            if (st.get_alias()->get_flags() & IDENT_FLAG_ARG) {
+                return;
+            }
+            if (args[1].get_bool()) {
+                st.push(args[1]);
+                cs.run(args[2].get_code(), res);
+            }
         }
     });
 
@@ -303,16 +302,13 @@ end:
     });
 
     gcs.new_command("push", "rte", [](auto &cs, auto args, auto &res) {
-        stacked_value idv{cs, args[0].get_ident()};
-        if (!idv.has_alias()) {
-            return;
+        if (alias_stack st{cs, args[0].get_ident()}; st) {
+            if (st.get_alias()->get_flags() & IDENT_FLAG_ARG) {
+                return;
+            }
+            st.push(args[1]);
+            cs.run(args[2].get_code(), res);
         }
-        if (idv.get_alias()->get_flags() & IDENT_FLAG_ARG) {
-            return;
-        }
-        idv = args[1];
-        idv.push();
-        cs.run(args[2].get_code(), res);
     });
 
     gcs.new_command("resetvar", "s", [](auto &cs, auto args, auto &) {

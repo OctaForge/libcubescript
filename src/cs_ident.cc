@@ -412,4 +412,61 @@ LIBCUBESCRIPT_EXPORT int command::get_num_args() const {
     return static_cast<command_impl const *>(this)->p_numargs;
 }
 
+/* external API for alias stack management */
+
+LIBCUBESCRIPT_EXPORT alias_stack::alias_stack(state &cs, ident *a):
+    p_state{cs}, p_pushed{false}
+{
+    set_alias(a);
+}
+
+LIBCUBESCRIPT_EXPORT alias_stack::~alias_stack() {
+    pop();
+}
+
+LIBCUBESCRIPT_EXPORT bool alias_stack::set_alias(ident *id) {
+    if (!id || !id->is_alias()) {
+        return false;
+    }
+    p_alias = static_cast<alias *>(id);
+    return true;
+}
+
+LIBCUBESCRIPT_EXPORT alias *alias_stack::get_alias() const noexcept {
+    return p_alias;
+}
+
+LIBCUBESCRIPT_EXPORT bool alias_stack::has_alias() const noexcept {
+    return !!p_alias;
+}
+
+LIBCUBESCRIPT_EXPORT bool alias_stack::push(any_value val) {
+    if (!p_alias) {
+        return false;
+    }
+    auto &ts = *p_state.thread_pointer();
+    if (!p_pushed) {
+        static_cast<alias_impl *>(p_alias)->push_arg(
+            val, ts.idstack.emplace_back(p_state)
+        );
+        p_pushed = true;
+    } else {
+        static_cast<alias_impl *>(p_alias)->p_val = std::move(val);
+    }
+    return true;
+}
+
+LIBCUBESCRIPT_EXPORT bool alias_stack::pop() {
+    if (!p_pushed || !p_alias) {
+        return false;
+    }
+    static_cast<alias_impl *>(p_alias)->pop_arg();
+    p_pushed = false;
+    return true;
+}
+
+LIBCUBESCRIPT_EXPORT alias_stack::operator bool() const noexcept {
+    return has_alias();
+}
+
 } /* namespace cubescript */
