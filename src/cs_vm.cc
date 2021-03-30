@@ -8,7 +8,7 @@
 
 namespace cubescript {
 
-static inline void push_alias(state &cs, ident *id, ident_stack &st) {
+static inline void push_alias(ident *id, ident_stack &st) {
     if (id->is_alias() && !(id->get_flags() & IDENT_FLAG_ARG)) {
         static_cast<alias_impl *>(id)->push_arg(st);
     }
@@ -521,7 +521,7 @@ std::uint32_t *vm_exec(
                 std::size_t idstsz = ts.idstack.size();
                 for (std::size_t i = 0; i < numlocals; ++i) {
                     push_alias(
-                        cs, args[offset + i].get_ident(),
+                        args[offset + i].get_ident(),
                         ts.idstack.emplace_back(*ts.pstate)
                     );
                 }
@@ -1144,7 +1144,7 @@ noid:
                         std::size_t idstsz = ts.idstack.size();
                         for (size_t j = 0; j < size_t(callargs); ++j) {
                             push_alias(
-                                cs, args[offset + j].force_ident(cs),
+                                args[offset + j].force_ident(cs),
                                 ts.idstack.emplace_back(*ts.pstate)
                             );
                         }

@@ -20,7 +20,7 @@ struct std_allocator {
     inline std_allocator(internal_state *s);
 
     template<typename U>
-    std_allocator(std_allocator<U> const &a): istate{a.istate} {};
+    std_allocator(std_allocator<U> const &a): istate{a.istate} {}
 
     inline T *allocate(std::size_t n);
     inline void deallocate(T *p, std::size_t n);

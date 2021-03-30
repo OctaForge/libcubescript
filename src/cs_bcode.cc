@@ -127,7 +127,7 @@ empty_block *bcode_init_empty(internal_state *cs) {
 
 void bcode_free_empty(internal_state *cs, empty_block *empty) {
     std_allocator<empty_block>{cs}.deallocate(empty, VAL_ANY);
-};
+}
 
 bcode *bcode_get_empty(empty_block *empty, std::size_t val) {
     return &empty[val].init + 1;

@@ -196,7 +196,7 @@ static void do_sigint(int n) {
 }
 
 /* an example of what var printer would look like in real usage */
-static void repl_print_var(cs::state const &cs, cs::global_var const &var) {
+static void repl_print_var(cs::state const &, cs::global_var const &var) {
     switch (var.get_type()) {
         case cs::ident_type::IVAR: {
             auto &iv = static_cast<cs::integer_var const &>(var);

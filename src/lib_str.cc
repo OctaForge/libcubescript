@@ -26,7 +26,7 @@ static inline void str_cmp_by(
         );
     }
     res.set_int(integer_type(val));
-};
+}
 
 void init_lib_string(state &cs) {
     cs.new_command("strstr", "ss", [](auto &, auto args, auto &res) {

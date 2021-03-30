@@ -107,7 +107,7 @@ char *string_pool::alloc_buf(std::size_t len) const {
     strp[len] = '\0';
     /* now the user can fill it */
     return strp;
-};
+}
 
 /* strref implementation */
 
