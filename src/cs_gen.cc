@@ -308,7 +308,7 @@ lookupid:
                         }
                         goto done;
                     case ident_type::COMMAND: {
-                        int comtype = BC_INST_COM, numargs = 0;
+                        std::uint32_t comtype = BC_INST_COM, numargs = 0;
                         auto fmt = static_cast<command_impl *>(id)->get_args();
                         for (char c: fmt) {
                             switch (c) {
@@ -375,9 +375,9 @@ lookupid:
                         goto done;
         compilecomv:
                         gs.code.push_back(
-                            comtype | ret_code(ltype) | (numargs << 8) |
-                                (id->get_index() << 13)
+                            comtype | ret_code(ltype) | (id->get_index() << 8)
                         );
+                        gs.code.push_back(numargs);
                         gs.code.push_back(
                             BC_INST_RESULT_ARG | ret_code(ltype)
                         );
@@ -802,7 +802,7 @@ static bool compilearg(
 static void compile_cmd(
     codegen_state &gs, command_impl *id, bool &more, int rettype
 ) {
-    int comtype = BC_INST_COM, numargs = 0, fakeargs = 0;
+    std::uint32_t comtype = BC_INST_COM, numargs = 0, fakeargs = 0;
     bool rep = false;
     auto fmt = id->get_args();
     for (auto it = fmt.begin(); it != fmt.end(); ++it) {
@@ -819,11 +819,7 @@ static void compile_cmd(
                     fakeargs++;
                 } else if ((it + 1) == fmt.end()) {
                     int numconc = 1;
-                    while ((numargs + numconc) < MAX_ARGUMENTS) {
-                        more = compilearg(gs, VAL_STRING);
-                        if (!more) {
-                            break;
-                        }
+                    while ((more = compilearg(gs, VAL_STRING))) {
                         numconc++;
                     }
                     if (numconc > 1) {
@@ -947,11 +943,7 @@ static void compile_cmd(
             case 'C': /* concatenated string */
                 comtype = BC_INST_COM_C;
                 if (more) {
-                    while (numargs < MAX_ARGUMENTS) {
-                        more = compilearg(gs, VAL_ANY);
-                        if (!more) {
-                            break;
-                        }
+                    while ((more = compilearg(gs, VAL_ANY))) {
                         numargs++;
                     }
                 }
@@ -959,11 +951,7 @@ static void compile_cmd(
             case 'V': /* varargs */
                 comtype = BC_INST_COM_V;
                 if (more) {
-                    while (numargs < MAX_ARGUMENTS) {
-                        more = compilearg(gs, VAL_ANY);
-                        if (!more) {
-                            break;
-                        }
+                    while ((more = compilearg(gs, VAL_ANY))) {
                         numargs++;
                     }
                 }
@@ -972,15 +960,10 @@ static void compile_cmd(
             case '2':
             case '3':
             case '4':
-                if (more && (numargs < MAX_ARGUMENTS)) {
+                if (more) {
                     int numrep = *it - '0' + 1;
                     it -= numrep;
                     rep = true;
-                } else {
-                    while (numargs > MAX_ARGUMENTS) {
-                        gs.code.push_back(BC_INST_POP);
-                        --numargs;
-                    }
                 }
                 break;
         }
@@ -989,37 +972,28 @@ static void compile_cmd(
     return;
 compilecomv:
     gs.code.push_back(
-        comtype | ret_code(rettype) | (numargs << 8) | (id->get_index() << 13)
+        comtype | ret_code(rettype) | (id->get_index() << 8)
     );
+    gs.code.push_back(numargs);
 }
 
 static void compile_alias(codegen_state &gs, alias *id, bool &more) {
-    int numargs = 0;
-    while (numargs < MAX_ARGUMENTS) {
-        more = compilearg(gs, VAL_ANY);
-        if (!more) {
-            break;
-        }
+    std::uint32_t numargs = 0;
+    while ((more = compilearg(gs, VAL_ANY))) {
         ++numargs;
     }
     gs.code.push_back(
-        BC_INST_CALL | (numargs << 8) | (id->get_index() << 13)
+        BC_INST_CALL | (id->get_index() << 8)
     );
+    gs.code.push_back(numargs);
 }
 
 static void compile_local(codegen_state &gs, bool &more) {
-    int numargs = 0;
+    std::uint32_t numargs = 0;
     if (more) {
-        while (numargs < MAX_ARGUMENTS) {
-            more = compilearg(gs, VAL_IDENT);
-            if (!more) {
-                break;
-            }
+        while ((more = compilearg(gs, VAL_IDENT))) {
             numargs++;
         }
-    }
-    if (more) {
-        while ((more = compilearg(gs, VAL_POP)));
     }
     gs.code.push_back(BC_INST_LOCAL | (numargs << 8));
 }
@@ -1100,7 +1074,7 @@ static void compile_if(
 static void compile_and_or(
     codegen_state &gs, ident *id, bool &more, int rettype
 ) {
-    int numargs = 0;
+    std::uint32_t numargs = 0;
     if (more) {
         more = compilearg(gs, VAL_COND);
     }
@@ -1112,11 +1086,7 @@ static void compile_and_or(
     } else {
         numargs++;
         int start = gs.code.size(), end = start;
-        while (numargs < MAX_ARGUMENTS) {
-            more = compilearg(gs, VAL_COND);
-            if (!more) {
-                break;
-            }
+        while ((more = compilearg(gs, VAL_COND))) {
             numargs++;
             if ((gs.code[end] & ~BC_INST_RET_MASK) != (
                 BC_INST_BLOCK | (uint32_t(gs.code.size() - (end + 1)) << 8)
@@ -1126,17 +1096,13 @@ static void compile_and_or(
             end = gs.code.size();
         }
         if (more) {
-            while (numargs < MAX_ARGUMENTS) {
-                more = compilearg(gs, VAL_COND);
-                if (!more) {
-                    break;
-                }
+            while ((more = compilearg(gs, VAL_COND))) {
                 numargs++;
             }
             gs.code.push_back(
-                BC_INST_COM_V | ret_code(rettype) |
-                    (numargs << 8) | (id->get_index() << 13)
+                BC_INST_COM_V | ret_code(rettype) | (id->get_index() << 8)
             );
+            gs.code.push_back(numargs);
         } else {
             uint32_t op = (id->get_raw_type() == ID_AND)
                 ? (BC_INST_JUMP_RESULT | BC_INST_FLAG_FALSE)
@@ -1240,12 +1206,8 @@ static void compilestatements(codegen_state &gs, int rettype, int brak) {
         }
         if (idname.empty()) {
 noid:
-            int numargs = 0;
-            while (numargs < MAX_ARGUMENTS) {
-                more = compilearg(gs, VAL_ANY);
-                if (!more) {
-                    break;
-                }
+            std::uint32_t numargs = 0;
+            while ((more = compilearg(gs, VAL_ANY))) {
                 ++numargs;
             }
             gs.code.push_back(BC_INST_CALL_U | (numargs << 8));
@@ -1351,12 +1313,10 @@ noid:
                         if (!(more = compilearg(gs, VAL_STRING))) {
                             gs.code.push_back(BC_INST_PRINT | (id->get_index() << 8));
                         } else {
-                            int numargs = 0;
+                            std::uint32_t numargs = 0;
                             do {
                                 ++numargs;
-                            } while (numargs < MAX_ARGUMENTS && (
-                                more = compilearg(gs, VAL_ANY)
-                            ));
+                            } while ((more = compilearg(gs, VAL_ANY)));
                             if (numargs > 1) {
                                 gs.code.push_back(
                                     BC_INST_CONC | BC_RET_STRING | (numargs << 8)

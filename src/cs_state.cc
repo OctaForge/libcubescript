@@ -73,9 +73,9 @@ state::state(alloc_func func, void *data) {
     p_tstate->istate = statep;
     p_tstate->owner = true;
 
-    for (int i = 0; i < MAX_ARGUMENTS; ++i) {
-        char buf[32];
-        snprintf(buf, sizeof(buf), "arg%d", i + 1);
+    for (std::size_t i = 0; i < MAX_ARGUMENTS; ++i) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "arg%zu", i + 1);
         new_ident(static_cast<char const *>(buf), IDENT_FLAG_ARG);
     }
 
@@ -419,15 +419,14 @@ LIBCUBESCRIPT_EXPORT command *state::new_command(
             case 'e':
             case 'r':
             case '$':
-                if (nargs < MAX_ARGUMENTS) {
-                    ++nargs;
-                }
+                ++nargs;
                 break;
             case '1':
             case '2':
             case '3':
-            case '4':
-                if (nargs < (*fmt - '0')) {
+            case '4': {
+                int nrep = (*fmt - '0');
+                if (nargs < nrep) {
                     return nullptr;
                 }
                 if ((args.end() - fmt) != 2) {
@@ -436,10 +435,9 @@ LIBCUBESCRIPT_EXPORT command *state::new_command(
                 if ((fmt[1] != 'C') && (fmt[1] != 'V')) {
                     return nullptr;
                 }
-                if (nargs < MAX_ARGUMENTS) {
-                    fmt -= *fmt - '0' + 1;
-                }
+                nargs -= nrep;
                 break;
+            }
             case 'C':
             case 'V':
                 if ((fmt + 1) != args.end()) {

@@ -202,6 +202,8 @@ void exec_alias(
     std::size_t callargs, std::size_t &nargs,
     std::size_t offset, std::size_t skip, std::uint32_t op
 ) {
+    /* excess arguments get ignored (make error maybe?) */
+    callargs = std::min(callargs, MAX_ARGUMENTS);
     integer_var *anargs = static_cast<integer_var *>(
         ts.istate->identmap[ID_IDX_NUMARGS]
     );
@@ -1062,8 +1064,8 @@ std::uint32_t *vm_exec(
             case BC_INST_CALL | BC_RET_FLOAT:
             case BC_INST_CALL | BC_RET_INT: {
                 result.force_none();
-                ident *id = ts.istate->identmap[op >> 13];
-                std::size_t callargs = (op >> 8) & 0x1F;
+                ident *id = ts.istate->identmap[op >> 8];
+                std::size_t callargs = *code++;
                 std::size_t nnargs = args.size();
                 std::size_t offset = nnargs - callargs;
                 auto flags = id->get_flags();
@@ -1232,9 +1234,9 @@ noid:
             case BC_INST_COM_V | BC_RET_FLOAT:
             case BC_INST_COM_V | BC_RET_INT: {
                 command_impl *id = static_cast<command_impl *>(
-                    ts.istate->identmap[op >> 13]
+                    ts.istate->identmap[op >> 8]
                 );
-                std::size_t callargs = (op >> 8) & 0x1F;
+                std::size_t callargs = *code++;
                 std::size_t offset = args.size() - callargs;
                 result.force_none();
                 id->call(cs, std::span{&args[offset], callargs}, result);
@@ -1247,10 +1249,10 @@ noid:
             case BC_INST_COM_C | BC_RET_FLOAT:
             case BC_INST_COM_C | BC_RET_INT: {
                 command_impl *id = static_cast<command_impl *>(
-                    ts.istate->identmap[op >> 13]
+                    ts.istate->identmap[op >> 8]
                 );
-                std::size_t callargs = (op >> 8) & 0x1F,
-                            offset = args.size() - callargs;
+                std::size_t callargs = *code++;
+                std::size_t offset = args.size() - callargs;
                 result.force_none();
                 {
                     any_value tv{cs};

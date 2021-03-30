@@ -7,7 +7,7 @@
 
 namespace cubescript {
 
-static constexpr int MAX_ARGUMENTS = 32;
+static constexpr std::size_t MAX_ARGUMENTS = 32;
 using argset = std::bitset<MAX_ARGUMENTS>;
 
 enum {

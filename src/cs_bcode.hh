@@ -163,9 +163,9 @@ enum {
     BC_INST_ALIAS,
     /* pop 2 values off the stack; top is value to set, below is alias name */
     BC_INST_ALIAS_U,
-    /* call alias with index D[5..] and arg count D[0..5], pop the arguments
-     * off the stack (top being last); if unknown, raise error, store result
-     * in R according to M
+    /* call alias with index D and arg count following the instruction, pop
+     * the arguments off the stack (top being last); if unknown, raise error,
+     * store result in R according to M
      */
     BC_INST_CALL,
     /* given argument count D, pop the arguments off the stack (top being last)
@@ -178,12 +178,12 @@ enum {
      * last argument being topmost; result of the call goes in R according to M
      */
     BC_INST_COM,
-    /* call builtin command with index D[5..] and number of arguments D[0..5]
-     * arguments are popped off the stack and passed as is
+    /* call builtin command with index D and arg count following the
+     * instruction, arguments are popped off the stack and passed as is
      */
     BC_INST_COM_V,
-    /* call builtin command with index D[5..] and number of arguments D[0..5]
-     * arguments are popped off the stack and concatenated together
+    /* call builtin command with index D and arg count following the
+     * instruction, arguments are popped off the stack and concatenated
      */
     BC_INST_COM_C,
 
