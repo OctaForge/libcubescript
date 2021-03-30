@@ -5,6 +5,7 @@
 #include "cs_state.hh"
 
 #include <cmath>
+#include <iterator>
 
 namespace cubescript {
 
@@ -191,7 +192,7 @@ float_type any_value::force_float() {
     float_type rf = 0.0f;
     switch (get_type()) {
         case value_type::INT:
-            rf = csv_get<integer_type>(&p_stor);
+            rf = float_type(csv_get<integer_type>(&p_stor));
             break;
         case value_type::STRING:
             rf = parse_float(
@@ -211,7 +212,7 @@ integer_type any_value::force_int() {
     integer_type ri = 0;
     switch (get_type()) {
         case value_type::FLOAT:
-            ri = csv_get<float_type>(&p_stor);
+            ri = integer_type(std::floor(csv_get<float_type>(&p_stor)));
             break;
         case value_type::STRING:
             ri = parse_int(

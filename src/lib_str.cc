@@ -198,7 +198,6 @@ void init_lib_string(state &cs) {
         }
         charbuf buf{ccs};
         for (size_t i = 0;; ++i) {
-            std::string_view found;
             auto p = s.find(oldval);
             if (p == s.npos) {
                 buf.append(s);

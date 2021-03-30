@@ -1,6 +1,12 @@
+/* avoid silly complaints about fopen */
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_WARNINGS 1
+#endif
+
 #include <signal.h>
 
 #include <cmath>
+#include <cctype>
 #include <cstring>
 #include <cstdio>
 #include <optional>
@@ -183,9 +189,9 @@ static cs::state *scs = nullptr;
 static void do_sigint(int n) {
     /* in case another SIGINT happens, terminate normally */
     signal(n, SIG_DFL);
-    scs->set_call_hook([](cs::state &cs) {
-        cs.set_call_hook(nullptr);
-        throw cs::error{cs, "<execution interrupted>"};
+    scs->set_call_hook([](cs::state &css) {
+        css.set_call_hook(nullptr);
+        throw cs::error{css, "<execution interrupted>"};
     });
 }
 
@@ -355,13 +361,13 @@ int main(int argc, char **argv) {
     gcs.set_var_printer(repl_print_var);
     gcs.init_libs();
 
-    gcs.new_command("exec", "s", [](auto &cs, auto args, auto &) {
+    gcs.new_command("exec", "s", [](auto &css, auto args, auto &) {
         auto file = args[0].get_str();
-        cs::any_value val{cs};
-        bool ret = do_run_file(cs, file, val);
+        cs::any_value val{css};
+        bool ret = do_run_file(css, file, val);
         if (!ret) {
             throw cs::error(
-                cs, "could not run file \"%s\"", file
+                css, "could not run file \"%s\"", file.data()
             );
         }
     });

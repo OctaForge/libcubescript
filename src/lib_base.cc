@@ -1,5 +1,7 @@
 #include <cubescript/cubescript.hh>
 
+#include <iterator>
+
 #include "cs_std.hh"
 #include "cs_ident.hh"
 

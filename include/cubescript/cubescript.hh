@@ -8,6 +8,7 @@
 #include <functional>
 #include <type_traits>
 #include <algorithm>
+#include <stdexcept>
 #include <memory>
 #include <utility>
 #include <span>
@@ -305,7 +306,7 @@ protected:
     alias() = default;
 };
 
-struct command: ident {
+struct LIBCUBESCRIPT_EXPORT command: ident {
     std::string_view get_args() const;
     int get_num_args() const;
 
@@ -354,18 +355,18 @@ struct LIBCUBESCRIPT_EXPORT state {
 
     template<typename F>
     hook_func set_call_hook(F &&f) {
-        return std::move(set_call_hook(
+        return set_call_hook(
             hook_func{std::forward<F>(f), callable_alloc, this}
-        ));
+        );
     }
     hook_func const &get_call_hook() const;
     hook_func &get_call_hook();
 
     template<typename F>
     var_print_func set_var_printer(F &&f) {
-        return std::move(set_var_printer(
+        return set_var_printer(
             var_print_func{std::forward<F>(f), callable_alloc, this}
-        ));
+        );
     }
     var_print_func const &get_var_printer() const;
 
@@ -532,7 +533,7 @@ private:
     thread_state *p_tstate = nullptr;
 };
 
-struct stack_state {
+struct LIBCUBESCRIPT_EXPORT stack_state {
     struct node {
         node const *next;
         ident const *id;

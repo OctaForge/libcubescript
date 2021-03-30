@@ -8,8 +8,9 @@
 
 namespace cubescript {
 
-static constexpr float_type PI = 3.14159265358979f;
-static constexpr float_type RAD = PI / 180.0f;
+static constexpr float_type PI = float_type(3.14159265358979323846);
+static constexpr float_type LN2 = float_type(0.693147180559945309417);
+static constexpr float_type RAD = PI / float_type(180.0);
 
 template<typename T>
 struct math_val;
@@ -103,7 +104,7 @@ void init_lib_math(state &cs) {
         res.set_float(std::log(args[0].get_float()));
     });
     cs.new_command("log2", "f", [](auto &, auto args, auto &res) {
-        res.set_float(std::log(args[0].get_float()) / M_LN2);
+        res.set_float(std::log(args[0].get_float()) / LN2);
     });
     cs.new_command("log10", "f", [](auto &, auto args, auto &res) {
         res.set_float(std::log10(args[0].get_float()));

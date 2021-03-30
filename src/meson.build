@@ -21,10 +21,20 @@ libcubescript_src = [
     'lib_str.cc'
 ]
 
+lib_cxxflags = []
+host_system = host_machine.system()
+
+if host_system == 'windows' or host_system == 'cygwin'
+    lib_cxxflags += '-DLIBCUBESCRIPT_BUILD'
+    if get_option('default_library') != 'static'
+        lib_cxxflags += '-DLIBCUBESCRIPT_DLL'
+    endif
+endif
+
 libcubescript_target = library('cubescript',
     libcubescript_src,
     include_directories: libcubescript_includes + [include_directories('.')],
-    cpp_args: extra_cxxflags,
+    cpp_args: extra_cxxflags + lib_cxxflags,
     install: true,
     pic: true,
     version: meson.project_version()

@@ -706,7 +706,7 @@ static bool compilearg(
                 }
                 case VAL_WORD:
                     if (word) {
-                        *word = std::move(gs.get_str_dup());
+                        *word = gs.get_str_dup();
                     }
                     break;
                 case VAL_ANY:

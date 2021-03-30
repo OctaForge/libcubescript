@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cctype>
+#include <iterator>
 
 #include "cs_std.hh"
 #include "cs_thread.hh"
@@ -18,8 +19,8 @@ LIBCUBESCRIPT_EXPORT char const *parse_string(
     if (str.empty() || (str.front() != '\"')) {
         return str.data();
     }
-    char const *beg = str.begin();
-    char const *end = str.end();
+    char const *beg = &str[0];
+    char const *end = &str[str.size()];
     char const *orig = beg++;
     ++nl;
     while (beg != end) {
@@ -66,8 +67,8 @@ end:
 LIBCUBESCRIPT_EXPORT char const *parse_word(
     state &cs, std::string_view str
 ) {
-    char const *it = str.begin();
-    char const *end = str.end();
+    char const *it = &str[0];
+    char const *end = &str[str.size()];
     for (; it != end; ++it) {
         std::string_view chrs{"\"/;()[] \t\r\n"};
         it = std::find_first_of(it, end, chrs.begin(), chrs.end());
@@ -148,8 +149,8 @@ static inline bool p_check_neg(char const *&input) {
 }
 
 integer_type parse_int(std::string_view input, std::string_view *endstr) {
-    char const *beg = input.begin();
-    char const *end = input.end();
+    char const *beg = &input[0];
+    char const *end = &input[input.size()];
     char const *orig = beg;
     beg = p_skip_white(beg, end);
     if (beg == end) {
@@ -256,8 +257,8 @@ static inline bool parse_gen_float(
 }
 
 float_type parse_float(std::string_view input, std::string_view *endstr) {
-    char const *beg = input.begin();
-    char const *end = input.end();
+    char const *beg = &input[0];
+    char const *end = &input[input.size()];
     char const *orig = beg;
     beg = p_skip_white(beg, end);
     if (beg == end) {
