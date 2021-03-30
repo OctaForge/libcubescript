@@ -452,16 +452,12 @@ bool stacked_value::push() {
         return false;
     }
     auto &ts = *p_state.thread_pointer();
+    auto &ap = *static_cast<alias_impl *>(p_a);
     if (!p_pushed) {
-        static_cast<alias_impl *>(p_a)->push_arg(
-            *this, ts.idstack.emplace_back(p_state)
-        );
+        ap.push_arg(ts.idstack.emplace_back(p_state));
         p_pushed = true;
-    } else {
-        static_cast<alias_impl *>(p_a)->p_val = std::move(
-            *static_cast<any_value *>(this)
-        );
     }
+    ap.p_val = std::move(*static_cast<any_value *>(this));
     return true;
 }
 

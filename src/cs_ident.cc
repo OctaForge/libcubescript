@@ -114,11 +114,10 @@ alias_impl::alias_impl(state &cs, string_ref name, any_value v, int fl):
     p_val = v;
 }
 
-void alias_impl::push_arg(any_value &v, ident_stack &st, bool um) {
+void alias_impl::push_arg(ident_stack &st, bool um) {
     st.val_s = std::move(p_val);
     st.next = p_astack;
     p_astack = &st;
-    p_val = std::move(v);
     clean_code();
     if (um) {
         p_flags &= ~IDENT_FLAG_UNKNOWN;
@@ -154,12 +153,12 @@ void alias_impl::redo_arg(ident_stack &st) {
 
 void alias_impl::set_arg(thread_state &ts, any_value &v) {
     if (ident_is_used_arg(this, ts)) {
-        p_val = std::move(v);
         clean_code();
     } else {
-        push_arg(v, ts.idstack.emplace_back(*ts.pstate), false);
+        push_arg(ts.idstack.emplace_back(*ts.pstate), false);
         ts.callstack->usedargs[get_index()] = true;
     }
+    p_val = std::move(v);
 }
 
 void alias_impl::set_alias(thread_state &ts, any_value &v) {
@@ -445,14 +444,12 @@ LIBCUBESCRIPT_EXPORT bool alias_stack::push(any_value val) {
         return false;
     }
     auto &ts = *p_state.thread_pointer();
+    auto &ap = *static_cast<alias_impl *>(p_alias);
     if (!p_pushed) {
-        static_cast<alias_impl *>(p_alias)->push_arg(
-            val, ts.idstack.emplace_back(p_state)
-        );
+        ap.push_arg(ts.idstack.emplace_back(p_state));
         p_pushed = true;
-    } else {
-        static_cast<alias_impl *>(p_alias)->p_val = std::move(val);
     }
+    ap.p_val = std::move(val);
     return true;
 }
 
