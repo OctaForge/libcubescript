@@ -564,11 +564,12 @@ struct LIBCUBESCRIPT_EXPORT error {
     error() = delete;
     error(error const &) = delete;
     error(error &&v):
-        p_errmsg(v.p_errmsg), p_stack(std::move(v.p_stack))
+        p_errbeg{v.p_errbeg}, p_errend{v.p_errend},
+        p_stack{std::move(v.p_stack)}
     {}
 
     std::string_view what() const {
-        return p_errmsg;
+        return std::string_view{p_errbeg, p_errend};
     }
 
     stack_state &get_stack() {
@@ -585,19 +586,20 @@ struct LIBCUBESCRIPT_EXPORT error {
     {}
 
     error(thread_state &ts, std::string_view msg):
-        p_errmsg{}, p_stack{ts}
+        p_errbeg{}, p_errend{}, p_stack{ts}
     {
         char *sp;
         char *buf = request_buf(ts, msg.size(), sp);
         std::memcpy(buf, msg.data(), msg.size());
         buf[msg.size()] = '\0';
-        p_errmsg = std::string_view{sp, buf + msg.size()};
+        p_errbeg = sp;
+        p_errend = buf + msg.size();
         p_stack = save_stack(ts);
     }
 
     template<typename ...A>
     error(thread_state &ts, std::string_view msg, A const &...args):
-        p_errmsg{}, p_stack{ts}
+        p_errbeg{}, p_errend{}, p_stack{ts}
     {
         std::size_t sz = msg.size() + 64;
         char *buf, *sp;
@@ -611,7 +613,8 @@ struct LIBCUBESCRIPT_EXPORT error {
             }
             sz = std::size_t(written);
         }
-        p_errmsg = std::string_view{sp, buf + sz};
+        p_errbeg = sp;
+        p_errend = buf + sz;
         p_stack = save_stack(ts);
     }
 
@@ -619,7 +622,7 @@ private:
     stack_state save_stack(thread_state &ts);
     char *request_buf(thread_state &ts, std::size_t bufs, char *&sp);
 
-    std::string_view p_errmsg;
+    char const *p_errbeg, *p_errend;
     stack_state p_stack;
 };
 
