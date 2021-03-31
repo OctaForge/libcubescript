@@ -1,3 +1,9 @@
+/* this has changes made to it by q66:
+ *
+ * - backported hints support from upstream
+ * - cleaned up to compile warningless with strict flags
+ */
+
 /*
  *  linenoise.hpp -- Multi-platfrom C++ header-only linenoise library.
  *
