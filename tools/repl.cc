@@ -459,8 +459,8 @@ endargs:
             return 0;
         } else {
             std::string str;
-            for (signed char c = '\0'; (c = std::fgetc(stdin)) != EOF;) {
-                str += c;
+            for (int c = '\0'; (c = std::fgetc(stdin)) != EOF;) {
+                str += char(c);
             }
             do_call(gcs, str);
         }

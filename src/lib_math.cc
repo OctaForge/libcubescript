@@ -161,10 +161,10 @@ void init_lib_math(state &cs) {
         float_type step = args[1].get_float();
         float_type r = args[0].get_float();
         if (step > 0) {
-            r += step * ((r < 0) ? -0.5 : 0.5);
-            r -= std::fmod(r, step);
+            r += float_type(step * ((r < 0) ? -0.5 : 0.5));
+            r -= float_type(std::fmod(r, step));
         } else {
-            r = (r < 0) ? std::ceil(r - 0.5) : std::floor(r + 0.5);
+            r = float_type((r < 0) ? std::ceil(r - 0.5) : std::floor(r + 0.5));
         }
         res.set_float(r);
     });

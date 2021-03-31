@@ -167,7 +167,7 @@ static inline std::pair<std::string_view, size_t> compileblock(
 ) {
     size_t start = gs.code.size();
     gs.code.push_back(BC_INST_BLOCK);
-    gs.code.push_back(BC_INST_OFFSET | ((start + 2) << 8));
+    gs.code.push_back(BC_INST_OFFSET | std::uint32_t((start + 2) << 8));
     size_t retline = line;
     if (!p.empty()) {
         char const *op = gs.source, *oe = gs.send;
@@ -432,13 +432,13 @@ invalid:
 }
 
 static bool compileblockstr(codegen_state &gs, char const *str, char const *send) {
-    int startc = gs.code.size();
+    std::size_t startc = gs.code.size();
     gs.code.push_back(BC_INST_VAL | BC_RET_STRING);
     gs.code.reserve(gs.code.size() + (send - str) / sizeof(uint32_t) + 1);
     auto alloc = std_allocator<char>{gs.ts.istate};
     auto asz = ((send - str) / sizeof(uint32_t) + 1) * sizeof(uint32_t);
     char *buf = alloc.allocate(asz);
-    int len = 0;
+    std::size_t len = 0;
     while (str < send) {
         std::string_view chrs{"\r/\"@]"};
         char const *orig = str;
@@ -714,7 +714,7 @@ static bool compilearg(
                     compileunescapestr(gs);
                     break;
                 default: {
-                    size_t line = gs.current_line;
+                    int line = int(gs.current_line);
                     auto s = gs.get_str_dup();
                     s.push_back('\0');
                     gs.gen_value(wordtype, s.str_term(), line);
@@ -787,7 +787,7 @@ static bool compilearg(
                     return !w.empty();
                 }
                 default: {
-                    size_t line = gs.current_line;
+                    int line = int(gs.current_line);
                     auto s = gs.get_word();
                     if (s.empty()) {
                         return false;
@@ -819,7 +819,11 @@ static void compile_cmd(
                     fakeargs++;
                 } else if ((it + 1) == fmt.end()) {
                     int numconc = 1;
-                    while ((more = compilearg(gs, VAL_STRING))) {
+                    for (;;) {
+                        more = compilearg(gs, VAL_STRING);
+                        if (!more) {
+                            break;
+                        }
                         numconc++;
                     }
                     if (numconc > 1) {
@@ -943,7 +947,11 @@ static void compile_cmd(
             case 'C': /* concatenated string */
                 comtype = BC_INST_COM_C;
                 if (more) {
-                    while ((more = compilearg(gs, VAL_ANY))) {
+                    for (;;) {
+                        more = compilearg(gs, VAL_ANY);
+                        if (!more) {
+                            break;
+                        }
                         numargs++;
                     }
                 }
@@ -951,7 +959,11 @@ static void compile_cmd(
             case 'V': /* varargs */
                 comtype = BC_INST_COM_V;
                 if (more) {
-                    while ((more = compilearg(gs, VAL_ANY))) {
+                    for(;;) {
+                        more = compilearg(gs, VAL_ANY);
+                        if (!more) {
+                            break;
+                        }
                         numargs++;
                     }
                 }
@@ -979,7 +991,11 @@ compilecomv:
 
 static void compile_alias(codegen_state &gs, alias *id, bool &more) {
     std::uint32_t numargs = 0;
-    while ((more = compilearg(gs, VAL_ANY))) {
+    for (;;) {
+        more = compilearg(gs, VAL_ANY);
+        if (!more) {
+            break;
+        }
         ++numargs;
     }
     gs.code.push_back(
@@ -991,7 +1007,11 @@ static void compile_alias(codegen_state &gs, alias *id, bool &more) {
 static void compile_local(codegen_state &gs, bool &more) {
     std::uint32_t numargs = 0;
     if (more) {
-        while ((more = compilearg(gs, VAL_IDENT))) {
+        for (;;) {
+            more = compilearg(gs, VAL_IDENT);
+            if (!more) {
+                break;
+            }
             numargs++;
         }
     }
@@ -1016,17 +1036,17 @@ static void compile_if(
     if (!more) {
         gs.code.push_back(BC_INST_NULL | ret_code(rettype));
     } else {
-        int start1 = gs.code.size();
+        std::size_t start1 = gs.code.size();
         more = compilearg(gs, VAL_CODE);
         if (!more) {
             gs.code.push_back(BC_INST_POP);
             gs.code.push_back(BC_INST_NULL | ret_code(rettype));
         } else {
-            int start2 = gs.code.size();
+            std::size_t start2 = gs.code.size();
             more = compilearg(gs, VAL_CODE);
-            uint32_t inst1 = gs.code[start1];
-            uint32_t op1 = inst1 & ~BC_INST_RET_MASK;
-            uint32_t len1 = start2 - (start1 + 1);
+            std::uint32_t inst1 = gs.code[start1];
+            std::uint32_t op1 = inst1 & ~BC_INST_RET_MASK;
+            auto len1 = std::uint32_t(start2 - (start1 + 1));
             if (!more) {
                 if (op1 == (BC_INST_BLOCK | (len1 << 8))) {
                     gs.code[start1] = (len1 << 8) | BC_INST_JUMP_B | BC_INST_FLAG_FALSE;
@@ -1038,12 +1058,12 @@ static void compile_if(
                 }
                 compileblock(gs);
             } else {
-                uint32_t inst2 = gs.code[start2];
-                uint32_t op2 = inst2 & ~BC_INST_RET_MASK;
-                uint32_t len2 = gs.code.size() - (start2 + 1);
+                std::uint32_t inst2 = gs.code[start2];
+                std::uint32_t op2 = inst2 & ~BC_INST_RET_MASK;
+                auto len2 = std::uint32_t(gs.code.size() - (start2 + 1));
                 if (op2 == (BC_INST_BLOCK | (len2 << 8))) {
                     if (op1 == (BC_INST_BLOCK | (len1 << 8))) {
-                        gs.code[start1] = ((start2 - start1) << 8)
+                        gs.code[start1] = (std::uint32_t(start2 - start1) << 8)
                             | BC_INST_JUMP_B | BC_INST_FLAG_FALSE;
                         gs.code[start1 + 1] = BC_INST_ENTER_RESULT;
                         gs.code[start1 + len1] = (
@@ -1085,8 +1105,12 @@ static void compile_and_or(
         );
     } else {
         numargs++;
-        int start = gs.code.size(), end = start;
-        while ((more = compilearg(gs, VAL_COND))) {
+        std::size_t start = gs.code.size(), end = start;
+        for (;;) {
+            more = compilearg(gs, VAL_COND);
+            if (!more) {
+                break;
+            }
             numargs++;
             if ((gs.code[end] & ~BC_INST_RET_MASK) != (
                 BC_INST_BLOCK | (uint32_t(gs.code.size() - (end + 1)) << 8)
@@ -1096,7 +1120,11 @@ static void compile_and_or(
             end = gs.code.size();
         }
         if (more) {
-            while ((more = compilearg(gs, VAL_COND))) {
+            for (;;) {
+                more = compilearg(gs, VAL_COND);
+                if (!more) {
+                    break;
+                }
                 numargs++;
             }
             gs.code.push_back(
@@ -1104,14 +1132,14 @@ static void compile_and_or(
             );
             gs.code.push_back(numargs);
         } else {
-            uint32_t op = (id->get_raw_type() == ID_AND)
+            std::uint32_t op = (id->get_raw_type() == ID_AND)
                 ? (BC_INST_JUMP_RESULT | BC_INST_FLAG_FALSE)
                 : (BC_INST_JUMP_RESULT | BC_INST_FLAG_TRUE);
             gs.code.push_back(op);
             end = gs.code.size();
             while ((start + 1) < end) {
                 uint32_t len = gs.code[start] >> 8;
-                gs.code[start] = ((end - (start + 1)) << 8) | op;
+                gs.code[start] = std::uint32_t((end - (start + 1)) << 8) | op;
                 gs.code[start + 1] = BC_INST_ENTER;
                 gs.code[start + len] = (
                     gs.code[start + len] & ~BC_INST_RET_MASK
@@ -1207,7 +1235,11 @@ static void compilestatements(codegen_state &gs, int rettype, int brak) {
         if (idname.empty()) {
 noid:
             std::uint32_t numargs = 0;
-            while ((more = compilearg(gs, VAL_ANY))) {
+            for (;;) {
+                more = compilearg(gs, VAL_ANY);
+                if (!more) {
+                    break;
+                }
                 ++numargs;
             }
             gs.code.push_back(BC_INST_CALL_U | (numargs << 8));
@@ -1231,7 +1263,7 @@ noid:
                         break;
                     }
                     default:
-                        gs.gen_value(rettype, idname.str_term(), curline);
+                        gs.gen_value(rettype, idname.str_term(), int(curline));
                         break;
                 }
                 gs.code.push_back(BC_INST_RESULT);
@@ -1288,35 +1320,45 @@ noid:
                         compile_and_or(gs, id, more, rettype);
                         break;
                     case ID_IVAR:
-                        if (!(more = compilearg(gs, VAL_INT))) {
+                        more = compilearg(gs, VAL_INT); /* first arg */
+                        if (!more) {
                             gs.code.push_back(BC_INST_PRINT | (id->get_index() << 8));
-                        } else if (!(id->get_flags() & IDENT_FLAG_HEX) || !(
-                            more = compilearg(gs, VAL_INT)
-                        )) {
-                            gs.code.push_back(BC_INST_IVAR1 | (id->get_index() << 8));
-                        } else if (!(
-                            more = compilearg(gs, VAL_INT)
-                        )) {
-                            gs.code.push_back(BC_INST_IVAR2 | (id->get_index() << 8));
-                        } else {
-                            gs.code.push_back(BC_INST_IVAR3 | (id->get_index() << 8));
+                            break;
                         }
+                        if (id->get_flags() & IDENT_FLAG_HEX) {
+                            more = compilearg(gs, VAL_INT); /* second arg */
+                        } else {
+                            more = false;
+                        }
+                        if (!more) {
+                            gs.code.push_back(BC_INST_IVAR1 | (id->get_index() << 8));
+                            break;
+                        }
+                        more = compilearg(gs, VAL_INT); /* third arg */
+                        if (!more) {
+                            gs.code.push_back(BC_INST_IVAR2 | (id->get_index() << 8));
+                            break;
+                        }
+                        gs.code.push_back(BC_INST_IVAR3 | (id->get_index() << 8));
                         break;
                     case ID_FVAR:
-                        if (!(more = compilearg(gs, VAL_FLOAT))) {
+                        more = compilearg(gs, VAL_FLOAT);
+                        if (!more) {
                             gs.code.push_back(BC_INST_PRINT | (id->get_index() << 8));
                         } else {
                             gs.code.push_back(BC_INST_FVAR1 | (id->get_index() << 8));
                         }
                         break;
                     case ID_SVAR:
-                        if (!(more = compilearg(gs, VAL_STRING))) {
+                        more = compilearg(gs, VAL_STRING);
+                        if (!more) {
                             gs.code.push_back(BC_INST_PRINT | (id->get_index() << 8));
                         } else {
                             std::uint32_t numargs = 0;
                             do {
                                 ++numargs;
-                            } while ((more = compilearg(gs, VAL_ANY)));
+                                more = compilearg(gs, VAL_ANY);
+                            } while (more);
                             if (numargs > 1) {
                                 gs.code.push_back(
                                     BC_INST_CONC | BC_RET_STRING | (numargs << 8)

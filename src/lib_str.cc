@@ -63,7 +63,7 @@ void init_lib_string(state &cs) {
         auto *ics = ccs.thread_pointer()->istate;
         auto *buf = ics->strman->alloc_buf(inps.size());
         for (std::size_t i = 0; i < inps.size(); ++i) {
-            buf[i] = tolower(inps[i]);
+            buf[i] = char(tolower(inps[i]));
         }
         res.set_str(ics->strman->steal(buf));
     });
@@ -73,7 +73,7 @@ void init_lib_string(state &cs) {
         auto *ics = ccs.thread_pointer()->istate;
         auto *buf = ics->strman->alloc_buf(inps.size());
         for (std::size_t i = 0; i < inps.size(); ++i) {
-            buf[i] = toupper(inps[i]);
+            buf[i] = char(toupper(inps[i]));
         }
         res.set_str(ics->strman->steal(buf));
     });

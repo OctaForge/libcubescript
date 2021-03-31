@@ -64,7 +64,9 @@ struct codegen_state {
             code.push_back(op);
             return;
         }
-        code.push_back(BC_INST_VAL | BC_RET_STRING | (word.size() << 8));
+        code.push_back(
+            BC_INST_VAL | BC_RET_STRING | std::uint32_t(word.size() << 8)
+        );
         auto it = reinterpret_cast<std::uint32_t const *>(word.data());
         code.append(it, it + (word.size() / sizeof(std::uint32_t)));
         std::size_t esz = word.size() % sizeof(std::uint32_t);

@@ -4,6 +4,7 @@
 #include "cs_parser.hh"
 
 #include <cstdio>
+#include <cmath>
 #include <limits>
 
 namespace cubescript {
@@ -215,7 +216,7 @@ void exec_alias(
         uargs[i] = true;
     }
     auto oldargs = anargs->get_value();
-    anargs->set_value(callargs);
+    anargs->set_value(integer_type(callargs));
     int oldflags = ts.pstate->identflags;
     ts.pstate->identflags |= a->get_flags()&IDENT_FLAG_OVERRIDDEN;
     ident_link aliaslink = {a, ts.callstack, uargs};
@@ -1023,9 +1024,9 @@ std::uint32_t *vm_exec(
                 continue;
             case BC_INST_FVAR | BC_RET_STRING: {
                 auto &v = args.emplace_back(cs);
-                v.set_int(static_cast<float_var *>(
+                v.set_int(integer_type(std::floor(static_cast<float_var *>(
                     ts.istate->identmap[op >> 8]
-                )->get_value());
+                )->get_value())));
                 v.force_str();
                 continue;
             }

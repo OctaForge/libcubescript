@@ -256,7 +256,9 @@ LIBCUBESCRIPT_EXPORT ident *state::add_ident(
     }
     id->p_impl = impl;
     p_tstate->istate->idents[id->get_name()] = id;
-    static_cast<ident_impl *>(impl)->p_index = p_tstate->istate->identmap.size();
+    static_cast<ident_impl *>(impl)->p_index = int(
+        p_tstate->istate->identmap.size()
+    );
     p_tstate->istate->identmap.push_back(id);
     return p_tstate->istate->identmap.back();
 }
@@ -726,7 +728,6 @@ float_type clamp_fvar(state &cs, float_var *fv, float_type v) {
         cs, "valid range for '%s' is %s..%s", fv->get_name().data(),
         vmin.force_str(), vmax.force_str()
     };
-    return v;
 }
 
 LIBCUBESCRIPT_EXPORT void state::set_var_float_checked(
