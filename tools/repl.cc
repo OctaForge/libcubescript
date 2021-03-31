@@ -1,6 +1,10 @@
-/* avoid silly complaints about fopen */
 #ifdef _MSC_VER
-#define _CRT_SECURE_NO_WARNINGS 1
+/* avoid silly complaints about fopen */
+#  define _CRT_SECURE_NO_WARNINGS 1
+/* work around clang bug with std::function (needed by linenoise) */
+#  if defined(__clang__) && !defined(_HAS_STATIC_RTTI)
+#    define _HAS_STATIC_RTTI 0
+#  endif
 #endif
 
 #include <signal.h>

@@ -8,12 +8,9 @@ repl_flags = []
 if get_option('readline').enabled()
     use_readline = true
     use_linenoise = false
-elif get_option('linenoise').enabled()
+elif not get_option('linenoise').disabled()
     use_readline = false
     use_linenoise = true
-elif get_option('linenoise').auto()
-    use_readline = false
-    use_linenoise = (host_machine.system() != 'windows')
 endif
 
 if not get_option('repl').disabled()
@@ -21,7 +18,6 @@ if not get_option('repl').disabled()
         repl_deps += [dependency('readline')]
         repl_flags = ['-DCS_REPL_USE_READLINE']
     elif use_linenoise
-        repl_src += ['linenoise.cc']
         repl_flags = ['-DCS_REPL_USE_LINENOISE']
     endif
     executable('cubescript',
