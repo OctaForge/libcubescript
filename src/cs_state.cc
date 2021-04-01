@@ -196,8 +196,9 @@ LIBCUBESCRIPT_EXPORT void state::destroy() {
         ident *i = p.second;
         alias *a = i->get_alias();
         if (a) {
-            a->get_value().force_none();
-            static_cast<alias_impl *>(a)->clean_code();
+            auto *aimp = static_cast<alias_impl *>(a);
+            aimp->p_astack->val_s.force_none();
+            aimp->clean_code();
         }
         sp->destroy(i->p_impl);
     }
@@ -467,7 +468,7 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
         case ident_type::ALIAS: {
             alias_impl &a = static_cast<alias_impl &>(id);
             a.clean_code();
-            a.get_value().set_str("");
+            a.p_astack->val_s.set_str("");
             break;
         }
         case ident_type::IVAR: {
@@ -656,7 +657,7 @@ state::get_alias_val(std::string_view name) {
     if ((a->get_flags() & IDENT_FLAG_ARG) && !ident_is_used_arg(a, *p_tstate)) {
         return std::nullopt;
     }
-    return a->get_value().get_str();
+    return static_cast<alias_impl *>(a)->p_astack->val_s.get_str();
 }
 
 integer_type clamp_var(state &cs, integer_var *iv, integer_type v) {
@@ -881,7 +882,10 @@ LIBCUBESCRIPT_EXPORT void state::run(
                 ) {
                     break;
                 }
-                if (a->get_value().get_type() == value_type::NONE) {
+                if (
+                    static_cast<alias_impl *>(a)->p_astack->val_s.get_type() ==
+                    value_type::NONE
+                ) {
                     break;
                 }
                 exec_alias(

@@ -770,7 +770,7 @@ std::uint32_t *vm_exec(
                 any_value &arg = args.back();
                 switch (get_lookupu_type(ts, arg, id, op)) {
                     case ID_ALIAS:
-                        arg = static_cast<alias *>(id)->get_value();
+                        arg = static_cast<alias_impl *>(id)->p_astack->val_s;
                         arg.force_str();
                         continue;
                     case ID_SVAR:
@@ -798,7 +798,7 @@ std::uint32_t *vm_exec(
                     args.emplace_back(cs).set_str("");
                 } else {
                     auto &v = args.emplace_back(cs);
-                    v = a->get_value();
+                    v = static_cast<alias_impl *>(a)->p_astack->val_s;
                     v.force_str();
                 }
                 continue;
@@ -809,9 +809,9 @@ std::uint32_t *vm_exec(
                 any_value &arg = args.back();
                 switch (get_lookupu_type(ts, arg, id, op)) {
                     case ID_ALIAS:
-                        arg.set_int(
-                            static_cast<alias *>(id)->get_value().get_int()
-                        );
+                        arg.set_int(static_cast<alias_impl *>(
+                            id
+                        )->p_astack->val_s.get_int());
                         continue;
                     case ID_SVAR:
                         arg.set_int(parse_int(
@@ -838,7 +838,9 @@ std::uint32_t *vm_exec(
                 if (!a) {
                     args.emplace_back(cs).set_int(0);
                 } else {
-                    args.emplace_back(cs).set_int(a->get_value().get_int());
+                    args.emplace_back(cs).set_int(
+                        static_cast<alias_impl *>(a)->p_astack->val_s.get_int()
+                    );
                 }
                 continue;
             }
@@ -847,9 +849,9 @@ std::uint32_t *vm_exec(
                 any_value &arg = args.back();
                 switch (get_lookupu_type(ts, arg, id, op)) {
                     case ID_ALIAS:
-                        arg.set_float(
-                            static_cast<alias *>(id)->get_value().get_float()
-                        );
+                        arg.set_float(static_cast<alias_impl *>(
+                            id
+                        )->p_astack->val_s.get_float());
                         continue;
                     case ID_SVAR:
                         arg.set_float(parse_float(
@@ -878,7 +880,9 @@ std::uint32_t *vm_exec(
                 if (!a) {
                     args.emplace_back(cs).set_float(float_type(0));
                 } else {
-                    args.emplace_back(cs).set_float(a->get_value().get_float());
+                    args.emplace_back(cs).set_float(static_cast<alias_impl *>(
+                        a
+                    )->p_astack->val_s.get_float());
                 }
                 continue;
             }
@@ -887,7 +891,9 @@ std::uint32_t *vm_exec(
                 any_value &arg = args.back();
                 switch (get_lookupu_type(ts, arg, id, op)) {
                     case ID_ALIAS:
-                        static_cast<alias *>(id)->get_value().get_val(arg);
+                        static_cast<alias_impl *>(
+                            id
+                        )->p_astack->val_s.get_val(arg);
                         continue;
                     case ID_SVAR:
                         arg.set_str(static_cast<string_var *>(id)->get_value());
@@ -912,7 +918,9 @@ std::uint32_t *vm_exec(
                 if (!a) {
                     args.emplace_back(cs).set_none();
                 } else {
-                    a->get_value().get_val(args.emplace_back(cs));
+                    static_cast<alias_impl *>(a)->p_astack->val_s.get_val(
+                        args.emplace_back(cs)
+                    );
                 }
                 continue;
             }
@@ -1210,7 +1218,9 @@ noid:
                             force_arg(result, op & BC_INST_RET_MASK);
                             continue;
                         }
-                        if (a->get_value().get_type() == value_type::NONE) {
+                        if (static_cast<alias_impl *>(
+                            a
+                        )->p_astack->val_s.get_type() == value_type::NONE) {
                             goto noid;
                         }
                         exec_alias(

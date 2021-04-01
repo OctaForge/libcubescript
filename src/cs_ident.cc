@@ -176,7 +176,7 @@ bcode *alias_impl::compile_code(thread_state &ts) {
     if (!p_acode) {
         codegen_state gs(ts);
         gs.code.reserve(64);
-        gs.gen_main(get_value().get_str());
+        gs.gen_main(p_astack->val_s.get_str());
         /* i wish i could steal the memory somehow */
         uint32_t *code = bcode_alloc(ts.istate, gs.code.size());
         memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
@@ -395,10 +395,6 @@ LIBCUBESCRIPT_EXPORT string_ref string_var::get_value() const {
 
 LIBCUBESCRIPT_EXPORT void string_var::set_value(string_ref val) {
     static_cast<svar_impl *>(this)->p_storage = val;
-}
-
-LIBCUBESCRIPT_EXPORT any_value alias::get_value() const {
-    return static_cast<alias_impl const *>(this)->p_astack->val_s;
 }
 
 LIBCUBESCRIPT_EXPORT std::string_view command::get_args() const {

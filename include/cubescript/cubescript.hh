@@ -300,8 +300,6 @@ protected:
 };
 
 struct LIBCUBESCRIPT_EXPORT alias: ident {
-    any_value get_value() const;
-
 protected:
     alias() = default;
 };
