@@ -212,7 +212,7 @@ void exec_alias(
     for(std::size_t i = 0; i < callargs; i++) {
         auto &ap = *static_cast<alias_impl *>(ts.istate->identmap[i]);
         ap.push_arg(ts.idstack.emplace_back(*ts.pstate), false);
-        ap.p_val = std::move(args[offset + i]);
+        ap.p_astack->val_s = std::move(args[offset + i]);
         uargs[i] = true;
     }
     auto oldargs = anargs->get_value();

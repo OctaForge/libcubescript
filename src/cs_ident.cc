@@ -72,50 +72,49 @@ alias_impl::alias_impl(
     state &cs, string_ref name, string_ref a, int fl
 ):
     ident_impl{ident_type::ALIAS, name, fl},
-    p_acode{nullptr}, p_astack{nullptr}, p_val{cs}
+    p_initial{cs}, p_acode{nullptr}, p_astack{&p_initial}
 {
-    p_val.set_str(a);
+    p_initial.val_s.set_str(a);
 }
 
 alias_impl::alias_impl(
     state &cs, string_ref name, std::string_view a, int fl
 ):
     ident_impl{ident_type::ALIAS, name, fl},
-    p_acode{nullptr}, p_astack{nullptr}, p_val{cs}
+    p_initial{cs}, p_acode{nullptr}, p_astack{&p_initial}
 {
-    p_val.set_str(a);
+    p_initial.val_s.set_str(a);
 }
 
 alias_impl::alias_impl(state &cs, string_ref name, integer_type a, int fl):
     ident_impl{ident_type::ALIAS, name, fl},
-    p_acode{nullptr}, p_astack{nullptr}, p_val{cs}
+    p_initial{cs}, p_acode{nullptr}, p_astack{&p_initial}
 {
-    p_val.set_int(a);
+    p_initial.val_s.set_int(a);
 }
 
 alias_impl::alias_impl(state &cs, string_ref name, float_type a, int fl):
     ident_impl{ident_type::ALIAS, name, fl},
-    p_acode{nullptr}, p_astack{nullptr}, p_val{cs}
+    p_initial{cs}, p_acode{nullptr}, p_astack{&p_initial}
 {
-    p_val.set_float(a);
+    p_initial.val_s.set_float(a);
 }
 
 alias_impl::alias_impl(state &cs, string_ref name, int fl):
     ident_impl{ident_type::ALIAS, name, fl},
-    p_acode{nullptr}, p_astack{nullptr}, p_val{cs}
+    p_initial{cs}, p_acode{nullptr}, p_astack{&p_initial}
 {
-    p_val.set_none();
+    p_initial.val_s.set_none();
 }
 
 alias_impl::alias_impl(state &cs, string_ref name, any_value v, int fl):
     ident_impl{ident_type::ALIAS, name, fl},
-    p_acode{nullptr}, p_astack{nullptr}, p_val{cs}
+    p_initial{cs}, p_acode{nullptr}, p_astack{&p_initial}
 {
-    p_val = v;
+    p_initial.val_s = v;
 }
 
 void alias_impl::push_arg(ident_stack &st, bool um) {
-    st.val_s = std::move(p_val);
     st.next = p_astack;
     p_astack = &st;
     clean_code();
@@ -125,29 +124,21 @@ void alias_impl::push_arg(ident_stack &st, bool um) {
 }
 
 void alias_impl::pop_arg() {
-    if (!p_astack) {
+    if (p_astack == &p_initial) {
         return;
     }
-    ident_stack *st = p_astack;
-    p_val = std::move(p_astack->val_s);
+    p_astack = p_astack->next;
     clean_code();
-    p_astack = st->next;
 }
 
 void alias_impl::undo_arg(ident_stack &st) {
-    ident_stack *prev = p_astack;
-    st.val_s = std::move(p_val);
-    st.next = prev;
-    p_astack = prev->next;
-    p_val = std::move(prev->val_s);
+    st.next = p_astack;
+    p_astack = p_astack->next;
     clean_code();
 }
 
 void alias_impl::redo_arg(ident_stack &st) {
-    ident_stack *prev = st.next;
-    prev->val_s = std::move(p_val);
-    p_astack = prev;
-    p_val = std::move(st.val_s);
+    p_astack = st.next;
     clean_code();
 }
 
@@ -158,11 +149,11 @@ void alias_impl::set_arg(thread_state &ts, any_value &v) {
         push_arg(ts.idstack.emplace_back(*ts.pstate), false);
         ts.callstack->usedargs[get_index()] = true;
     }
-    p_val = std::move(v);
+    p_astack->val_s = std::move(v);
 }
 
 void alias_impl::set_alias(thread_state &ts, any_value &v) {
-    p_val = std::move(v);
+    p_astack->val_s = std::move(v);
     clean_code();
     p_flags = (p_flags & ts.pstate->identflags) | ts.pstate->identflags;
 }
@@ -400,7 +391,7 @@ LIBCUBESCRIPT_EXPORT void string_var::set_value(string_ref val) {
 }
 
 LIBCUBESCRIPT_EXPORT any_value alias::get_value() const {
-    return static_cast<alias_impl const *>(this)->p_val;
+    return static_cast<alias_impl const *>(this)->p_astack->val_s;
 }
 
 LIBCUBESCRIPT_EXPORT std::string_view command::get_args() const {
@@ -432,7 +423,7 @@ LIBCUBESCRIPT_EXPORT bool alias_stack::set(any_value val) {
     if (!p_alias) {
         return false;
     }
-    static_cast<alias_impl *>(p_alias)->p_val = std::move(val);
+    static_cast<alias_impl *>(p_alias)->p_astack->val_s = std::move(val);
     return true;
 }
 

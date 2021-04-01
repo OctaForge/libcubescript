@@ -42,10 +42,6 @@ inline std::string ln_hint(char const *buf, int &color, int &bold) {
     return args;
 }
 
-inline void ln_hint_free(void *hint) {
-    delete[] static_cast<char *>(hint);
-}
-
 inline void init_lineedit(cs::state &cs, std::string_view) {
     /* sensible default history size */
     linenoise::SetHistoryMaxLen(1000);

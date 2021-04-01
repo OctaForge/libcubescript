@@ -105,9 +105,9 @@ struct alias_impl: ident_impl, alias {
     void clean_code();
     bcode *compile_code(thread_state &ts);
 
+    ident_stack p_initial;
     bcode *p_acode;
     ident_stack *p_astack;
-    any_value p_val;
 };
 
 struct command_impl: ident_impl, command {
