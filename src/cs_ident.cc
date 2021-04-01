@@ -132,6 +132,9 @@ void alias_impl::pop_arg() {
 }
 
 void alias_impl::undo_arg(ident_stack &st) {
+    if (p_acode) {
+        st.val_s.set_code(p_acode);
+    }
     st.next = p_astack;
     p_astack = p_astack->next;
     clean_code();
@@ -140,6 +143,10 @@ void alias_impl::undo_arg(ident_stack &st) {
 void alias_impl::redo_arg(ident_stack &st) {
     p_astack = st.next;
     clean_code();
+    p_acode = st.val_s.get_code();
+    if (p_acode) {
+        bcode_incr(p_acode->get_raw());
+    }
 }
 
 void alias_impl::set_arg(thread_state &ts, any_value &v) {
