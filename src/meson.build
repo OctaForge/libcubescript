@@ -21,11 +21,10 @@ libcubescript_src = [
     'lib_str.cc'
 ]
 
-lib_cxxflags = []
+lib_cxxflags = [ '-DLIBCUBESCRIPT_BUILD' ]
 host_system = host_machine.system()
 
 if host_system == 'windows' or host_system == 'cygwin'
-    lib_cxxflags += '-DLIBCUBESCRIPT_BUILD'
     if get_option('default_library') != 'static'
         lib_cxxflags += '-DLIBCUBESCRIPT_DLL'
     endif
