@@ -34,6 +34,21 @@ LIBCUBESCRIPT_EXPORT bcode_ref &bcode_ref::operator=(bcode_ref &&v) {
     return *this;
 }
 
+LIBCUBESCRIPT_EXPORT bool bcode_ref::empty() const {
+    if (!p_code) {
+        return true;
+    }
+    return (*p_code->get_raw() & BC_INST_OP_MASK) == BC_INST_EXIT;
+}
+
+LIBCUBESCRIPT_EXPORT bcode_ref::operator bool() const {
+    return p_code != nullptr;
+}
+
+LIBCUBESCRIPT_EXPORT bcode_ref::operator bcode *() const {
+    return p_code;
+}
+
 /* private funcs */
 
 struct bcode_hdr {

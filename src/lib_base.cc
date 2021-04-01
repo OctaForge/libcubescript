@@ -9,7 +9,7 @@ namespace cubescript {
 
 static inline void do_loop(
     state &cs, ident &id, integer_type offset, integer_type n, integer_type step,
-    bcode *cond, bcode *body
+    bcode_ref &&cond, bcode_ref &&body
 ) {
     if (n <= 0) {
         return;
@@ -34,7 +34,7 @@ static inline void do_loop(
 
 static inline void do_loop_conc(
     state &cs, any_value &res, ident &id, integer_type offset, integer_type n,
-    integer_type step, bcode *body, bool space
+    integer_type step, bcode_ref &&body, bool space
 ) {
     if (n <= 0) {
         return;
@@ -228,7 +228,8 @@ void init_lib_base(state &gcs) {
     });
 
     gcs.new_command("while", "ee", [](auto &cs, auto args, auto &) {
-        bcode *cond = args[0].get_code(), *body = args[1].get_code();
+        auto cond = args[0].get_code();
+        auto body = args[1].get_code();
         while (cs.run(cond).get_bool()) {
             switch (cs.run_loop(body)) {
                 case loop_state::BREAK:

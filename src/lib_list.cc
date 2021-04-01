@@ -74,7 +74,7 @@ static inline void list_assoc(
 
 static void loop_list_conc(
     state &cs, any_value &res, ident *id, std::string_view list,
-    bcode *body, bool space
+    bcode_ref &&body, bool space
 ) {
     if (alias_stack st{cs, id}; st) {
         any_value idv{cs};
@@ -519,7 +519,7 @@ struct ListSortItem {
 struct ListSortFun {
     state &cs;
     alias_stack &xst, &yst;
-    bcode *body;
+    bcode_ref const *body;
 
     bool operator()(ListSortItem const &xval, ListSortItem const &yval) {
         any_value v{cs};
@@ -527,13 +527,13 @@ struct ListSortFun {
         xst.set(std::move(v));
         v.set_str(yval.str);
         yst.set(std::move(v));
-        return cs.run(body).get_bool();
+        return cs.run(*body).get_bool();
     }
 };
 
 static void list_sort(
     state &cs, any_value &res, std::string_view list,
-    ident *x, ident *y, bcode *body, bcode *unique
+    ident *x, ident *y, bcode_ref &&body, bcode_ref &&unique
 ) {
     if (x == y) {
         return;
@@ -561,10 +561,10 @@ static void list_sort(
     size_t totaluniq = total;
     size_t nuniq = items.size();
     if (body) {
-        ListSortFun f = { cs, xst, yst, body };
+        ListSortFun f = { cs, xst, yst, &body };
         std::sort(items.buf.begin(), items.buf.end(), f);
-        if (!code_is_empty(unique)) {
-            f.body = unique;
+        if (!unique.empty()) {
+            f.body = &unique;
             totaluniq = items[0].quote.size();
             nuniq = 1;
             for (size_t i = 1; i < items.size(); i++) {
@@ -578,7 +578,7 @@ static void list_sort(
             }
         }
     } else {
-        ListSortFun f = { cs, xst, yst, unique };
+        ListSortFun f = { cs, xst, yst, &unique };
         totaluniq = items[0].quote.size();
         nuniq = 1;
         for (size_t i = 1; i < items.size(); i++) {

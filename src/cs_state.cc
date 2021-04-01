@@ -126,7 +126,7 @@ state::state(alloc_func func, void *data) {
             res.set_int(1);
         } else {
             for (size_t i = 0; i < args.size(); ++i) {
-                bcode *code = args[i].get_code();
+                auto code = args[i].get_code();
                 if (code) {
                     cs.run(code, res);
                 } else {
@@ -145,7 +145,7 @@ state::state(alloc_func func, void *data) {
             res.set_int(0);
         } else {
             for (size_t i = 0; i < args.size(); ++i) {
-                bcode *code = args[i].get_code();
+                auto code = args[i].get_code();
                 if (code) {
                     cs.run(code, res);
                 } else {
@@ -780,8 +780,9 @@ LIBCUBESCRIPT_EXPORT void state::init_libs(int libs) {
     }
 }
 
-LIBCUBESCRIPT_EXPORT void state::run(bcode *code, any_value &ret) {
-    vm_exec(*p_tstate, reinterpret_cast<std::uint32_t *>(code), ret);
+LIBCUBESCRIPT_EXPORT void state::run(bcode_ref const &code, any_value &ret) {
+    bcode *p = code;
+    vm_exec(*p_tstate, reinterpret_cast<std::uint32_t *>(p), ret);
 }
 
 static void do_run(
@@ -897,7 +898,7 @@ LIBCUBESCRIPT_EXPORT void state::run(
     }
 }
 
-LIBCUBESCRIPT_EXPORT any_value state::run(bcode *code) {
+LIBCUBESCRIPT_EXPORT any_value state::run(bcode_ref const &code) {
     any_value ret{*this};
     run(code, ret);
     return ret;
@@ -925,7 +926,9 @@ LIBCUBESCRIPT_EXPORT any_value state::run(
     return ret;
 }
 
-LIBCUBESCRIPT_EXPORT loop_state state::run_loop(bcode *code, any_value &ret) {
+LIBCUBESCRIPT_EXPORT loop_state state::run_loop(
+    bcode_ref const &code, any_value &ret
+) {
     ++p_tstate->loop_level;
     try {
         run(code, ret);
@@ -942,7 +945,7 @@ LIBCUBESCRIPT_EXPORT loop_state state::run_loop(bcode *code, any_value &ret) {
     return loop_state::NORMAL;
 }
 
-LIBCUBESCRIPT_EXPORT loop_state state::run_loop(bcode *code) {
+LIBCUBESCRIPT_EXPORT loop_state state::run_loop(bcode_ref const &code) {
     any_value ret{*this};
     return run_loop(code, ret);
 }

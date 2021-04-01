@@ -73,7 +73,6 @@ enum {
     IDENT_FLAG_ARG        = 1 << 6
 };
 
-struct bcode;
 struct internal_state;
 struct thread_state;
 struct ident_impl;
@@ -82,7 +81,7 @@ struct LIBCUBESCRIPT_EXPORT bcode_ref {
     bcode_ref():
         p_code(nullptr)
     {}
-    bcode_ref(bcode *v);
+    bcode_ref(struct bcode *v);
     bcode_ref(bcode_ref const &v);
     bcode_ref(bcode_ref &&v):
         p_code(v.p_code)
@@ -95,14 +94,14 @@ struct LIBCUBESCRIPT_EXPORT bcode_ref {
     bcode_ref &operator=(bcode_ref const &v);
     bcode_ref &operator=(bcode_ref &&v);
 
-    operator bool() const { return p_code != nullptr; }
-    operator bcode *() const { return p_code; }
+    bool empty() const;
+
+    operator bool() const;
+    operator struct bcode *() const;
 
 private:
-    bcode *p_code;
+    struct bcode *p_code;
 };
-
-LIBCUBESCRIPT_EXPORT bool code_is_empty(bcode *code);
 
 struct LIBCUBESCRIPT_EXPORT string_ref {
     friend struct any_value;
@@ -165,13 +164,13 @@ struct LIBCUBESCRIPT_EXPORT any_value {
     void set_str(std::string_view val);
     void set_str(string_ref const &val);
     void set_none();
-    void set_code(bcode *val);
+    void set_code(bcode_ref const &val);
     void set_ident(ident *val);
 
     string_ref get_str() const;
     integer_type get_int() const;
     float_type get_float() const;
-    bcode *get_code() const;
+    bcode_ref get_code() const;
     ident *get_ident() const;
     void get_val(any_value &r) const;
 
@@ -181,10 +180,8 @@ struct LIBCUBESCRIPT_EXPORT any_value {
     float_type force_float();
     integer_type force_int();
     std::string_view force_str();
-    bcode *force_code(state &cs);
+    bcode_ref force_code(state &cs);
     ident *force_ident(state &cs);
-
-    bool code_is_empty() const;
 
 private:
     template<typename T>
@@ -440,18 +437,18 @@ struct LIBCUBESCRIPT_EXPORT state {
     void reset_var(std::string_view name);
     void touch_var(std::string_view name);
 
-    void run(bcode *code, any_value &ret);
+    void run(bcode_ref const &code, any_value &ret);
     void run(std::string_view code, any_value &ret);
     void run(std::string_view code, any_value &ret, std::string_view source);
     void run(ident *id, std::span<any_value> args, any_value &ret);
 
-    any_value run(bcode *code);
+    any_value run(bcode_ref const &code);
     any_value run(std::string_view code);
     any_value run(std::string_view code, std::string_view source);
     any_value run(ident *id, std::span<any_value> args);
 
-    loop_state run_loop(bcode *code, any_value &ret);
-    loop_state run_loop(bcode *code);
+    loop_state run_loop(bcode_ref const &code, any_value &ret);
+    loop_state run_loop(bcode_ref const &code);
 
     bool is_in_loop() const;
 

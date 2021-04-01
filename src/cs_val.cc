@@ -168,11 +168,12 @@ void any_value::set_none() {
     p_type = value_type::NONE;
 }
 
-void any_value::set_code(bcode *val) {
+void any_value::set_code(bcode_ref const &val) {
+    bcode *p = val;
     csv_cleanup(p_type, &p_stor);
     p_type = value_type::CODE;
-    bcode_addref(val->get_raw());
-    csv_get<bcode *>(&p_stor) = val;
+    bcode_addref(p->get_raw());
+    csv_get<bcode *>(&p_stor) = p;
 }
 
 void any_value::set_ident(ident *val) {
@@ -250,10 +251,10 @@ std::string_view any_value::force_str() {
     ));
 }
 
-bcode *any_value::force_code(state &cs) {
+bcode_ref any_value::force_code(state &cs) {
     switch (get_type()) {
         case value_type::CODE:
-            return csv_get<bcode *>(&p_stor);
+            return bcode_ref{csv_get<bcode *>(&p_stor)};
         default:
             break;
     }
@@ -265,7 +266,7 @@ bcode *any_value::force_code(state &cs) {
     std::memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(std::uint32_t));
     auto *bc = reinterpret_cast<bcode *>(cbuf + 1);
     set_code(bc);
-    return bc;
+    return bcode_ref{bc};
 }
 
 ident *any_value::force_ident(state &cs) {
@@ -312,11 +313,11 @@ float_type any_value::get_float() const {
     return 0.0f;
 }
 
-bcode *any_value::get_code() const {
+bcode_ref any_value::get_code() const {
     if (get_type() != value_type::CODE) {
-        return nullptr;
+        return bcode_ref{};
     }
-    return csv_get<bcode *>(&p_stor);
+    return bcode_ref{csv_get<bcode *>(&p_stor)};
 }
 
 ident *any_value::get_ident() const {
@@ -363,20 +364,6 @@ void any_value::get_val(any_value &r) const {
             r.set_none();
             break;
     }
-}
-
-LIBCUBESCRIPT_EXPORT bool code_is_empty(bcode *code) {
-    if (!code) {
-        return true;
-    }
-    return (*code->get_raw() & BC_INST_OP_MASK) == BC_INST_EXIT;
-}
-
-bool any_value::code_is_empty() const {
-    if (get_type() != value_type::CODE) {
-        return true;
-    }
-    return cubescript::code_is_empty(csv_get<bcode *>(&p_stor));
 }
 
 bool any_value::get_bool() const {
