@@ -103,10 +103,10 @@ struct alias_impl: ident_impl, alias {
     void set_alias(thread_state &ts, any_value &v);
 
     void clean_code();
-    bcode *compile_code(thread_state &ts);
+    bcode_ref const &compile_code(thread_state &ts);
 
     ident_stack p_initial;
-    bcode *p_acode;
+    bcode_ref p_acode;
     ident_stack *p_astack;
 };
 

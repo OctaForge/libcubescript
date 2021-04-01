@@ -75,11 +75,11 @@ static inline void bcode_free(std::uint32_t *bc) {
     std_allocator<std::uint32_t>{hdr->cs}.deallocate(rp, hdr->asize);
 }
 
-void bcode_incr(std::uint32_t *bc) {
+static inline void bcode_incr(std::uint32_t *bc) {
     *bc += 0x100;
 }
 
-void bcode_decr(std::uint32_t *bc) {
+static inline void bcode_decr(std::uint32_t *bc) {
     *bc -= 0x100;
     if (std::int32_t(*bc) < 0x100) {
         bcode_free(bc);

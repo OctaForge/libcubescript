@@ -207,8 +207,6 @@ enum {
 
 std::uint32_t *bcode_alloc(internal_state *cs, std::size_t sz);
 
-void bcode_incr(std::uint32_t *code);
-void bcode_decr(std::uint32_t *code);
 void bcode_addref(std::uint32_t *code);
 void bcode_unref(std::uint32_t *code);
 

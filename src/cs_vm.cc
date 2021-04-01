@@ -221,12 +221,10 @@ void exec_alias(
     ts.pstate->identflags |= a->get_flags()&IDENT_FLAG_OVERRIDDEN;
     ident_link aliaslink = {a, ts.callstack, uargs};
     ts.callstack = &aliaslink;
-    std::uint32_t *codep = static_cast<
+    bcode_ref coderef = static_cast<
         alias_impl *
-    >(a)->compile_code(ts)->get_raw();
-    bcode_incr(codep);
+    >(a)->compile_code(ts);
     auto cleanup = [&]() {
-        bcode_decr(codep);
         ts.callstack = aliaslink.next;
         ts.pstate->identflags = oldflags;
         auto amask = aliaslink.usedargs;
@@ -248,7 +246,8 @@ void exec_alias(
         nargs = offset - skip;
     };
     try {
-        vm_exec(ts, codep + 1, result);
+        bcode *p = coderef;
+        vm_exec(ts, p->get_raw(), result);
     } catch (...) {
         cleanup();
         throw;

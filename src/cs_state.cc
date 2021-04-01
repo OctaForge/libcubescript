@@ -796,14 +796,9 @@ static void do_run(
     gs.done();
     std::uint32_t *cbuf = bcode_alloc(ts.istate, gs.code.size());
     std::memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(std::uint32_t));
-    bcode_incr(cbuf);
-    try {
-        vm_exec(ts, cbuf + 1, ret);
-    } catch (...) {
-        bcode_decr(cbuf);
-        throw;
-    }
-    bcode_decr(cbuf);
+    bcode_ref cref{reinterpret_cast<bcode *>(cbuf + 1)};
+    bcode *p = cref;
+    vm_exec(ts, p->get_raw(), ret);
 }
 
 LIBCUBESCRIPT_EXPORT void state::run(std::string_view code, any_value &ret) {
