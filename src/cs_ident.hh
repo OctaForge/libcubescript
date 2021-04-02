@@ -104,7 +104,6 @@ struct alias_impl: ident_impl, alias {
     alias_impl(state &cs, string_ref n, any_value v, int flags);
 
     ident_stack p_initial;
-    alias_stack p_astack;
 };
 
 struct command_impl: ident_impl, command {

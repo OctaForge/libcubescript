@@ -14,6 +14,7 @@ namespace cubescript {
 struct codegen_state;
 
 struct thread_state {
+    using astack_allocator = std_allocator<std::pair<int const, alias_stack>>;
     /* thread call stack */
     ident_link *callstack{};
     /* the shared state pointer */
@@ -24,8 +25,12 @@ struct thread_state {
     codegen_state *cstate{};
     /* VM stack */
     valbuf<any_value> vmstack;
-    /* alias stack */
+    /* ident stack */
     valbuf<ident_stack> idstack;
+    /* per-alias stack pointer */
+    std::unordered_map<
+        int, alias_stack, std::hash<int>, std::equal_to<int>, astack_allocator
+    > astacks;
     /* per-thread storage buffer for error messages */
     charbuf errbuf;
     /* we can attach a hook to vm events */

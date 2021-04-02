@@ -5,7 +5,7 @@
 namespace cubescript {
 
 thread_state::thread_state(internal_state *cs):
-    vmstack{cs}, idstack{cs}, errbuf{cs}
+    vmstack{cs}, idstack{cs}, astacks{cs}, errbuf{cs}
 {
     vmstack.reserve(32);
     idstack.reserve(MAX_ARGUMENTS);
@@ -18,7 +18,11 @@ hook_func thread_state::set_hook(hook_func f) {
 }
 
 alias_stack &thread_state::get_astack(alias *a) {
-    return static_cast<alias_impl *>(a)->p_astack;
+    auto it = astacks.try_emplace(a->get_index());
+    if (it.second) {
+        it.first->second.node = &static_cast<alias_impl *>(a)->p_initial;
+    }
+    return it.first->second;
 }
 
 } /* namespace cubescript */

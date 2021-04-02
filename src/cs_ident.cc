@@ -71,8 +71,7 @@ svar_impl::svar_impl(
 alias_impl::alias_impl(
     state &cs, string_ref name, string_ref a, int fl
 ):
-    ident_impl{ident_type::ALIAS, name, fl},
-    p_initial{cs}, p_astack{&p_initial}
+    ident_impl{ident_type::ALIAS, name, fl}, p_initial{cs}
 {
     p_initial.val_s.set_str(a);
 }
@@ -80,36 +79,31 @@ alias_impl::alias_impl(
 alias_impl::alias_impl(
     state &cs, string_ref name, std::string_view a, int fl
 ):
-    ident_impl{ident_type::ALIAS, name, fl},
-    p_initial{cs}, p_astack{&p_initial}
+    ident_impl{ident_type::ALIAS, name, fl}, p_initial{cs}
 {
     p_initial.val_s.set_str(a);
 }
 
 alias_impl::alias_impl(state &cs, string_ref name, integer_type a, int fl):
-    ident_impl{ident_type::ALIAS, name, fl},
-    p_initial{cs}, p_astack{&p_initial}
+    ident_impl{ident_type::ALIAS, name, fl}, p_initial{cs}
 {
     p_initial.val_s.set_int(a);
 }
 
 alias_impl::alias_impl(state &cs, string_ref name, float_type a, int fl):
-    ident_impl{ident_type::ALIAS, name, fl},
-    p_initial{cs}, p_astack{&p_initial}
+    ident_impl{ident_type::ALIAS, name, fl}, p_initial{cs}
 {
     p_initial.val_s.set_float(a);
 }
 
 alias_impl::alias_impl(state &cs, string_ref name, int fl):
-    ident_impl{ident_type::ALIAS, name, fl},
-    p_initial{cs}, p_astack{&p_initial}
+    ident_impl{ident_type::ALIAS, name, fl}, p_initial{cs}
 {
     p_initial.val_s.set_none();
 }
 
 alias_impl::alias_impl(state &cs, string_ref name, any_value v, int fl):
-    ident_impl{ident_type::ALIAS, name, fl},
-    p_initial{cs}, p_astack{&p_initial}
+    ident_impl{ident_type::ALIAS, name, fl}, p_initial{cs}
 {
     p_initial.val_s = v;
 }
