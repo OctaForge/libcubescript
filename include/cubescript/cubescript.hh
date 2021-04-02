@@ -621,15 +621,15 @@ private:
     stack_state p_stack;
 };
 
-struct LIBCUBESCRIPT_EXPORT alias_stack {
-    alias_stack(state &cs, ident *a);
-    ~alias_stack();
+struct LIBCUBESCRIPT_EXPORT alias_local {
+    alias_local(state &cs, ident *a);
+    ~alias_local();
 
-    alias_stack(alias_stack const &) = delete;
-    alias_stack(alias_stack &&) = delete;
+    alias_local(alias_local const &) = delete;
+    alias_local(alias_local &&) = delete;
 
-    alias_stack &operator=(alias_stack const &) = delete;
-    alias_stack &operator=(alias_stack &&v) = delete;
+    alias_local &operator=(alias_local const &) = delete;
+    alias_local &operator=(alias_local &&v) = delete;
 
     alias *get_alias() noexcept { return p_alias; }
     alias const *get_alias() const noexcept { return p_alias; }

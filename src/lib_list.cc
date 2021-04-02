@@ -76,7 +76,7 @@ static void loop_list_conc(
     state &cs, any_value &res, ident *id, std::string_view list,
     bcode_ref &&body, bool space
 ) {
-    if (alias_stack st{cs, id}; st) {
+    if (alias_local st{cs, id}; st) {
         any_value idv{cs};
         charbuf r{cs};
         int n = 0;
@@ -204,7 +204,7 @@ void init_lib_list(state &gcs) {
     });
 
     gcs.new_command("listfind", "rse", [](auto &cs, auto args, auto &res) {
-        if (alias_stack st{cs, args[0].get_ident()}; st) {
+        if (alias_local st{cs, args[0].get_ident()}; st) {
             any_value idv{cs};
             auto body = args[2].get_code();
             int n = -1;
@@ -222,7 +222,7 @@ void init_lib_list(state &gcs) {
     });
 
     gcs.new_command("listassoc", "rse", [](auto &cs, auto args, auto &res) {
-        if (alias_stack st{cs, args[0].get_ident()}; st) {
+        if (alias_local st{cs, args[0].get_ident()}; st) {
             any_value idv{cs};
             auto body = args[2].get_code();
             int n = -1;
@@ -288,7 +288,7 @@ void init_lib_list(state &gcs) {
     });
 
     gcs.new_command("looplist", "rse", [](auto &cs, auto args, auto &) {
-        if (alias_stack st{cs, args[0].get_ident()}; st) {
+        if (alias_local st{cs, args[0].get_ident()}; st) {
             any_value idv{cs};
             auto body = args[2].get_code();
             int n = 0;
@@ -306,8 +306,8 @@ void init_lib_list(state &gcs) {
     });
 
     gcs.new_command("looplist2", "rrse", [](auto &cs, auto args, auto &) {
-        alias_stack st1{cs, args[0].get_ident()};
-        alias_stack st2{cs, args[1].get_ident()};
+        alias_local st1{cs, args[0].get_ident()};
+        alias_local st2{cs, args[1].get_ident()};
         if (!st1 || !st2) {
             return;
         }
@@ -333,9 +333,9 @@ void init_lib_list(state &gcs) {
     });
 
     gcs.new_command("looplist3", "rrrse", [](auto &cs, auto args, auto &) {
-        alias_stack st1{cs, args[0].get_ident()};
-        alias_stack st2{cs, args[1].get_ident()};
-        alias_stack st3{cs, args[2].get_ident()};
+        alias_local st1{cs, args[0].get_ident()};
+        alias_local st2{cs, args[1].get_ident()};
+        alias_local st3{cs, args[2].get_ident()};
         if (!st1 || !st2 || !st3) {
             return;
         }
@@ -383,7 +383,7 @@ void init_lib_list(state &gcs) {
     });
 
     gcs.new_command("listfilter", "rse", [](auto &cs, auto args, auto &res) {
-        if (alias_stack st{cs, args[0].get_ident()}; st) {
+        if (alias_local st{cs, args[0].get_ident()}; st) {
             any_value idv{cs};
             auto body = args[2].get_code();
             charbuf r{cs};
@@ -403,7 +403,7 @@ void init_lib_list(state &gcs) {
     });
 
     gcs.new_command("listcount", "rse", [](auto &cs, auto args, auto &res) {
-        if (alias_stack st{cs, args[0].get_ident()}; st) {
+        if (alias_local st{cs, args[0].get_ident()}; st) {
             any_value idv{cs};
             auto body = args[2].get_code();
             int n = 0, r = 0;
@@ -518,7 +518,7 @@ struct ListSortItem {
 
 struct ListSortFun {
     state &cs;
-    alias_stack &xst, &yst;
+    alias_local &xst, &yst;
     bcode_ref const *body;
 
     bool operator()(ListSortItem const &xval, ListSortItem const &yval) {
@@ -539,7 +539,7 @@ static void list_sort(
         return;
     }
 
-    alias_stack xst{cs, x}, yst{cs, y};
+    alias_local xst{cs, x}, yst{cs, y};
     if (!xst || !yst) {
         return;
     }

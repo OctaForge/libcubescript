@@ -385,7 +385,7 @@ LIBCUBESCRIPT_EXPORT int command::get_num_args() const {
 
 /* external API for alias stack management */
 
-LIBCUBESCRIPT_EXPORT alias_stack::alias_stack(state &cs, ident *a) {
+LIBCUBESCRIPT_EXPORT alias_local::alias_local(state &cs, ident *a) {
     if (!a || !a->is_alias() || (a->get_flags() & IDENT_FLAG_ARG)) {
         p_alias = nullptr;
         return;
@@ -398,11 +398,11 @@ LIBCUBESCRIPT_EXPORT alias_stack::alias_stack(state &cs, ident *a) {
     aimp->p_flags &= ~IDENT_FLAG_UNKNOWN;
 }
 
-LIBCUBESCRIPT_EXPORT alias_stack::~alias_stack() {
+LIBCUBESCRIPT_EXPORT alias_local::~alias_local() {
     static_cast<alias_impl *>(p_alias)->pop_arg();
 }
 
-LIBCUBESCRIPT_EXPORT bool alias_stack::set(any_value val) {
+LIBCUBESCRIPT_EXPORT bool alias_local::set(any_value val) {
     if (!p_alias) {
         return false;
     }
@@ -410,7 +410,7 @@ LIBCUBESCRIPT_EXPORT bool alias_stack::set(any_value val) {
     return true;
 }
 
-LIBCUBESCRIPT_EXPORT alias_stack::operator bool() const noexcept {
+LIBCUBESCRIPT_EXPORT alias_local::operator bool() const noexcept {
     return !!p_alias;
 }
 

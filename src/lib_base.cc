@@ -14,7 +14,7 @@ static inline void do_loop(
     if (n <= 0) {
         return;
     }
-    if (alias_stack st{cs, &id}; st) {
+    if (alias_local st{cs, &id}; st) {
         any_value idv{cs};
         for (integer_type i = 0; i < n; ++i) {
             idv.set_int(offset + i * step);
@@ -39,7 +39,7 @@ static inline void do_loop_conc(
     if (n <= 0) {
         return;
     }
-    if (alias_stack st{cs, &id}; st) {
+    if (alias_local st{cs, &id}; st) {
         charbuf s{cs};
         any_value idv{cs};
         for (integer_type i = 0; i < n; ++i) {
@@ -160,7 +160,7 @@ void init_lib_base(state &gcs) {
     });
 
     gcs.new_command("pushif", "rte", [](auto &cs, auto args, auto &res) {
-        if (alias_stack st{cs, args[0].get_ident()}; st) {
+        if (alias_local st{cs, args[0].get_ident()}; st) {
             if (st.get_alias()->get_flags() & IDENT_FLAG_ARG) {
                 return;
             }
@@ -305,7 +305,7 @@ end:
     });
 
     gcs.new_command("push", "rte", [](auto &cs, auto args, auto &res) {
-        if (alias_stack st{cs, args[0].get_ident()}; st) {
+        if (alias_local st{cs, args[0].get_ident()}; st) {
             if (st.get_alias()->get_flags() & IDENT_FLAG_ARG) {
                 return;
             }
