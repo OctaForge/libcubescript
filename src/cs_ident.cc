@@ -72,7 +72,7 @@ alias_impl::alias_impl(
     state &cs, string_ref name, string_ref a, int fl
 ):
     ident_impl{ident_type::ALIAS, name, fl},
-    p_initial{cs}, p_acode{}, p_astack{&p_initial}
+    p_initial{cs}, p_astack{&p_initial}
 {
     p_initial.val_s.set_str(a);
 }
@@ -81,35 +81,35 @@ alias_impl::alias_impl(
     state &cs, string_ref name, std::string_view a, int fl
 ):
     ident_impl{ident_type::ALIAS, name, fl},
-    p_initial{cs}, p_acode{}, p_astack{&p_initial}
+    p_initial{cs}, p_astack{&p_initial}
 {
     p_initial.val_s.set_str(a);
 }
 
 alias_impl::alias_impl(state &cs, string_ref name, integer_type a, int fl):
     ident_impl{ident_type::ALIAS, name, fl},
-    p_initial{cs}, p_acode{}, p_astack{&p_initial}
+    p_initial{cs}, p_astack{&p_initial}
 {
     p_initial.val_s.set_int(a);
 }
 
 alias_impl::alias_impl(state &cs, string_ref name, float_type a, int fl):
     ident_impl{ident_type::ALIAS, name, fl},
-    p_initial{cs}, p_acode{}, p_astack{&p_initial}
+    p_initial{cs}, p_astack{&p_initial}
 {
     p_initial.val_s.set_float(a);
 }
 
 alias_impl::alias_impl(state &cs, string_ref name, int fl):
     ident_impl{ident_type::ALIAS, name, fl},
-    p_initial{cs}, p_acode{}, p_astack{&p_initial}
+    p_initial{cs}, p_astack{&p_initial}
 {
     p_initial.val_s.set_none();
 }
 
 alias_impl::alias_impl(state &cs, string_ref name, any_value v, int fl):
     ident_impl{ident_type::ALIAS, name, fl},
-    p_initial{cs}, p_acode{}, p_astack{&p_initial}
+    p_initial{cs}, p_astack{&p_initial}
 {
     p_initial.val_s = v;
 }
@@ -117,7 +117,6 @@ alias_impl::alias_impl(state &cs, string_ref name, any_value v, int fl):
 void alias_impl::push_arg(ident_stack &st, bool um) {
     st.next = p_astack;
     p_astack = &st;
-    clean_code();
     if (um) {
         p_flags &= ~IDENT_FLAG_UNKNOWN;
     }
@@ -128,27 +127,20 @@ void alias_impl::pop_arg() {
         return;
     }
     p_astack = p_astack->next;
-    clean_code();
 }
 
 void alias_impl::undo_arg(ident_stack &st) {
-    if (p_acode) {
-        st.val_s.set_code(p_acode);
-    }
     st.next = p_astack;
     p_astack = p_astack->next;
-    clean_code();
 }
 
 void alias_impl::redo_arg(ident_stack &st) {
     p_astack = st.next;
-    clean_code();
-    p_acode = st.val_s.get_code();
 }
 
 void alias_impl::set_arg(thread_state &ts, any_value &v) {
     if (ident_is_used_arg(this, ts)) {
-        clean_code();
+        p_astack->code = bcode_ref{};
     } else {
         push_arg(ts.idstack.emplace_back(*ts.pstate), false);
         ts.callstack->usedargs[get_index()] = true;
@@ -158,25 +150,21 @@ void alias_impl::set_arg(thread_state &ts, any_value &v) {
 
 void alias_impl::set_alias(thread_state &ts, any_value &v) {
     p_astack->val_s = std::move(v);
-    clean_code();
+    p_astack->code = bcode_ref{};
     p_flags = (p_flags & ts.pstate->identflags) | ts.pstate->identflags;
 }
 
-void alias_impl::clean_code() {
-    p_acode = bcode_ref{};
-}
-
 bcode_ref const &alias_impl::compile_code(thread_state &ts) {
-    if (!p_acode) {
+    if (!p_astack->code) {
         codegen_state gs(ts);
         gs.code.reserve(64);
         gs.gen_main(p_astack->val_s.get_str());
         /* i wish i could steal the memory somehow */
         uint32_t *code = bcode_alloc(ts.istate, gs.code.size());
         memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
-        p_acode = bcode_ref{reinterpret_cast<bcode *>(code + 1)};
+        p_astack->code = bcode_ref{reinterpret_cast<bcode *>(code + 1)};
     }
-    return p_acode;
+    return p_astack->code;
 }
 
 command_impl::command_impl(

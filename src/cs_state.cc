@@ -193,14 +193,7 @@ LIBCUBESCRIPT_EXPORT void state::destroy() {
     }
     auto *sp = p_tstate->istate;
     for (auto &p: sp->idents) {
-        ident *i = p.second;
-        alias *a = i->get_alias();
-        if (a) {
-            auto *aimp = static_cast<alias_impl *>(a);
-            aimp->p_astack->val_s.force_none();
-            aimp->clean_code();
-        }
-        sp->destroy(i->p_impl);
+        sp->destroy(p.second->p_impl);
     }
     sp->destroy(p_tstate);
     sp->destroy(sp);
@@ -467,8 +460,8 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
     switch (id.get_type()) {
         case ident_type::ALIAS: {
             alias_impl &a = static_cast<alias_impl &>(id);
-            a.clean_code();
             a.p_astack->val_s.set_str("");
+            a.p_astack->code = bcode_ref{};
             break;
         }
         case ident_type::IVAR: {

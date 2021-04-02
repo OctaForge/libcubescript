@@ -18,8 +18,9 @@ enum {
 
 struct ident_stack {
     any_value val_s;
+    bcode_ref code;
     ident_stack *next;
-    ident_stack(state &cs): val_s{cs}, next{nullptr} {}
+    ident_stack(state &cs): val_s{cs}, code{}, next{nullptr} {}
 };
 
 struct ident_link {
@@ -102,11 +103,9 @@ struct alias_impl: ident_impl, alias {
     void set_arg(thread_state &ts, any_value &v);
     void set_alias(thread_state &ts, any_value &v);
 
-    void clean_code();
     bcode_ref const &compile_code(thread_state &ts);
 
     ident_stack p_initial;
-    bcode_ref p_acode;
     ident_stack *p_astack;
 };
 
