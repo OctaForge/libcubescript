@@ -4,6 +4,7 @@
 
 #include "cs_std.hh"
 #include "cs_ident.hh"
+#include "cs_thread.hh"
 
 namespace cubescript {
 
@@ -90,12 +91,9 @@ void init_lib_base(state &gcs) {
             rc = false;
         }
         ret.set_int(rc);
-        static_cast<alias_impl *>(cret)->set_alias(
-            *cs.thread_pointer(), result
-        );
-        static_cast<alias_impl *>(css)->set_alias(
-            *cs.thread_pointer(), tback
-        );
+        auto &ts = *cs.thread_pointer();
+        ts.get_astack(cret).set_alias(cret, ts, result);
+        ts.get_astack(css).set_alias(css, ts, tback);
     });
 
     gcs.new_command("?", "ttt", [](auto &, auto args, auto &res) {

@@ -365,11 +365,12 @@ LIBCUBESCRIPT_EXPORT void state::set_alias(
     if (id) {
         switch (id->get_type()) {
             case ident_type::ALIAS: {
-                alias_impl *a = static_cast<alias_impl *>(id);
+                alias *a = static_cast<alias *>(id);
+                auto &ast = p_tstate->get_astack(a);
                 if (a->get_flags() & IDENT_FLAG_ARG) {
-                    a->set_arg(*p_tstate, v);
+                    ast.set_arg(a, *p_tstate, v);
                 } else {
-                    a->set_alias(*p_tstate, v);
+                    ast.set_alias(a, *p_tstate, v);
                 }
                 return;
             }
@@ -459,9 +460,9 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
     }
     switch (id.get_type()) {
         case ident_type::ALIAS: {
-            alias_impl &a = static_cast<alias_impl &>(id);
-            a.p_astack->val_s.set_str("");
-            a.p_astack->code = bcode_ref{};
+            auto &ast = p_tstate->get_astack(static_cast<alias *>(&id));
+            ast.node->val_s.set_str("");
+            ast.node->code = bcode_ref{};
             break;
         }
         case ident_type::IVAR: {
@@ -650,7 +651,7 @@ state::get_alias_val(std::string_view name) {
     if ((a->get_flags() & IDENT_FLAG_ARG) && !ident_is_used_arg(a, *p_tstate)) {
         return std::nullopt;
     }
-    return static_cast<alias_impl *>(a)->p_astack->val_s.get_str();
+    return p_tstate->get_astack(a).node->val_s.get_str();
 }
 
 integer_type clamp_var(state &cs, integer_var *iv, integer_type v) {
@@ -871,14 +872,9 @@ LIBCUBESCRIPT_EXPORT void state::run(
                 ) {
                     break;
                 }
-                if (
-                    static_cast<alias_impl *>(a)->p_astack->val_s.get_type() ==
-                    value_type::NONE
-                ) {
-                    break;
-                }
                 exec_alias(
-                    *p_tstate, a, &args[0], ret, nargs, nargs, 0, 0, BC_RET_NULL
+                    *p_tstate, a, &args[0], ret, nargs, nargs, 0, 0,
+                    BC_RET_NULL, true
                 );
                 break;
             }

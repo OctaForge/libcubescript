@@ -51,9 +51,12 @@ static void call_with_args(thread_state &ts, F body) {
     std::size_t noff = ts.idstack.size();
     for (std::size_t i = 0; mask.any(); ++i) {
         if (mask[0]) {
-            static_cast<alias_impl *>(ts.istate->identmap[i])->undo_arg(
-                ts.idstack.emplace_back(*ts.pstate)
+            auto &ast = ts.get_astack(
+                static_cast<alias *>(ts.istate->identmap[i])
             );
+            auto &st = ts.idstack.emplace_back(*ts.pstate);
+            st.next = ast.node;
+            ast.node = ast.node->next;
         }
         mask >>= 1;
     }
@@ -74,9 +77,9 @@ static void call_with_args(thread_state &ts, F body) {
         auto mask2 = ts.callstack->usedargs;
         for (std::size_t i = 0, nredo = 0; mask2.any(); ++i) {
             if (mask2[0]) {
-                static_cast<alias_impl *>(ts.istate->identmap[i])->redo_arg(
-                    ts.idstack[noff + nredo++]
-                );
+                ts.get_astack(
+                    static_cast<alias *>(ts.istate->identmap[i])
+                ).node = ts.idstack[noff + nredo++].next;
             }
             mask2 >>= 1;
         }
@@ -96,10 +99,10 @@ void exec_command(
     std::size_t nargs, bool lookup = false
 );
 
-void exec_alias(
+bool exec_alias(
     thread_state &ts, alias *a, any_value *args, any_value &result,
-    std::size_t callargs, std::size_t &nargs,
-    std::size_t offset, std::size_t skip, std::uint32_t op
+    std::size_t callargs, std::size_t &nargs, std::size_t offset,
+    std::size_t skip, std::uint32_t op, bool ncheck = false
 );
 
 std::uint32_t *vm_exec(

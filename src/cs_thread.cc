@@ -17,4 +17,8 @@ hook_func thread_state::set_hook(hook_func f) {
     return hk;
 }
 
+alias_stack &thread_state::get_astack(alias *a) {
+    return static_cast<alias_impl *>(a)->p_astack;
+}
+
 } /* namespace cubescript */

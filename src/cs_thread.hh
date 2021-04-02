@@ -41,6 +41,8 @@ struct thread_state {
 
     hook_func &get_hook() { return call_hook; }
     hook_func const &get_hook() const { return call_hook; }
+
+    alias_stack &get_astack(alias *a);
 };
 
 } /* namespace cubescript */

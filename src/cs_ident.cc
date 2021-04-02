@@ -114,56 +114,6 @@ alias_impl::alias_impl(state &cs, string_ref name, any_value v, int fl):
     p_initial.val_s = v;
 }
 
-void alias_impl::push_arg(ident_stack &st) {
-    st.next = p_astack;
-    p_astack = &st;
-}
-
-void alias_impl::pop_arg() {
-    if (p_astack == &p_initial) {
-        return;
-    }
-    p_astack = p_astack->next;
-}
-
-void alias_impl::undo_arg(ident_stack &st) {
-    st.next = p_astack;
-    p_astack = p_astack->next;
-}
-
-void alias_impl::redo_arg(ident_stack &st) {
-    p_astack = st.next;
-}
-
-void alias_impl::set_arg(thread_state &ts, any_value &v) {
-    if (ident_is_used_arg(this, ts)) {
-        p_astack->code = bcode_ref{};
-    } else {
-        push_arg(ts.idstack.emplace_back(*ts.pstate));
-        ts.callstack->usedargs[get_index()] = true;
-    }
-    p_astack->val_s = std::move(v);
-}
-
-void alias_impl::set_alias(thread_state &ts, any_value &v) {
-    p_astack->val_s = std::move(v);
-    p_astack->code = bcode_ref{};
-    p_flags = (p_flags & ts.pstate->identflags) | ts.pstate->identflags;
-}
-
-bcode_ref const &alias_impl::compile_code(thread_state &ts) {
-    if (!p_astack->code) {
-        codegen_state gs(ts);
-        gs.code.reserve(64);
-        gs.gen_main(p_astack->val_s.get_str());
-        /* i wish i could steal the memory somehow */
-        uint32_t *code = bcode_alloc(ts.istate, gs.code.size());
-        memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
-        p_astack->code = bcode_ref{reinterpret_cast<bcode *>(code + 1)};
-    }
-    return p_astack->code;
-}
-
 command_impl::command_impl(
     string_ref name, string_ref args, int nargs, command_func f
 ):
@@ -188,6 +138,25 @@ bool ident_is_used_arg(ident *id, thread_state &ts) {
         return true;
     }
     return ts.callstack->usedargs[id->get_index()];
+}
+
+void alias_stack::set_arg(alias *a, thread_state &ts, any_value &v) {
+    if (ident_is_used_arg(a, ts)) {
+        node->code = bcode_ref{};
+    } else {
+        auto &st = ts.idstack.emplace_back(*ts.pstate);
+        st.next = node;
+        node = &st;
+        ts.callstack->usedargs[a->get_index()] = true;
+    }
+    node->val_s = std::move(v);
+}
+
+void alias_stack::set_alias(alias *a, thread_state &ts, any_value &v) {
+    node->val_s = std::move(v);
+    node->code = bcode_ref{};
+    auto *ai = static_cast<alias_impl *>(a);
+    ai->p_flags = (ai->p_flags & ts.pstate->identflags) | ts.pstate->identflags;
 }
 
 /* public interface */
@@ -390,23 +359,28 @@ LIBCUBESCRIPT_EXPORT alias_local::alias_local(state &cs, ident *a) {
         p_alias = nullptr;
         return;
     }
-    auto *aimp = static_cast<alias_impl *>(p_alias);
-    p_alias = aimp;
-    aimp->push_arg(
-        cs.thread_pointer()->idstack.emplace_back(cs)
-    );
-    aimp->p_flags &= ~IDENT_FLAG_UNKNOWN;
+    auto &ts = *cs.thread_pointer();
+    p_alias = static_cast<alias *>(a);
+    auto &ast = ts.get_astack(p_alias);
+    auto &st = ts.idstack.emplace_back(cs);
+    st.next = ast.node;
+    ast.node = &st;
+    p_sp = &ast;
+    static_cast<alias_impl *>(p_alias)->p_flags &= ~IDENT_FLAG_UNKNOWN;
 }
 
 LIBCUBESCRIPT_EXPORT alias_local::~alias_local() {
-    static_cast<alias_impl *>(p_alias)->pop_arg();
+    if (p_alias) {
+        auto &st = *static_cast<alias_stack *>(p_sp);
+        st.node = st.node->next;
+    }
 }
 
 LIBCUBESCRIPT_EXPORT bool alias_local::set(any_value val) {
     if (!p_alias) {
         return false;
     }
-    static_cast<alias_impl *>(p_alias)->p_astack->val_s = std::move(val);
+    static_cast<alias_stack *>(p_sp)->node->val_s = std::move(val);
     return true;
 }
 

@@ -640,6 +640,7 @@ struct LIBCUBESCRIPT_EXPORT alias_local {
 
 private:
     alias *p_alias;
+    void *p_sp;
 };
 
 struct LIBCUBESCRIPT_EXPORT list_parser {

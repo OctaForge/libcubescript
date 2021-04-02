@@ -9,17 +9,21 @@
 
 namespace cubescript {
 
-static inline void push_alias(ident *id, ident_stack &st) {
+static inline void push_alias(thread_state &ts, ident *id, ident_stack &st) {
     if (id->is_alias() && !(id->get_flags() & IDENT_FLAG_ARG)) {
         auto *aimp = static_cast<alias_impl *>(id);
-        aimp->push_arg(st);
+        auto &ast = ts.get_astack(aimp);
+        st.next = ast.node;
+        ast.node = &st;
         aimp->p_flags &= ~IDENT_FLAG_UNKNOWN;
     }
 }
 
-static inline void pop_alias(ident *id) {
+static inline void pop_alias(thread_state &ts, ident *id) {
     if (id->is_alias() && !(id->get_flags() & IDENT_FLAG_ARG)) {
-        static_cast<alias_impl *>(id)->pop_arg();
+        auto *aimp = static_cast<alias_impl *>(id);
+        auto &ast = ts.get_astack(aimp);
+        ast.node = ast.node->next;
     }
 }
 
@@ -199,11 +203,15 @@ void exec_command(
     );
 }
 
-void exec_alias(
+bool exec_alias(
     thread_state &ts, alias *a, any_value *args, any_value &result,
     std::size_t callargs, std::size_t &nargs,
-    std::size_t offset, std::size_t skip, std::uint32_t op
+    std::size_t offset, std::size_t skip, std::uint32_t op, bool ncheck
 ) {
+    auto &aast = ts.get_astack(a);
+    if (ncheck && aast.node->val_s.get_type() == value_type::NONE) {
+        return false;
+    }
     /* excess arguments get ignored (make error maybe?) */
     callargs = std::min(callargs, MAX_ARGUMENTS);
     integer_var *anargs = static_cast<integer_var *>(
@@ -212,9 +220,13 @@ void exec_alias(
     argset uargs{};
     std::size_t noff = ts.idstack.size();
     for(std::size_t i = 0; i < callargs; i++) {
-        auto &ap = *static_cast<alias_impl *>(ts.istate->identmap[i]);
-        ap.push_arg(ts.idstack.emplace_back(*ts.pstate));
-        ap.p_astack->val_s = std::move(args[offset + i]);
+        auto &ast = ts.get_astack(
+            static_cast<alias *>(ts.istate->identmap[i])
+        );
+        auto &st = ts.idstack.emplace_back(*ts.pstate);
+        st.next = ast.node;
+        ast.node = &st;
+        st.val_s = std::move(args[offset + i]);
         uargs[i] = true;
     }
     auto oldargs = anargs->get_value();
@@ -223,22 +235,33 @@ void exec_alias(
     ts.pstate->identflags |= a->get_flags()&IDENT_FLAG_OVERRIDDEN;
     ident_link aliaslink = {a, ts.callstack, uargs};
     ts.callstack = &aliaslink;
-    bcode_ref coderef = static_cast<
-        alias_impl *
-    >(a)->compile_code(ts);
+    if (!aast.node->code) {
+        codegen_state gs{ts};
+        gs.code.reserve(64);
+        gs.gen_main(aast.node->val_s.get_str());
+        /* i wish i could steal the memory somehow */
+        uint32_t *code = bcode_alloc(ts.istate, gs.code.size());
+        memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
+        aast.node->code = bcode_ref{reinterpret_cast<bcode *>(code + 1)};
+    }
+    bcode_ref coderef = aast.node->code;
     auto cleanup = [&]() {
         ts.callstack = aliaslink.next;
         ts.pstate->identflags = oldflags;
         auto amask = aliaslink.usedargs;
         for (std::size_t i = 0; i < callargs; i++) {
-            static_cast<alias_impl *>(ts.istate->identmap[i])->pop_arg();
+            auto &ast = ts.get_astack(
+                static_cast<alias *>(ts.istate->identmap[i])
+            );
+            ast.node = ast.node->next;
             amask[i] = false;
         }
         for (; amask.any(); ++callargs) {
             if (amask[callargs]) {
-                static_cast<alias_impl *>(
-                    ts.istate->identmap[callargs]
-                )->pop_arg();
+                auto &ast = ts.get_astack(
+                    static_cast<alias *>(ts.istate->identmap[callargs])
+                );
+                ast.node = ast.node->next;
                 amask[callargs] = false;
             }
         }
@@ -255,6 +278,7 @@ void exec_alias(
         throw;
     }
     cleanup();
+    return true;
 }
 
 static constexpr int MaxRunDepth = 255;
@@ -523,13 +547,13 @@ std::uint32_t *vm_exec(
                 std::size_t idstsz = ts.idstack.size();
                 for (std::size_t i = 0; i < numlocals; ++i) {
                     push_alias(
-                        args[offset + i].get_ident(),
+                        ts, args[offset + i].get_ident(),
                         ts.idstack.emplace_back(*ts.pstate)
                     );
                 }
                 auto cleanup = [&]() {
                     for (std::size_t i = offset; i < args.size(); ++i) {
-                        pop_alias(args[i].get_ident());
+                        pop_alias(ts, args[i].get_ident());
                     }
                     ts.idstack.resize(idstsz, ident_stack{*ts.pstate});
                 };
@@ -739,9 +763,10 @@ std::uint32_t *vm_exec(
                     (a->get_flags() & IDENT_FLAG_ARG) &&
                     !ident_is_used_arg(a, ts)
                 ) {
-                    static_cast<alias_impl *>(a)->push_arg(
-                        ts.idstack.emplace_back(*ts.pstate)
-                    );
+                    auto &ast = ts.get_astack(a);
+                    auto &st = ts.idstack.emplace_back(*ts.pstate);
+                    st.next = ast.node;
+                    ast.node = &st;
                     ts.callstack->usedargs[a->get_index()] = true;
                 }
                 args.emplace_back(cs).set_ident(a);
@@ -757,9 +782,11 @@ std::uint32_t *vm_exec(
                     (id->get_flags() & IDENT_FLAG_ARG) &&
                     !ident_is_used_arg(id, ts)
                 ) {
-                    static_cast<alias_impl *>(id)->push_arg(
-                        ts.idstack.emplace_back(*ts.pstate)
-                    );
+                    auto *a = static_cast<alias *>(id);
+                    auto &ast = ts.get_astack(a);
+                    auto &st = ts.idstack.emplace_back(*ts.pstate);
+                    st.next = ast.node;
+                    ast.node = &st;
                     ts.callstack->usedargs[id->get_index()] = true;
                 }
                 arg.set_ident(id);
@@ -771,7 +798,9 @@ std::uint32_t *vm_exec(
                 any_value &arg = args.back();
                 switch (get_lookupu_type(ts, arg, id, op)) {
                     case ID_ALIAS:
-                        arg = static_cast<alias_impl *>(id)->p_astack->val_s;
+                        arg = ts.get_astack(
+                            static_cast<alias *>(id)
+                        ).node->val_s;
                         arg.force_str();
                         continue;
                     case ID_SVAR:
@@ -799,7 +828,7 @@ std::uint32_t *vm_exec(
                     args.emplace_back(cs).set_str("");
                 } else {
                     auto &v = args.emplace_back(cs);
-                    v = static_cast<alias_impl *>(a)->p_astack->val_s;
+                    v = ts.get_astack(a).node->val_s;
                     v.force_str();
                 }
                 continue;
@@ -810,9 +839,9 @@ std::uint32_t *vm_exec(
                 any_value &arg = args.back();
                 switch (get_lookupu_type(ts, arg, id, op)) {
                     case ID_ALIAS:
-                        arg.set_int(static_cast<alias_impl *>(
+                        arg.set_int(ts.get_astack(static_cast<alias *>(
                             id
-                        )->p_astack->val_s.get_int());
+                        )).node->val_s.get_int());
                         continue;
                     case ID_SVAR:
                         arg.set_int(parse_int(
@@ -840,7 +869,7 @@ std::uint32_t *vm_exec(
                     args.emplace_back(cs).set_int(0);
                 } else {
                     args.emplace_back(cs).set_int(
-                        static_cast<alias_impl *>(a)->p_astack->val_s.get_int()
+                        ts.get_astack(a).node->val_s.get_int()
                     );
                 }
                 continue;
@@ -850,9 +879,9 @@ std::uint32_t *vm_exec(
                 any_value &arg = args.back();
                 switch (get_lookupu_type(ts, arg, id, op)) {
                     case ID_ALIAS:
-                        arg.set_float(static_cast<alias_impl *>(
+                        arg.set_float(ts.get_astack(static_cast<alias *>(
                             id
-                        )->p_astack->val_s.get_float());
+                        )).node->val_s.get_float());
                         continue;
                     case ID_SVAR:
                         arg.set_float(parse_float(
@@ -881,9 +910,9 @@ std::uint32_t *vm_exec(
                 if (!a) {
                     args.emplace_back(cs).set_float(float_type(0));
                 } else {
-                    args.emplace_back(cs).set_float(static_cast<alias_impl *>(
-                        a
-                    )->p_astack->val_s.get_float());
+                    args.emplace_back(cs).set_float(
+                        ts.get_astack(a).node->val_s.get_float()
+                    );
                 }
                 continue;
             }
@@ -892,9 +921,9 @@ std::uint32_t *vm_exec(
                 any_value &arg = args.back();
                 switch (get_lookupu_type(ts, arg, id, op)) {
                     case ID_ALIAS:
-                        static_cast<alias_impl *>(
-                            id
-                        )->p_astack->val_s.get_val(arg);
+                        ts.get_astack(
+                            static_cast<alias *>(id)
+                        ).node->val_s.get_val(arg);
                         continue;
                     case ID_SVAR:
                         arg.set_str(static_cast<string_var *>(id)->get_value());
@@ -919,7 +948,7 @@ std::uint32_t *vm_exec(
                 if (!a) {
                     args.emplace_back(cs).set_none();
                 } else {
-                    static_cast<alias_impl *>(a)->p_astack->val_s.get_val(
+                    ts.get_astack(a).node->val_s.get_val(
                         args.emplace_back(cs)
                     );
                 }
@@ -1055,13 +1084,14 @@ std::uint32_t *vm_exec(
             }
 
             case BC_INST_ALIAS: {
-                auto *imp = static_cast<alias_impl *>(
+                auto *a = static_cast<alias *>(
                     ts.istate->identmap[op >> 8]
                 );
-                if (imp->get_flags() & IDENT_FLAG_ARG) {
-                    imp->set_arg(ts, args.back());
+                auto &ast = ts.get_astack(a);
+                if (a->get_flags() & IDENT_FLAG_ARG) {
+                    ast.set_arg(a, ts, args.back());
                 } else {
-                    imp->set_alias(ts, args.back());
+                    ast.set_alias(a, ts, args.back());
                 }
                 args.pop_back();
                 continue;
@@ -1154,13 +1184,13 @@ noid:
                         std::size_t idstsz = ts.idstack.size();
                         for (size_t j = 0; j < size_t(callargs); ++j) {
                             push_alias(
-                                args[offset + j].force_ident(cs),
+                                ts, args[offset + j].force_ident(cs),
                                 ts.idstack.emplace_back(*ts.pstate)
                             );
                         }
                         auto cleanup = [&]() {
                             for (size_t j = 0; j < size_t(callargs); ++j) {
-                                pop_alias(args[offset + j].get_ident());
+                                pop_alias(ts, args[offset + j].get_ident());
                             }
                             ts.idstack.resize(idstsz, ident_stack{*ts.pstate});
                         };
@@ -1219,15 +1249,12 @@ noid:
                             force_arg(result, op & BC_INST_RET_MASK);
                             continue;
                         }
-                        if (static_cast<alias_impl *>(
-                            a
-                        )->p_astack->val_s.get_type() == value_type::NONE) {
+                        if (!exec_alias(
+                            ts, a, &args[0], result, callargs, nnargs,
+                            offset, 1, op, true
+                        )) {
                             goto noid;
                         }
-                        exec_alias(
-                            ts, a, &args[0], result, callargs, nnargs,
-                            offset, 1, op
-                        );
                         args.resize(nnargs, any_value{cs});
                         continue;
                     }

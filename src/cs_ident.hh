@@ -23,6 +23,13 @@ struct ident_stack {
     ident_stack(state &cs): val_s{cs}, code{}, next{nullptr} {}
 };
 
+struct alias_stack {
+    ident_stack *node;
+
+    void set_arg(alias *a, thread_state &ts, any_value &v);
+    void set_alias(alias *a, thread_state &ts, any_value &v);
+};
+
 struct ident_link {
     ident *id;
     ident_link *next;
@@ -96,17 +103,8 @@ struct alias_impl: ident_impl, alias {
     alias_impl(state &cs, string_ref n, int flags);
     alias_impl(state &cs, string_ref n, any_value v, int flags);
 
-    void push_arg(ident_stack &st);
-    void pop_arg();
-    void undo_arg(ident_stack &st);
-    void redo_arg(ident_stack &st);
-    void set_arg(thread_state &ts, any_value &v);
-    void set_alias(thread_state &ts, any_value &v);
-
-    bcode_ref const &compile_code(thread_state &ts);
-
     ident_stack p_initial;
-    ident_stack *p_astack;
+    alias_stack p_astack;
 };
 
 struct command_impl: ident_impl, command {
