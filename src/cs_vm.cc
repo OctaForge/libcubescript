@@ -11,7 +11,9 @@ namespace cubescript {
 
 static inline void push_alias(ident *id, ident_stack &st) {
     if (id->is_alias() && !(id->get_flags() & IDENT_FLAG_ARG)) {
-        static_cast<alias_impl *>(id)->push_arg(st);
+        auto *aimp = static_cast<alias_impl *>(id);
+        aimp->push_arg(st);
+        aimp->p_flags &= ~IDENT_FLAG_UNKNOWN;
     }
 }
 
@@ -211,7 +213,7 @@ void exec_alias(
     std::size_t noff = ts.idstack.size();
     for(std::size_t i = 0; i < callargs; i++) {
         auto &ap = *static_cast<alias_impl *>(ts.istate->identmap[i]);
-        ap.push_arg(ts.idstack.emplace_back(*ts.pstate), false);
+        ap.push_arg(ts.idstack.emplace_back(*ts.pstate));
         ap.p_astack->val_s = std::move(args[offset + i]);
         uargs[i] = true;
     }
@@ -738,7 +740,7 @@ std::uint32_t *vm_exec(
                     !ident_is_used_arg(a, ts)
                 ) {
                     static_cast<alias_impl *>(a)->push_arg(
-                        ts.idstack.emplace_back(*ts.pstate), false
+                        ts.idstack.emplace_back(*ts.pstate)
                     );
                     ts.callstack->usedargs[a->get_index()] = true;
                 }
@@ -756,7 +758,7 @@ std::uint32_t *vm_exec(
                     !ident_is_used_arg(id, ts)
                 ) {
                     static_cast<alias_impl *>(id)->push_arg(
-                        ts.idstack.emplace_back(*ts.pstate), false
+                        ts.idstack.emplace_back(*ts.pstate)
                     );
                     ts.callstack->usedargs[id->get_index()] = true;
                 }

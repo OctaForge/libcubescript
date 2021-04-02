@@ -114,12 +114,9 @@ alias_impl::alias_impl(state &cs, string_ref name, any_value v, int fl):
     p_initial.val_s = v;
 }
 
-void alias_impl::push_arg(ident_stack &st, bool um) {
+void alias_impl::push_arg(ident_stack &st) {
     st.next = p_astack;
     p_astack = &st;
-    if (um) {
-        p_flags &= ~IDENT_FLAG_UNKNOWN;
-    }
 }
 
 void alias_impl::pop_arg() {
@@ -142,7 +139,7 @@ void alias_impl::set_arg(thread_state &ts, any_value &v) {
     if (ident_is_used_arg(this, ts)) {
         p_astack->code = bcode_ref{};
     } else {
-        push_arg(ts.idstack.emplace_back(*ts.pstate), false);
+        push_arg(ts.idstack.emplace_back(*ts.pstate));
         ts.callstack->usedargs[get_index()] = true;
     }
     p_astack->val_s = std::move(v);
@@ -389,14 +386,16 @@ LIBCUBESCRIPT_EXPORT int command::get_num_args() const {
 /* external API for alias stack management */
 
 LIBCUBESCRIPT_EXPORT alias_stack::alias_stack(state &cs, ident *a) {
-    if (!a || !a->is_alias()) {
+    if (!a || !a->is_alias() || (a->get_flags() & IDENT_FLAG_ARG)) {
         p_alias = nullptr;
         return;
     }
-    p_alias = static_cast<alias *>(a);
-    static_cast<alias_impl *>(p_alias)->push_arg(
+    auto *aimp = static_cast<alias_impl *>(p_alias);
+    p_alias = aimp;
+    aimp->push_arg(
         cs.thread_pointer()->idstack.emplace_back(cs)
     );
+    aimp->p_flags &= ~IDENT_FLAG_UNKNOWN;
 }
 
 LIBCUBESCRIPT_EXPORT alias_stack::~alias_stack() {

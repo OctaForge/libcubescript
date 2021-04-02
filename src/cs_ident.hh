@@ -96,7 +96,7 @@ struct alias_impl: ident_impl, alias {
     alias_impl(state &cs, string_ref n, int flags);
     alias_impl(state &cs, string_ref n, any_value v, int flags);
 
-    void push_arg(ident_stack &st, bool um = true);
+    void push_arg(ident_stack &st);
     void pop_arg();
     void undo_arg(ident_stack &st);
     void redo_arg(ident_stack &st);
