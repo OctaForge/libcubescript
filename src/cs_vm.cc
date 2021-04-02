@@ -12,18 +12,14 @@ namespace cubescript {
 static inline void push_alias(thread_state &ts, ident *id, ident_stack &st) {
     if (id->is_alias() && !(id->get_flags() & IDENT_FLAG_ARG)) {
         auto *aimp = static_cast<alias_impl *>(id);
-        auto &ast = ts.get_astack(aimp);
-        st.next = ast.node;
-        ast.node = &st;
+        ts.get_astack(aimp).push(st);
         aimp->p_flags &= ~IDENT_FLAG_UNKNOWN;
     }
 }
 
 static inline void pop_alias(thread_state &ts, ident *id) {
     if (id->is_alias() && !(id->get_flags() & IDENT_FLAG_ARG)) {
-        auto *aimp = static_cast<alias_impl *>(id);
-        auto &ast = ts.get_astack(aimp);
-        ast.node = ast.node->next;
+        ts.get_astack(static_cast<alias *>(id)).pop();
     }
 }
 
@@ -224,8 +220,7 @@ bool exec_alias(
             static_cast<alias *>(ts.istate->identmap[i])
         );
         auto &st = ts.idstack.emplace_back(*ts.pstate);
-        st.next = ast.node;
-        ast.node = &st;
+        ast.push(st);
         st.val_s = std::move(args[offset + i]);
         uargs[i] = true;
     }
@@ -250,18 +245,16 @@ bool exec_alias(
         ts.pstate->identflags = oldflags;
         auto amask = aliaslink.usedargs;
         for (std::size_t i = 0; i < callargs; i++) {
-            auto &ast = ts.get_astack(
+            ts.get_astack(
                 static_cast<alias *>(ts.istate->identmap[i])
-            );
-            ast.node = ast.node->next;
+            ).pop();
             amask[i] = false;
         }
         for (; amask.any(); ++callargs) {
             if (amask[callargs]) {
-                auto &ast = ts.get_astack(
+                ts.get_astack(
                     static_cast<alias *>(ts.istate->identmap[callargs])
-                );
-                ast.node = ast.node->next;
+                ).pop();
                 amask[callargs] = false;
             }
         }
@@ -763,10 +756,7 @@ std::uint32_t *vm_exec(
                     (a->get_flags() & IDENT_FLAG_ARG) &&
                     !ident_is_used_arg(a, ts)
                 ) {
-                    auto &ast = ts.get_astack(a);
-                    auto &st = ts.idstack.emplace_back(*ts.pstate);
-                    st.next = ast.node;
-                    ast.node = &st;
+                    ts.get_astack(a).push(ts.idstack.emplace_back(*ts.pstate));
                     ts.callstack->usedargs[a->get_index()] = true;
                 }
                 args.emplace_back(cs).set_ident(a);
@@ -783,10 +773,7 @@ std::uint32_t *vm_exec(
                     !ident_is_used_arg(id, ts)
                 ) {
                     auto *a = static_cast<alias *>(id);
-                    auto &ast = ts.get_astack(a);
-                    auto &st = ts.idstack.emplace_back(*ts.pstate);
-                    st.next = ast.node;
-                    ast.node = &st;
+                    ts.get_astack(a).push(ts.idstack.emplace_back(*ts.pstate));
                     ts.callstack->usedargs[id->get_index()] = true;
                 }
                 arg.set_ident(id);

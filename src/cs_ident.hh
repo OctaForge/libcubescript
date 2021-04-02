@@ -26,6 +26,9 @@ struct ident_stack {
 struct alias_stack {
     ident_stack *node;
 
+    void push(ident_stack &st);
+    void pop();
+
     void set_arg(alias *a, thread_state &ts, any_value &v);
     void set_alias(alias *a, thread_state &ts, any_value &v);
 };

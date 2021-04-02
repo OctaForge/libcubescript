@@ -134,13 +134,20 @@ bool ident_is_used_arg(ident *id, thread_state &ts) {
     return ts.callstack->usedargs[id->get_index()];
 }
 
+void alias_stack::push(ident_stack &st) {
+    st.next = node;
+    node = &st;
+}
+
+void alias_stack::pop() {
+    node = node->next;
+}
+
 void alias_stack::set_arg(alias *a, thread_state &ts, any_value &v) {
     if (ident_is_used_arg(a, ts)) {
         node->code = bcode_ref{};
     } else {
-        auto &st = ts.idstack.emplace_back(*ts.pstate);
-        st.next = node;
-        node = &st;
+        push(ts.idstack.emplace_back(*ts.pstate));
         ts.callstack->usedargs[a->get_index()] = true;
     }
     node->val_s = std::move(v);
@@ -356,17 +363,14 @@ LIBCUBESCRIPT_EXPORT alias_local::alias_local(state &cs, ident *a) {
     auto &ts = *cs.thread_pointer();
     p_alias = static_cast<alias *>(a);
     auto &ast = ts.get_astack(p_alias);
-    auto &st = ts.idstack.emplace_back(cs);
-    st.next = ast.node;
-    ast.node = &st;
+    ast.push(ts.idstack.emplace_back(cs));
     p_sp = &ast;
     static_cast<alias_impl *>(p_alias)->p_flags &= ~IDENT_FLAG_UNKNOWN;
 }
 
 LIBCUBESCRIPT_EXPORT alias_local::~alias_local() {
     if (p_alias) {
-        auto &st = *static_cast<alias_stack *>(p_sp);
-        st.node = st.node->next;
+        static_cast<alias_stack *>(p_sp)->pop();
     }
 }
 
