@@ -41,29 +41,18 @@
 
 namespace cubescript {
 
-static_assert(std::is_integral_v<integer_type>, "integer_type must be integral");
-static_assert(std::is_signed_v<integer_type>, "integer_type must be signed");
-static_assert(std::is_floating_point_v<float_type>, "float_type must be floating point");
-
 struct internal_error: std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
-using alloc_func = void *(*)(void *, void *, size_t, size_t);
+using alloc_func   = void *(*)(void *, void *, size_t, size_t);
 
-struct state;
-struct ident;
-struct any_value;
-struct global_var;
-
-using hook_func    = callable<void, state &>;
+using hook_func    = callable<void, struct state &>;
 using command_func = callable<
-    void, state &, std::span<any_value>, any_value &
+    void, struct state &, std::span<struct any_value>, struct any_value &
 >;
 
 struct internal_state;
-struct thread_state;
-struct ident_impl;
 
 struct LIBCUBESCRIPT_EXPORT bcode_ref {
     bcode_ref():
@@ -131,6 +120,8 @@ private:
 enum class value_type {
     NONE = 0, INT, FLOAT, STRING, CODE, IDENT
 };
+
+struct ident;
 
 struct LIBCUBESCRIPT_EXPORT any_value {
     any_value() = delete;
@@ -244,7 +235,7 @@ protected:
 
     friend struct state;
 
-    ident_impl *p_impl{};
+    struct ident_impl *p_impl{};
 };
 
 struct LIBCUBESCRIPT_EXPORT global_var: ident {
@@ -303,6 +294,8 @@ enum {
 enum class loop_state {
     NORMAL = 0, BREAK, CONTINUE
 };
+
+struct thread_state;
 
 struct LIBCUBESCRIPT_EXPORT state {
     state();
@@ -413,7 +406,7 @@ private:
 
     LIBCUBESCRIPT_LOCAL state(internal_state *s);
 
-    ident *add_ident(ident *id, ident_impl *impl);
+    ident *add_ident(ident *id, struct ident_impl *impl);
 
     void *alloc(void *ptr, size_t olds, size_t news);
 
