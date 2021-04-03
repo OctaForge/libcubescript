@@ -305,7 +305,7 @@ LIBCUBESCRIPT_EXPORT int command::get_num_args() const {
 /* external API for alias stack management */
 
 LIBCUBESCRIPT_EXPORT alias_local::alias_local(state &cs, ident *a) {
-    if (!a || !a->is_alias() || (a->get_flags() & IDENT_FLAG_ARG)) {
+    if (!a || !a->is_alias()) {
         p_alias = nullptr;
         return;
     }
