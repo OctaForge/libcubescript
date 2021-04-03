@@ -142,10 +142,6 @@ LIBCUBESCRIPT_EXPORT std::string_view ident::get_name() const {
     return p_impl->p_name;
 }
 
-LIBCUBESCRIPT_EXPORT int ident::get_flags() const {
-    return p_impl->p_flags;
-}
-
 LIBCUBESCRIPT_EXPORT int ident::get_index() const {
     return p_impl->p_index;
 }
@@ -270,6 +266,10 @@ LIBCUBESCRIPT_EXPORT string_var const *ident::get_svar() const {
     return static_cast<string_var const *>(this);
 }
 
+LIBCUBESCRIPT_EXPORT bool global_var::is_read_only() const {
+    return (p_impl->p_flags & IDENT_FLAG_READONLY);
+}
+
 LIBCUBESCRIPT_EXPORT integer_type integer_var::get_value() const {
     return static_cast<ivar_impl const *>(this)->p_storage;
 }
@@ -292,6 +292,10 @@ LIBCUBESCRIPT_EXPORT string_ref string_var::get_value() const {
 
 LIBCUBESCRIPT_EXPORT void string_var::set_value(string_ref val) {
     static_cast<svar_impl *>(this)->p_storage = val;
+}
+
+LIBCUBESCRIPT_EXPORT bool alias::is_arg() const {
+    return (static_cast<alias_impl const *>(this)->p_flags & IDENT_FLAG_ARG);
 }
 
 LIBCUBESCRIPT_EXPORT std::string_view command::get_args() const {

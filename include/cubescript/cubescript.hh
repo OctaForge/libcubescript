@@ -211,7 +211,6 @@ struct LIBCUBESCRIPT_EXPORT ident {
     int get_raw_type() const;
     ident_type get_type() const;
     std::string_view get_name() const;
-    int get_flags() const;
     int get_index() const;
 
     bool is_alias() const;
@@ -243,13 +242,14 @@ struct LIBCUBESCRIPT_EXPORT ident {
 protected:
     ident() = default;
 
-private:
     friend struct state;
 
     ident_impl *p_impl{};
 };
 
 struct LIBCUBESCRIPT_EXPORT global_var: ident {
+    bool is_read_only() const;
+
 protected:
     global_var() = default;
 };
@@ -279,6 +279,8 @@ protected:
 };
 
 struct LIBCUBESCRIPT_EXPORT alias: ident {
+    bool is_arg() const;
+
 protected:
     alias() = default;
 };

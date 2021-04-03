@@ -159,7 +159,7 @@ void init_lib_base(state &gcs) {
 
     gcs.new_command("pushif", "rte", [](auto &cs, auto args, auto &res) {
         if (alias_local st{cs, args[0].get_ident()}; st) {
-            if (st.get_alias()->get_flags() & IDENT_FLAG_ARG) {
+            if (st.get_alias()->is_arg()) {
                 return;
             }
             if (args[1].get_bool()) {
@@ -304,7 +304,7 @@ end:
 
     gcs.new_command("push", "rte", [](auto &cs, auto args, auto &res) {
         if (alias_local st{cs, args[0].get_ident()}; st) {
-            if (st.get_alias()->get_flags() & IDENT_FLAG_ARG) {
+            if (st.get_alias()->is_arg()) {
                 return;
             }
             st.set(args[1]);

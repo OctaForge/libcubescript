@@ -10,7 +10,7 @@
 namespace cubescript {
 
 static inline void push_alias(thread_state &ts, ident *id, ident_stack &st) {
-    if (id->is_alias() && !(id->get_flags() & IDENT_FLAG_ARG)) {
+    if (id->is_alias() && !static_cast<alias *>(id)->is_arg()) {
         auto *aimp = static_cast<alias_impl *>(id);
         ts.get_astack(aimp).push(st);
         aimp->p_flags &= ~IDENT_FLAG_UNKNOWN;
@@ -18,7 +18,7 @@ static inline void push_alias(thread_state &ts, ident *id, ident_stack &st) {
 }
 
 static inline void pop_alias(thread_state &ts, ident *id) {
-    if (id->is_alias() && !(id->get_flags() & IDENT_FLAG_ARG)) {
+    if (id->is_alias() && !static_cast<alias *>(id)->is_arg()) {
         ts.get_astack(static_cast<alias *>(id)).pop();
     }
 }
@@ -285,13 +285,13 @@ run_depth_guard::~run_depth_guard() { --rundepth; }
 
 static inline alias *get_lookup_id(thread_state &ts, std::uint32_t op) {
     ident *id = ts.istate->identmap[op >> 8];
+    auto *a = static_cast<alias_impl *>(id);
 
-    auto flags = id->get_flags();
-    if (flags & IDENT_FLAG_ARG) {
+    if (a->is_arg()) {
         if (!ident_is_used_arg(id, ts)) {
             return nullptr;
         }
-    } else if (flags & IDENT_FLAG_UNKNOWN) {
+    } else if (a->p_flags & IDENT_FLAG_UNKNOWN) {
         throw error{
             *ts.pstate, "unknown alias lookup: %s", id->get_name().data()
         };
@@ -308,17 +308,16 @@ static inline int get_lookupu_type(
     id = ts.pstate->get_ident(arg.get_str());
     if (id) {
         switch(id->get_type()) {
-            case ident_type::ALIAS:
-                if (id->get_flags() & IDENT_FLAG_UNKNOWN) {
+            case ident_type::ALIAS: {
+                auto *a = static_cast<alias_impl *>(id);
+                if (a->p_flags & IDENT_FLAG_UNKNOWN) {
                     break;
                 }
-                if (
-                    (id->get_flags() & IDENT_FLAG_ARG) &&
-                    !ident_is_used_arg(id, ts)
-                ) {
+                if (a->is_arg() && !ident_is_used_arg(id, ts)) {
                     return ID_UNKNOWN;
                 }
                 return ID_ALIAS;
+            }
             case ident_type::SVAR:
                 return ID_SVAR;
             case ident_type::IVAR:
@@ -745,10 +744,7 @@ std::uint32_t *vm_exec(
                 alias *a = static_cast<alias *>(
                     ts.istate->identmap[op >> 8]
                 );
-                if (
-                    (a->get_flags() & IDENT_FLAG_ARG) &&
-                    !ident_is_used_arg(a, ts)
-                ) {
+                if (a->is_arg() && !ident_is_used_arg(a, ts)) {
                     ts.get_astack(a).push(ts.idstack.emplace_back(*ts.pstate));
                     ts.callstack->usedargs[a->get_index()] = true;
                 }
@@ -761,11 +757,8 @@ std::uint32_t *vm_exec(
                 if (arg.get_type() == value_type::STRING) {
                     id = cs.new_ident(arg.get_str(), IDENT_FLAG_UNKNOWN);
                 }
-                if (
-                    (id->get_flags() & IDENT_FLAG_ARG) &&
-                    !ident_is_used_arg(id, ts)
-                ) {
-                    auto *a = static_cast<alias *>(id);
+                alias *a = static_cast<alias *>(id);
+                if (a->is_arg() && !ident_is_used_arg(id, ts)) {
                     ts.get_astack(a).push(ts.idstack.emplace_back(*ts.pstate));
                     ts.callstack->usedargs[id->get_index()] = true;
                 }
@@ -1022,7 +1015,7 @@ std::uint32_t *vm_exec(
                     ts.istate->identmap[op >> 8]
                 );
                 auto &ast = ts.get_astack(a);
-                if (a->get_flags() & IDENT_FLAG_ARG) {
+                if (a->is_arg()) {
                     ast.set_arg(a, ts, args.back());
                 } else {
                     ast.set_alias(a, ts, args.back());
@@ -1047,21 +1040,21 @@ std::uint32_t *vm_exec(
                 std::size_t callargs = *code++;
                 std::size_t nnargs = args.size();
                 std::size_t offset = nnargs - callargs;
-                auto flags = id->get_flags();
-                if (flags & IDENT_FLAG_ARG) {
+                auto *imp = static_cast<alias_impl *>(id);
+                if (imp->is_arg()) {
                     if (!ident_is_used_arg(id, ts)) {
                         args.resize(offset, any_value{cs});
                         force_arg(result, op & BC_INST_RET_MASK);
                         continue;
                     }
-                } else if (flags & IDENT_FLAG_UNKNOWN) {
+                } else if (imp->p_flags & IDENT_FLAG_UNKNOWN) {
                     force_arg(result, op & BC_INST_RET_MASK);
                     throw error{
                         cs, "unknown command: %s", id->get_name().data()
                     };
                 }
                 exec_alias(
-                    ts, static_cast<alias *>(id), &args[0], result, callargs,
+                    ts, imp, &args[0], result, callargs,
                     nnargs, offset, 0, op
                 );
                 args.resize(nnargs, any_value{cs});
@@ -1197,10 +1190,7 @@ noid:
                     }
                     case ID_ALIAS: {
                         alias *a = static_cast<alias *>(id);
-                        if (
-                            (a->get_flags() & IDENT_FLAG_ARG) &&
-                            !ident_is_used_arg(a, ts)
-                        ) {
+                        if (a->is_arg() && !ident_is_used_arg(a, ts)) {
                             args.resize(offset - 1, any_value{cs});
                             force_arg(result, op & BC_INST_RET_MASK);
                             continue;
