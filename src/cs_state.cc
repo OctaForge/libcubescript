@@ -19,8 +19,11 @@ internal_state::internal_state(alloc_func af, void *data):
 {}
 
 internal_state::~internal_state() {
-     bcode_free_empty(this, empty);
-     destroy(strman);
+    for (auto &p: idents) {
+        destroy(p.second->p_impl);
+    }
+    bcode_free_empty(this, empty);
+    destroy(strman);
 }
 
 void *internal_state::alloc(void *ptr, size_t os, size_t ns) {
@@ -37,6 +40,41 @@ static void *default_alloc(void *, void *p, size_t, size_t ns) {
         return nullptr;
     }
     return std::realloc(p, ns);
+}
+
+ident *internal_state::add_ident(ident *id, ident_impl *impl) {
+    if (!id) {
+        return nullptr;
+    }
+    id->p_impl = impl;
+    idents[id->get_name()] = id;
+    impl->p_index = int(identmap.size());
+    identmap.push_back(id);
+    return identmap.back();
+}
+
+ident *internal_state::new_ident(state &cs, std::string_view name, int flags) {
+    ident *id = get_ident(name);
+    if (!id) {
+        if (!is_valid_name(name)) {
+            throw error{
+                cs, "number %s is not a valid identifier name", name.data()
+            };
+        }
+        auto *inst = create<alias_impl>(
+            cs, string_ref{this, name}, flags
+        );
+        id = add_ident(inst, inst);
+    }
+    return id;
+}
+
+ident *internal_state::get_ident(std::string_view name) const {
+    auto id = idents.find(name);
+    if (id == idents.end()) {
+        return nullptr;
+    }
+    return id->second;
 }
 
 void init_lib_base(state &cs);
@@ -75,10 +113,12 @@ state::state(alloc_func func, void *data) {
     for (std::size_t i = 0; i < MAX_ARGUMENTS; ++i) {
         char buf[16];
         snprintf(buf, sizeof(buf), "arg%zu", i + 1);
-        new_ident(static_cast<char const *>(buf), IDENT_FLAG_ARG);
+        statep->new_ident(
+            *this, static_cast<char const *>(buf), IDENT_FLAG_ARG
+        );
     }
 
-    ident *id = new_ident("//dummy", IDENT_FLAG_UNKNOWN);
+    ident *id = statep->new_ident(*this, "//dummy", IDENT_FLAG_UNKNOWN);
     if (id->get_index() != ID_IDX_DUMMY) {
         throw internal_error{"invalid dummy index"};
     }
@@ -191,9 +231,6 @@ LIBCUBESCRIPT_EXPORT void state::destroy() {
         return;
     }
     auto *sp = p_tstate->istate;
-    for (auto &p: sp->idents) {
-        sp->destroy(p.second->p_impl);
-    }
     sp->destroy(p_tstate);
     sp->destroy(sp);
 }
@@ -223,45 +260,8 @@ LIBCUBESCRIPT_EXPORT void *state::alloc(void *ptr, size_t os, size_t ns) {
     return p_tstate->istate->alloc(ptr, os, ns);
 }
 
-LIBCUBESCRIPT_EXPORT ident *state::add_ident(
-    ident *id, ident_impl *impl
-) {
-    if (!id) {
-        return nullptr;
-    }
-    id->p_impl = impl;
-    p_tstate->istate->idents[id->get_name()] = id;
-    static_cast<ident_impl *>(impl)->p_index = int(
-        p_tstate->istate->identmap.size()
-    );
-    p_tstate->istate->identmap.push_back(id);
-    return p_tstate->istate->identmap.back();
-}
-
-LIBCUBESCRIPT_EXPORT ident *state::new_ident(
-    std::string_view name, int flags
-) {
-    ident *id = get_ident(name);
-    if (!id) {
-        if (!is_valid_name(name)) {
-            throw error{
-                *this, "number %s is not a valid identifier name", name.data()
-            };
-        }
-        auto *inst = p_tstate->istate->create<alias_impl>(
-            *this, string_ref{p_tstate->istate, name}, flags
-        );
-        id = add_ident(inst, inst);
-    }
-    return id;
-}
-
 LIBCUBESCRIPT_EXPORT ident *state::get_ident(std::string_view name) {
-    auto id = p_tstate->istate->idents.find(name);
-    if (id != p_tstate->istate->idents.end()) {
-        return id->second;
-    }
-    return nullptr;
+    return p_tstate->istate->get_ident(name);
 }
 
 LIBCUBESCRIPT_EXPORT alias *state::get_alias(std::string_view name) {
@@ -295,7 +295,7 @@ LIBCUBESCRIPT_EXPORT integer_var *state::new_ivar(
         string_ref{p_tstate->istate, n}, v,
         read_only ? IDENT_FLAG_READONLY : 0
     );
-    add_ident(iv, iv);
+    p_tstate->istate->add_ident(iv, iv);
     return iv;
 }
 
@@ -306,7 +306,7 @@ LIBCUBESCRIPT_EXPORT float_var *state::new_fvar(
         string_ref{p_tstate->istate, n}, v,
         read_only ? IDENT_FLAG_READONLY : 0
     );
-    add_ident(fv, fv);
+    p_tstate->istate->add_ident(fv, fv);
     return fv;
 }
 
@@ -317,7 +317,7 @@ LIBCUBESCRIPT_EXPORT string_var *state::new_svar(
         string_ref{p_tstate->istate, n}, string_ref{p_tstate->istate, v},
         read_only ? IDENT_FLAG_READONLY : 0
     );
-    add_ident(sv, sv);
+    p_tstate->istate->add_ident(sv, sv);
     return sv;
 }
 
@@ -356,7 +356,7 @@ LIBCUBESCRIPT_EXPORT void state::set_alias(
         auto *a = p_tstate->istate->create<alias_impl>(
             *this, string_ref{p_tstate->istate, name}, std::move(v), 0
         );
-        add_ident(a, a);
+        p_tstate->istate->add_ident(a, a);
     }
 }
 
@@ -411,7 +411,7 @@ LIBCUBESCRIPT_EXPORT command *state::new_command(
         string_ref{p_tstate->istate, args},
         nargs, std::move(func)
     );
-    add_ident(cmd, cmd);
+    p_tstate->istate->add_ident(cmd, cmd);
     return cmd;
 }
 

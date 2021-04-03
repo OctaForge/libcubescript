@@ -755,7 +755,9 @@ std::uint32_t *vm_exec(
                 any_value &arg = args.back();
                 ident *id = ts.istate->identmap[ID_IDX_DUMMY];
                 if (arg.get_type() == value_type::STRING) {
-                    id = cs.new_ident(arg.get_str(), IDENT_FLAG_UNKNOWN);
+                    id = ts.istate->new_ident(
+                        cs, arg.get_str(), IDENT_FLAG_UNKNOWN
+                    );
                 }
                 alias *a = static_cast<alias *>(id);
                 if (a->is_arg() && !ident_is_used_arg(id, ts)) {

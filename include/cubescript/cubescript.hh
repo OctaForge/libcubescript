@@ -233,7 +233,7 @@ struct LIBCUBESCRIPT_EXPORT ident {
 protected:
     ident() = default;
 
-    friend struct state;
+    friend struct internal_state;
 
     struct ident_impl *p_impl{};
 };
@@ -343,8 +343,6 @@ struct LIBCUBESCRIPT_EXPORT state {
         std::string_view n, std::string_view v, bool read_only = false
     );
 
-    ident *new_ident(std::string_view name, int flags);
-
     template<typename F>
     command *new_command(
         std::string_view name, std::string_view args, F &&f
@@ -381,8 +379,6 @@ struct LIBCUBESCRIPT_EXPORT state {
 
     std::optional<string_ref> get_alias_val(std::string_view name);
 
-    void print_var(global_var const &v) const;
-
     thread_state *thread_pointer() {
         return p_tstate;
     }
@@ -405,8 +401,6 @@ private:
     }
 
     LIBCUBESCRIPT_LOCAL state(internal_state *s);
-
-    ident *add_ident(ident *id, struct ident_impl *impl);
 
     void *alloc(void *ptr, size_t olds, size_t news);
 

@@ -7,6 +7,7 @@
 #include <string>
 
 #include "cs_bcode.hh"
+#include "cs_ident.hh"
 
 namespace cubescript {
 
@@ -56,6 +57,10 @@ struct internal_state {
     internal_state(alloc_func af, void *data);
 
     ~internal_state();
+
+    ident *add_ident(ident *id, ident_impl *impl);
+    ident *new_ident(state &cs, std::string_view name, int flags);
+    ident *get_ident(std::string_view name) const;
 
     void *alloc(void *ptr, size_t os, size_t ns);
 

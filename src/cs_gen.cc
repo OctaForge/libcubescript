@@ -238,8 +238,8 @@ static void compilelookup(codegen_state &gs, int ltype) {
             if (lookup.empty()) goto invalid;
             lookup.push_back('\0');
 lookupid:
-            ident *id = gs.ts.pstate->new_ident(
-                lookup.str_term(), IDENT_FLAG_UNKNOWN
+            ident *id = gs.ts.istate->new_ident(
+                *gs.ts.pstate, lookup.str_term(), IDENT_FLAG_UNKNOWN
             );
             if (id) {
                 switch (id->get_type()) {
@@ -512,8 +512,8 @@ static bool compileblocksub(codegen_state &gs) {
             }
             lookup.push_back('\0');
 lookupid:
-            ident *id = gs.ts.pstate->new_ident(
-                lookup.str_term(), IDENT_FLAG_UNKNOWN
+            ident *id = gs.ts.istate->new_ident(
+                *gs.ts.pstate, lookup.str_term(), IDENT_FLAG_UNKNOWN
             );
             if (id) {
                 switch (id->get_type()) {
@@ -1189,8 +1189,8 @@ static void compilestatements(codegen_state &gs, int rettype, int brak) {
                     gs.next_char();
                     if (!idname.empty()) {
                         idname.push_back('\0');
-                        ident *id = gs.ts.pstate->new_ident(
-                            idname.str_term(), IDENT_FLAG_UNKNOWN
+                        ident *id = gs.ts.istate->new_ident(
+                            *gs.ts.pstate, idname.str_term(), IDENT_FLAG_UNKNOWN
                         );
                         if (id) {
                             switch (id->get_type()) {
