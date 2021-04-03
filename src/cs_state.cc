@@ -14,7 +14,6 @@ internal_state::internal_state(alloc_func af, void *data):
     allocf{af}, aptr{data},
     idents{allocator_type{this}},
     identmap{allocator_type{this}},
-    varprintf{},
     strman{create<string_pool>(this)},
     empty{bcode_init_empty(this)}
 {}
@@ -220,24 +219,6 @@ LIBCUBESCRIPT_EXPORT hook_func &state::get_call_hook() {
     return p_tstate->get_hook();
 }
 
-LIBCUBESCRIPT_EXPORT var_print_func state::set_var_printer(
-    var_print_func func
-) {
-    auto fn = std::move(p_tstate->istate->varprintf);
-    p_tstate->istate->varprintf = std::move(func);
-    return fn;
-}
-
-LIBCUBESCRIPT_EXPORT var_print_func const &state::get_var_printer() const {
-    return p_tstate->istate->varprintf;
-}
-
-LIBCUBESCRIPT_EXPORT void state::print_var(global_var const &v) const {
-    if (p_tstate->istate->varprintf) {
-        p_tstate->istate->varprintf(*this, v);
-    }
-}
-
 LIBCUBESCRIPT_EXPORT void *state::alloc(void *ptr, size_t os, size_t ns) {
     return p_tstate->istate->alloc(ptr, os, ns);
 }
@@ -340,17 +321,6 @@ LIBCUBESCRIPT_EXPORT string_var *state::new_svar(
     return sv;
 }
 
-LIBCUBESCRIPT_EXPORT void state::reset_var(std::string_view name) {
-    ident *id = get_ident(name);
-    if (!id) {
-        throw error{*this, "variable %s does not exist", name.data()};
-    }
-    if (id->get_flags() & IDENT_FLAG_READONLY) {
-        throw error{*this, "variable %s is read only", name.data()};
-    }
-    clear_override(*id);
-}
-
 LIBCUBESCRIPT_EXPORT void state::touch_var(std::string_view name) {
     ident *id = get_ident(name);
     if (id && id->is_var()) {
@@ -375,14 +345,12 @@ LIBCUBESCRIPT_EXPORT void state::set_alias(
                 return;
             }
             case ident_type::IVAR:
-                set_var_int_checked(static_cast<integer_var *>(id), v.get_int());
-                break;
             case ident_type::FVAR:
-                set_var_float_checked(static_cast<float_var *>(id), v.get_float());
+            case ident_type::SVAR: {
+                any_value ret{*this};
+                run(id, std::span<any_value>{&v, 1}, ret);
                 break;
-            case ident_type::SVAR:
-                set_var_str_checked(static_cast<string_var *>(id), v.get_str());
-                break;
+            }
             default:
                 throw error{
                     *this, "cannot redefine builtin %s with an alias",
@@ -454,194 +422,6 @@ LIBCUBESCRIPT_EXPORT command *state::new_command(
     return cmd;
 }
 
-LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
-    if (!(id.get_flags() & IDENT_FLAG_OVERRIDDEN)) {
-        return;
-    }
-    switch (id.get_type()) {
-        case ident_type::ALIAS: {
-            auto &ast = p_tstate->get_astack(static_cast<alias *>(&id));
-            ast.node->val_s.set_str("");
-            ast.node->code = bcode_ref{};
-            break;
-        }
-        case ident_type::IVAR: {
-            ivar_impl &iv = static_cast<ivar_impl &>(id);
-            iv.set_value(iv.p_overrideval);
-            iv.changed(*this);
-            break;
-        }
-        case ident_type::FVAR: {
-            fvar_impl &fv = static_cast<fvar_impl &>(id);
-            fv.set_value(fv.p_overrideval);
-            fv.changed(*this);
-            break;
-        }
-        case ident_type::SVAR: {
-            svar_impl &sv = static_cast<svar_impl &>(id);
-            sv.set_value(sv.p_overrideval);
-            sv.changed(*this);
-            break;
-        }
-        default:
-            break;
-    }
-    id.p_impl->p_flags &= ~IDENT_FLAG_OVERRIDDEN;
-}
-
-LIBCUBESCRIPT_EXPORT void state::clear_overrides() {
-    for (auto &p: p_tstate->istate->idents) {
-        clear_override(*(p.second));
-    }
-}
-
-template<typename SF>
-inline void override_var(state &cs, global_var *v, int &vflags, SF sf) {
-    if ((cs.identflags & IDENT_FLAG_OVERRIDDEN) || (vflags & IDENT_FLAG_OVERRIDE)) {
-        if (vflags & IDENT_FLAG_PERSIST) {
-            throw error{
-                cs, "cannot override persistent variable '%s'",
-                v->get_name().data()
-            };
-        }
-        if (!(vflags & IDENT_FLAG_OVERRIDDEN)) {
-            sf();
-            vflags |= IDENT_FLAG_OVERRIDDEN;
-        }
-    } else {
-        if (vflags & IDENT_FLAG_OVERRIDDEN) {
-            vflags &= ~IDENT_FLAG_OVERRIDDEN;
-        }
-    }
-}
-
-LIBCUBESCRIPT_EXPORT void state::set_var_int(
-    std::string_view name, integer_type v, bool dofunc, bool doclamp
-) {
-    ident *id = get_ident(name);
-    if (!id || id->is_ivar()) {
-        return;
-    }
-    ivar_impl *iv = static_cast<ivar_impl *>(id);
-    override_var(
-        *this, iv, iv->p_flags,
-        [&iv]() { iv->p_overrideval = iv->get_value(); }
-    );
-    if (doclamp) {
-        iv->set_value(std::clamp(v, iv->get_val_min(), iv->get_val_max()));
-    } else {
-        iv->set_value(v);
-    }
-    if (dofunc) {
-        iv->changed(*this);
-    }
-}
-
-LIBCUBESCRIPT_EXPORT void state::set_var_float(
-    std::string_view name, float_type v, bool dofunc, bool doclamp
-) {
-    ident *id = get_ident(name);
-    if (!id || id->is_fvar()) {
-        return;
-    }
-    fvar_impl *fv = static_cast<fvar_impl *>(id);
-    override_var(
-        *this, fv, fv->p_flags,
-        [&fv]() { fv->p_overrideval = fv->get_value(); }
-    );
-    if (doclamp) {
-        fv->set_value(std::clamp(v, fv->get_val_min(), fv->get_val_max()));
-    } else {
-        fv->set_value(v);
-    }
-    if (dofunc) {
-        fv->changed(*this);
-    }
-}
-
-LIBCUBESCRIPT_EXPORT void state::set_var_str(
-    std::string_view name, std::string_view v, bool dofunc
-) {
-    ident *id = get_ident(name);
-    if (!id || id->is_svar()) {
-        return;
-    }
-    svar_impl *sv = static_cast<svar_impl *>(id);
-    override_var(
-        *this, sv, sv->p_flags,
-        [&sv]() { sv->p_overrideval = sv->get_value(); }
-    );
-    sv->set_value(string_ref{p_tstate->istate, v});
-    if (dofunc) {
-        sv->changed(*this);
-    }
-}
-
-LIBCUBESCRIPT_EXPORT std::optional<integer_type>
-state::get_var_int(std::string_view name) {
-    ident *id = get_ident(name);
-    if (!id || id->is_ivar()) {
-        return std::nullopt;
-    }
-    return static_cast<integer_var *>(id)->get_value();
-}
-
-LIBCUBESCRIPT_EXPORT std::optional<float_type>
-state::get_var_float(std::string_view name) {
-    ident *id = get_ident(name);
-    if (!id || id->is_fvar()) {
-        return std::nullopt;
-    }
-    return static_cast<float_var *>(id)->get_value();
-}
-
-LIBCUBESCRIPT_EXPORT std::optional<string_ref>
-state::get_var_str(std::string_view name) {
-    ident *id = get_ident(name);
-    if (!id || id->is_svar()) {
-        return std::nullopt;
-    }
-    return string_ref{
-        p_tstate->istate, static_cast<string_var *>(id)->get_value()
-    };
-}
-
-LIBCUBESCRIPT_EXPORT std::optional<integer_type>
-state::get_var_min_int(std::string_view name) {
-    ident *id = get_ident(name);
-    if (!id || id->is_ivar()) {
-        return std::nullopt;
-    }
-    return static_cast<integer_var *>(id)->get_val_min();
-}
-
-LIBCUBESCRIPT_EXPORT std::optional<integer_type>
-state::get_var_max_int(std::string_view name) {
-    ident *id = get_ident(name);
-    if (!id || id->is_ivar()) {
-        return std::nullopt;
-    }
-    return static_cast<integer_var *>(id)->get_val_max();
-}
-
-LIBCUBESCRIPT_EXPORT std::optional<float_type>
-state::get_var_min_float(std::string_view name) {
-    ident *id = get_ident(name);
-    if (!id || id->is_fvar()) {
-        return std::nullopt;
-    }
-    return static_cast<float_var *>(id)->get_val_min();
-}
-
-LIBCUBESCRIPT_EXPORT std::optional<float_type>
-state::get_var_max_float(std::string_view name) {
-    ident *id = get_ident(name);
-    if (!id || id->is_fvar()) {
-        return std::nullopt;
-    }
-    return static_cast<float_var *>(id)->get_val_max();
-}
-
 LIBCUBESCRIPT_EXPORT std::optional<string_ref>
 state::get_alias_val(std::string_view name) {
     alias *a = get_alias(name);
@@ -652,114 +432,6 @@ state::get_alias_val(std::string_view name) {
         return std::nullopt;
     }
     return p_tstate->get_astack(a).node->val_s.get_str();
-}
-
-integer_type clamp_var(state &cs, integer_var *iv, integer_type v) {
-    if (v < iv->get_val_min()) {
-        v = iv->get_val_min();
-    } else if (v > iv->get_val_max()) {
-        v = iv->get_val_max();
-    } else {
-        return v;
-    }
-    throw error{
-        cs,
-        (iv->get_flags() & IDENT_FLAG_HEX)
-            ? (
-                (iv->get_val_min() <= 255)
-                    ? "valid range for '%s' is %d..0x%X"
-                    : "valid range for '%s' is 0x%X..0x%X"
-            )
-            : "valid range for '%s' is %d..%d",
-        iv->get_name().data(), iv->get_val_min(), iv->get_val_max()
-    };
-}
-
-LIBCUBESCRIPT_EXPORT void state::set_var_int_checked(
-    integer_var *iv, integer_type v
-) {
-    if (iv->get_flags() & IDENT_FLAG_READONLY) {
-        throw error{
-            *this, "variable '%s' is read only", iv->get_name().data()
-        };
-    }
-    ivar_impl *ivp = static_cast<ivar_impl *>(iv);
-    override_var(
-        *this, iv, ivp->p_flags,
-        [&ivp]() { ivp->p_overrideval = ivp->p_storage; }
-    );
-    if ((v < iv->get_val_min()) || (v > iv->get_val_max())) {
-        v = clamp_var(*this, iv, v);
-    }
-    iv->set_value(v);
-    ivp->changed(*this);
-}
-
-LIBCUBESCRIPT_EXPORT void state::set_var_int_checked(
-    integer_var *iv, std::span<any_value> args
-) {
-    integer_type v = args[0].force_int();
-    if ((iv->get_flags() & IDENT_FLAG_HEX) && (args.size() > 1)) {
-        v = (v << 16) | (args[1].force_int() << 8);
-        if (args.size() > 2) {
-            v |= args[2].force_int();
-        }
-    }
-    set_var_int_checked(iv, v);
-}
-
-float_type clamp_fvar(state &cs, float_var *fv, float_type v) {
-    if (v < fv->get_val_min()) {
-        v = fv->get_val_min();
-    } else if (v > fv->get_val_max()) {
-        v = fv->get_val_max();
-    } else {
-        return v;
-    }
-    any_value vmin{cs}, vmax{cs};
-    vmin.set_float(fv->get_val_min());
-    vmax.set_float(fv->get_val_max());
-    throw error{
-        cs, "valid range for '%s' is %s..%s", fv->get_name().data(),
-        vmin.force_str(), vmax.force_str()
-    };
-}
-
-LIBCUBESCRIPT_EXPORT void state::set_var_float_checked(
-    float_var *fv, float_type v
-) {
-    if (fv->get_flags() & IDENT_FLAG_READONLY) {
-        throw error{
-            *this, "variable '%s' is read only", fv->get_name().data()
-        };
-    }
-    fvar_impl *fvp = static_cast<fvar_impl *>(fv);
-    override_var(
-        *this, fv, fvp->p_flags,
-        [&fvp]() { fvp->p_overrideval = fvp->p_storage; }
-    );
-    if ((v < fv->get_val_min()) || (v > fv->get_val_max())) {
-        v = clamp_fvar(*this, fv, v);
-    }
-    fv->set_value(v);
-    fvp->changed(*this);
-}
-
-LIBCUBESCRIPT_EXPORT void state::set_var_str_checked(
-    string_var *sv, std::string_view v
-) {
-    if (sv->get_flags() & IDENT_FLAG_READONLY) {
-        throw error{
-            *this, "variable '%s' is read only", sv->get_name().data()
-        };
-    }
-    svar_impl *svp = static_cast<svar_impl *>(sv);
-    override_var(
-        *this, sv, svp->p_flags,
-        [&svp]() { svp->p_overrideval = svp->p_storage; }
-    );
-    sv->set_value(string_ref{p_tstate->istate, v});
-    svp->changed(*this);
 }
 
 LIBCUBESCRIPT_EXPORT void state::init_libs(int libs) {
@@ -829,41 +501,76 @@ LIBCUBESCRIPT_EXPORT void state::run(
                         targs[osz + i] = args[i];
                     }
                     exec_command(
-                        *p_tstate, cimpl, &targs[osz], ret, nargs, false
+                        *p_tstate, cimpl, id, &targs[osz], ret, nargs, false
                     );
                 } else {
                     exec_command(
-                        *p_tstate, cimpl, &args[0], ret, nargs, false
+                        *p_tstate, cimpl, id, &args[0], ret, nargs, false
                     );
                 }
                 nargs = 0;
                 break;
             }
-            case ident_type::IVAR:
-                if (args.empty()) {
-                    print_var(*static_cast<global_var *>(id));
-                } else {
-                    set_var_int_checked(static_cast<integer_var *>(id), args);
+            case ident_type::IVAR: {
+                auto *hid = get_ident("//ivar");
+                if (!hid || !hid->is_command()) {
+                    throw error{*p_tstate, "invalid ivar handler"};
                 }
-                break;
-            case ident_type::FVAR:
-                if (args.empty()) {
-                    print_var(*static_cast<global_var *>(id));
-                } else {
-                    set_var_float_checked(
-                        static_cast<float_var *>(id), args[0].force_float()
-                    );
+                auto *cimp = static_cast<command_impl *>(hid);
+                auto &targs = p_tstate->vmstack;
+                auto osz = targs.size();
+                auto anargs = std::size_t(cimp->get_num_args());
+                targs.resize(
+                    osz + std::max(args.size(), anargs + 1), any_value{*this}
+                );
+                for (std::size_t i = 0; i < nargs; ++i) {
+                    targs[osz + i + 1] = args[i];
                 }
+                exec_command(
+                    *p_tstate, cimp, id, &targs[osz], ret, nargs + 1, false
+                );
                 break;
-            case ident_type::SVAR:
-                if (args.empty()) {
-                    print_var(*static_cast<global_var *>(id));
-                } else {
-                    set_var_str_checked(
-                        static_cast<string_var *>(id), args[0].force_str()
-                    );
+            }
+            case ident_type::FVAR: {
+                auto *hid = get_ident("//fvar");
+                if (!hid || !hid->is_command()) {
+                    throw error{*p_tstate, "invalid fvar handler"};
                 }
+                auto *cimp = static_cast<command_impl *>(hid);
+                auto &targs = p_tstate->vmstack;
+                auto osz = targs.size();
+                auto anargs = std::size_t(cimp->get_num_args());
+                targs.resize(
+                    osz + std::max(args.size(), anargs + 1), any_value{*this}
+                );
+                for (std::size_t i = 0; i < nargs; ++i) {
+                    targs[osz + i + 1] = args[i];
+                }
+                exec_command(
+                    *p_tstate, cimp, id, &targs[osz], ret, nargs + 1, false
+                );
                 break;
+            }
+            case ident_type::SVAR: {
+                auto *hid = get_ident("//svar");
+                if (!hid || !hid->is_command()) {
+                    throw error{*p_tstate, "invalid svar handler"};
+                }
+                auto *cimp = static_cast<command_impl *>(hid);
+                auto &targs = p_tstate->vmstack;
+                auto osz = targs.size();
+                auto anargs = std::size_t(cimp->get_num_args());
+                targs.resize(
+                    osz + std::max(args.size(), anargs + 1), any_value{*this}
+                );
+                for (std::size_t i = 0; i < nargs; ++i) {
+                    targs[osz + i + 1] = args[i];
+                }
+                exec_command(
+                    *p_tstate, cimp, id, &targs[osz], ret, nargs + 1, false
+                );
+                break;
+            }
             case ident_type::ALIAS: {
                 alias *a = static_cast<alias *>(id);
                 if (

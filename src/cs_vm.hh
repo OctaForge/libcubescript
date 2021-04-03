@@ -95,8 +95,8 @@ static void call_with_args(thread_state &ts, F body) {
 }
 
 void exec_command(
-    thread_state &ts, command_impl *id, any_value *args, any_value &res,
-    std::size_t nargs, bool lookup = false
+    thread_state &ts, command_impl *id, ident *self, any_value *args,
+    any_value &res, std::size_t nargs, bool lookup = false
 );
 
 bool exec_alias(

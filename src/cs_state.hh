@@ -48,7 +48,6 @@ struct internal_state {
     > idents;
     std::vector<ident *, std_allocator<ident *>> identmap;
 
-    var_print_func varprintf;
     string_pool *strman;
     empty_block *empty;
 

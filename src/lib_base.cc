@@ -312,25 +312,8 @@ end:
         }
     });
 
-    gcs.new_command("resetvar", "s", [](auto &cs, auto args, auto &) {
-        cs.reset_var(args[0].get_str());
-    });
-
     gcs.new_command("alias", "st", [](auto &cs, auto args, auto &) {
         cs.set_alias(args[0].get_str(), args[1]);
-    });
-
-    gcs.new_command("getvarmin", "s", [](auto &cs, auto args, auto &res) {
-        res.set_int(cs.get_var_min_int(args[0].get_str()).value_or(0));
-    });
-    gcs.new_command("getvarmax", "s", [](auto &cs, auto args, auto &res) {
-        res.set_int(cs.get_var_max_int(args[0].get_str()).value_or(0));
-    });
-    gcs.new_command("getfvarmin", "s", [](auto &cs, auto args, auto &res) {
-        res.set_float(cs.get_var_min_float(args[0].get_str()).value_or(0.0f));
-    });
-    gcs.new_command("getfvarmax", "s", [](auto &cs, auto args, auto &res) {
-        res.set_float(cs.get_var_max_float(args[0].get_str()).value_or(0.0f));
     });
 
     gcs.new_command("identexists", "s", [](auto &cs, auto args, auto &res) {

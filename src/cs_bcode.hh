@@ -80,8 +80,6 @@ enum {
      * integral values between -0x800000 and 0x7FFFFF inclusive
      */
     BC_INST_VAL_INT,
-    /* print builtin variable with index D using user provided call */
-    BC_INST_PRINT,
     /* pop D aliases off the stack, push their values and recurse the VM
      * pop their values afterwards (i.e. they are local to the execution)
      */
@@ -144,17 +142,8 @@ enum {
     BC_INST_CONC_W,
     /* push the value of svar with index D on the stack according to M */
     BC_INST_SVAR,
-    /* pop a value off the stack and set svar with index D to it */
-    BC_INST_SVAR1,
     /* push the value of ivar with index D on the stack according to M */
     BC_INST_IVAR,
-    /* pop up to 3 values off the stack and set ivar with index D to:
-     *
-     * ivar1: top
-     * ivar2: (top << 8) | ((top - 1) << 16)
-     * ivar3: top | ((top - 1) << 8) | ((top - 2) << 16)
-     */
-    BC_INST_IVAR1, BC_INST_IVAR2, BC_INST_IVAR3,
     /* push the value of fvar with index D on the stack according to M */
     BC_INST_FVAR,
     /* pop a value off the stack and set vvar with index D to it */

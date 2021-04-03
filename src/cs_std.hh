@@ -37,6 +37,10 @@ struct valbuf {
         buf.insert(buf.end(), beg, end);
     }
 
+    void insert(std::size_t i, T const &it) {
+        buf.insert(buf.begin() + i, it);
+    }
+
     template<typename ...A>
     reference emplace_back(A &&...args) {
         return buf.emplace_back(std::forward<A>(args)...);

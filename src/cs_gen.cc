@@ -800,18 +800,19 @@ static bool compilearg(
 }
 
 static void compile_cmd(
-    codegen_state &gs, command_impl *id, bool &more, int rettype
+    codegen_state &gs, command_impl *id, ident *self, bool &more, int rettype,
+    std::uint32_t limit = 0
 ) {
-    std::uint32_t comtype = BC_INST_COM, numargs = 0, fakeargs = 0;
+    std::uint32_t comtype = BC_INST_COM, numargs = 0, numcargs = 0, fakeargs = 0;
     bool rep = false;
     auto fmt = id->get_args();
     for (auto it = fmt.begin(); it != fmt.end(); ++it) {
         switch (*it) {
             case 's': /* string */
-                if (more) {
+                if (more && (!limit || (numcargs < limit))) {
                     more = compilearg(gs, VAL_STRING);
                 }
-                if (!more) {
+                if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
                         break;
                     }
@@ -831,12 +832,13 @@ static void compile_cmd(
                     }
                 }
                 numargs++;
+                numcargs++;
                 break;
             case 'i': /* integer */
-                if (more) {
+                if (more && (!limit || (numcargs < limit))) {
                     more = compilearg(gs, VAL_INT);
                 }
-                if (!more) {
+                if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
                         break;
                     }
@@ -844,12 +846,13 @@ static void compile_cmd(
                     fakeargs++;
                 }
                 numargs++;
+                numcargs++;
                 break;
             case 'b': /* integer, INT_MIN default */
-                if (more) {
+                if (more && (!limit || (numcargs < limit))) {
                     more = compilearg(gs, VAL_INT);
                 }
-                if (!more) {
+                if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
                         break;
                     }
@@ -857,12 +860,13 @@ static void compile_cmd(
                     fakeargs++;
                 }
                 numargs++;
+                numcargs++;
                 break;
             case 'f': /* float */
-                if (more) {
+                if (more && (!limit || (numcargs < limit))) {
                     more = compilearg(gs, VAL_FLOAT);
                 }
-                if (!more) {
+                if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
                         break;
                     }
@@ -870,12 +874,13 @@ static void compile_cmd(
                     fakeargs++;
                 }
                 numargs++;
+                numcargs++;
                 break;
             case 'F': /* float, prev-argument default */
-                if (more) {
+                if (more && (!limit || (numcargs < limit))) {
                     more = compilearg(gs, VAL_FLOAT);
                 }
-                if (!more) {
+                if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
                         break;
                     }
@@ -883,12 +888,13 @@ static void compile_cmd(
                     fakeargs++;
                 }
                 numargs++;
+                numcargs++;
                 break;
             case 't': /* any arg */
-                if (more) {
+                if (more && (!limit || (numcargs < limit))) {
                     more = compilearg(gs, VAL_ANY);
                 }
-                if (!more) {
+                if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
                         break;
                     }
@@ -896,12 +902,13 @@ static void compile_cmd(
                     fakeargs++;
                 }
                 numargs++;
+                numcargs++;
                 break;
             case 'E': /* condition */
-                if (more) {
+                if (more && (!limit || (numcargs < limit))) {
                     more = compilearg(gs, VAL_COND);
                 }
-                if (!more) {
+                if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
                         break;
                     }
@@ -909,12 +916,13 @@ static void compile_cmd(
                     fakeargs++;
                 }
                 numargs++;
+                numcargs++;
                 break;
             case 'e': /* code */
-                if (more) {
+                if (more && (!limit || (numcargs < limit))) {
                     more = compilearg(gs, VAL_CODE);
                 }
-                if (!more) {
+                if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
                         break;
                     }
@@ -922,12 +930,13 @@ static void compile_cmd(
                     fakeargs++;
                 }
                 numargs++;
+                numcargs++;
                 break;
             case 'r': /* ident */
-                if (more) {
+                if (more && (!limit || (numcargs < limit))) {
                     more = compilearg(gs, VAL_IDENT);
                 }
-                if (!more) {
+                if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
                         break;
                     }
@@ -935,9 +944,10 @@ static void compile_cmd(
                     fakeargs++;
                 }
                 numargs++;
+                numcargs++;
                 break;
             case '$': /* self */
-                gs.gen_ident(id);
+                gs.gen_ident(self);
                 numargs++;
                 break;
             case 'N': /* number of arguments */
@@ -946,25 +956,27 @@ static void compile_cmd(
                 break;
             case 'C': /* concatenated string */
                 comtype = BC_INST_COM_C;
-                if (more) {
+                if (more && (!limit || (numcargs < limit))) {
                     for (;;) {
                         more = compilearg(gs, VAL_ANY);
-                        if (!more) {
+                        if (!more || (limit && (numcargs >= limit))) {
                             break;
                         }
                         numargs++;
+                        numcargs++;
                     }
                 }
                 goto compilecomv;
             case 'V': /* varargs */
                 comtype = BC_INST_COM_V;
-                if (more) {
+                if (more && (!limit || (numcargs < limit))) {
                     for(;;) {
                         more = compilearg(gs, VAL_ANY);
-                        if (!more) {
+                        if (!more || (limit && (numcargs >= limit))) {
                             break;
                         }
                         numargs++;
+                        numcargs++;
                     }
                 }
                 goto compilecomv;
@@ -972,7 +984,7 @@ static void compile_cmd(
             case '2':
             case '3':
             case '4':
-                if (more) {
+                if (more && (!limit || (numcargs < limit))) {
                     int numrep = *it - '0' + 1;
                     it -= numrep;
                     rep = true;
@@ -1191,33 +1203,39 @@ static void compilestatements(codegen_state &gs, int rettype, int brak) {
                                         BC_INST_ALIAS | (id->get_index() << 8)
                                     );
                                     goto endstatement;
-                                case ident_type::IVAR:
-                                    more = compilearg(gs, VAL_INT);
-                                    if (!more) {
-                                        gs.gen_int();
+                                case ident_type::IVAR: {
+                                    auto *hid = gs.ts.pstate->get_ident("//ivar");
+                                    if (!hid || !hid->is_command()) {
+                                        throw error{gs.ts, "invalid ivar handler"};
                                     }
-                                    gs.code.push_back(
-                                        BC_INST_IVAR1 | (id->get_index() << 8)
+                                    compile_cmd(
+                                        gs, static_cast<command_impl *>(hid),
+                                        id, more, rettype, 1
                                     );
                                     goto endstatement;
-                                case ident_type::FVAR:
-                                    more = compilearg(gs, VAL_FLOAT);
-                                    if (!more) {
-                                        gs.gen_float();
+                                }
+                                case ident_type::FVAR: {
+                                    auto *hid = gs.ts.pstate->get_ident("//fvar");
+                                    if (!hid || !hid->is_command()) {
+                                        throw error{gs.ts, "invalid fvar handler"};
                                     }
-                                    gs.code.push_back(
-                                        BC_INST_FVAR1 | (id->get_index() << 8)
+                                    compile_cmd(
+                                        gs, static_cast<command_impl *>(hid),
+                                        id, more, rettype, 1
                                     );
                                     goto endstatement;
-                                case ident_type::SVAR:
-                                    more = compilearg(gs, VAL_STRING);
-                                    if (!more) {
-                                        gs.gen_str();
+                                }
+                                case ident_type::SVAR: {
+                                    auto *hid = gs.ts.pstate->get_ident("//svar");
+                                    if (!hid || !hid->is_command()) {
+                                        throw error{gs.ts, "invalid svar handler"};
                                     }
-                                    gs.code.push_back(
-                                        BC_INST_SVAR1 | (id->get_index() << 8)
+                                    compile_cmd(
+                                        gs, static_cast<command_impl *>(hid),
+                                        id, more, rettype, 1
                                     );
                                     goto endstatement;
+                                }
                                 default:
                                     break;
                             }
@@ -1276,7 +1294,7 @@ noid:
                         break;
                     case ID_COMMAND:
                         compile_cmd(
-                            gs, static_cast<command_impl *>(id), more,
+                            gs, static_cast<command_impl *>(id), id, more,
                             rettype
                         );
                         break;
@@ -1319,54 +1337,39 @@ noid:
                     case ID_OR:
                         compile_and_or(gs, id, more, rettype);
                         break;
-                    case ID_IVAR:
-                        more = compilearg(gs, VAL_INT); /* first arg */
-                        if (!more) {
-                            gs.code.push_back(BC_INST_PRINT | (id->get_index() << 8));
-                            break;
+                    case ID_IVAR: {
+                        auto *hid = gs.ts.pstate->get_ident("//ivar");
+                        if (!hid || !hid->is_command()) {
+                            throw error{gs.ts, "invalid ivar handler"};
                         }
-                        if (id->get_flags() & IDENT_FLAG_HEX) {
-                            more = compilearg(gs, VAL_INT); /* second arg */
-                        } else {
-                            more = false;
-                        }
-                        if (!more) {
-                            gs.code.push_back(BC_INST_IVAR1 | (id->get_index() << 8));
-                            break;
-                        }
-                        more = compilearg(gs, VAL_INT); /* third arg */
-                        if (!more) {
-                            gs.code.push_back(BC_INST_IVAR2 | (id->get_index() << 8));
-                            break;
-                        }
-                        gs.code.push_back(BC_INST_IVAR3 | (id->get_index() << 8));
+                        compile_cmd(
+                            gs, static_cast<command_impl *>(hid),
+                            id, more, rettype
+                        );
                         break;
-                    case ID_FVAR:
-                        more = compilearg(gs, VAL_FLOAT);
-                        if (!more) {
-                            gs.code.push_back(BC_INST_PRINT | (id->get_index() << 8));
-                        } else {
-                            gs.code.push_back(BC_INST_FVAR1 | (id->get_index() << 8));
+                    }
+                    case ID_FVAR: {
+                        auto *hid = gs.ts.pstate->get_ident("//fvar");
+                        if (!hid || !hid->is_command()) {
+                            throw error{gs.ts, "invalid fvar handler"};
                         }
+                        compile_cmd(
+                            gs, static_cast<command_impl *>(hid),
+                            id, more, rettype
+                        );
                         break;
-                    case ID_SVAR:
-                        more = compilearg(gs, VAL_STRING);
-                        if (!more) {
-                            gs.code.push_back(BC_INST_PRINT | (id->get_index() << 8));
-                        } else {
-                            std::uint32_t numargs = 0;
-                            do {
-                                ++numargs;
-                                more = compilearg(gs, VAL_ANY);
-                            } while (more);
-                            if (numargs > 1) {
-                                gs.code.push_back(
-                                    BC_INST_CONC | BC_RET_STRING | (numargs << 8)
-                                );
-                            }
-                            gs.code.push_back(BC_INST_SVAR1 | (id->get_index() << 8));
+                    }
+                    case ID_SVAR: {
+                        auto *hid = gs.ts.pstate->get_ident("//svar");
+                        if (!hid || !hid->is_command()) {
+                            throw error{gs.ts, "invalid svar handler"};
                         }
+                        compile_cmd(
+                            gs, static_cast<command_impl *>(hid),
+                            id, more, rettype
+                        );
                         break;
+                    }
                 }
             }
         }

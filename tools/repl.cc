@@ -199,50 +199,6 @@ static void do_sigint(int n) {
     });
 }
 
-/* an example of what var printer would look like in real usage */
-static void repl_print_var(cs::state const &, cs::global_var const &var) {
-    switch (var.get_type()) {
-        case cs::ident_type::IVAR: {
-            auto &iv = static_cast<cs::integer_var const &>(var);
-            auto val = iv.get_value();
-            if (!(iv.get_flags() & cs::IDENT_FLAG_HEX) || (val < 0)) {
-                std::printf("%s = %d\n", iv.get_name().data(), val);
-            } else if (iv.get_val_max() == 0xFFFFFF) {
-                std::printf(
-                    "%s = 0x%.6X (%d, %d, %d)\n",
-                    iv.get_name().data(),
-                    val, (val >> 16) & 0xFF, (val >> 8) & 0xFF, val & 0xFF
-                );
-            } else {
-                std::printf("%s = 0x%X\n", iv.get_name().data(), val);
-            }
-            break;
-        }
-        case cs::ident_type::FVAR: {
-            auto &fv = static_cast<cs::float_var const &>(var);
-            auto val = fv.get_value();
-            if (std::floor(val) == val) {
-                std::printf("%s = %.1f", fv.get_name().data(), val);
-            } else {
-                std::printf("%s = %.7g", fv.get_name().data(), val);
-            }
-            break;
-        }
-        case cs::ident_type::SVAR: {
-            auto &sv = static_cast<cs::string_var const &>(var);
-            auto val = std::string_view{sv.get_value()};
-            if (val.find('"') == val.npos) {
-                std::printf("%s = \"%s\"", sv.get_name().data(), val.data());
-            } else {
-                std::printf("%s = [%s]", sv.get_name().data(), val.data());
-            }
-            break;
-        }
-        default:
-            break;
-    }
-}
-
 static bool do_run_file(
     cs::state &cs, std::string_view fname, cs::any_value &ret
 ) {
@@ -362,8 +318,65 @@ static void do_tty(cs::state &cs) {
 
 int main(int argc, char **argv) {
     cs::state gcs;
-    gcs.set_var_printer(repl_print_var);
     gcs.init_libs();
+
+    gcs.new_command("//ivar", "$iiiN", [](auto &, auto args, auto &) {
+        auto *iv = args[0].get_ident()->get_ivar();
+        auto nargs = args[4].get_int();
+        if (nargs <= 1) {
+            auto val = iv->get_value();
+            if ((val >= 0) && (val < 0xFFFFFF)) {
+                std::printf(
+                    "%s = %d (0x%.6X: %d, %d, %d)\n",
+                    iv->get_name().data(), val, val,
+                    (val >> 16) & 0xFF, (val >> 8) & 0xFF, val & 0xFF
+                );
+            } else {
+                std::printf("%s = %d\n", iv->get_name().data(), val);
+            }
+        } else if (nargs == 2) {
+            iv->set_value(args[1].get_int());
+        } else if (nargs == 3) {
+            iv->set_value(
+                (args[1].get_int() << 8) | (args[2].get_int() << 16)
+            );
+        } else {
+            iv->set_value(
+                args[1].get_int() | (args[2].get_int() << 8) |
+                (args[3].get_int() << 16)
+            );
+        }
+    });
+
+    gcs.new_command("//fvar", "$fN", [](auto &, auto args, auto &) {
+        auto *fv = args[0].get_ident()->get_fvar();
+        auto nargs = args[2].get_int();
+        if (nargs <= 1) {
+            auto val = fv->get_value();
+            if (std::floor(val) == val) {
+                std::printf("%s = %.1f\n", fv->get_name().data(), val);
+            } else {
+                std::printf("%s = %.7g\n", fv->get_name().data(), val);
+            }
+        } else {
+            fv->set_value(args[1].get_float());
+        }
+    });
+
+    gcs.new_command("//svar", "$sN", [](auto &, auto args, auto &) {
+        auto sv = args[0].get_ident()->get_svar();
+        auto nargs = args[2].get_int();
+        if (nargs <= 1) {
+            auto val = std::string_view{sv->get_value()};
+            if (val.find('"') == val.npos) {
+                std::printf("%s = \"%s\"\n", sv->get_name().data(), val.data());
+            } else {
+                std::printf("%s = [%s]\n", sv->get_name().data(), val.data());
+            }
+        } else {
+            sv->set_value(args[1].get_str());
+        }
+    });
 
     gcs.new_command("exec", "s", [](auto &css, auto args, auto &) {
         auto file = args[0].get_str();

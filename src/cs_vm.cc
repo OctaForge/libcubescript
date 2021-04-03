@@ -44,8 +44,8 @@ static inline void force_arg(any_value &v, int type) {
 }
 
 void exec_command(
-    thread_state &ts, command_impl *id, any_value *args, any_value &res,
-    std::size_t nargs, bool lookup
+    thread_state &ts, command_impl *id, ident *self, any_value *args,
+    any_value &res, std::size_t nargs, bool lookup
 ) {
     int i = -1, fakeargs = 0, numargs = int(nargs);
     bool rep = false;
@@ -159,7 +159,7 @@ void exec_command(
                 break;
             case '$':
                 i += 1;
-                args[i].set_ident(id);
+                args[i].set_ident(self);
                 break;
             case 'N':
                 i += 1;
@@ -337,7 +337,7 @@ static inline int get_lookupu_type(
                 /* pad with as many empty values as we need */
                 args.resize(osz + cimpl->get_num_args(), any_value{*ts.pstate});
                 arg.set_none();
-                exec_command(ts, cimpl, &args[osz], arg, 0, true);
+                exec_command(ts, cimpl, cimpl, &args[osz], arg, 0, true);
                 force_arg(arg, op & BC_INST_RET_MASK);
                 return -2; /* ignore */
             }
@@ -528,10 +528,6 @@ std::uint32_t *vm_exec(
                 args.emplace_back(cs).set_float(
                     float_type(integer_type(op) >> 8)
                 );
-                continue;
-
-            case BC_INST_PRINT:
-                cs.print_var(*static_cast<global_var *>(ts.istate->identmap[op >> 8]));
                 continue;
 
             case BC_INST_LOCAL: {
@@ -981,15 +977,6 @@ std::uint32_t *vm_exec(
                     )->get_value()
                 ));
                 continue;
-            case BC_INST_SVAR1: {
-                auto v = std::move(args.back());
-                args.pop_back();
-                cs.set_var_str_checked(
-                    static_cast<string_var *>(ts.istate->identmap[op >> 8]),
-                    v.get_str()
-                );
-                continue;
-            }
 
             case BC_INST_IVAR | BC_RET_INT:
             case BC_INST_IVAR | BC_RET_NULL:
@@ -1012,34 +999,6 @@ std::uint32_t *vm_exec(
                     )->get_value()
                 ));
                 continue;
-            case BC_INST_IVAR1: {
-                auto v = std::move(args.back());
-                args.pop_back();
-                cs.set_var_int_checked(
-                    static_cast<integer_var *>(ts.istate->identmap[op >> 8]),
-                    v.get_int()
-                );
-                continue;
-            }
-            case BC_INST_IVAR2: {
-                auto v1 = std::move(args.back()); args.pop_back();
-                auto v2 = std::move(args.back()); args.pop_back();
-                cs.set_var_int_checked(
-                    static_cast<integer_var *>(ts.istate->identmap[op >> 8]),
-                    (v2.get_int() << 16) | (v1.get_int() << 8)
-                );
-                continue;
-            }
-            case BC_INST_IVAR3: {
-                auto v1 = std::move(args.back()); args.pop_back();
-                auto v2 = std::move(args.back()); args.pop_back();
-                auto v3 = std::move(args.back()); args.pop_back();
-                cs.set_var_int_checked(
-                    static_cast<integer_var *>(ts.istate->identmap[op >> 8]),
-                    (v3.get_int() << 16) | (v2.get_int() << 8) | (v1.get_int())
-                );
-                continue;
-            }
 
             case BC_INST_FVAR | BC_RET_FLOAT:
             case BC_INST_FVAR | BC_RET_NULL:
@@ -1060,15 +1019,6 @@ std::uint32_t *vm_exec(
                     ts.istate->identmap[op >> 8]
                 )->get_value()));
                 continue;
-            case BC_INST_FVAR1: {
-                auto &v = args.back();
-                cs.set_var_float_checked(
-                    static_cast<float_var *>(ts.istate->identmap[op >> 8]),
-                    v.get_float()
-                );
-                args.pop_back();
-                continue;
-            }
 
             case BC_INST_ALIAS: {
                 auto *a = static_cast<alias *>(
@@ -1159,14 +1109,18 @@ noid:
                             continue;
                         }
                     /* fallthrough */
-                    case ID_COMMAND:
+                    case ID_COMMAND: {
+                        auto *cimp = static_cast<command_impl *>(id);
+                        args.resize(offset + std::max(
+                            std::size_t(cimp->get_num_args()), callargs
+                        ), any_value{cs});
                         exec_command(
-                            ts, static_cast<command_impl *>(id),
-                            &args[offset], result, callargs
+                            ts, cimp, cimp, &args[offset], result, callargs
                         );
                         force_arg(result, op & BC_INST_RET_MASK);
                         args.resize(offset - 1, any_value{cs});
                         continue;
+                    }
                     case ID_LOCAL: {
                         std::size_t idstsz = ts.idstack.size();
                         for (size_t j = 0; j < size_t(callargs); ++j) {
@@ -1190,42 +1144,60 @@ noid:
                         cleanup();
                         return code;
                     }
-                    case ID_IVAR:
-                        if (callargs <= 0) {
-                            cs.print_var(*static_cast<global_var *>(id));
-                        } else {
-                            cs.set_var_int_checked(
-                                static_cast<integer_var *>(id),
-                                std::span{&args[offset], std::size_t(callargs)}
-                            );
+                    case ID_IVAR: {
+                        auto *hid = cs.get_ident("//ivar");
+                        if (!hid || !hid->is_command()) {
+                            throw error{ts, "invalid ivar handler"};
                         }
-                        args.resize(offset - 1, any_value{cs});
+                        auto *cimp = static_cast<command_impl *>(hid);
+                        /* the $ argument */
+                        args.insert(offset, any_value{cs});
+                        args.resize(offset + std::max(
+                            std::size_t(cimp->get_num_args()), callargs
+                        ), any_value{cs});
+                        exec_command(
+                            ts, cimp, id, &args[offset], result, callargs
+                        );
                         force_arg(result, op & BC_INST_RET_MASK);
+                        args.resize(offset - 1, any_value{cs});
                         continue;
-                    case ID_FVAR:
-                        if (callargs <= 0) {
-                            cs.print_var(*static_cast<global_var *>(id));
-                        } else {
-                            cs.set_var_float_checked(
-                                static_cast<float_var *>(id),
-                                args[offset].force_float()
-                            );
+                    }
+                    case ID_FVAR: {
+                        auto *hid = cs.get_ident("//fvar");
+                        if (!hid || !hid->is_command()) {
+                            throw error{ts, "invalid fvar handler"};
                         }
-                        args.resize(offset - 1, any_value{cs});
+                        auto *cimp = static_cast<command_impl *>(hid);
+                        /* the $ argument */
+                        args.insert(offset, any_value{cs});
+                        args.resize(offset + std::max(
+                            std::size_t(cimp->get_num_args()), callargs
+                        ), any_value{cs});
+                        exec_command(
+                            ts, cimp, id, &args[offset], result, callargs
+                        );
                         force_arg(result, op & BC_INST_RET_MASK);
+                        args.resize(offset - 1, any_value{cs});
                         continue;
-                    case ID_SVAR:
-                        if (callargs <= 0) {
-                            cs.print_var(*static_cast<global_var *>(id));
-                        } else {
-                            cs.set_var_str_checked(
-                                static_cast<string_var *>(id),
-                                args[offset].force_str()
-                            );
+                    }
+                    case ID_SVAR: {
+                        auto *hid = cs.get_ident("//svar");
+                        if (!hid || !hid->is_command()) {
+                            throw error{ts, "invalid svar handler"};
                         }
-                        args.resize(offset - 1, any_value{cs});
+                        auto *cimp = static_cast<command_impl *>(hid);
+                        /* the $ argument */
+                        args.insert(offset, any_value{cs});
+                        args.resize(offset + std::max(
+                            std::size_t(cimp->get_num_args()), callargs
+                        ), any_value{cs});
+                        exec_command(
+                            ts, cimp, id, &args[offset], result, callargs
+                        );
                         force_arg(result, op & BC_INST_RET_MASK);
+                        args.resize(offset - 1, any_value{cs});
                         continue;
+                    }
                     case ID_ALIAS: {
                         alias *a = static_cast<alias *>(id);
                         if (

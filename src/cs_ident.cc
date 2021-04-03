@@ -305,28 +305,12 @@ LIBCUBESCRIPT_EXPORT string_var const *ident::get_svar() const {
     return static_cast<string_var const *>(this);
 }
 
-LIBCUBESCRIPT_EXPORT integer_type integer_var::get_val_min() const {
-    return static_cast<ivar_impl const *>(this)->p_minval;
-}
-
-LIBCUBESCRIPT_EXPORT integer_type integer_var::get_val_max() const {
-    return static_cast<ivar_impl const *>(this)->p_maxval;
-}
-
 LIBCUBESCRIPT_EXPORT integer_type integer_var::get_value() const {
     return static_cast<ivar_impl const *>(this)->p_storage;
 }
 
 LIBCUBESCRIPT_EXPORT void integer_var::set_value(integer_type val) {
     static_cast<ivar_impl *>(this)->p_storage = val;
-}
-
-LIBCUBESCRIPT_EXPORT float_type float_var::get_val_min() const {
-    return static_cast<fvar_impl const *>(this)->p_minval;
-}
-
-LIBCUBESCRIPT_EXPORT float_type float_var::get_val_max() const {
-    return static_cast<fvar_impl const *>(this)->p_maxval;
 }
 
 LIBCUBESCRIPT_EXPORT float_type float_var::get_value() const {

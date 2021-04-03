@@ -58,7 +58,6 @@ struct global_var;
 
 using hook_func      = callable<void, state &>;
 using var_cb_func    = callable<void, state &, ident &>;
-using var_print_func = callable<void, state const &, global_var const &>;
 using command_func   = callable<
     void, state &, std::span<any_value>, any_value &
 >;
@@ -267,9 +266,6 @@ protected:
 };
 
 struct LIBCUBESCRIPT_EXPORT integer_var: global_var {
-    integer_type get_val_min() const;
-    integer_type get_val_max() const;
-
     integer_type get_value() const;
     void set_value(integer_type val);
 
@@ -278,9 +274,6 @@ protected:
 };
 
 struct LIBCUBESCRIPT_EXPORT float_var: global_var {
-    float_type get_val_min() const;
-    float_type get_val_max() const;
-
     float_type get_value() const;
     void set_value(float_type val);
 
@@ -356,14 +349,6 @@ struct LIBCUBESCRIPT_EXPORT state {
     }
     hook_func const &get_call_hook() const;
     hook_func &get_call_hook();
-
-    template<typename F>
-    var_print_func set_var_printer(F &&f) {
-        return set_var_printer(
-            var_print_func{std::forward<F>(f), callable_alloc, this}
-        );
-    }
-    var_print_func const &get_var_printer() const;
 
     void init_libs(int libs = LIB_ALL);
 
@@ -454,33 +439,6 @@ struct LIBCUBESCRIPT_EXPORT state {
 
     void set_alias(std::string_view name, any_value v);
 
-    void set_var_int(
-        std::string_view name, integer_type v,
-        bool dofunc = true, bool doclamp = true
-    );
-    void set_var_float(
-        std::string_view name, float_type v,
-        bool dofunc  = true, bool doclamp = true
-    );
-    void set_var_str(
-        std::string_view name, std::string_view v, bool dofunc = true
-    );
-
-    void set_var_int_checked(integer_var *iv, integer_type v);
-    void set_var_int_checked(integer_var *iv, std::span<any_value> args);
-    void set_var_float_checked(float_var *fv, float_type v);
-    void set_var_str_checked(string_var *fv, std::string_view v);
-
-    std::optional<integer_type> get_var_int(std::string_view name);
-    std::optional<float_type> get_var_float(std::string_view name);
-    std::optional<string_ref> get_var_str(std::string_view name);
-
-    std::optional<integer_type> get_var_min_int(std::string_view name);
-    std::optional<integer_type> get_var_max_int(std::string_view name);
-
-    std::optional<float_type> get_var_min_float(std::string_view name);
-    std::optional<float_type> get_var_max_float(std::string_view name);
-
     std::optional<string_ref> get_alias_val(std::string_view name);
 
     void print_var(global_var const &v) const;
@@ -495,7 +453,6 @@ struct LIBCUBESCRIPT_EXPORT state {
 
 private:
     hook_func set_call_hook(hook_func func);
-    var_print_func set_var_printer(var_print_func func);
 
     integer_var *new_ivar(
         std::string_view n, integer_type m, integer_type x, integer_type v,
