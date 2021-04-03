@@ -37,6 +37,8 @@ struct thread_state {
     hook_func call_hook{};
     /* loop nesting level */
     int loop_level = 0;
+    /* thread ident flags */
+    int ident_flags = 0;
     /* whether we own the internal state (i.e. not a side thread */
     bool owner = false;
 
@@ -48,6 +50,7 @@ struct thread_state {
     hook_func const &get_hook() const { return call_hook; }
 
     alias_stack &get_astack(alias *a);
+    alias_stack const &get_astack(alias const *a);
 };
 
 } /* namespace cubescript */

@@ -17,9 +17,12 @@ enum {
 };
 
 enum {
-    IDENT_FLAG_UNKNOWN  = 1 << 0,
-    IDENT_FLAG_ARG      = 1 << 1,
-    IDENT_FLAG_READONLY = 1 << 2
+    IDENT_FLAG_UNKNOWN    = 1 << 0,
+    IDENT_FLAG_ARG        = 1 << 1,
+    IDENT_FLAG_READONLY   = 1 << 2,
+    IDENT_FLAG_OVERRIDE   = 1 << 3,
+    IDENT_FLAG_OVERRIDDEN = 1 << 4,
+    IDENT_FLAG_PERSIST    = 1 << 5
 };
 
 struct ident_stack {
@@ -30,7 +33,8 @@ struct ident_stack {
 };
 
 struct alias_stack {
-    ident_stack *node;
+    ident_stack *node = nullptr;
+    int flags = 0;
 
     void push(ident_stack &st);
     void pop();
@@ -77,18 +81,21 @@ struct ivar_impl: var_impl, integer_var {
     ivar_impl(string_ref n, integer_type v, int flags);
 
     integer_type p_storage;
+    integer_type p_override;
 };
 
 struct fvar_impl: var_impl, float_var {
     fvar_impl(string_ref n, float_type v, int flags);
 
     float_type p_storage;
+    float_type p_override;
 };
 
 struct svar_impl: var_impl, string_var {
     svar_impl(string_ref n, string_ref v, int flags);
 
     string_ref p_storage;
+    string_ref p_override;
 };
 
 struct alias_impl: ident_impl, alias {

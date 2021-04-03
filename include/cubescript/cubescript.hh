@@ -230,6 +230,9 @@ struct LIBCUBESCRIPT_EXPORT ident {
     string_var *get_svar();
     string_var const *get_svar() const;
 
+    bool is_overridden(state &cs) const;
+    bool is_persistent(state &cs) const;
+
 protected:
     ident() = default;
 
@@ -238,8 +241,17 @@ protected:
     struct ident_impl *p_impl{};
 };
 
+enum class var_type {
+    DEFAULT = 0,
+    PERSISTENT,
+    OVERRIDABLE
+};
+
 struct LIBCUBESCRIPT_EXPORT global_var: ident {
     bool is_read_only() const;
+    bool is_overridable() const;
+
+    var_type get_variable_type() const;
 
 protected:
     global_var() = default;
@@ -374,6 +386,12 @@ struct LIBCUBESCRIPT_EXPORT state {
     loop_state run_loop(bcode_ref const &code);
 
     bool is_in_loop() const;
+
+    bool get_override_mode() const;
+    bool set_override_mode(bool v);
+
+    bool get_persist_mode() const;
+    bool set_persist_mode(bool v);
 
     void set_alias(std::string_view name, any_value v);
 

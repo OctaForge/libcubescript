@@ -12,8 +12,9 @@ namespace cubescript {
 static inline void push_alias(thread_state &ts, ident *id, ident_stack &st) {
     if (id->is_alias() && !static_cast<alias *>(id)->is_arg()) {
         auto *aimp = static_cast<alias_impl *>(id);
-        ts.get_astack(aimp).push(st);
-        aimp->p_flags &= ~IDENT_FLAG_UNKNOWN;
+        auto ast = ts.get_astack(aimp);
+        ast.push(st);
+        ast.flags &= ~IDENT_FLAG_UNKNOWN;
     }
 }
 
@@ -205,8 +206,14 @@ bool exec_alias(
     std::size_t offset, std::size_t skip, std::uint32_t op, bool ncheck
 ) {
     auto &aast = ts.get_astack(a);
-    if (ncheck && aast.node->val_s.get_type() == value_type::NONE) {
-        return false;
+    if (ncheck) {
+        if (aast.node->val_s.get_type() == value_type::NONE) {
+            return false;
+        }
+    } else if (aast.flags & IDENT_FLAG_UNKNOWN) {
+        throw error {
+            *ts.pstate, "unknown command: %s", a->get_name().data()
+        };
     }
     /* excess arguments get ignored (make error maybe?) */
     callargs = std::min(callargs, MAX_ARGUMENTS);
@@ -225,6 +232,8 @@ bool exec_alias(
         uargs[i] = true;
     }
     auto oldargs = anargs->get_value();
+    auto oldflags = ts.ident_flags;
+    ts.ident_flags = aast.flags;
     anargs->set_value(integer_type(callargs));
     ident_link aliaslink = {a, ts.callstack, uargs};
     ts.callstack = &aliaslink;
@@ -240,6 +249,7 @@ bool exec_alias(
     bcode_ref coderef = aast.node->code;
     auto cleanup = [&]() {
         ts.callstack = aliaslink.next;
+        ts.ident_flags = oldflags;
         auto amask = aliaslink.usedargs;
         for (std::size_t i = 0; i < callargs; i++) {
             ts.get_astack(
@@ -283,7 +293,9 @@ run_depth_guard::run_depth_guard(thread_state &ts) {
 
 run_depth_guard::~run_depth_guard() { --rundepth; }
 
-static inline alias *get_lookup_id(thread_state &ts, std::uint32_t op) {
+static inline alias *get_lookup_id(
+    thread_state &ts, std::uint32_t op, alias_stack *&ast
+) {
     ident *id = ts.istate->identmap[op >> 8];
     auto *a = static_cast<alias_impl *>(id);
 
@@ -291,16 +303,21 @@ static inline alias *get_lookup_id(thread_state &ts, std::uint32_t op) {
         if (!ident_is_used_arg(id, ts)) {
             return nullptr;
         }
-    } else if (a->p_flags & IDENT_FLAG_UNKNOWN) {
-        throw error{
-            *ts.pstate, "unknown alias lookup: %s", id->get_name().data()
-        };
+        ast = &ts.get_astack(static_cast<alias *>(id));
+    } else {
+        ast = &ts.get_astack(static_cast<alias *>(id));
+        if (ast->flags & IDENT_FLAG_UNKNOWN) {
+            throw error{
+                *ts.pstate, "unknown alias lookup: %s", id->get_name().data()
+            };
+        }
     }
     return static_cast<alias *>(id);
 }
 
 static inline int get_lookupu_type(
-    thread_state &ts, any_value &arg, ident *&id, std::uint32_t op
+    thread_state &ts, any_value &arg, ident *&id, std::uint32_t op,
+    alias_stack *&ast
 ) {
     if (arg.get_type() != value_type::STRING) {
         return -2; /* default case */
@@ -310,7 +327,8 @@ static inline int get_lookupu_type(
         switch(id->get_type()) {
             case ident_type::ALIAS: {
                 auto *a = static_cast<alias_impl *>(id);
-                if (a->p_flags & IDENT_FLAG_UNKNOWN) {
+                ast = &ts.get_astack(static_cast<alias *>(id));
+                if (ast->flags & IDENT_FLAG_UNKNOWN) {
                     break;
                 }
                 if (a->is_arg() && !ident_is_used_arg(id, ts)) {
@@ -770,12 +788,11 @@ std::uint32_t *vm_exec(
 
             case BC_INST_LOOKUP_U | BC_RET_STRING: {
                 ident *id = nullptr;
+                alias_stack *ast;
                 any_value &arg = args.back();
-                switch (get_lookupu_type(ts, arg, id, op)) {
+                switch (get_lookupu_type(ts, arg, id, op, ast)) {
                     case ID_ALIAS:
-                        arg = ts.get_astack(
-                            static_cast<alias *>(id)
-                        ).node->val_s;
+                        arg = ast->node->val_s;
                         arg.force_str();
                         continue;
                     case ID_SVAR:
@@ -798,12 +815,13 @@ std::uint32_t *vm_exec(
             }
 
             case BC_INST_LOOKUP | BC_RET_STRING: {
-                alias *a = get_lookup_id(ts, op);
+                alias_stack *ast;
+                alias *a = get_lookup_id(ts, op, ast);
                 if (!a) {
                     args.emplace_back(cs).set_str("");
                 } else {
                     auto &v = args.emplace_back(cs);
-                    v = ts.get_astack(a).node->val_s;
+                    v = ast->node->val_s;
                     v.force_str();
                 }
                 continue;
@@ -811,12 +829,11 @@ std::uint32_t *vm_exec(
 
             case BC_INST_LOOKUP_U | BC_RET_INT: {
                 ident *id = nullptr;
+                alias_stack *ast;
                 any_value &arg = args.back();
-                switch (get_lookupu_type(ts, arg, id, op)) {
+                switch (get_lookupu_type(ts, arg, id, op, ast)) {
                     case ID_ALIAS:
-                        arg.set_int(ts.get_astack(static_cast<alias *>(
-                            id
-                        )).node->val_s.get_int());
+                        arg.set_int(ast->node->val_s.get_int());
                         continue;
                     case ID_SVAR:
                         arg.set_int(parse_int(
@@ -839,24 +856,22 @@ std::uint32_t *vm_exec(
                 }
             }
             case BC_INST_LOOKUP | BC_RET_INT: {
-                alias *a = get_lookup_id(ts, op);
+                alias_stack *ast;
+                alias *a = get_lookup_id(ts, op, ast);
                 if (!a) {
                     args.emplace_back(cs).set_int(0);
                 } else {
-                    args.emplace_back(cs).set_int(
-                        ts.get_astack(a).node->val_s.get_int()
-                    );
+                    args.emplace_back(cs).set_int(ast->node->val_s.get_int());
                 }
                 continue;
             }
             case BC_INST_LOOKUP_U | BC_RET_FLOAT: {
                 ident *id = nullptr;
+                alias_stack *ast;
                 any_value &arg = args.back();
-                switch (get_lookupu_type(ts, arg, id, op)) {
+                switch (get_lookupu_type(ts, arg, id, op, ast)) {
                     case ID_ALIAS:
-                        arg.set_float(ts.get_astack(static_cast<alias *>(
-                            id
-                        )).node->val_s.get_float());
+                        arg.set_float(ast->node->val_s.get_float());
                         continue;
                     case ID_SVAR:
                         arg.set_float(parse_float(
@@ -881,24 +896,24 @@ std::uint32_t *vm_exec(
                 }
             }
             case BC_INST_LOOKUP | BC_RET_FLOAT: {
-                alias *a = get_lookup_id(ts, op);
+                alias_stack *ast;
+                alias *a = get_lookup_id(ts, op, ast);
                 if (!a) {
                     args.emplace_back(cs).set_float(float_type(0));
                 } else {
                     args.emplace_back(cs).set_float(
-                        ts.get_astack(a).node->val_s.get_float()
+                        ast->node->val_s.get_float()
                     );
                 }
                 continue;
             }
             case BC_INST_LOOKUP_U | BC_RET_NULL: {
                 ident *id = nullptr;
+                alias_stack *ast;
                 any_value &arg = args.back();
-                switch (get_lookupu_type(ts, arg, id, op)) {
+                switch (get_lookupu_type(ts, arg, id, op, ast)) {
                     case ID_ALIAS:
-                        ts.get_astack(
-                            static_cast<alias *>(id)
-                        ).node->val_s.get_val(arg);
+                        ast->node->val_s.get_val(arg);
                         continue;
                     case ID_SVAR:
                         arg.set_str(static_cast<string_var *>(id)->get_value());
@@ -919,13 +934,12 @@ std::uint32_t *vm_exec(
                 }
             }
             case BC_INST_LOOKUP | BC_RET_NULL: {
-                alias *a = get_lookup_id(ts, op);
+                alias_stack *ast;
+                alias *a = get_lookup_id(ts, op, ast);
                 if (!a) {
                     args.emplace_back(cs).set_none();
                 } else {
-                    ts.get_astack(a).node->val_s.get_val(
-                        args.emplace_back(cs)
-                    );
+                    ast->node->val_s.get_val(args.emplace_back(cs));
                 }
                 continue;
             }
@@ -1049,11 +1063,6 @@ std::uint32_t *vm_exec(
                         force_arg(result, op & BC_INST_RET_MASK);
                         continue;
                     }
-                } else if (imp->p_flags & IDENT_FLAG_UNKNOWN) {
-                    force_arg(result, op & BC_INST_RET_MASK);
-                    throw error{
-                        cs, "unknown command: %s", id->get_name().data()
-                    };
                 }
                 exec_alias(
                     ts, imp, &args[0], result, callargs,

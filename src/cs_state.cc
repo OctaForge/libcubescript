@@ -354,7 +354,8 @@ LIBCUBESCRIPT_EXPORT void state::set_alias(
         throw error{*this, "cannot alias invalid name '%s'", name.data()};
     } else {
         auto *a = p_tstate->istate->create<alias_impl>(
-            *this, string_ref{p_tstate->istate, name}, std::move(v), 0
+            *this, string_ref{p_tstate->istate, name}, std::move(v),
+            p_tstate->ident_flags
         );
         p_tstate->istate->add_ident(a, a);
     }
@@ -633,6 +634,34 @@ LIBCUBESCRIPT_EXPORT loop_state state::run_loop(bcode_ref const &code) {
 
 LIBCUBESCRIPT_EXPORT bool state::is_in_loop() const {
     return !!p_tstate->loop_level;
+}
+
+LIBCUBESCRIPT_EXPORT bool state::get_override_mode() const {
+    return (p_tstate->ident_flags & IDENT_FLAG_OVERRIDDEN);
+}
+
+LIBCUBESCRIPT_EXPORT bool state::set_override_mode(bool v) {
+    bool was = get_override_mode();
+    if (v) {
+        p_tstate->ident_flags |= IDENT_FLAG_OVERRIDDEN;
+    } else {
+        p_tstate->ident_flags &= ~IDENT_FLAG_OVERRIDDEN;
+    }
+    return was;
+}
+
+LIBCUBESCRIPT_EXPORT bool state::get_persist_mode() const {
+    return (p_tstate->ident_flags & IDENT_FLAG_PERSIST);
+}
+
+LIBCUBESCRIPT_EXPORT bool state::set_persist_mode(bool v) {
+    bool was = get_persist_mode();
+    if (v) {
+        p_tstate->ident_flags |= IDENT_FLAG_PERSIST;
+    } else {
+        p_tstate->ident_flags &= ~IDENT_FLAG_PERSIST;
+    }
+    return was;
 }
 
 } /* namespace cubescript */

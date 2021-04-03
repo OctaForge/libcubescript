@@ -24,15 +24,15 @@ var_impl::var_impl(
 {}
 
 ivar_impl::ivar_impl(string_ref name, integer_type v, int fl):
-    var_impl{ident_type::IVAR, name, fl}, p_storage{v}
+    var_impl{ident_type::IVAR, name, fl}, p_storage{v}, p_override{v}
 {}
 
 fvar_impl::fvar_impl(string_ref name, float_type v, int fl):
-    var_impl{ident_type::FVAR, name, fl}, p_storage{v}
+    var_impl{ident_type::FVAR, name, fl}, p_storage{v}, p_override{v}
 {}
 
 svar_impl::svar_impl(string_ref name, string_ref v, int fl):
-    var_impl{ident_type::SVAR, name, fl}, p_storage{v}
+    var_impl{ident_type::SVAR, name, fl}, p_storage{v}, p_override{v}
 {}
 
 alias_impl::alias_impl(
@@ -120,9 +120,10 @@ void alias_stack::set_arg(alias *a, thread_state &ts, any_value &v) {
     node->val_s = std::move(v);
 }
 
-void alias_stack::set_alias(alias *, thread_state &, any_value &v) {
+void alias_stack::set_alias(alias *, thread_state &ts, any_value &v) {
     node->val_s = std::move(v);
     node->code = bcode_ref{};
+    flags = ts.ident_flags;
 }
 
 /* public interface */
@@ -266,8 +267,54 @@ LIBCUBESCRIPT_EXPORT string_var const *ident::get_svar() const {
     return static_cast<string_var const *>(this);
 }
 
+LIBCUBESCRIPT_EXPORT bool ident::is_overridden(state &cs) const {
+    switch (get_type()) {
+        case ident_type::IVAR:
+        case ident_type::FVAR:
+        case ident_type::SVAR:
+            return (p_impl->p_flags & IDENT_FLAG_OVERRIDDEN);
+        case ident_type::ALIAS:
+            return (cs.thread_pointer()->get_astack(
+                static_cast<alias const *>(this)
+            ).flags & IDENT_FLAG_OVERRIDDEN);
+        default:
+            break;
+    }
+    return false;
+}
+
+LIBCUBESCRIPT_EXPORT bool ident::is_persistent(state &cs) const {
+    switch (get_type()) {
+        case ident_type::IVAR:
+        case ident_type::FVAR:
+        case ident_type::SVAR:
+            return (p_impl->p_flags & IDENT_FLAG_PERSIST);
+        case ident_type::ALIAS:
+            return (cs.thread_pointer()->get_astack(
+                static_cast<alias const *>(this)
+            ).flags & IDENT_FLAG_PERSIST);
+        default:
+            break;
+    }
+    return false;
+}
+
 LIBCUBESCRIPT_EXPORT bool global_var::is_read_only() const {
     return (p_impl->p_flags & IDENT_FLAG_READONLY);
+}
+
+LIBCUBESCRIPT_EXPORT bool global_var::is_overridable() const {
+    return (p_impl->p_flags & IDENT_FLAG_OVERRIDE);
+}
+
+LIBCUBESCRIPT_EXPORT var_type global_var::get_variable_type() const {
+    if (p_impl->p_flags & IDENT_FLAG_OVERRIDE) {
+        return var_type::OVERRIDABLE;
+    } else if (p_impl->p_flags & IDENT_FLAG_PERSIST) {
+        return var_type::PERSISTENT;
+    } else {
+        return var_type::DEFAULT;
+    }
 }
 
 LIBCUBESCRIPT_EXPORT integer_type integer_var::get_value() const {
@@ -318,7 +365,7 @@ LIBCUBESCRIPT_EXPORT alias_local::alias_local(state &cs, ident *a) {
     auto &ast = ts.get_astack(p_alias);
     ast.push(ts.idstack.emplace_back(cs));
     p_sp = &ast;
-    static_cast<alias_impl *>(p_alias)->p_flags &= ~IDENT_FLAG_UNKNOWN;
+    ast.flags &= ~IDENT_FLAG_UNKNOWN;
 }
 
 LIBCUBESCRIPT_EXPORT alias_local::~alias_local() {
