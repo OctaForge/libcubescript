@@ -1,5 +1,7 @@
 #include <cubescript/cubescript.hh>
 
+#include <algorithm>
+
 #include "cs_gen.hh"
 #include "cs_thread.hh"
 
@@ -85,7 +87,10 @@ LIBCUBESCRIPT_EXPORT stack_state error::save_stack(thread_state &ts) {
     integer_var *dalias = static_cast<integer_var *>(
         ts.istate->identmap[ID_IDX_DBGALIAS]
     );
-    if (!dalias->get_value()) {
+    auto dval = std::clamp(
+        dalias->get_value(), integer_type(0), integer_type(1000)
+    );
+    if (!dval) {
         return stack_state{ts, nullptr, !!ts.callstack};
     }
     int total = 0, depth = 0;
@@ -96,13 +101,13 @@ LIBCUBESCRIPT_EXPORT stack_state error::save_stack(thread_state &ts) {
         return stack_state{ts, nullptr, false};
     }
     stack_state::node *st = ts.istate->create_array<stack_state::node>(
-        std::min(total, dalias->get_value())
+        std::min(total, dval)
     );
     stack_state::node *ret = st, *nd = st;
     ++st;
     for (ident_link *l = ts.callstack; l; l = l->next) {
         ++depth;
-        if (depth < dalias->get_value()) {
+        if (depth < dval) {
             nd->id = l->id;
             nd->index = total - depth + 1;
             if (!l->next) {
@@ -117,7 +122,7 @@ LIBCUBESCRIPT_EXPORT stack_state error::save_stack(thread_state &ts) {
             nd->next = nullptr;
         }
     }
-    return stack_state{ts, ret, total > dalias->get_value()};
+    return stack_state{ts, ret, total > dval};
 }
 
 } /* namespace cubescript */

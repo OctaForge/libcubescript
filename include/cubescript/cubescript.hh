@@ -56,21 +56,10 @@ struct ident;
 struct any_value;
 struct global_var;
 
-using hook_func      = callable<void, state &>;
-using var_cb_func    = callable<void, state &, ident &>;
-using command_func   = callable<
+using hook_func    = callable<void, state &>;
+using command_func = callable<
     void, state &, std::span<any_value>, any_value &
 >;
-
-enum {
-    IDENT_FLAG_PERSIST    = 1 << 0,
-    IDENT_FLAG_OVERRIDE   = 1 << 1,
-    IDENT_FLAG_HEX        = 1 << 2,
-    IDENT_FLAG_READONLY   = 1 << 3,
-    IDENT_FLAG_OVERRIDDEN = 1 << 4,
-    IDENT_FLAG_UNKNOWN    = 1 << 5,
-    IDENT_FLAG_ARG        = 1 << 6
-};
 
 struct internal_state;
 struct thread_state;
@@ -314,8 +303,6 @@ enum class loop_state {
 };
 
 struct LIBCUBESCRIPT_EXPORT state {
-    int identflags = 0;
-
     state();
     state(alloc_func func, void *data);
     virtual ~state();
@@ -336,7 +323,6 @@ struct LIBCUBESCRIPT_EXPORT state {
 
     void swap(state &s) {
         std::swap(p_tstate, s.p_tstate);
-        std::swap(identflags, s.identflags);
     }
 
     state new_thread();
@@ -352,55 +338,17 @@ struct LIBCUBESCRIPT_EXPORT state {
 
     void init_libs(int libs = LIB_ALL);
 
-    void clear_override(ident &id);
-    void clear_overrides();
-
-    ident *new_ident(std::string_view name, int flags = IDENT_FLAG_UNKNOWN);
-
-    template<typename F>
     integer_var *new_ivar(
-        std::string_view name, integer_type m, integer_type x, integer_type v,
-        F &&f, int flags = 0
-    ) {
-        return new_ivar(
-            name, m, x, v,
-            var_cb_func{std::forward<F>(f), callable_alloc, this}, flags
-        );
-    }
-    integer_var *new_ivar(
-        std::string_view name, integer_type m, integer_type x, integer_type v
-    ) {
-        return new_ivar(name, m, x, v, var_cb_func{}, 0);
-    }
-
-    template<typename F>
+        std::string_view n, integer_type v, bool read_only = false
+    );
     float_var *new_fvar(
-        std::string_view name, float_type m, float_type x, float_type v,
-        F &&f, int flags = 0
-    ) {
-        return new_fvar(
-            name, m, x, v,
-            var_cb_func{std::forward<F>(f), callable_alloc, this}, flags
-        );
-    }
-    float_var *new_fvar(
-        std::string_view name, float_type m, float_type x, float_type v
-    ) {
-        return new_fvar(name, m, x, v, var_cb_func{}, 0);
-    }
-
-    template<typename F>
+        std::string_view n, float_type v, bool read_only = false
+    );
     string_var *new_svar(
-        std::string_view name, std::string_view v, F &&f, int flags = 0
-    ) {
-        return new_svar(
-            name, v,
-            var_cb_func{std::forward<F>(f), callable_alloc, this}, flags
-        );
-    }
-    string_var *new_svar(std::string_view name, std::string_view v) {
-        return new_svar(name, v, var_cb_func{}, 0);
-    }
+        std::string_view n, std::string_view v, bool read_only = false
+    );
+
+    ident *new_ident(std::string_view name, int flags);
 
     template<typename F>
     command *new_command(
@@ -418,9 +366,6 @@ struct LIBCUBESCRIPT_EXPORT state {
 
     std::span<ident *> get_idents();
     std::span<ident const *> get_idents() const;
-
-    void reset_var(std::string_view name);
-    void touch_var(std::string_view name);
 
     void run(bcode_ref const &code, any_value &ret);
     void run(std::string_view code, any_value &ret);
@@ -453,18 +398,6 @@ struct LIBCUBESCRIPT_EXPORT state {
 
 private:
     hook_func set_call_hook(hook_func func);
-
-    integer_var *new_ivar(
-        std::string_view n, integer_type m, integer_type x, integer_type v,
-        var_cb_func f, int flags
-    );
-    float_var *new_fvar(
-        std::string_view n, float_type m, float_type x, float_type v,
-        var_cb_func f, int flags
-    );
-    string_var *new_svar(
-        std::string_view n, std::string_view v, var_cb_func f, int flags
-    );
 
     command *new_command(
         std::string_view name, std::string_view args, command_func func

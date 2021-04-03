@@ -18,54 +18,21 @@ bool ident_is_callable(ident const *id) {
 }
 
 var_impl::var_impl(
-    ident_type tp, string_ref name, var_cb_func f, int fl
+    ident_type tp, string_ref name, int fl
 ):
-    ident_impl{tp, name, fl}, cb_var{std::move(f)}
+    ident_impl{tp, name, fl}
 {}
 
-void var_impl::changed(state &cs) {
-    if (cb_var) {
-        switch (p_type) {
-            case ID_IVAR:
-                cb_var(cs, *static_cast<ivar_impl *>(this));
-                break;
-            case ID_FVAR:
-                cb_var(cs, *static_cast<fvar_impl *>(this));
-                break;
-            case ID_SVAR:
-                cb_var(cs, *static_cast<svar_impl *>(this));
-                break;
-            default:
-                break;
-        }
-    }
-}
-
-ivar_impl::ivar_impl(
-    string_ref name, integer_type m, integer_type x, integer_type v, var_cb_func f, int fl
-):
-    var_impl{
-        ident_type::IVAR, name, std::move(f),
-        fl | ((m > x) ? IDENT_FLAG_READONLY : 0)
-    },
-    p_storage{v}, p_minval{m}, p_maxval{x}, p_overrideval{0}
+ivar_impl::ivar_impl(string_ref name, integer_type v, int fl):
+    var_impl{ident_type::IVAR, name, fl}, p_storage{v}
 {}
 
-fvar_impl::fvar_impl(
-    string_ref name, float_type m, float_type x, float_type v, var_cb_func f, int fl
-):
-    var_impl{
-        ident_type::FVAR, name, std::move(f),
-        fl | ((m > x) ? IDENT_FLAG_READONLY : 0)
-    },
-    p_storage{v}, p_minval{m}, p_maxval{x}, p_overrideval{0}
+fvar_impl::fvar_impl(string_ref name, float_type v, int fl):
+    var_impl{ident_type::FVAR, name, fl}, p_storage{v}
 {}
 
-svar_impl::svar_impl(
-    string_ref name, string_ref v, string_ref ov, var_cb_func f, int fl
-):
-    var_impl{ident_type::SVAR, name, std::move(f), fl},
-    p_storage{v}, p_overrideval{ov}
+svar_impl::svar_impl(string_ref name, string_ref v, int fl):
+    var_impl{ident_type::SVAR, name, fl}, p_storage{v}
 {}
 
 alias_impl::alias_impl(
@@ -153,11 +120,9 @@ void alias_stack::set_arg(alias *a, thread_state &ts, any_value &v) {
     node->val_s = std::move(v);
 }
 
-void alias_stack::set_alias(alias *a, thread_state &ts, any_value &v) {
+void alias_stack::set_alias(alias *, thread_state &, any_value &v) {
     node->val_s = std::move(v);
     node->code = bcode_ref{};
-    auto *ai = static_cast<alias_impl *>(a);
-    ai->p_flags = (ai->p_flags & ts.pstate->identflags) | ts.pstate->identflags;
 }
 
 /* public interface */

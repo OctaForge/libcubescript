@@ -16,6 +16,12 @@ enum {
     ID_NOT, ID_AND, ID_OR
 };
 
+enum {
+    IDENT_FLAG_UNKNOWN  = 1 << 0,
+    IDENT_FLAG_ARG      = 1 << 1,
+    IDENT_FLAG_READONLY = 1 << 2
+};
+
 struct ident_stack {
     any_value val_s;
     bcode_ref code;
@@ -64,38 +70,25 @@ struct ident_impl {
 bool ident_is_callable(ident const *id);
 
 struct var_impl: ident_impl {
-    var_impl(
-        ident_type tp, string_ref name, var_cb_func func, int flags = 0
-    );
-
-    var_cb_func cb_var;
-
-    void changed(state &cs);
+    var_impl(ident_type tp, string_ref name, int flags);
 };
 
 struct ivar_impl: var_impl, integer_var {
-    ivar_impl(
-        string_ref n, integer_type m, integer_type x, integer_type v, var_cb_func f, int flags
-    );
+    ivar_impl(string_ref n, integer_type v, int flags);
 
-    integer_type p_storage, p_minval, p_maxval, p_overrideval;
+    integer_type p_storage;
 };
 
 struct fvar_impl: var_impl, float_var {
-    fvar_impl(
-        string_ref n, float_type m, float_type x, float_type v,
-        var_cb_func f, int flags
-    );
+    fvar_impl(string_ref n, float_type v, int flags);
 
-    float_type p_storage, p_minval, p_maxval, p_overrideval;
+    float_type p_storage;
 };
 
 struct svar_impl: var_impl, string_var {
-    svar_impl(
-        string_ref n, string_ref v, string_ref ov, var_cb_func f, int flags
-    );
+    svar_impl(string_ref n, string_ref v, int flags);
 
-    string_ref p_storage, p_overrideval;
+    string_ref p_storage;
 };
 
 struct alias_impl: ident_impl, alias {

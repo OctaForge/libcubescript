@@ -226,8 +226,6 @@ bool exec_alias(
     }
     auto oldargs = anargs->get_value();
     anargs->set_value(integer_type(callargs));
-    int oldflags = ts.pstate->identflags;
-    ts.pstate->identflags |= a->get_flags()&IDENT_FLAG_OVERRIDDEN;
     ident_link aliaslink = {a, ts.callstack, uargs};
     ts.callstack = &aliaslink;
     if (!aast.node->code) {
@@ -242,7 +240,6 @@ bool exec_alias(
     bcode_ref coderef = aast.node->code;
     auto cleanup = [&]() {
         ts.callstack = aliaslink.next;
-        ts.pstate->identflags = oldflags;
         auto amask = aliaslink.usedargs;
         for (std::size_t i = 0; i < callargs; i++) {
             ts.get_astack(

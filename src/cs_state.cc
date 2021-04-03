@@ -83,12 +83,12 @@ state::state(alloc_func func, void *data) {
         throw internal_error{"invalid dummy index"};
     }
 
-    id = new_ivar("numargs", MAX_ARGUMENTS, 0, 0);
+    id = new_ivar("numargs", 0, true);
     if (id->get_index() != ID_IDX_NUMARGS) {
         throw internal_error{"invalid numargs index"};
     }
 
-    id = new_ivar("dbgalias", 0, 1000, 4);
+    id = new_ivar("dbgalias", 4);
     if (id->get_index() != ID_IDX_DBGALIAS) {
         throw internal_error{"invalid dbgalias index"};
     }
@@ -289,43 +289,36 @@ LIBCUBESCRIPT_EXPORT std::span<ident const *> state::get_idents() const {
 }
 
 LIBCUBESCRIPT_EXPORT integer_var *state::new_ivar(
-    std::string_view n, integer_type m, integer_type x, integer_type v,
-    var_cb_func f, int flags
+    std::string_view n, integer_type v, bool read_only
 ) {
     auto *iv = p_tstate->istate->create<ivar_impl>(
-        string_ref{p_tstate->istate, n}, m, x, v, std::move(f), flags
+        string_ref{p_tstate->istate, n}, v,
+        read_only ? IDENT_FLAG_READONLY : 0
     );
     add_ident(iv, iv);
     return iv;
 }
 
 LIBCUBESCRIPT_EXPORT float_var *state::new_fvar(
-    std::string_view n, float_type m, float_type x, float_type v,
-    var_cb_func f, int flags
+    std::string_view n, float_type v, bool read_only
 ) {
     auto *fv = p_tstate->istate->create<fvar_impl>(
-        string_ref{p_tstate->istate, n}, m, x, v, std::move(f), flags
+        string_ref{p_tstate->istate, n}, v,
+        read_only ? IDENT_FLAG_READONLY : 0
     );
     add_ident(fv, fv);
     return fv;
 }
 
 LIBCUBESCRIPT_EXPORT string_var *state::new_svar(
-    std::string_view n, std::string_view v, var_cb_func f, int flags
+    std::string_view n, std::string_view v, bool read_only
 ) {
     auto *sv = p_tstate->istate->create<svar_impl>(
         string_ref{p_tstate->istate, n}, string_ref{p_tstate->istate, v},
-        string_ref{p_tstate->istate, ""}, std::move(f), flags
+        read_only ? IDENT_FLAG_READONLY : 0
     );
     add_ident(sv, sv);
     return sv;
-}
-
-LIBCUBESCRIPT_EXPORT void state::touch_var(std::string_view name) {
-    ident *id = get_ident(name);
-    if (id && id->is_var()) {
-        static_cast<var_impl *>(id->p_impl)->changed(*this);
-    }
 }
 
 LIBCUBESCRIPT_EXPORT void state::set_alias(
@@ -361,7 +354,7 @@ LIBCUBESCRIPT_EXPORT void state::set_alias(
         throw error{*this, "cannot alias invalid name '%s'", name.data()};
     } else {
         auto *a = p_tstate->istate->create<alias_impl>(
-            *this, string_ref{p_tstate->istate, name}, std::move(v), identflags
+            *this, string_ref{p_tstate->istate, name}, std::move(v), 0
         );
         add_ident(a, a);
     }
