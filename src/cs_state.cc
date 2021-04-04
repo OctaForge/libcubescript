@@ -279,7 +279,9 @@ LIBCUBESCRIPT_EXPORT void state::destroy() {
 
 state::state(internal_state *s) {
     p_tstate = s->create<thread_state>(s);
+    p_tstate->pstate = this;
     p_tstate->istate = s;
+    p_tstate->owner = false;
 }
 
 LIBCUBESCRIPT_EXPORT state state::new_thread() {

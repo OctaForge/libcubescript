@@ -144,10 +144,14 @@ void alias_stack::set_arg(alias *a, thread_state &ts, any_value &v) {
     node->val_s = std::move(v);
 }
 
-void alias_stack::set_alias(alias *, thread_state &ts, any_value &v) {
+void alias_stack::set_alias(alias *a, thread_state &ts, any_value &v) {
     node->val_s = std::move(v);
     node->code = bcode_ref{};
     flags = ts.ident_flags;
+    auto *imp = static_cast<alias_impl *>(a);
+    if (node == &imp->p_initial) {
+        imp->p_flags = flags;
+    }
 }
 
 /* public interface */
