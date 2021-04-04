@@ -90,7 +90,7 @@ void var_changed(thread_state &ts, ident *id) {
     auto *cimp = static_cast<command_impl *>(cid);
     any_value val{*ts.pstate};
     val.set_ident(id);
-    cimp->call(*ts.pstate, std::span<any_value>{&val, 1}, val);
+    cimp->call(ts, std::span<any_value>{&val, 1}, val);
 }
 
 void ivar_impl::save_val() {
@@ -105,16 +105,17 @@ void svar_impl::save_val() {
     p_override = std::move(p_storage);
 }
 
-void command_impl::call(state &cs, std::span<any_value> args, any_value &ret) {
-    auto &ts = *cs.thread_pointer();
+void command_impl::call(
+    thread_state &ts, std::span<any_value> args, any_value &ret
+) {
     auto idstsz = ts.idstack.size();
     try {
-        p_cb_cftv(cs, args, ret);
+        p_cb_cftv(*ts.pstate, args, ret);
     } catch (...) {
-        ts.idstack.resize(idstsz, ident_stack{cs});
+        ts.idstack.resize(idstsz, ident_stack{*ts.pstate});
         throw;
     }
-    ts.idstack.resize(idstsz, ident_stack{cs});
+    ts.idstack.resize(idstsz, ident_stack{*ts.pstate});
 }
 
 bool ident_is_used_arg(ident *id, thread_state &ts) {

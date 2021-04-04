@@ -173,14 +173,14 @@ void exec_command(
                     *ts.pstate, std::span{args, std::size_t(i)}, " "
                 ));
                 static_cast<command_impl *>(id)->call(
-                    *ts.pstate, std::span<any_value>(&tv, &tv + 1), res
+                    ts, std::span<any_value>(&tv, &tv + 1), res
                 );
                 return;
             }
             case 'V':
                 i = std::max(i + 1, numargs);
                 static_cast<command_impl *>(id)->call(
-                    *ts.pstate, std::span{args, std::size_t(i)}, res
+                    ts, std::span{args, std::size_t(i)}, res
                 );
                 return;
             case '1':
@@ -196,7 +196,7 @@ void exec_command(
     }
     ++i;
     static_cast<command_impl *>(id)->call(
-        *ts.pstate, std::span<any_value>{args, std::size_t(i)}, res
+        ts, std::span<any_value>{args, std::size_t(i)}, res
     );
 }
 
@@ -1227,7 +1227,7 @@ noid:
                 );
                 std::size_t offset = args.size() - id->get_num_args();
                 result.force_none();
-                id->call(cs, std::span<any_value>{
+                id->call(ts, std::span<any_value>{
                     &args[offset], std::size_t(id->get_num_args())
                 }, result);
                 force_arg(result, op & BC_INST_RET_MASK);
@@ -1245,7 +1245,7 @@ noid:
                 std::size_t callargs = *code++;
                 std::size_t offset = args.size() - callargs;
                 result.force_none();
-                id->call(cs, std::span{&args[offset], callargs}, result);
+                id->call(ts, std::span{&args[offset], callargs}, result);
                 force_arg(result, op & BC_INST_RET_MASK);
                 args.resize(offset, any_value{cs});
                 continue;
@@ -1265,7 +1265,7 @@ noid:
                     tv.set_str(concat_values(cs, std::span{
                         &args[offset], callargs
                     }, " "));
-                    id->call(cs, std::span<any_value>{&tv, 1}, result);
+                    id->call(ts, std::span<any_value>{&tv, 1}, result);
                 }
                 force_arg(result, op & BC_INST_RET_MASK);
                 args.resize(offset, any_value{cs});

@@ -22,7 +22,7 @@ std::string_view codegen_state::get_str() {
 }
 
 charbuf codegen_state::get_str_dup() {
-    charbuf buf{ts.istate};
+    charbuf buf{ts};
     unescape_string(std::back_inserter(buf), get_str());
     return buf;
 }
@@ -217,7 +217,7 @@ static bool compilearg(
 );
 
 static void compilelookup(codegen_state &gs, int ltype) {
-    charbuf lookup{gs.ts.istate};
+    charbuf lookup{gs.ts};
     gs.next_char();
     switch (gs.current()) {
         case '(':
@@ -488,7 +488,7 @@ done:
 }
 
 static bool compileblocksub(codegen_state &gs) {
-    charbuf lookup{gs.ts.istate};
+    charbuf lookup{gs.ts};
     switch (gs.current()) {
         case '(':
             if (!compilearg(gs, VAL_ANY)) {
@@ -1163,7 +1163,7 @@ static void compile_and_or(
 }
 
 static void compilestatements(codegen_state &gs, int rettype, int brak) {
-    charbuf idname{gs.ts.istate};
+    charbuf idname{gs.ts};
     for (;;) {
         gs.skip_comments();
         idname.clear();
