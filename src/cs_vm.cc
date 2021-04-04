@@ -1146,10 +1146,7 @@ noid:
                         return code;
                     }
                     case ID_IVAR: {
-                        auto *hid = cs.get_ident("//ivar");
-                        if (!hid || !hid->is_command()) {
-                            throw error{ts, "invalid ivar handler"};
-                        }
+                        auto *hid = ts.istate->cmd_ivar;
                         auto *cimp = static_cast<command_impl *>(hid);
                         /* the $ argument */
                         args.insert(offset, any_value{cs});
@@ -1164,10 +1161,7 @@ noid:
                         continue;
                     }
                     case ID_FVAR: {
-                        auto *hid = cs.get_ident("//fvar");
-                        if (!hid || !hid->is_command()) {
-                            throw error{ts, "invalid fvar handler"};
-                        }
+                        auto *hid = ts.istate->cmd_fvar;
                         auto *cimp = static_cast<command_impl *>(hid);
                         /* the $ argument */
                         args.insert(offset, any_value{cs});
@@ -1182,10 +1176,7 @@ noid:
                         continue;
                     }
                     case ID_SVAR: {
-                        auto *hid = cs.get_ident("//svar");
-                        if (!hid || !hid->is_command()) {
-                            throw error{ts, "invalid svar handler"};
-                        }
+                        auto *hid = ts.istate->cmd_svar;
                         auto *cimp = static_cast<command_impl *>(hid);
                         /* the $ argument */
                         args.insert(offset, any_value{cs});

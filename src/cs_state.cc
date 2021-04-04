@@ -1,4 +1,6 @@
 #include <memory>
+#include <cstdio>
+#include <cmath>
 
 #include "cs_bcode.hh"
 #include "cs_state.hh"
@@ -58,7 +60,7 @@ ident *internal_state::new_ident(state &cs, std::string_view name, int flags) {
     if (!id) {
         if (!is_valid_name(name)) {
             throw error{
-                cs, "number %s is not a valid identifier name", name.data()
+                cs, "'%s' is not a valid identifier name", name.data()
             };
         }
         auto *inst = create<alias_impl>(
@@ -132,6 +134,55 @@ state::state(alloc_func func, void *data) {
     if (id->get_index() != ID_IDX_DBGALIAS) {
         throw internal_error{"invalid dbgalias index"};
     }
+
+    /* default handlers for variables */
+
+    statep->cmd_ivar = new_command("//ivar_builtin", "$iN", [](
+        auto &cs, auto args, auto &
+    ) {
+        auto *iv = args[0].get_ident()->get_ivar();
+        if (args[2].get_int() <= 1) {
+            std::printf("%s = %d\n", iv->get_name().data(), iv->get_value());
+        } else {
+            iv->set_value(cs, args[1].get_int());
+        }
+    });
+
+    statep->cmd_fvar = new_command("//fvar_builtin", "$fN", [](
+        auto &cs, auto args, auto &
+    ) {
+        auto *fv = args[0].get_ident()->get_fvar();
+        if (args[2].get_int() <= 1) {
+            auto val = fv->get_value();
+            if (std::floor(val) == val) {
+                std::printf("%s = %.1f\n", fv->get_name().data(), val);
+            } else {
+                std::printf("%s = %.7g\n", fv->get_name().data(), val);
+            }
+        } else {
+            fv->set_value(cs, args[1].get_float());
+        }
+    });
+
+    statep->cmd_svar = new_command("//svar_builtin", "$sN", [](
+        auto &cs, auto args, auto &
+    ) {
+        auto *sv = args[0].get_ident()->get_svar();
+        if (args[2].get_int() <= 1) {
+            auto val = std::string_view{sv->get_value()};
+            if (val.find('"') == val.npos) {
+                std::printf("%s = \"%s\"\n", sv->get_name().data(), val.data());
+            } else {
+                std::printf("%s = [%s]\n", sv->get_name().data(), val.data());
+            }
+        } else {
+            sv->set_value(cs, args[1].get_str());
+        }
+    });
+
+    statep->cmd_var_changed = nullptr;
+
+    /* builtins */
 
     p = new_command("do", "e", [](auto &cs, auto args, auto &res) {
         cs.run(args[0].get_code(), res);
@@ -356,6 +407,21 @@ inline int var_flags(bool read_only, var_type vtp) {
     return ret;
 }
 
+static void var_name_check(
+    state &cs, ident *id, std::string_view n
+) {
+    if (id) {
+        throw error{
+            cs, "redefinition of ident '%.*s'", int(n.size()), n.data()
+        };
+    } else if (!is_valid_name(n)) {
+        throw error{
+            cs, "'%.*s' is not a valid variable name",
+            int(n.size()), n.data()
+        };
+    }
+}
+
 LIBCUBESCRIPT_EXPORT integer_var *state::new_ivar(
     std::string_view n, integer_type v, bool read_only, var_type vtp
 ) {
@@ -363,6 +429,12 @@ LIBCUBESCRIPT_EXPORT integer_var *state::new_ivar(
         string_ref{p_tstate->istate, n}, v,
         var_flags(read_only, vtp)
     );
+    try {
+        var_name_check(*this, p_tstate->istate->get_ident(n), n);
+    } catch (...) {
+        p_tstate->istate->destroy(iv);
+        throw;
+    }
     p_tstate->istate->add_ident(iv, iv);
     return iv;
 }
@@ -374,6 +446,12 @@ LIBCUBESCRIPT_EXPORT float_var *state::new_fvar(
         string_ref{p_tstate->istate, n}, v,
         var_flags(read_only, vtp)
     );
+    try {
+        var_name_check(*this, p_tstate->istate->get_ident(n), n);
+    } catch (...) {
+        p_tstate->istate->destroy(fv);
+        throw;
+    }
     p_tstate->istate->add_ident(fv, fv);
     return fv;
 }
@@ -385,6 +463,12 @@ LIBCUBESCRIPT_EXPORT string_var *state::new_svar(
         string_ref{p_tstate->istate, n}, string_ref{p_tstate->istate, v},
         var_flags(read_only, vtp)
     );
+    try {
+        var_name_check(*this, p_tstate->istate->get_ident(n), n);
+    } catch (...) {
+        p_tstate->istate->destroy(sv);
+        throw;
+    }
     p_tstate->istate->add_ident(sv, sv);
     return sv;
 }
@@ -448,6 +532,12 @@ LIBCUBESCRIPT_EXPORT void state::set_alias(
     }
 }
 
+static char const *allowed_builtins[] = {
+    "//ivar", "//fvar", "//svar", "//var_changed",
+    "//ivar_builtin", "//fvar_builtin", "//svar_builtin",
+    nullptr
+};
+
 LIBCUBESCRIPT_EXPORT command *state::new_command(
     std::string_view name, std::string_view args, command_func func
 ) {
@@ -494,12 +584,49 @@ LIBCUBESCRIPT_EXPORT command *state::new_command(
                 return nullptr;
         }
     }
-    auto *cmd = p_tstate->istate->create<command_impl>(
-        string_ref{p_tstate->istate, name},
-        string_ref{p_tstate->istate, args},
-        nargs, std::move(func)
+    auto &is = *p_tstate->istate;
+    auto *cmd = is.create<command_impl>(
+        string_ref{&is, name}, string_ref{&is, args}, nargs, std::move(func)
     );
-    p_tstate->istate->add_ident(cmd, cmd);
+    /* we can set these builtins */
+    command **bptrs[] = {
+        &is.cmd_ivar, &is.cmd_fvar, &is.cmd_svar, &is.cmd_var_changed
+    };
+    auto nbptrs = sizeof(bptrs) / sizeof(*bptrs);
+    /* provided a builtin */
+    if ((name.size() >= 2) && (name[0] == '/') && (name[1] == '/')) {
+        /* sanitize */
+        for (auto **p = allowed_builtins; *p; ++p) {
+            if (!name.compare(*p)) {
+                /* if it's one of the settable ones, maybe set it */
+                if (std::size_t(p - allowed_builtins) < nbptrs) {
+                    if (!is.get_ident(name)) {
+                        /* only set if it does not exist already */
+                        *bptrs[p - allowed_builtins] = cmd;
+                        goto do_add;
+                    }
+                }
+                /* this will ensure we're not redefining them */
+                goto valid;
+            }
+        }
+        /* we haven't found one matching the list, so error */
+        is.destroy(cmd);
+        throw error{
+            *this, "forbidden builtin command: %.*s",
+            int(name.size()), name.data()
+        };
+    }
+valid:
+    if (is.get_ident(name)) {
+        is.destroy(cmd);
+        throw error{
+            *this, "redefinition of ident '%.*s'",
+            int(name.size()), name.data()
+        };
+    }
+do_add:
+    is.add_ident(cmd, cmd);
     return cmd;
 }
 
@@ -593,10 +720,7 @@ LIBCUBESCRIPT_EXPORT void state::run(
                 break;
             }
             case ident_type::IVAR: {
-                auto *hid = get_ident("//ivar");
-                if (!hid || !hid->is_command()) {
-                    throw error{*p_tstate, "invalid ivar handler"};
-                }
+                auto *hid = p_tstate->istate->cmd_ivar;
                 auto *cimp = static_cast<command_impl *>(hid);
                 auto &targs = p_tstate->vmstack;
                 auto osz = targs.size();
@@ -613,10 +737,7 @@ LIBCUBESCRIPT_EXPORT void state::run(
                 break;
             }
             case ident_type::FVAR: {
-                auto *hid = get_ident("//fvar");
-                if (!hid || !hid->is_command()) {
-                    throw error{*p_tstate, "invalid fvar handler"};
-                }
+                auto *hid = p_tstate->istate->cmd_fvar;
                 auto *cimp = static_cast<command_impl *>(hid);
                 auto &targs = p_tstate->vmstack;
                 auto osz = targs.size();
@@ -633,10 +754,7 @@ LIBCUBESCRIPT_EXPORT void state::run(
                 break;
             }
             case ident_type::SVAR: {
-                auto *hid = get_ident("//svar");
-                if (!hid || !hid->is_command()) {
-                    throw error{*p_tstate, "invalid svar handler"};
-                }
+                auto *hid = p_tstate->istate->cmd_svar;
                 auto *cimp = static_cast<command_impl *>(hid);
                 auto &targs = p_tstate->vmstack;
                 auto osz = targs.size();

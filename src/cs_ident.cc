@@ -83,8 +83,8 @@ command_impl::command_impl(
 {}
 
 void var_changed(thread_state &ts, ident *id) {
-    auto *cid = ts.pstate->get_ident("//var_changed");
-    if (!cid || !cid->is_command()) {
+    auto *cid = ts.istate->cmd_var_changed;
+    if (!cid) {
         return;
     }
     auto *cimp = static_cast<command_impl *>(cid);

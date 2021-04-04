@@ -1204,10 +1204,7 @@ static void compilestatements(codegen_state &gs, int rettype, int brak) {
                                     );
                                     goto endstatement;
                                 case ident_type::IVAR: {
-                                    auto *hid = gs.ts.pstate->get_ident("//ivar");
-                                    if (!hid || !hid->is_command()) {
-                                        throw error{gs.ts, "invalid ivar handler"};
-                                    }
+                                    auto *hid = gs.ts.istate->cmd_ivar;
                                     compile_cmd(
                                         gs, static_cast<command_impl *>(hid),
                                         id, more, rettype, 1
@@ -1215,10 +1212,7 @@ static void compilestatements(codegen_state &gs, int rettype, int brak) {
                                     goto endstatement;
                                 }
                                 case ident_type::FVAR: {
-                                    auto *hid = gs.ts.pstate->get_ident("//fvar");
-                                    if (!hid || !hid->is_command()) {
-                                        throw error{gs.ts, "invalid fvar handler"};
-                                    }
+                                    auto *hid = gs.ts.istate->cmd_fvar;
                                     compile_cmd(
                                         gs, static_cast<command_impl *>(hid),
                                         id, more, rettype, 1
@@ -1226,10 +1220,7 @@ static void compilestatements(codegen_state &gs, int rettype, int brak) {
                                     goto endstatement;
                                 }
                                 case ident_type::SVAR: {
-                                    auto *hid = gs.ts.pstate->get_ident("//svar");
-                                    if (!hid || !hid->is_command()) {
-                                        throw error{gs.ts, "invalid svar handler"};
-                                    }
+                                    auto *hid = gs.ts.istate->cmd_svar;
                                     compile_cmd(
                                         gs, static_cast<command_impl *>(hid),
                                         id, more, rettype, 1
@@ -1338,10 +1329,7 @@ noid:
                         compile_and_or(gs, id, more, rettype);
                         break;
                     case ID_IVAR: {
-                        auto *hid = gs.ts.pstate->get_ident("//ivar");
-                        if (!hid || !hid->is_command()) {
-                            throw error{gs.ts, "invalid ivar handler"};
-                        }
+                        auto *hid = gs.ts.istate->cmd_ivar;
                         compile_cmd(
                             gs, static_cast<command_impl *>(hid),
                             id, more, rettype
@@ -1349,10 +1337,7 @@ noid:
                         break;
                     }
                     case ID_FVAR: {
-                        auto *hid = gs.ts.pstate->get_ident("//fvar");
-                        if (!hid || !hid->is_command()) {
-                            throw error{gs.ts, "invalid fvar handler"};
-                        }
+                        auto *hid = gs.ts.istate->cmd_fvar;
                         compile_cmd(
                             gs, static_cast<command_impl *>(hid),
                             id, more, rettype
@@ -1360,10 +1345,7 @@ noid:
                         break;
                     }
                     case ID_SVAR: {
-                        auto *hid = gs.ts.pstate->get_ident("//svar");
-                        if (!hid || !hid->is_command()) {
-                            throw error{gs.ts, "invalid svar handler"};
-                        }
+                        auto *hid = gs.ts.istate->cmd_svar;
                         compile_cmd(
                             gs, static_cast<command_impl *>(hid),
                             id, more, rettype

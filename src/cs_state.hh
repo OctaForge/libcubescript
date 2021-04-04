@@ -52,6 +52,11 @@ struct internal_state {
     string_pool *strman;
     empty_block *empty;
 
+    command *cmd_ivar;
+    command *cmd_fvar;
+    command *cmd_svar;
+    command *cmd_var_changed;
+
     internal_state() = delete;
 
     internal_state(alloc_func af, void *data);
