@@ -638,14 +638,14 @@ std::uint32_t *vm_exec(
                 continue;
             }
             case BC_INST_BREAK | BC_INST_FLAG_FALSE:
-                if (cs.is_in_loop()) {
+                if (ts.loop_level) {
                     throw break_exception();
                 } else {
                     throw error{cs, "no loop to break"};
                 }
                 break;
             case BC_INST_BREAK | BC_INST_FLAG_TRUE:
-                if (cs.is_in_loop()) {
+                if (ts.loop_level) {
                     throw continue_exception();
                 } else {
                     throw error{cs, "no loop to continue"};

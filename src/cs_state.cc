@@ -243,7 +243,7 @@ state::state(alloc_func func, void *data) {
     static_cast<command_impl *>(p)->p_type = ID_LOCAL;
 
     p = new_command("break", "", [](auto &cs, auto, auto &) {
-        if (cs.is_in_loop()) {
+        if (cs.thread_pointer()->loop_level) {
             throw break_exception{};
         } else {
             throw error{cs, "no loop to break"};
@@ -252,7 +252,7 @@ state::state(alloc_func func, void *data) {
     static_cast<command_impl *>(p)->p_type = ID_BREAK;
 
     p = new_command("continue", "", [](auto &cs, auto, auto &) {
-        if (cs.is_in_loop()) {
+        if (cs.thread_pointer()->loop_level) {
             throw continue_exception{};
         } else {
             throw error{cs, "no loop to continue"};
@@ -826,10 +826,6 @@ LIBCUBESCRIPT_EXPORT loop_state state::run_loop(
 LIBCUBESCRIPT_EXPORT loop_state state::run_loop(bcode_ref const &code) {
     any_value ret{*this};
     return run_loop(code, ret);
-}
-
-LIBCUBESCRIPT_EXPORT bool state::is_in_loop() const {
-    return !!p_tstate->loop_level;
 }
 
 LIBCUBESCRIPT_EXPORT bool state::get_override_mode() const {

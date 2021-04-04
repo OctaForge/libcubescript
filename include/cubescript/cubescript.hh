@@ -404,8 +404,6 @@ struct LIBCUBESCRIPT_EXPORT state {
     loop_state run_loop(bcode_ref const &code, any_value &ret);
     loop_state run_loop(bcode_ref const &code);
 
-    bool is_in_loop() const;
-
     bool get_override_mode() const;
     bool set_override_mode(bool v);
 
