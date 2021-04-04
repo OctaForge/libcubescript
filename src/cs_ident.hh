@@ -75,10 +75,14 @@ bool ident_is_callable(ident const *id);
 
 struct var_impl: ident_impl {
     var_impl(ident_type tp, string_ref name, int flags);
+
+    virtual void save_val() = 0;
 };
 
 struct ivar_impl: var_impl, integer_var {
     ivar_impl(string_ref n, integer_type v, int flags);
+
+    void save_val();
 
     integer_type p_storage;
     integer_type p_override;
@@ -87,12 +91,16 @@ struct ivar_impl: var_impl, integer_var {
 struct fvar_impl: var_impl, float_var {
     fvar_impl(string_ref n, float_type v, int flags);
 
+    void save_val();
+
     float_type p_storage;
     float_type p_override;
 };
 
 struct svar_impl: var_impl, string_var {
     svar_impl(string_ref n, string_ref v, int flags);
+
+    void save_val();
 
     string_ref p_storage;
     string_ref p_override;

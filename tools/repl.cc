@@ -341,6 +341,7 @@ int main(int argc, char **argv) {
                 css, "variable '%s' is read only", iv->get_name().data()
             };
         }
+        iv->save(css);
         if (nargs == 2) {
             iv->set_value(args[1].get_int());
         } else if (nargs == 3) {
@@ -370,6 +371,7 @@ int main(int argc, char **argv) {
                 css, "variable '%s' is read only", fv->get_name().data()
             };
         } else {
+            fv->save(css);
             fv->set_value(args[1].get_float());
         }
     });
@@ -389,6 +391,7 @@ int main(int argc, char **argv) {
                 css, "variable '%s' is read only", sv->get_name().data()
             };
         } else {
+            sv->save(css);
             sv->set_value(args[1].get_str());
         }
     });

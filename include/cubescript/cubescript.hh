@@ -253,6 +253,8 @@ struct LIBCUBESCRIPT_EXPORT global_var: ident {
 
     var_type get_variable_type() const;
 
+    void save(state &cs);
+
 protected:
     global_var() = default;
 };

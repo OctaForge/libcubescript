@@ -82,6 +82,18 @@ command_impl::command_impl(
     p_cargs{args}, p_cb_cftv{std::move(f)}, p_numargs{nargs}
 {}
 
+void ivar_impl::save_val() {
+    p_override = p_storage;
+}
+
+void fvar_impl::save_val() {
+    p_override = p_storage;
+}
+
+void svar_impl::save_val() {
+    p_override = std::move(p_storage);
+}
+
 void command_impl::call(state &cs, std::span<any_value> args, any_value &ret) {
     auto &ts = *cs.thread_pointer();
     auto idstsz = ts.idstack.size();
@@ -314,6 +326,23 @@ LIBCUBESCRIPT_EXPORT var_type global_var::get_variable_type() const {
         return var_type::PERSISTENT;
     } else {
         return var_type::DEFAULT;
+    }
+}
+
+LIBCUBESCRIPT_EXPORT void global_var::save(state &cs) {
+    auto &ts = *cs.thread_pointer();
+    if ((ts.ident_flags & IDENT_FLAG_OVERRIDDEN) || is_overridable()) {
+        if (p_impl->p_flags & IDENT_FLAG_PERSIST) {
+            throw error{
+                cs, "cannot override persistent variable '%s'",
+                get_name().data()
+            };
+        }
+        if (!(p_impl->p_flags & IDENT_FLAG_OVERRIDDEN)) {
+            static_cast<var_impl *>(p_impl)->save_val();
+        }
+    } else {
+        p_impl->p_flags &= IDENT_FLAG_OVERRIDDEN;
     }
 }
 
