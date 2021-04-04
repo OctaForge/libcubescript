@@ -274,6 +274,7 @@ LIBCUBESCRIPT_EXPORT void state::destroy() {
     auto *sp = p_tstate->istate;
     sp->destroy(p_tstate);
     sp->destroy(sp);
+    p_tstate = nullptr;
 }
 
 state::state(internal_state *s) {
