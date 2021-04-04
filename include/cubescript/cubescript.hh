@@ -412,6 +412,9 @@ struct LIBCUBESCRIPT_EXPORT state {
     bool get_persist_mode() const;
     bool set_persist_mode(bool v);
 
+    std::size_t get_max_run_depth() const;
+    std::size_t set_max_run_depth(std::size_t v);
+
     void set_alias(std::string_view name, any_value v);
 
     std::optional<string_ref> get_alias_val(std::string_view name);

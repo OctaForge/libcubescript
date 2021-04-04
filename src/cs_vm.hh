@@ -22,6 +22,8 @@ struct run_depth_guard {
     run_depth_guard(run_depth_guard const &) = delete;
     run_depth_guard(run_depth_guard &&) = delete;
     ~run_depth_guard();
+
+    thread_state *tsp;
 };
 
 struct stack_guard {

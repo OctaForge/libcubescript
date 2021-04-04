@@ -279,17 +279,14 @@ bool exec_alias(
     return true;
 }
 
-static constexpr int MaxRunDepth = 255;
-static thread_local int rundepth = 0;
-
-run_depth_guard::run_depth_guard(thread_state &ts) {
-    if (rundepth >= MaxRunDepth) {
+run_depth_guard::run_depth_guard(thread_state &ts): tsp(&ts) {
+    if (ts.max_run_depth && (ts.run_depth >= ts.max_run_depth)) {
         throw error{ts, "exceeded recursion limit"};
     }
-    ++rundepth;
+    ++ts.run_depth;
 }
 
-run_depth_guard::~run_depth_guard() { --rundepth; }
+run_depth_guard::~run_depth_guard() { --tsp->run_depth; }
 
 static inline alias *get_lookup_id(
     thread_state &ts, std::uint32_t op, alias_stack *&ast

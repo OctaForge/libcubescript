@@ -35,12 +35,16 @@ struct thread_state {
     charbuf errbuf;
     /* we can attach a hook to vm events */
     hook_func call_hook{};
-    /* loop nesting level */
-    int loop_level = 0;
-    /* thread ident flags */
-    int ident_flags = 0;
     /* whether we own the internal state (i.e. not a side thread */
     bool owner = false;
+    /* thread ident flags */
+    int ident_flags = 0;
+    /* run depth limit */
+    std::size_t max_run_depth = 0;
+    /* current run depth */
+    std::size_t run_depth = 0;
+    /* loop nesting level */
+    std::size_t loop_level = 0;
 
     thread_state(internal_state *cs);
 

@@ -859,4 +859,14 @@ LIBCUBESCRIPT_EXPORT bool state::set_persist_mode(bool v) {
     return was;
 }
 
+LIBCUBESCRIPT_EXPORT std::size_t state::get_max_run_depth() const {
+    return p_tstate->max_run_depth;
+}
+
+LIBCUBESCRIPT_EXPORT std::size_t state::set_max_run_depth(std::size_t v) {
+    auto old = p_tstate->max_run_depth;
+    p_tstate->max_run_depth = v;
+    return old;
+}
+
 } /* namespace cubescript */
