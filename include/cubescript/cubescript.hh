@@ -345,15 +345,22 @@ struct LIBCUBESCRIPT_EXPORT state {
 
     void init_libs(int libs = LIB_ALL);
 
+    void clear_override(ident &id);
+    void clear_overrides();
+
     integer_var *new_ivar(
-        std::string_view n, integer_type v, bool read_only = false
+        std::string_view n, integer_type v, bool read_only = false,
+        var_type vtp = var_type::DEFAULT
     );
     float_var *new_fvar(
-        std::string_view n, float_type v, bool read_only = false
+        std::string_view n, float_type v, bool read_only = false,
+        var_type vtp = var_type::DEFAULT
     );
     string_var *new_svar(
-        std::string_view n, std::string_view v, bool read_only = false
+        std::string_view n, std::string_view v, bool read_only = false,
+        var_type vtp = var_type::DEFAULT
     );
+    void reset_var(std::string_view name);
 
     template<typename F>
     command *new_command(

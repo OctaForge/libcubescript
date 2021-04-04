@@ -288,37 +288,117 @@ LIBCUBESCRIPT_EXPORT std::span<ident const *> state::get_idents() const {
     return std::span<ident const *>{ptr, p_tstate->istate->identmap.size()};
 }
 
+LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
+    if (!id.is_overridden(*this)) {
+        return;
+    }
+    switch (id.get_type()) {
+        case ident_type::ALIAS: {
+            auto &ast = p_tstate->get_astack(static_cast<alias *>(&id));
+            ast.node->val_s.set_str("");
+            ast.node->code = bcode_ref{};
+            ast.flags &= ~IDENT_FLAG_OVERRIDDEN;
+            return;
+        }
+        case ident_type::IVAR: {
+            ivar_impl &iv = static_cast<ivar_impl &>(id);
+            iv.set_value(iv.p_override);
+            //iv.changed(*this);
+            static_cast<ivar_impl *>(
+                static_cast<integer_var *>(&iv)
+            )->p_flags &= ~IDENT_FLAG_OVERRIDDEN;
+            return;
+        }
+        case ident_type::FVAR: {
+            fvar_impl &fv = static_cast<fvar_impl &>(id);
+            fv.set_value(fv.p_override);
+            //fv.changed(*this);
+            static_cast<fvar_impl *>(
+                static_cast<float_var *>(&fv)
+            )->p_flags &= ~IDENT_FLAG_OVERRIDDEN;
+            return;
+        }
+        case ident_type::SVAR: {
+            svar_impl &sv = static_cast<svar_impl &>(id);
+            sv.set_value(sv.p_override);
+            //sv.changed(*this);
+            static_cast<svar_impl *>(
+                static_cast<string_var *>(&sv)
+            )->p_flags &= ~IDENT_FLAG_OVERRIDDEN;
+            return;
+        }
+        default:
+            break;
+    }
+}
+
+LIBCUBESCRIPT_EXPORT void state::clear_overrides() {
+    for (auto &p: p_tstate->istate->idents) {
+        clear_override(*(p.second));
+    }
+}
+
+inline int var_flags(bool read_only, var_type vtp) {
+    int ret = 0;
+    if (read_only) {
+        ret |= IDENT_FLAG_READONLY;
+    }
+    switch (vtp) {
+        case var_type::PERSISTENT:
+            ret |= IDENT_FLAG_PERSIST;
+            break;
+        case var_type::OVERRIDABLE:
+            ret |= IDENT_FLAG_OVERRIDE;
+            break;
+        default:
+            break;
+    }
+    return ret;
+}
+
 LIBCUBESCRIPT_EXPORT integer_var *state::new_ivar(
-    std::string_view n, integer_type v, bool read_only
+    std::string_view n, integer_type v, bool read_only, var_type vtp
 ) {
     auto *iv = p_tstate->istate->create<ivar_impl>(
         string_ref{p_tstate->istate, n}, v,
-        read_only ? IDENT_FLAG_READONLY : 0
+        var_flags(read_only, vtp)
     );
     p_tstate->istate->add_ident(iv, iv);
     return iv;
 }
 
 LIBCUBESCRIPT_EXPORT float_var *state::new_fvar(
-    std::string_view n, float_type v, bool read_only
+    std::string_view n, float_type v, bool read_only, var_type vtp
 ) {
     auto *fv = p_tstate->istate->create<fvar_impl>(
         string_ref{p_tstate->istate, n}, v,
-        read_only ? IDENT_FLAG_READONLY : 0
+        var_flags(read_only, vtp)
     );
     p_tstate->istate->add_ident(fv, fv);
     return fv;
 }
 
 LIBCUBESCRIPT_EXPORT string_var *state::new_svar(
-    std::string_view n, std::string_view v, bool read_only
+    std::string_view n, std::string_view v, bool read_only, var_type vtp
 ) {
     auto *sv = p_tstate->istate->create<svar_impl>(
         string_ref{p_tstate->istate, n}, string_ref{p_tstate->istate, v},
-        read_only ? IDENT_FLAG_READONLY : 0
+        var_flags(read_only, vtp)
     );
     p_tstate->istate->add_ident(sv, sv);
     return sv;
+}
+
+LIBCUBESCRIPT_EXPORT void state::reset_var(std::string_view name) {
+    ident *id = get_ident(name);
+    if (!id) {
+        throw error{*this, "variable '%s' does not exist", name.data()};
+    }
+    auto *var = id->get_var();
+    if (var && var->is_read_only()) {
+        throw error{*this, "variable '%s' is read only", name.data()};
+    }
+    clear_override(*id);
 }
 
 LIBCUBESCRIPT_EXPORT void state::set_alias(

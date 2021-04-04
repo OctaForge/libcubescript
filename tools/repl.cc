@@ -320,7 +320,7 @@ int main(int argc, char **argv) {
     cs::state gcs;
     gcs.init_libs();
 
-    gcs.new_command("//ivar", "$iiiN", [](auto &, auto args, auto &) {
+    gcs.new_command("//ivar", "$iiiN", [](auto &css, auto args, auto &) {
         auto *iv = args[0].get_ident()->get_ivar();
         auto nargs = args[4].get_int();
         if (nargs <= 1) {
@@ -334,7 +334,14 @@ int main(int argc, char **argv) {
             } else {
                 std::printf("%s = %d\n", iv->get_name().data(), val);
             }
-        } else if (nargs == 2) {
+            return;
+        }
+        if (iv->is_read_only()) {
+            throw cs::error{
+                css, "variable '%s' is read only", iv->get_name().data()
+            };
+        }
+        if (nargs == 2) {
             iv->set_value(args[1].get_int());
         } else if (nargs == 3) {
             iv->set_value(
@@ -348,7 +355,7 @@ int main(int argc, char **argv) {
         }
     });
 
-    gcs.new_command("//fvar", "$fN", [](auto &, auto args, auto &) {
+    gcs.new_command("//fvar", "$fN", [](auto &css, auto args, auto &) {
         auto *fv = args[0].get_ident()->get_fvar();
         auto nargs = args[2].get_int();
         if (nargs <= 1) {
@@ -358,12 +365,16 @@ int main(int argc, char **argv) {
             } else {
                 std::printf("%s = %.7g\n", fv->get_name().data(), val);
             }
+        } else if (fv->is_read_only()) {
+            throw cs::error{
+                css, "variable '%s' is read only", fv->get_name().data()
+            };
         } else {
             fv->set_value(args[1].get_float());
         }
     });
 
-    gcs.new_command("//svar", "$sN", [](auto &, auto args, auto &) {
+    gcs.new_command("//svar", "$sN", [](auto &css, auto args, auto &) {
         auto sv = args[0].get_ident()->get_svar();
         auto nargs = args[2].get_int();
         if (nargs <= 1) {
@@ -373,6 +384,10 @@ int main(int argc, char **argv) {
             } else {
                 std::printf("%s = [%s]\n", sv->get_name().data(), val.data());
             }
+        } else if (sv->is_read_only()) {
+            throw cs::error{
+                css, "variable '%s' is read only", sv->get_name().data()
+            };
         } else {
             sv->set_value(args[1].get_str());
         }

@@ -312,6 +312,10 @@ end:
         }
     });
 
+    gcs.new_command("resetvar", "s", [](auto &cs, auto args, auto &) {
+        cs.reset_var(args[0].get_str());
+    });
+
     gcs.new_command("alias", "st", [](auto &cs, auto args, auto &) {
         cs.set_alias(args[0].get_str(), args[1]);
     });
