@@ -320,6 +320,10 @@ int main(int argc, char **argv) {
     cs::state gcs;
     gcs.init_libs();
 
+    /* this is how you can override a setter for variables; fvar and svar
+     * work equivalently - in this case we want to allow multiple values
+     * to be set, but you may also not be using standard i/o and so on
+     */
     gcs.new_command("//ivar", "$iiiN", [](auto &css, auto args, auto &) {
         auto *iv = args[0].get_ident()->get_ivar();
         auto nargs = args[4].get_int();
@@ -347,36 +351,6 @@ int main(int argc, char **argv) {
                 css, args[1].get_int() | (args[2].get_int() << 8) |
                 (args[3].get_int() << 16)
             );
-        }
-    });
-
-    gcs.new_command("//fvar", "$fN", [](auto &css, auto args, auto &) {
-        auto *fv = args[0].get_ident()->get_fvar();
-        auto nargs = args[2].get_int();
-        if (nargs <= 1) {
-            auto val = fv->get_value();
-            if (std::floor(val) == val) {
-                std::printf("%s = %.1f\n", fv->get_name().data(), val);
-            } else {
-                std::printf("%s = %.7g\n", fv->get_name().data(), val);
-            }
-        } else {
-            fv->set_value(css, args[1].get_float());
-        }
-    });
-
-    gcs.new_command("//svar", "$sN", [](auto &css, auto args, auto &) {
-        auto sv = args[0].get_ident()->get_svar();
-        auto nargs = args[2].get_int();
-        if (nargs <= 1) {
-            auto val = std::string_view{sv->get_value()};
-            if (val.find('"') == val.npos) {
-                std::printf("%s = \"%s\"\n", sv->get_name().data(), val.data());
-            } else {
-                std::printf("%s = [%s]\n", sv->get_name().data(), val.data());
-            }
-        } else {
-            sv->set_value(css, args[1].get_str());
         }
     });
 
