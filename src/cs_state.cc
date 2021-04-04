@@ -464,6 +464,10 @@ LIBCUBESCRIPT_EXPORT string_var *state::new_svar(
     return sv;
 }
 
+LIBCUBESCRIPT_EXPORT ident *state::new_ident(std::string_view n) {
+    return p_tstate->istate->new_ident(*this, n, IDENT_FLAG_UNKNOWN);
+}
+
 LIBCUBESCRIPT_EXPORT void state::reset_var(std::string_view name) {
     ident *id = get_ident(name);
     if (!id) {

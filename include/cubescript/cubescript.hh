@@ -371,6 +371,8 @@ struct LIBCUBESCRIPT_EXPORT state {
         std::string_view n, std::string_view v, bool read_only = false,
         var_type vtp = var_type::DEFAULT
     );
+    ident *new_ident(std::string_view n);
+
     void reset_var(std::string_view name);
     void touch_var(std::string_view name);
 
