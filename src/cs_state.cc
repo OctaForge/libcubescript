@@ -302,7 +302,7 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
         }
         case ident_type::IVAR: {
             ivar_impl &iv = static_cast<ivar_impl &>(id);
-            iv.set_value(iv.p_override);
+            iv.set_raw_value(iv.p_override);
             //iv.changed(*this);
             static_cast<ivar_impl *>(
                 static_cast<integer_var *>(&iv)
@@ -311,7 +311,7 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
         }
         case ident_type::FVAR: {
             fvar_impl &fv = static_cast<fvar_impl &>(id);
-            fv.set_value(fv.p_override);
+            fv.set_raw_value(fv.p_override);
             //fv.changed(*this);
             static_cast<fvar_impl *>(
                 static_cast<float_var *>(&fv)
@@ -320,7 +320,7 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
         }
         case ident_type::SVAR: {
             svar_impl &sv = static_cast<svar_impl &>(id);
-            sv.set_value(sv.p_override);
+            sv.set_raw_value(sv.p_override);
             //sv.changed(*this);
             static_cast<svar_impl *>(
                 static_cast<string_var *>(&sv)

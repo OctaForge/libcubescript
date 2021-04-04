@@ -261,7 +261,8 @@ protected:
 
 struct LIBCUBESCRIPT_EXPORT integer_var: global_var {
     integer_type get_value() const;
-    void set_value(integer_type val);
+    void set_value(state &cs, integer_type val, bool do_write = true);
+    void set_raw_value(integer_type val);
 
 protected:
     integer_var() = default;
@@ -269,7 +270,8 @@ protected:
 
 struct LIBCUBESCRIPT_EXPORT float_var: global_var {
     float_type get_value() const;
-    void set_value(float_type val);
+    void set_value(state &cs, float_type val, bool do_write = true);
+    void set_raw_value(float_type val);
 
 protected:
     float_var() = default;
@@ -277,7 +279,8 @@ protected:
 
 struct LIBCUBESCRIPT_EXPORT string_var: global_var {
     string_ref get_value() const;
-    void set_value(string_ref val);
+    void set_value(state &cs, string_ref val, bool do_write = true);
+    void set_raw_value(string_ref val);
 
 protected:
     string_var() = default;

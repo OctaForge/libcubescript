@@ -350,7 +350,22 @@ LIBCUBESCRIPT_EXPORT integer_type integer_var::get_value() const {
     return static_cast<ivar_impl const *>(this)->p_storage;
 }
 
-LIBCUBESCRIPT_EXPORT void integer_var::set_value(integer_type val) {
+LIBCUBESCRIPT_EXPORT void integer_var::set_value(
+    state &cs, integer_type val, bool do_write
+) {
+    if (is_read_only()) {
+        throw error{
+            cs, "variable '%s' is read only", get_name().data()
+        };
+    }
+    if (!do_write) {
+        return;
+    }
+    save(cs);
+    set_raw_value(val);
+}
+
+LIBCUBESCRIPT_EXPORT void integer_var::set_raw_value(integer_type val) {
     static_cast<ivar_impl *>(this)->p_storage = val;
 }
 
@@ -358,7 +373,22 @@ LIBCUBESCRIPT_EXPORT float_type float_var::get_value() const {
     return static_cast<fvar_impl const *>(this)->p_storage;
 }
 
-LIBCUBESCRIPT_EXPORT void float_var::set_value(float_type val) {
+LIBCUBESCRIPT_EXPORT void float_var::set_value(
+    state &cs, float_type val, bool do_write
+) {
+    if (is_read_only()) {
+        throw error{
+            cs, "variable '%s' is read only", get_name().data()
+        };
+    }
+    if (!do_write) {
+        return;
+    }
+    save(cs);
+    set_raw_value(val);
+}
+
+LIBCUBESCRIPT_EXPORT void float_var::set_raw_value(float_type val) {
     static_cast<fvar_impl *>(this)->p_storage = val;
 }
 
@@ -366,7 +396,22 @@ LIBCUBESCRIPT_EXPORT string_ref string_var::get_value() const {
     return static_cast<svar_impl const *>(this)->p_storage;
 }
 
-LIBCUBESCRIPT_EXPORT void string_var::set_value(string_ref val) {
+LIBCUBESCRIPT_EXPORT void string_var::set_value(
+    state &cs, string_ref val, bool do_write
+) {
+    if (is_read_only()) {
+        throw error{
+            cs, "variable '%s' is read only", get_name().data()
+        };
+    }
+    if (!do_write) {
+        return;
+    }
+    save(cs);
+    set_raw_value(std::move(val));
+}
+
+LIBCUBESCRIPT_EXPORT void string_var::set_raw_value(string_ref val) {
     static_cast<svar_impl *>(this)->p_storage = val;
 }
 

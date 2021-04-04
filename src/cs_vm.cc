@@ -234,7 +234,7 @@ bool exec_alias(
     auto oldargs = anargs->get_value();
     auto oldflags = ts.ident_flags;
     ts.ident_flags = aast.flags;
-    anargs->set_value(integer_type(callargs));
+    anargs->set_raw_value(integer_type(callargs));
     ident_link aliaslink = {a, ts.callstack, uargs};
     ts.callstack = &aliaslink;
     if (!aast.node->code) {
@@ -267,7 +267,7 @@ bool exec_alias(
         }
         ts.idstack.resize(noff, ident_stack{*ts.pstate});
         force_arg(result, op & BC_INST_RET_MASK);
-        anargs->set_value(integer_type(oldargs));
+        anargs->set_raw_value(integer_type(oldargs));
         nargs = offset - skip;
     };
     try {

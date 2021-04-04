@@ -336,21 +336,15 @@ int main(int argc, char **argv) {
             }
             return;
         }
-        if (iv->is_read_only()) {
-            throw cs::error{
-                css, "variable '%s' is read only", iv->get_name().data()
-            };
-        }
-        iv->save(css);
         if (nargs == 2) {
-            iv->set_value(args[1].get_int());
+            iv->set_value(css, args[1].get_int());
         } else if (nargs == 3) {
             iv->set_value(
-                (args[1].get_int() << 8) | (args[2].get_int() << 16)
+                css, (args[1].get_int() << 8) | (args[2].get_int() << 16)
             );
         } else {
             iv->set_value(
-                args[1].get_int() | (args[2].get_int() << 8) |
+                css, args[1].get_int() | (args[2].get_int() << 8) |
                 (args[3].get_int() << 16)
             );
         }
@@ -366,13 +360,8 @@ int main(int argc, char **argv) {
             } else {
                 std::printf("%s = %.7g\n", fv->get_name().data(), val);
             }
-        } else if (fv->is_read_only()) {
-            throw cs::error{
-                css, "variable '%s' is read only", fv->get_name().data()
-            };
         } else {
-            fv->save(css);
-            fv->set_value(args[1].get_float());
+            fv->set_value(css, args[1].get_float());
         }
     });
 
@@ -386,13 +375,8 @@ int main(int argc, char **argv) {
             } else {
                 std::printf("%s = [%s]\n", sv->get_name().data(), val.data());
             }
-        } else if (sv->is_read_only()) {
-            throw cs::error{
-                css, "variable '%s' is read only", sv->get_name().data()
-            };
         } else {
-            sv->save(css);
-            sv->set_value(args[1].get_str());
+            sv->set_value(css, args[1].get_str());
         }
     });
 
