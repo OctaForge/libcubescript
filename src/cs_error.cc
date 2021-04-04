@@ -84,9 +84,7 @@ LIBCUBESCRIPT_EXPORT char *error::request_buf(
 }
 
 LIBCUBESCRIPT_EXPORT stack_state error::save_stack(thread_state &ts) {
-    integer_var *dalias = static_cast<integer_var *>(
-        ts.istate->identmap[ID_IDX_DBGALIAS]
-    );
+    integer_var *dalias = ts.istate->ivar_dbgalias;
     auto dval = std::clamp(
         dalias->get_value(), integer_type(0), integer_type(1000)
     );

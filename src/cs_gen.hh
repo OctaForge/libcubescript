@@ -15,10 +15,6 @@
 
 namespace cubescript {
 
-static constexpr int ID_IDX_DUMMY = MAX_ARGUMENTS;
-static constexpr int ID_IDX_NUMARGS = MAX_ARGUMENTS + 1;
-static constexpr int ID_IDX_DBGALIAS = MAX_ARGUMENTS + 2;
-
 struct codegen_state {
     thread_state &ts;
     codegen_state *prevps;
@@ -112,7 +108,7 @@ struct codegen_state {
     }
 
     void gen_ident() {
-        gen_ident(ts.istate->identmap[ID_IDX_DUMMY]);
+        gen_ident(ts.istate->id_dummy);
     }
 
     void gen_ident(std::string_view word) {

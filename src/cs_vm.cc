@@ -152,7 +152,7 @@ void exec_command(
                     if (rep) {
                         break;
                     }
-                    args[i].set_ident(ts.istate->identmap[ID_IDX_DUMMY]);
+                    args[i].set_ident(ts.istate->id_dummy);
                     fakeargs++;
                 } else {
                     args[i].force_ident(*ts.pstate);
@@ -217,9 +217,7 @@ bool exec_alias(
     }
     /* excess arguments get ignored (make error maybe?) */
     callargs = std::min(callargs, MAX_ARGUMENTS);
-    integer_var *anargs = static_cast<integer_var *>(
-        ts.istate->identmap[ID_IDX_NUMARGS]
-    );
+    integer_var *anargs = ts.istate->ivar_numargs;
     argset uargs{};
     std::size_t noff = ts.idstack.size();
     for(std::size_t i = 0; i < callargs; i++) {
@@ -771,7 +769,7 @@ std::uint32_t *vm_exec(
             }
             case BC_INST_IDENT_U: {
                 any_value &arg = args.back();
-                ident *id = ts.istate->identmap[ID_IDX_DUMMY];
+                ident *id = ts.istate->id_dummy;
                 if (arg.get_type() == value_type::STRING) {
                     id = ts.istate->new_ident(
                         cs, arg.get_str(), IDENT_FLAG_UNKNOWN

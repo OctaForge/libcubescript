@@ -120,20 +120,10 @@ state::state(alloc_func func, void *data) {
         );
     }
 
-    ident *id = statep->new_ident(*this, "//dummy", IDENT_FLAG_UNKNOWN);
-    if (id->get_index() != ID_IDX_DUMMY) {
-        throw internal_error{"invalid dummy index"};
-    }
+    statep->id_dummy = statep->new_ident(*this, "//dummy", IDENT_FLAG_UNKNOWN);
 
-    id = new_ivar("numargs", 0, true);
-    if (id->get_index() != ID_IDX_NUMARGS) {
-        throw internal_error{"invalid numargs index"};
-    }
-
-    id = new_ivar("dbgalias", 4);
-    if (id->get_index() != ID_IDX_DBGALIAS) {
-        throw internal_error{"invalid dbgalias index"};
-    }
+    statep->ivar_numargs  = new_ivar("numargs", 0, true);
+    statep->ivar_dbgalias = new_ivar("dbgalias", 4);
 
     /* default handlers for variables */
 

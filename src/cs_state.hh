@@ -52,6 +52,11 @@ struct internal_state {
     string_pool *strman;
     empty_block *empty;
 
+    ident *id_dummy;
+
+    integer_var *ivar_numargs;
+    integer_var *ivar_dbgalias;
+
     command *cmd_ivar;
     command *cmd_fvar;
     command *cmd_svar;
