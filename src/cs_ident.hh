@@ -77,7 +77,11 @@ struct var_impl: ident_impl {
     var_impl(ident_type tp, string_ref name, int flags);
 
     virtual void save_val() = 0;
+
+    void changed(thread_state &ts);
 };
+
+void var_changed(thread_state &ts, ident *id);
 
 struct ivar_impl: var_impl, integer_var {
     ivar_impl(string_ref n, integer_type v, int flags);

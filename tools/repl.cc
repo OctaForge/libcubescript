@@ -380,6 +380,12 @@ int main(int argc, char **argv) {
         }
     });
 
+    gcs.new_command("//var_changed", "$", [](auto &, auto args, auto &) {
+        std::printf(
+            "changed var trigger: %s\n", args[0].get_ident()->get_name().data()
+        );
+    });
+
     gcs.new_command("exec", "s", [](auto &css, auto args, auto &) {
         auto file = args[0].get_str();
         cs::any_value val{css};

@@ -303,7 +303,7 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
         case ident_type::IVAR: {
             ivar_impl &iv = static_cast<ivar_impl &>(id);
             iv.set_raw_value(iv.p_override);
-            //iv.changed(*this);
+            var_changed(*p_tstate, &id);
             static_cast<ivar_impl *>(
                 static_cast<integer_var *>(&iv)
             )->p_flags &= ~IDENT_FLAG_OVERRIDDEN;
@@ -312,7 +312,7 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
         case ident_type::FVAR: {
             fvar_impl &fv = static_cast<fvar_impl &>(id);
             fv.set_raw_value(fv.p_override);
-            //fv.changed(*this);
+            var_changed(*p_tstate, &id);
             static_cast<fvar_impl *>(
                 static_cast<float_var *>(&fv)
             )->p_flags &= ~IDENT_FLAG_OVERRIDDEN;
@@ -321,7 +321,7 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
         case ident_type::SVAR: {
             svar_impl &sv = static_cast<svar_impl &>(id);
             sv.set_raw_value(sv.p_override);
-            //sv.changed(*this);
+            var_changed(*p_tstate, &id);
             static_cast<svar_impl *>(
                 static_cast<string_var *>(&sv)
             )->p_flags &= ~IDENT_FLAG_OVERRIDDEN;
@@ -399,6 +399,13 @@ LIBCUBESCRIPT_EXPORT void state::reset_var(std::string_view name) {
         throw error{*this, "variable '%s' is read only", name.data()};
     }
     clear_override(*id);
+}
+
+LIBCUBESCRIPT_EXPORT void state::touch_var(std::string_view name) {
+    ident *id = get_ident(name);
+    if (id && id->is_var()) {
+        var_changed(*p_tstate, id);
+    }
 }
 
 LIBCUBESCRIPT_EXPORT void state::set_alias(

@@ -261,7 +261,9 @@ protected:
 
 struct LIBCUBESCRIPT_EXPORT integer_var: global_var {
     integer_type get_value() const;
-    void set_value(state &cs, integer_type val, bool do_write = true);
+    void set_value(
+        state &cs, integer_type val, bool do_write = true, bool trigger = true
+    );
     void set_raw_value(integer_type val);
 
 protected:
@@ -270,7 +272,9 @@ protected:
 
 struct LIBCUBESCRIPT_EXPORT float_var: global_var {
     float_type get_value() const;
-    void set_value(state &cs, float_type val, bool do_write = true);
+    void set_value(
+        state &cs, float_type val, bool do_write = true, bool trigger = true
+    );
     void set_raw_value(float_type val);
 
 protected:
@@ -279,7 +283,9 @@ protected:
 
 struct LIBCUBESCRIPT_EXPORT string_var: global_var {
     string_ref get_value() const;
-    void set_value(state &cs, string_ref val, bool do_write = true);
+    void set_value(
+        state &cs, string_ref val, bool do_write = true, bool trigger = true
+    );
     void set_raw_value(string_ref val);
 
 protected:
@@ -366,6 +372,7 @@ struct LIBCUBESCRIPT_EXPORT state {
         var_type vtp = var_type::DEFAULT
     );
     void reset_var(std::string_view name);
+    void touch_var(std::string_view name);
 
     template<typename F>
     command *new_command(

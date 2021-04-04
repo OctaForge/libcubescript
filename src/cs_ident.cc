@@ -82,6 +82,17 @@ command_impl::command_impl(
     p_cargs{args}, p_cb_cftv{std::move(f)}, p_numargs{nargs}
 {}
 
+void var_changed(thread_state &ts, ident *id) {
+    auto *cid = ts.pstate->get_ident("//var_changed");
+    if (!cid || !cid->is_command()) {
+        return;
+    }
+    auto *cimp = static_cast<command_impl *>(cid);
+    any_value val{*ts.pstate};
+    val.set_ident(id);
+    cimp->call(*ts.pstate, std::span<any_value>{&val, 1}, val);
+}
+
 void ivar_impl::save_val() {
     p_override = p_storage;
 }
@@ -351,7 +362,7 @@ LIBCUBESCRIPT_EXPORT integer_type integer_var::get_value() const {
 }
 
 LIBCUBESCRIPT_EXPORT void integer_var::set_value(
-    state &cs, integer_type val, bool do_write
+    state &cs, integer_type val, bool do_write, bool trigger
 ) {
     if (is_read_only()) {
         throw error{
@@ -363,6 +374,9 @@ LIBCUBESCRIPT_EXPORT void integer_var::set_value(
     }
     save(cs);
     set_raw_value(val);
+    if (trigger) {
+        var_changed(*cs.thread_pointer(), this);
+    }
 }
 
 LIBCUBESCRIPT_EXPORT void integer_var::set_raw_value(integer_type val) {
@@ -374,7 +388,7 @@ LIBCUBESCRIPT_EXPORT float_type float_var::get_value() const {
 }
 
 LIBCUBESCRIPT_EXPORT void float_var::set_value(
-    state &cs, float_type val, bool do_write
+    state &cs, float_type val, bool do_write, bool trigger
 ) {
     if (is_read_only()) {
         throw error{
@@ -386,6 +400,9 @@ LIBCUBESCRIPT_EXPORT void float_var::set_value(
     }
     save(cs);
     set_raw_value(val);
+    if (trigger) {
+        var_changed(*cs.thread_pointer(), this);
+    }
 }
 
 LIBCUBESCRIPT_EXPORT void float_var::set_raw_value(float_type val) {
@@ -397,7 +414,7 @@ LIBCUBESCRIPT_EXPORT string_ref string_var::get_value() const {
 }
 
 LIBCUBESCRIPT_EXPORT void string_var::set_value(
-    state &cs, string_ref val, bool do_write
+    state &cs, string_ref val, bool do_write, bool trigger
 ) {
     if (is_read_only()) {
         throw error{
@@ -409,6 +426,9 @@ LIBCUBESCRIPT_EXPORT void string_var::set_value(
     }
     save(cs);
     set_raw_value(std::move(val));
+    if (trigger) {
+        var_changed(*cs.thread_pointer(), this);
+    }
 }
 
 LIBCUBESCRIPT_EXPORT void string_var::set_raw_value(string_ref val) {
