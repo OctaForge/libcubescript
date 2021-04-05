@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <span>
 #include <utility>
-#include <optional>
 #include <string_view>
 
 #include "callable.hh"
@@ -126,8 +125,6 @@ struct LIBCUBESCRIPT_EXPORT state {
     std::size_t set_max_run_depth(std::size_t v);
 
     void set_alias(std::string_view name, any_value v);
-
-    std::optional<string_ref> get_alias_val(std::string_view name);
 
 private:
     friend struct state_p;

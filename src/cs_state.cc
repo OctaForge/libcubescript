@@ -496,13 +496,7 @@ LIBCUBESCRIPT_EXPORT void state::set_alias(
     if (id) {
         switch (id->get_type()) {
             case ident_type::ALIAS: {
-                alias *a = static_cast<alias *>(id);
-                auto &ast = p_tstate->get_astack(a);
-                if (a->is_arg()) {
-                    ast.set_arg(a, *p_tstate, v);
-                } else {
-                    ast.set_alias(a, *p_tstate, v);
-                }
+                static_cast<alias *>(id)->set_value(*this, std::move(v));
                 return;
             }
             case ident_type::IVAR:
@@ -625,18 +619,6 @@ valid:
 do_add:
     is.add_ident(cmd, cmd);
     return cmd;
-}
-
-LIBCUBESCRIPT_EXPORT std::optional<string_ref>
-state::get_alias_val(std::string_view name) {
-    alias *a = get_alias(name);
-    if (!a) {
-        return std::nullopt;
-    }
-    if (a->is_arg() && !ident_is_used_arg(a, *p_tstate)) {
-        return std::nullopt;
-    }
-    return p_tstate->get_astack(a).node->val_s.get_str();
 }
 
 LIBCUBESCRIPT_EXPORT void state::init_libs(int libs) {

@@ -325,11 +325,9 @@ end:
     });
 
     gcs.new_command("getalias", "s", [](auto &cs, auto args, auto &res) {
-        auto s0 = cs.get_alias_val(args[0].get_str());
-        if (s0) {
-            res.set_str(*s0);
-        } else {
-            res.set_str("");
+        auto *id = cs.get_alias(args[0].get_str());
+        if (id) {
+           id->get_value(cs).get_val(res);
         }
     });
 }

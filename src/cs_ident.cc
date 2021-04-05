@@ -440,6 +440,19 @@ LIBCUBESCRIPT_EXPORT void string_var::set_raw_value(string_ref val) {
     static_cast<svar_impl *>(this)->p_storage = val;
 }
 
+LIBCUBESCRIPT_EXPORT any_value alias::get_value(state &cs) const {
+    return state_p{cs}.ts().get_astack(this).node->val_s;
+}
+
+LIBCUBESCRIPT_EXPORT void alias::set_value(state &cs, any_value v) {
+    auto &ts = state_p{cs}.ts();
+    if (is_arg()) {
+        ts.get_astack(this).set_arg(this, ts, v);
+    } else {
+        ts.get_astack(this).set_alias(this, ts, v);
+    }
+}
+
 LIBCUBESCRIPT_EXPORT bool alias::is_arg() const {
     return (static_cast<alias_impl const *>(this)->p_flags & IDENT_FLAG_ARG);
 }

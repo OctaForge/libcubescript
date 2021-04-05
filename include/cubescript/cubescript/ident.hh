@@ -115,6 +115,9 @@ protected:
 struct LIBCUBESCRIPT_EXPORT alias: ident {
     bool is_arg() const;
 
+    any_value get_value(state &cs) const;
+    void set_value(state &cs, any_value v);
+
 protected:
     alias() = default;
 };
