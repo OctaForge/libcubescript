@@ -89,7 +89,7 @@ struct LIBCUBESCRIPT_EXPORT state {
     void touch_var(std::string_view name);
 
     template<typename F>
-    command *new_command(
+    command &new_command(
         std::string_view name, std::string_view args, F &&f
     ) {
         return new_command(
@@ -108,7 +108,7 @@ struct LIBCUBESCRIPT_EXPORT state {
     any_value run(bcode_ref const &code);
     any_value run(std::string_view code);
     any_value run(std::string_view code, std::string_view source);
-    any_value run(ident *id, std::span<any_value> args);
+    any_value run(ident &id, std::span<any_value> args);
 
     loop_state run_loop(bcode_ref const &code, any_value &ret);
     loop_state run_loop(bcode_ref const &code);
@@ -129,7 +129,7 @@ private:
 
     hook_func set_call_hook(hook_func func);
 
-    command *new_command(
+    command &new_command(
         std::string_view name, std::string_view args, command_func func
     );
 
