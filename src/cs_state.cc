@@ -159,8 +159,8 @@ state::state(alloc_func func, void *data) {
     ) {
         auto *sv = args[0].get_ident()->get_svar();
         if (args[2].get_integer() <= 1) {
-            auto val = std::string_view{sv->get_value()};
-            if (val.find('"') == val.npos) {
+            auto val = sv->get_value();
+            if (val.view().find('"') == std::string_view::npos) {
                 std::printf("%s = \"%s\"\n", sv->get_name().data(), val.data());
             } else {
                 std::printf("%s = [%s]\n", sv->get_name().data(), val.data());

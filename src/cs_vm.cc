@@ -128,7 +128,7 @@ void exec_command(
                     args[i].set_none();
                     fakeargs++;
                 } else if (args[i].get_type() == value_type::STRING) {
-                    auto str = std::string_view{args[i].get_string()};
+                    auto str = args[i].get_string();
                     if (str.empty()) {
                         args[i].set_integer(0);
                     } else {

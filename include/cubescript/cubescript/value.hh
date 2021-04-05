@@ -63,6 +63,14 @@ struct LIBCUBESCRIPT_EXPORT string_ref {
         return std::string_view{*this}.data();
     }
 
+    std::string_view view() const {
+        return std::string_view{*this};
+    }
+
+    bool empty() const {
+        return (size() == 0);
+    }
+
     bool operator==(string_ref const &s) const;
 
 private:
