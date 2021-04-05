@@ -13,8 +13,8 @@ namespace cubescript {
 
 using alloc_func   = void *(*)(void *, void *, size_t, size_t);
 
-using hook_func    = callable<void, struct state &>;
-using command_func = callable<
+using hook_func    = internal::callable<void, struct state &>;
+using command_func = internal::callable<
     void, struct state &, std::span<struct any_value>, struct any_value &
 >;
 

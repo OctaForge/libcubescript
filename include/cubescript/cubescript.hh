@@ -4,7 +4,6 @@
 #include "cubescript_conf.hh"
 
 #include "cubescript/platform.hh"
-#include "cubescript/callable.hh"
 #include "cubescript/error.hh"
 #include "cubescript/value.hh"
 #include "cubescript/ident.hh"

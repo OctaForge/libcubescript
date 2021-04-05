@@ -8,6 +8,7 @@
 #include <memory>
 
 namespace cubescript {
+namespace internal {
 
 template<typename R, typename ...A>
 struct callable {
@@ -205,6 +206,7 @@ public:
     }
 };
 
+} /* namespace internal */
 } /* namespace cubescript */
 
 #endif /* LIBCUBESCRIPT_CUBESCRIPT_CALLABLE_HH */
