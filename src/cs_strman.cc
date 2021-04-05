@@ -95,9 +95,6 @@ std::string_view string_pool::get(char const *ptr) const {
 
 char *string_pool::alloc_buf(std::size_t len) const {
     auto mem = cstate->alloc(nullptr, 0, len + sizeof(string_ref_state) + 1);
-    if (!mem) {
-        throw internal_error{"allocation failed"};
-    }
     /* write length and initial refcount */
     auto *sst = static_cast<string_ref_state *>(mem);
     sst->length = len;
