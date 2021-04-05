@@ -572,7 +572,7 @@ std::uint32_t *vm_exec(
                 call_with_args(ts, [&]() {
                     auto v = std::move(args.back());
                     args.pop_back();
-                    cs.run(v.get_code(), result);
+                    result = cs.run(v.get_code());
                     force_arg(result, op & BC_INST_RET_MASK);
                 });
                 continue;
@@ -583,7 +583,7 @@ std::uint32_t *vm_exec(
             case BC_INST_DO | BC_RET_FLOAT: {
                 auto v = std::move(args.back());
                 args.pop_back();
-                cs.run(v.get_code(), result);
+                result = cs.run(v.get_code());
                 force_arg(result, op & BC_INST_RET_MASK);
                 continue;
             }
@@ -614,7 +614,7 @@ std::uint32_t *vm_exec(
                 auto v = std::move(args.back());
                 args.pop_back();
                 if (v.get_type() == value_type::CODE) {
-                    cs.run(v.get_code(), result);
+                    result = cs.run(v.get_code());
                 } else {
                     result = std::move(v);
                 }
@@ -628,7 +628,7 @@ std::uint32_t *vm_exec(
                 auto v = std::move(args.back());
                 args.pop_back();
                 if (v.get_type() == value_type::CODE) {
-                    cs.run(v.get_code(), result);
+                    result = cs.run(v.get_code());
                 } else {
                     result = std::move(v);
                 }

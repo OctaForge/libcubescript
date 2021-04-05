@@ -102,11 +102,6 @@ struct LIBCUBESCRIPT_EXPORT state {
     std::span<ident *> get_idents();
     std::span<ident const *> get_idents() const;
 
-    void run(bcode_ref const &code, any_value &ret);
-    void run(std::string_view code, any_value &ret);
-    void run(std::string_view code, any_value &ret, std::string_view source);
-    void run(ident *id, std::span<any_value> args, any_value &ret);
-
     any_value run(bcode_ref const &code);
     any_value run(std::string_view code);
     any_value run(std::string_view code, std::string_view source);

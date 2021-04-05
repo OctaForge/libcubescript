@@ -175,19 +175,19 @@ state::state(alloc_func func, void *data) {
     /* builtins */
 
     p = new_command("do", "e", [](auto &cs, auto args, auto &res) {
-        cs.run(args[0].get_code(), res);
+        res = cs.run(args[0].get_code());
     });
     static_cast<command_impl *>(p)->p_type = ID_DO;
 
     p = new_command("doargs", "e", [](auto &cs, auto args, auto &res) {
         call_with_args(*cs.p_tstate, [&cs, &res, &args]() {
-            cs.run(args[0].get_code(), res);
+            res = cs.run(args[0].get_code());
         });
     });
     static_cast<command_impl *>(p)->p_type = ID_DOARGS;
 
     p = new_command("if", "tee", [](auto &cs, auto args, auto &res) {
-        cs.run((args[0].get_bool() ? args[1] : args[2]).get_code(), res);
+        res = cs.run((args[0].get_bool() ? args[1] : args[2]).get_code());
     });
     static_cast<command_impl *>(p)->p_type = ID_IF;
 
@@ -208,7 +208,7 @@ state::state(alloc_func func, void *data) {
             for (size_t i = 0; i < args.size(); ++i) {
                 auto code = args[i].get_code();
                 if (code) {
-                    cs.run(code, res);
+                    res = cs.run(code);
                 } else {
                     res = std::move(args[i]);
                 }
@@ -227,7 +227,7 @@ state::state(alloc_func func, void *data) {
             for (size_t i = 0; i < args.size(); ++i) {
                 auto code = args[i].get_code();
                 if (code) {
-                    cs.run(code, res);
+                    res = cs.run(code);
                 } else {
                     res = std::move(args[i]);
                 }
@@ -501,11 +501,9 @@ LIBCUBESCRIPT_EXPORT void state::set_alias(
             }
             case ident_type::IVAR:
             case ident_type::FVAR:
-            case ident_type::SVAR: {
-                any_value ret{*this};
-                run(id, std::span<any_value>{&v, 1}, ret);
+            case ident_type::SVAR:
+                run(id, std::span<any_value>{&v, 1});
                 break;
-            }
             default:
                 throw error{
                     *this, "cannot redefine builtin %s with an alias",
@@ -633,15 +631,17 @@ LIBCUBESCRIPT_EXPORT void state::init_libs(int libs) {
     }
 }
 
-LIBCUBESCRIPT_EXPORT void state::run(bcode_ref const &code, any_value &ret) {
+LIBCUBESCRIPT_EXPORT any_value state::run(bcode_ref const &code) {
+    any_value ret{*this};
     bcode *p = code;
     vm_exec(*p_tstate, reinterpret_cast<std::uint32_t *>(p), ret);
+    return ret;
 }
 
-static void do_run(
-    thread_state &ts, std::string_view file, std::string_view code,
-    any_value &ret
+static any_value do_run(
+    thread_state &ts, std::string_view file, std::string_view code
 ) {
+    any_value ret{*ts.pstate};
     codegen_state gs{ts};
     gs.src_name = file;
     gs.code.reserve(64);
@@ -652,23 +652,24 @@ static void do_run(
     bcode_ref cref{reinterpret_cast<bcode *>(cbuf + 1)};
     bcode *p = cref;
     vm_exec(ts, p->get_raw(), ret);
+    return ret;
 }
 
-LIBCUBESCRIPT_EXPORT void state::run(std::string_view code, any_value &ret) {
-    do_run(*p_tstate, std::string_view{}, code, ret);
+LIBCUBESCRIPT_EXPORT any_value state::run(std::string_view code) {
+    return do_run(*p_tstate, std::string_view{}, code);
 }
 
-LIBCUBESCRIPT_EXPORT void state::run(
-    std::string_view code, any_value &ret, std::string_view source
+LIBCUBESCRIPT_EXPORT any_value state::run(
+    std::string_view code, std::string_view source
 ) {
-    do_run(*p_tstate, source, code, ret);
+    return do_run(*p_tstate, source, code);
 }
 
-LIBCUBESCRIPT_EXPORT void state::run(
-    ident *id, std::span<any_value> args, any_value &ret
+LIBCUBESCRIPT_EXPORT any_value state::run(
+    ident *id, std::span<any_value> args
 ) {
+    any_value ret{*this};
     std::size_t nargs = args.size();
-    ret.set_none();
     run_depth_guard level{*p_tstate}; /* incr and decr on scope exit */
     if (id) {
         switch (id->get_type()) {
@@ -762,33 +763,6 @@ LIBCUBESCRIPT_EXPORT void state::run(
             }
         }
     }
-}
-
-LIBCUBESCRIPT_EXPORT any_value state::run(bcode_ref const &code) {
-    any_value ret{*this};
-    run(code, ret);
-    return ret;
-}
-
-LIBCUBESCRIPT_EXPORT any_value state::run(std::string_view code) {
-    any_value ret{*this};
-    run(code, ret);
-    return ret;
-}
-
-LIBCUBESCRIPT_EXPORT any_value state::run(
-    std::string_view code, std::string_view source
-) {
-    any_value ret{*this};
-    run(code, ret, source);
-    return ret;
-}
-
-LIBCUBESCRIPT_EXPORT any_value state::run(
-    ident *id, std::span<any_value> args
-) {
-    any_value ret{*this};
-    run(id, args, ret);
     return ret;
 }
 
@@ -797,7 +771,7 @@ LIBCUBESCRIPT_EXPORT loop_state state::run_loop(
 ) {
     ++p_tstate->loop_level;
     try {
-        run(code, ret);
+        ret = run(code);
     } catch (break_exception) {
         --p_tstate->loop_level;
         return loop_state::BREAK;

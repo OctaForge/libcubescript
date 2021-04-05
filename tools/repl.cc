@@ -224,7 +224,7 @@ static bool do_run_file(
 
     buf[len] = '\0';
 
-    cs.run(std::string_view{buf.get(), std::size_t(len)}, ret, fname);
+    ret = cs.run(std::string_view{buf.get(), std::size_t(len)}, fname);
     return true;
 }
 
@@ -238,7 +238,7 @@ static bool do_call(cs::state &cs, std::string_view line, bool file = false) {
                 std::fprintf(stderr, "cannot read file: %s\n", line.data());
             }
         } else {
-            cs.run(line, ret);
+            ret = cs.run(line);
         }
     } catch (cs::error const &e) {
         signal(SIGINT, SIG_DFL);

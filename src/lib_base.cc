@@ -80,7 +80,7 @@ void init_lib_base(state &gcs) {
         any_value result{cs}, tback{cs};
         bool rc = true;
         try {
-            cs.run(args[0].get_code(), result);
+            result = cs.run(args[0].get_code());
         } catch (error const &e) {
             result.set_str(e.what());
             if (e.get_stack().get()) {
@@ -108,11 +108,11 @@ void init_lib_base(state &gcs) {
         for (size_t i = 0; i < args.size(); i += 2) {
             if ((i + 1) < args.size()) {
                 if (cs.run(args[i].get_code()).get_bool()) {
-                    cs.run(args[i + 1].get_code(), res);
+                    res = cs.run(args[i + 1].get_code());
                     break;
                 }
             } else {
-                cs.run(args[i].get_code(), res);
+                res = cs.run(args[i].get_code());
                 break;
             }
         }
@@ -125,7 +125,7 @@ void init_lib_base(state &gcs) {
                 (args[i].get_type() == value_type::NONE) ||
                 (args[i].get_int() == val)
             ) {
-                cs.run(args[i + 1].get_code(), res);
+                res = cs.run(args[i + 1].get_code());
                 return;
             }
         }
@@ -138,7 +138,7 @@ void init_lib_base(state &gcs) {
                 (args[i].get_type() == value_type::NONE) ||
                 (args[i].get_float() == val)
             ) {
-                cs.run(args[i + 1].get_code(), res);
+                res = cs.run(args[i + 1].get_code());
                 return;
             }
         }
@@ -151,7 +151,7 @@ void init_lib_base(state &gcs) {
                 (args[i].get_type() == value_type::NONE) ||
                 (args[i].get_str() == val)
             ) {
-                cs.run(args[i + 1].get_code(), res);
+                res = cs.run(args[i + 1].get_code());
                 return;
             }
         }
@@ -164,7 +164,7 @@ void init_lib_base(state &gcs) {
             }
             if (args[1].get_bool()) {
                 st.set(args[1]);
-                cs.run(args[2].get_code(), res);
+                res = cs.run(args[2].get_code());
             }
         }
     });
@@ -308,7 +308,7 @@ end:
                 return;
             }
             st.set(args[1]);
-            cs.run(args[2].get_code(), res);
+            res = cs.run(args[2].get_code());
         }
     });
 
