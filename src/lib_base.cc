@@ -91,7 +91,7 @@ void init_lib_base(state &gcs) {
             rc = false;
         }
         ret.set_int(rc);
-        auto &ts = *cs.thread_pointer();
+        auto &ts = state_p{cs}.ts();
         ts.get_astack(cret).set_alias(cret, ts, result);
         ts.get_astack(css).set_alias(css, ts, tback);
     });

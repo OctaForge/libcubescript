@@ -8,9 +8,9 @@
 namespace cubescript {
 
 LIBCUBESCRIPT_EXPORT stack_state::stack_state(
-    thread_state &ts, node *nd, bool gap
+    state &cs, node *nd, bool gap
 ):
-    p_state{ts}, p_node{nd}, p_gap{gap}
+    p_state{cs}, p_node{nd}, p_gap{gap}
 {}
 
 LIBCUBESCRIPT_EXPORT stack_state::stack_state(stack_state &&st):
@@ -25,7 +25,7 @@ LIBCUBESCRIPT_EXPORT stack_state::~stack_state() {
     for (node const *nd = p_node; nd; nd = nd->next) {
         ++len;
     }
-    p_state.istate->destroy_array(p_node, len);
+    state_p{p_state}.ts().istate->destroy_array(p_node, len);
 }
 
 LIBCUBESCRIPT_EXPORT stack_state &stack_state::operator=(stack_state &&st) {
@@ -45,8 +45,9 @@ LIBCUBESCRIPT_EXPORT bool stack_state::gap() const {
 }
 
 LIBCUBESCRIPT_EXPORT char *error::request_buf(
-    thread_state &ts, std::size_t bufs, char *&sp
+    state &cs, std::size_t bufs, char *&sp
 ) {
+    auto &ts = state_p{cs}.ts();
     charbuf &cb = ts.errbuf;
     codegen_state *gs = ts.cstate;
     cb.clear();
@@ -83,20 +84,21 @@ LIBCUBESCRIPT_EXPORT char *error::request_buf(
     return &cb[sz];
 }
 
-LIBCUBESCRIPT_EXPORT stack_state error::save_stack(thread_state &ts) {
+LIBCUBESCRIPT_EXPORT stack_state error::save_stack(state &cs) {
+    auto &ts = state_p{cs}.ts();
     integer_var *dalias = ts.istate->ivar_dbgalias;
     auto dval = std::clamp(
         dalias->get_value(), integer_type(0), integer_type(1000)
     );
     if (!dval) {
-        return stack_state{ts, nullptr, !!ts.callstack};
+        return stack_state{cs, nullptr, !!ts.callstack};
     }
     int total = 0, depth = 0;
     for (ident_link *l = ts.callstack; l; l = l->next) {
         total++;
     }
     if (!total) {
-        return stack_state{ts, nullptr, false};
+        return stack_state{cs, nullptr, false};
     }
     stack_state::node *st = ts.istate->create_array<stack_state::node>(
         std::min(total, dval)
@@ -120,7 +122,7 @@ LIBCUBESCRIPT_EXPORT stack_state error::save_stack(thread_state &ts) {
             nd->next = nullptr;
         }
     }
-    return stack_state{ts, ret, total > dval};
+    return stack_state{cs, ret, total > dval};
 }
 
 } /* namespace cubescript */

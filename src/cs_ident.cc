@@ -302,7 +302,7 @@ LIBCUBESCRIPT_EXPORT bool ident::is_overridden(state &cs) const {
         case ident_type::SVAR:
             return (p_impl->p_flags & IDENT_FLAG_OVERRIDDEN);
         case ident_type::ALIAS:
-            return (cs.thread_pointer()->get_astack(
+            return (state_p{cs}.ts().get_astack(
                 static_cast<alias const *>(this)
             ).flags & IDENT_FLAG_OVERRIDDEN);
         default:
@@ -318,7 +318,7 @@ LIBCUBESCRIPT_EXPORT bool ident::is_persistent(state &cs) const {
         case ident_type::SVAR:
             return (p_impl->p_flags & IDENT_FLAG_PERSIST);
         case ident_type::ALIAS:
-            return (cs.thread_pointer()->get_astack(
+            return (state_p{cs}.ts().get_astack(
                 static_cast<alias const *>(this)
             ).flags & IDENT_FLAG_PERSIST);
         default:
@@ -346,7 +346,7 @@ LIBCUBESCRIPT_EXPORT var_type global_var::get_variable_type() const {
 }
 
 LIBCUBESCRIPT_EXPORT void global_var::save(state &cs) {
-    auto &ts = *cs.thread_pointer();
+    auto &ts = state_p{cs}.ts();
     if ((ts.ident_flags & IDENT_FLAG_OVERRIDDEN) || is_overridable()) {
         if (p_impl->p_flags & IDENT_FLAG_PERSIST) {
             throw error{
@@ -380,7 +380,7 @@ LIBCUBESCRIPT_EXPORT void integer_var::set_value(
     save(cs);
     set_raw_value(val);
     if (trigger) {
-        var_changed(*cs.thread_pointer(), this);
+        var_changed(state_p{cs}.ts(), this);
     }
 }
 
@@ -406,7 +406,7 @@ LIBCUBESCRIPT_EXPORT void float_var::set_value(
     save(cs);
     set_raw_value(val);
     if (trigger) {
-        var_changed(*cs.thread_pointer(), this);
+        var_changed(state_p{cs}.ts(), this);
     }
 }
 
@@ -432,7 +432,7 @@ LIBCUBESCRIPT_EXPORT void string_var::set_value(
     save(cs);
     set_raw_value(std::move(val));
     if (trigger) {
-        var_changed(*cs.thread_pointer(), this);
+        var_changed(state_p{cs}.ts(), this);
     }
 }
 
@@ -459,7 +459,7 @@ LIBCUBESCRIPT_EXPORT alias_local::alias_local(state &cs, ident *a) {
         p_alias = nullptr;
         return;
     }
-    auto &ts = *cs.thread_pointer();
+    auto &ts = state_p{cs}.ts();
     p_alias = static_cast<alias *>(a);
     auto &ast = ts.get_astack(p_alias);
     ast.push(ts.idstack.emplace_back(cs));

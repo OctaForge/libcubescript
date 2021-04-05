@@ -281,7 +281,7 @@ bool exec_alias(
 
 run_depth_guard::run_depth_guard(thread_state &ts): tsp(&ts) {
     if (ts.max_run_depth && (ts.run_depth >= ts.max_run_depth)) {
-        throw error{ts, "exceeded recursion limit"};
+        throw error{*ts.pstate, "exceeded recursion limit"};
     }
     ++ts.run_depth;
 }

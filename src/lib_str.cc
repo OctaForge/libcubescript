@@ -60,7 +60,7 @@ void init_lib_string(state &cs) {
 
     cs.new_command("strlower", "s", [](auto &ccs, auto args, auto &res) {
         auto inps = std::string_view{args[0].get_str()};
-        auto *ics = ccs.thread_pointer()->istate;
+        auto *ics = state_p{ccs}.ts().istate;
         auto *buf = ics->strman->alloc_buf(inps.size());
         for (std::size_t i = 0; i < inps.size(); ++i) {
             buf[i] = char(tolower(inps[i]));
@@ -70,7 +70,7 @@ void init_lib_string(state &cs) {
 
     cs.new_command("strupper", "s", [](auto &ccs, auto args, auto &res) {
         auto inps = std::string_view{args[0].get_str()};
-        auto *ics = ccs.thread_pointer()->istate;
+        auto *ics = state_p{ccs}.ts().istate;
         auto *buf = ics->strman->alloc_buf(inps.size());
         for (std::size_t i = 0; i < inps.size(); ++i) {
             buf[i] = char(toupper(inps[i]));

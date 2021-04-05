@@ -544,7 +544,7 @@ static void list_sort(
         return;
     }
 
-    valbuf<ListSortItem> items{cs.thread_pointer()->istate};
+    valbuf<ListSortItem> items{state_p{cs}.ts().istate};
     size_t total = 0;
 
     for (list_parser p{cs, list}; p.parse();) {

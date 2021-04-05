@@ -180,7 +180,7 @@ state::state(alloc_func func, void *data) {
     static_cast<command_impl *>(p)->p_type = ID_DO;
 
     p = new_command("doargs", "e", [](auto &cs, auto args, auto &res) {
-        call_with_args(*cs.thread_pointer(), [&cs, &res, &args]() {
+        call_with_args(*cs.p_tstate, [&cs, &res, &args]() {
             cs.run(args[0].get_code(), res);
         });
     });
@@ -243,7 +243,7 @@ state::state(alloc_func func, void *data) {
     static_cast<command_impl *>(p)->p_type = ID_LOCAL;
 
     p = new_command("break", "", [](auto &cs, auto, auto &) {
-        if (cs.thread_pointer()->loop_level) {
+        if (cs.p_tstate->loop_level) {
             throw break_exception{};
         } else {
             throw error{cs, "no loop to break"};
@@ -252,7 +252,7 @@ state::state(alloc_func func, void *data) {
     static_cast<command_impl *>(p)->p_type = ID_BREAK;
 
     p = new_command("continue", "", [](auto &cs, auto, auto &) {
-        if (cs.thread_pointer()->loop_level) {
+        if (cs.p_tstate->loop_level) {
             throw continue_exception{};
         } else {
             throw error{cs, "no loop to continue"};

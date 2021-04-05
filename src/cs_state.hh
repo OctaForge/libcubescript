@@ -103,6 +103,14 @@ struct internal_state {
     }
 };
 
+struct state_p {
+    state_p(state &cs): csp{&cs} {}
+
+    thread_state &ts() { return *csp->p_tstate; }
+
+    state *csp;
+};
+
 template<typename T>
 inline std_allocator<T>::std_allocator(internal_state *s): istate{s} {}
 
