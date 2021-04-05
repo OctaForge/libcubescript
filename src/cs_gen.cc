@@ -238,154 +238,152 @@ static void compilelookup(codegen_state &gs, int ltype) {
             if (lookup.empty()) goto invalid;
             lookup.push_back('\0');
 lookupid:
-            ident *id = gs.ts.istate->new_ident(
+            ident &id = gs.ts.istate->new_ident(
                 *gs.ts.pstate, lookup.str_term(), IDENT_FLAG_UNKNOWN
             );
-            if (id) {
-                switch (id->get_type()) {
-                    case ident_type::IVAR:
-                        gs.code.push_back(
-                            BC_INST_IVAR | ret_code(ltype, BC_RET_INT) |
-                                (id->get_index() << 8)
-                        );
-                        switch (ltype) {
-                            case VAL_POP:
-                                gs.code.pop_back();
-                                break;
-                            case VAL_CODE:
-                                gs.code.push_back(BC_INST_COMPILE);
-                                break;
-                            case VAL_IDENT:
-                                gs.code.push_back(BC_INST_IDENT_U);
-                                break;
-                        }
-                        return;
-                    case ident_type::FVAR:
-                        gs.code.push_back(
-                            BC_INST_FVAR | ret_code(ltype, BC_RET_FLOAT) |
-                                (id->get_index() << 8)
-                        );
-                        switch (ltype) {
-                            case VAL_POP:
-                                gs.code.pop_back();
-                                break;
-                            case VAL_CODE:
-                                gs.code.push_back(BC_INST_COMPILE);
-                                break;
-                            case VAL_IDENT:
-                                gs.code.push_back(BC_INST_IDENT_U);
-                                break;
-                        }
-                        return;
-                    case ident_type::SVAR:
-                        switch (ltype) {
-                            case VAL_POP:
-                                return;
-                            default:
-                                gs.code.push_back(
-                                    BC_INST_SVAR | ret_code(ltype, BC_RET_STRING) |
-                                        (id->get_index() << 8)
-                                );
-                                break;
-                        }
-                        goto done;
-                    case ident_type::ALIAS:
-                        switch (ltype) {
-                            case VAL_POP:
-                                return;
-                            case VAL_COND:
-                                gs.code.push_back(
-                                    BC_INST_LOOKUP | (id->get_index() << 8)
-                                );
-                                break;
-                            default:
-                                gs.code.push_back(
-                                    BC_INST_LOOKUP |
-                                    ret_code(ltype, BC_RET_STRING) |
-                                    (id->get_index() << 8)
-                                );
-                                break;
-                        }
-                        goto done;
-                    case ident_type::COMMAND: {
-                        std::uint32_t comtype = BC_INST_COM, numargs = 0;
-                        auto fmt = static_cast<command_impl *>(id)->get_args();
-                        for (char c: fmt) {
-                            switch (c) {
-                                case 's':
-                                    gs.gen_str(std::string_view{});
-                                    numargs++;
-                                    break;
-                                case 'i':
-                                    gs.gen_int();
-                                    numargs++;
-                                    break;
-                                case 'b':
-                                    gs.gen_int(std::numeric_limits<integer_type>::min());
-                                    numargs++;
-                                    break;
-                                case 'f':
-                                    gs.gen_float();
-                                    numargs++;
-                                    break;
-                                case 'F':
-                                    gs.code.push_back(BC_INST_DUP | BC_RET_FLOAT);
-                                    numargs++;
-                                    break;
-                                case 'E':
-                                case 't':
-                                    gs.gen_null();
-                                    numargs++;
-                                    break;
-                                case 'e':
-                                    compileblock(gs);
-                                    numargs++;
-                                    break;
-                                case 'r':
-                                    gs.gen_ident();
-                                    numargs++;
-                                    break;
-                                case '$':
-                                    gs.gen_ident(id);
-                                    numargs++;
-                                    break;
-                                case 'N':
-                                    gs.gen_int(-1);
-                                    numargs++;
-                                    break;
-                                case 'C':
-                                    comtype = BC_INST_COM_C;
-                                    goto compilecomv;
-                                case 'V':
-                                    comtype = BC_INST_COM_V;
-                                    goto compilecomv;
-                                case '1':
-                                case '2':
-                                case '3':
-                                case '4':
-                                    break;
-                            }
-                        }
-                        gs.code.push_back(
-                            comtype | ret_code(ltype) | (id->get_index() << 8)
-                        );
-                        gs.code.push_back(
-                            BC_INST_RESULT_ARG | ret_code(ltype)
-                        );
-                        goto done;
-        compilecomv:
-                        gs.code.push_back(
-                            comtype | ret_code(ltype) | (id->get_index() << 8)
-                        );
-                        gs.code.push_back(numargs);
-                        gs.code.push_back(
-                            BC_INST_RESULT_ARG | ret_code(ltype)
-                        );
-                        goto done;
+            switch (id.get_type()) {
+                case ident_type::IVAR:
+                    gs.code.push_back(
+                        BC_INST_IVAR | ret_code(ltype, BC_RET_INT) |
+                            (id.get_index() << 8)
+                    );
+                    switch (ltype) {
+                        case VAL_POP:
+                            gs.code.pop_back();
+                            break;
+                        case VAL_CODE:
+                            gs.code.push_back(BC_INST_COMPILE);
+                            break;
+                        case VAL_IDENT:
+                            gs.code.push_back(BC_INST_IDENT_U);
+                            break;
                     }
-                    default:
-                        goto invalid;
+                    return;
+                case ident_type::FVAR:
+                    gs.code.push_back(
+                        BC_INST_FVAR | ret_code(ltype, BC_RET_FLOAT) |
+                            (id.get_index() << 8)
+                    );
+                    switch (ltype) {
+                        case VAL_POP:
+                            gs.code.pop_back();
+                            break;
+                        case VAL_CODE:
+                            gs.code.push_back(BC_INST_COMPILE);
+                            break;
+                        case VAL_IDENT:
+                            gs.code.push_back(BC_INST_IDENT_U);
+                            break;
+                    }
+                    return;
+                case ident_type::SVAR:
+                    switch (ltype) {
+                        case VAL_POP:
+                            return;
+                        default:
+                            gs.code.push_back(
+                                BC_INST_SVAR | ret_code(ltype, BC_RET_STRING) |
+                                    (id.get_index() << 8)
+                            );
+                            break;
+                    }
+                    goto done;
+                case ident_type::ALIAS:
+                    switch (ltype) {
+                        case VAL_POP:
+                            return;
+                        case VAL_COND:
+                            gs.code.push_back(
+                                BC_INST_LOOKUP | (id.get_index() << 8)
+                            );
+                            break;
+                        default:
+                            gs.code.push_back(
+                                BC_INST_LOOKUP |
+                                ret_code(ltype, BC_RET_STRING) |
+                                (id.get_index() << 8)
+                            );
+                            break;
+                    }
+                    goto done;
+                case ident_type::COMMAND: {
+                    std::uint32_t comtype = BC_INST_COM, numargs = 0;
+                    auto fmt = static_cast<command_impl &>(id).get_args();
+                    for (char c: fmt) {
+                        switch (c) {
+                            case 's':
+                                gs.gen_str(std::string_view{});
+                                numargs++;
+                                break;
+                            case 'i':
+                                gs.gen_int();
+                                numargs++;
+                                break;
+                            case 'b':
+                                gs.gen_int(std::numeric_limits<integer_type>::min());
+                                numargs++;
+                                break;
+                            case 'f':
+                                gs.gen_float();
+                                numargs++;
+                                break;
+                            case 'F':
+                                gs.code.push_back(BC_INST_DUP | BC_RET_FLOAT);
+                                numargs++;
+                                break;
+                            case 'E':
+                            case 't':
+                                gs.gen_null();
+                                numargs++;
+                                break;
+                            case 'e':
+                                compileblock(gs);
+                                numargs++;
+                                break;
+                            case 'r':
+                                gs.gen_ident();
+                                numargs++;
+                                break;
+                            case '$':
+                                gs.gen_ident(id);
+                                numargs++;
+                                break;
+                            case 'N':
+                                gs.gen_int(-1);
+                                numargs++;
+                                break;
+                            case 'C':
+                                comtype = BC_INST_COM_C;
+                                goto compilecomv;
+                            case 'V':
+                                comtype = BC_INST_COM_V;
+                                goto compilecomv;
+                            case '1':
+                            case '2':
+                            case '3':
+                            case '4':
+                                break;
+                        }
+                    }
+                    gs.code.push_back(
+                        comtype | ret_code(ltype) | (id.get_index() << 8)
+                    );
+                    gs.code.push_back(
+                        BC_INST_RESULT_ARG | ret_code(ltype)
+                    );
+                    goto done;
+    compilecomv:
+                    gs.code.push_back(
+                        comtype | ret_code(ltype) | (id.get_index() << 8)
+                    );
+                    gs.code.push_back(numargs);
+                    gs.code.push_back(
+                        BC_INST_RESULT_ARG | ret_code(ltype)
+                    );
+                    goto done;
                 }
+                default:
+                    goto invalid;
             }
             gs.gen_str(lookup.str_term());
             break;
@@ -512,28 +510,26 @@ static bool compileblocksub(codegen_state &gs) {
             }
             lookup.push_back('\0');
 lookupid:
-            ident *id = gs.ts.istate->new_ident(
+            ident &id = gs.ts.istate->new_ident(
                 *gs.ts.pstate, lookup.str_term(), IDENT_FLAG_UNKNOWN
             );
-            if (id) {
-                switch (id->get_type()) {
-                    case ident_type::IVAR:
-                        gs.code.push_back(BC_INST_IVAR | (id->get_index() << 8));
-                        goto done;
-                    case ident_type::FVAR:
-                        gs.code.push_back(BC_INST_FVAR | (id->get_index() << 8));
-                        goto done;
-                    case ident_type::SVAR:
-                        gs.code.push_back(BC_INST_SVAR | (id->get_index() << 8));
-                        goto done;
-                    case ident_type::ALIAS:
-                        gs.code.push_back(
-                            BC_INST_LOOKUP | (id->get_index() << 8)
-                        );
-                        goto done;
-                    default:
-                        break;
-                }
+            switch (id.get_type()) {
+                case ident_type::IVAR:
+                    gs.code.push_back(BC_INST_IVAR | (id.get_index() << 8));
+                    goto done;
+                case ident_type::FVAR:
+                    gs.code.push_back(BC_INST_FVAR | (id.get_index() << 8));
+                    goto done;
+                case ident_type::SVAR:
+                    gs.code.push_back(BC_INST_SVAR | (id.get_index() << 8));
+                    goto done;
+                case ident_type::ALIAS:
+                    gs.code.push_back(
+                        BC_INST_LOOKUP | (id.get_index() << 8)
+                    );
+                    goto done;
+                default:
+                    break;
             }
             gs.gen_str(lookup.str_term());
             gs.code.push_back(BC_INST_LOOKUP_U);
@@ -800,7 +796,7 @@ static bool compilearg(
 }
 
 static void compile_cmd(
-    codegen_state &gs, command_impl *id, ident *self, bool &more, int rettype,
+    codegen_state &gs, command_impl *id, ident &self, bool &more, int rettype,
     std::uint32_t limit = 0
 ) {
     std::uint32_t comtype = BC_INST_COM, numargs = 0, numcargs = 0, fakeargs = 0;
@@ -1189,47 +1185,45 @@ static void compilestatements(codegen_state &gs, int rettype, int brak) {
                     gs.next_char();
                     if (!idname.empty()) {
                         idname.push_back('\0');
-                        ident *id = gs.ts.istate->new_ident(
+                        ident &id = gs.ts.istate->new_ident(
                             *gs.ts.pstate, idname.str_term(), IDENT_FLAG_UNKNOWN
                         );
-                        if (id) {
-                            switch (id->get_type()) {
-                                case ident_type::ALIAS:
-                                    more = compilearg(gs, VAL_ANY);
-                                    if (!more) {
-                                        gs.gen_str();
-                                    }
-                                    gs.code.push_back(
-                                        BC_INST_ALIAS | (id->get_index() << 8)
-                                    );
-                                    goto endstatement;
-                                case ident_type::IVAR: {
-                                    auto *hid = gs.ts.istate->cmd_ivar;
-                                    compile_cmd(
-                                        gs, static_cast<command_impl *>(hid),
-                                        id, more, rettype, 1
-                                    );
-                                    goto endstatement;
+                        switch (id.get_type()) {
+                            case ident_type::ALIAS:
+                                more = compilearg(gs, VAL_ANY);
+                                if (!more) {
+                                    gs.gen_str();
                                 }
-                                case ident_type::FVAR: {
-                                    auto *hid = gs.ts.istate->cmd_fvar;
-                                    compile_cmd(
-                                        gs, static_cast<command_impl *>(hid),
-                                        id, more, rettype, 1
-                                    );
-                                    goto endstatement;
-                                }
-                                case ident_type::SVAR: {
-                                    auto *hid = gs.ts.istate->cmd_svar;
-                                    compile_cmd(
-                                        gs, static_cast<command_impl *>(hid),
-                                        id, more, rettype, 1
-                                    );
-                                    goto endstatement;
-                                }
-                                default:
-                                    break;
+                                gs.code.push_back(
+                                    BC_INST_ALIAS | (id.get_index() << 8)
+                                );
+                                goto endstatement;
+                            case ident_type::IVAR: {
+                                auto *hid = gs.ts.istate->cmd_ivar;
+                                compile_cmd(
+                                    gs, static_cast<command_impl *>(hid),
+                                    id, more, rettype, 1
+                                );
+                                goto endstatement;
                             }
+                            case ident_type::FVAR: {
+                                auto *hid = gs.ts.istate->cmd_fvar;
+                                compile_cmd(
+                                    gs, static_cast<command_impl *>(hid),
+                                    id, more, rettype, 1
+                                );
+                                goto endstatement;
+                            }
+                            case ident_type::SVAR: {
+                                auto *hid = gs.ts.istate->cmd_svar;
+                                compile_cmd(
+                                    gs, static_cast<command_impl *>(hid),
+                                    id, more, rettype, 1
+                                );
+                                goto endstatement;
+                            }
+                            default:
+                                break;
                         }
                         gs.gen_str(idname.str_term());
                     }
@@ -1285,7 +1279,7 @@ noid:
                         break;
                     case ID_COMMAND:
                         compile_cmd(
-                            gs, static_cast<command_impl *>(id), id, more,
+                            gs, static_cast<command_impl *>(id), *id, more,
                             rettype
                         );
                         break;
@@ -1332,7 +1326,7 @@ noid:
                         auto *hid = gs.ts.istate->cmd_ivar;
                         compile_cmd(
                             gs, static_cast<command_impl *>(hid),
-                            id, more, rettype
+                            *id, more, rettype
                         );
                         break;
                     }
@@ -1340,7 +1334,7 @@ noid:
                         auto *hid = gs.ts.istate->cmd_fvar;
                         compile_cmd(
                             gs, static_cast<command_impl *>(hid),
-                            id, more, rettype
+                            *id, more, rettype
                         );
                         break;
                     }
@@ -1348,7 +1342,7 @@ noid:
                         auto *hid = gs.ts.istate->cmd_svar;
                         compile_cmd(
                             gs, static_cast<command_impl *>(hid),
-                            id, more, rettype
+                            *id, more, rettype
                         );
                         break;
                     }

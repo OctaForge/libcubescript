@@ -103,12 +103,12 @@ struct codegen_state {
 
     void gen_float(std::string_view word);
 
-    void gen_ident(ident *id) {
-        code.push_back(BC_INST_IDENT | (id->get_index() << 8));
+    void gen_ident(ident &id) {
+        code.push_back(BC_INST_IDENT | (id.get_index() << 8));
     }
 
     void gen_ident() {
-        gen_ident(ts.istate->id_dummy);
+        gen_ident(*ts.istate->id_dummy);
     }
 
     void gen_ident(std::string_view word) {

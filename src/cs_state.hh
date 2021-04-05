@@ -69,7 +69,7 @@ struct internal_state {
     ~internal_state();
 
     ident *add_ident(ident *id, ident_impl *impl);
-    ident *new_ident(state &cs, std::string_view name, int flags);
+    ident &new_ident(state &cs, std::string_view name, int flags);
     ident *get_ident(std::string_view name) const;
 
     void *alloc(void *ptr, size_t os, size_t ns);

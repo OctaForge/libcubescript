@@ -114,7 +114,7 @@ struct LIBCUBESCRIPT_EXPORT any_value {
     integer_type force_int();
     std::string_view force_str();
     bcode_ref force_code(state &cs);
-    ident *force_ident(state &cs);
+    ident &force_ident(state &cs);
 
 private:
     template<typename T>

@@ -65,8 +65,8 @@ inline void init_lineedit(cs::state &cs, std::string_view) {
     rl_redisplay_function = ln_hint;
 }
 
-inline std::optional<std::string> read_line(cs::state &, cs::string_var *pr) {
-    auto line = readline(pr->get_value().data());
+inline std::optional<std::string> read_line(cs::state &, cs::string_var &pr) {
+    auto line = readline(pr.get_value().data());
     if (!line) {
         return std::string();
     }

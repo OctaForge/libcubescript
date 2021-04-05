@@ -768,7 +768,7 @@ std::uint32_t *vm_exec(
                 any_value &arg = args.back();
                 ident *id = ts.istate->id_dummy;
                 if (arg.get_type() == value_type::STRING) {
-                    id = ts.istate->new_ident(
+                    id = &ts.istate->new_ident(
                         cs, arg.get_str(), IDENT_FLAG_UNKNOWN
                     );
                 }
@@ -1121,7 +1121,7 @@ noid:
                         std::size_t idstsz = ts.idstack.size();
                         for (size_t j = 0; j < size_t(callargs); ++j) {
                             push_alias(
-                                ts, args[offset + j].force_ident(cs),
+                                ts, &args[offset + j].force_ident(cs),
                                 ts.idstack.emplace_back(*ts.pstate)
                             );
                         }

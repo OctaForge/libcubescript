@@ -8,14 +8,17 @@
 
 #include "callable.hh"
 #include "ident.hh"
+#include "value.hh"
 
 namespace cubescript {
+
+struct state;
 
 using alloc_func   = void *(*)(void *, void *, size_t, size_t);
 
 using hook_func    = internal::callable<void, struct state &>;
 using command_func = internal::callable<
-    void, struct state &, std::span<struct any_value>, struct any_value &
+    void, state &, std::span<any_value>, any_value &
 >;
 
 enum {
@@ -68,19 +71,19 @@ struct LIBCUBESCRIPT_EXPORT state {
     void clear_override(ident &id);
     void clear_overrides();
 
-    integer_var *new_ivar(
+    integer_var &new_ivar(
         std::string_view n, integer_type v, bool read_only = false,
         var_type vtp = var_type::DEFAULT
     );
-    float_var *new_fvar(
+    float_var &new_fvar(
         std::string_view n, float_type v, bool read_only = false,
         var_type vtp = var_type::DEFAULT
     );
-    string_var *new_svar(
+    string_var &new_svar(
         std::string_view n, std::string_view v, bool read_only = false,
         var_type vtp = var_type::DEFAULT
     );
-    ident *new_ident(std::string_view n);
+    ident &new_ident(std::string_view n);
 
     void reset_var(std::string_view name);
     void touch_var(std::string_view name);

@@ -269,17 +269,17 @@ bcode_ref any_value::force_code(state &cs) {
     return bcode_ref{bc};
 }
 
-ident *any_value::force_ident(state &cs) {
+ident &any_value::force_ident(state &cs) {
     switch (get_type()) {
         case value_type::IDENT:
-            return csv_get<ident *>(&p_stor);
+            return *csv_get<ident *>(&p_stor);
         default:
             break;
     }
-    auto *id = state_p{cs}.ts().istate->new_ident(
+    auto &id = state_p{cs}.ts().istate->new_ident(
         cs, get_str(), IDENT_FLAG_UNKNOWN
     );
-    set_ident(id);
+    set_ident(&id);
     return id;
 }
 

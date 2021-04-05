@@ -55,7 +55,7 @@ ident *internal_state::add_ident(ident *id, ident_impl *impl) {
     return identmap.back();
 }
 
-ident *internal_state::new_ident(state &cs, std::string_view name, int flags) {
+ident &internal_state::new_ident(state &cs, std::string_view name, int flags) {
     ident *id = get_ident(name);
     if (!id) {
         if (!is_valid_name(name)) {
@@ -68,7 +68,7 @@ ident *internal_state::new_ident(state &cs, std::string_view name, int flags) {
         );
         id = add_ident(inst, inst);
     }
-    return id;
+    return *id;
 }
 
 ident *internal_state::get_ident(std::string_view name) const {
@@ -120,10 +120,10 @@ state::state(alloc_func func, void *data) {
         );
     }
 
-    statep->id_dummy = statep->new_ident(*this, "//dummy", IDENT_FLAG_UNKNOWN);
+    statep->id_dummy = &statep->new_ident(*this, "//dummy", IDENT_FLAG_UNKNOWN);
 
-    statep->ivar_numargs  = new_ivar("numargs", 0, true);
-    statep->ivar_dbgalias = new_ivar("dbgalias", 4);
+    statep->ivar_numargs  = &new_ivar("numargs", 0, true);
+    statep->ivar_dbgalias = &new_ivar("dbgalias", 4);
 
     /* default handlers for variables */
 
@@ -415,7 +415,7 @@ static void var_name_check(
     }
 }
 
-LIBCUBESCRIPT_EXPORT integer_var *state::new_ivar(
+LIBCUBESCRIPT_EXPORT integer_var &state::new_ivar(
     std::string_view n, integer_type v, bool read_only, var_type vtp
 ) {
     auto *iv = p_tstate->istate->create<ivar_impl>(
@@ -429,10 +429,10 @@ LIBCUBESCRIPT_EXPORT integer_var *state::new_ivar(
         throw;
     }
     p_tstate->istate->add_ident(iv, iv);
-    return iv;
+    return *iv;
 }
 
-LIBCUBESCRIPT_EXPORT float_var *state::new_fvar(
+LIBCUBESCRIPT_EXPORT float_var &state::new_fvar(
     std::string_view n, float_type v, bool read_only, var_type vtp
 ) {
     auto *fv = p_tstate->istate->create<fvar_impl>(
@@ -446,10 +446,10 @@ LIBCUBESCRIPT_EXPORT float_var *state::new_fvar(
         throw;
     }
     p_tstate->istate->add_ident(fv, fv);
-    return fv;
+    return *fv;
 }
 
-LIBCUBESCRIPT_EXPORT string_var *state::new_svar(
+LIBCUBESCRIPT_EXPORT string_var &state::new_svar(
     std::string_view n, std::string_view v, bool read_only, var_type vtp
 ) {
     auto *sv = p_tstate->istate->create<svar_impl>(
@@ -463,10 +463,10 @@ LIBCUBESCRIPT_EXPORT string_var *state::new_svar(
         throw;
     }
     p_tstate->istate->add_ident(sv, sv);
-    return sv;
+    return *sv;
 }
 
-LIBCUBESCRIPT_EXPORT ident *state::new_ident(std::string_view n) {
+LIBCUBESCRIPT_EXPORT ident &state::new_ident(std::string_view n) {
     return p_tstate->istate->new_ident(*this, n, IDENT_FLAG_UNKNOWN);
 }
 
