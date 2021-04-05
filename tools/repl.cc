@@ -271,7 +271,7 @@ static bool do_call(cs::state &cs, std::string_view line, bool file = false) {
     signal(SIGINT, SIG_DFL);
     scs = nullptr;
     if (ret.get_type() != cs::value_type::NONE) {
-        std::printf("%s\n", std::string_view{ret.get_str()}.data());
+        std::printf("%s\n", std::string_view{ret.get_string()}.data());
     }
     return false;
 }
@@ -326,7 +326,7 @@ int main(int argc, char **argv) {
      */
     gcs.new_command("//ivar", "$iiiN", [](auto &css, auto args, auto &) {
         auto *iv = args[0].get_ident()->get_ivar();
-        auto nargs = args[4].get_int();
+        auto nargs = args[4].get_integer();
         if (nargs <= 1) {
             auto val = iv->get_value();
             if ((val >= 0) && (val < 0xFFFFFF)) {
@@ -341,15 +341,16 @@ int main(int argc, char **argv) {
             return;
         }
         if (nargs == 2) {
-            iv->set_value(css, args[1].get_int());
+            iv->set_value(css, args[1].get_integer());
         } else if (nargs == 3) {
             iv->set_value(
-                css, (args[1].get_int() << 8) | (args[2].get_int() << 16)
+                css, (args[1].get_integer() << 8) |
+                (args[2].get_integer() << 16)
             );
         } else {
             iv->set_value(
-                css, args[1].get_int() | (args[2].get_int() << 8) |
-                (args[3].get_int() << 16)
+                css, args[1].get_integer() | (args[2].get_integer() << 8) |
+                (args[3].get_integer() << 16)
             );
         }
     });
@@ -361,7 +362,7 @@ int main(int argc, char **argv) {
     });
 
     gcs.new_command("exec", "s", [](auto &css, auto args, auto &) {
-        auto file = args[0].get_str();
+        auto file = args[0].get_string();
         cs::any_value val{css};
         bool ret = do_run_file(css, file, val);
         if (!ret) {
@@ -372,7 +373,7 @@ int main(int argc, char **argv) {
     });
 
     gcs.new_command("echo", "C", [](auto &, auto args, auto &) {
-        std::printf("%s\n", std::string_view{args[0].get_str()}.data());
+        std::printf("%s\n", std::string_view{args[0].get_string()}.data());
     });
 
     int firstarg = 0;

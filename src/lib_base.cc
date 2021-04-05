@@ -18,7 +18,7 @@ static inline void do_loop(
     if (alias_local st{cs, &id}; st) {
         any_value idv{cs};
         for (integer_type i = 0; i < n; ++i) {
-            idv.set_int(offset + i * step);
+            idv.set_integer(offset + i * step);
             st.set(idv);
             if (cond && !cs.run(cond).get_bool()) {
                 break;
@@ -44,7 +44,7 @@ static inline void do_loop_conc(
         charbuf s{cs};
         any_value idv{cs};
         for (integer_type i = 0; i < n; ++i) {
-            idv.set_int(offset + i * step);
+            idv.set_integer(offset + i * step);
             st.set(idv);
             any_value v{cs};
             switch (cs.run_loop(body, v)) {
@@ -58,23 +58,23 @@ static inline void do_loop_conc(
             if (space && i) {
                 s.push_back(' ');
             }
-            s.append(v.get_str());
+            s.append(v.get_string());
         }
 end:
-        res.set_str(s.str());
+        res.set_string(s.str());
     }
 }
 
 void init_lib_base(state &gcs) {
     gcs.new_command("error", "s", [](auto &cs, auto args, auto &) {
-        throw error{cs, args[0].get_str()};
+        throw error{cs, args[0].get_string()};
     });
 
     gcs.new_command("pcall", "err", [](auto &cs, auto args, auto &ret) {
         alias *cret = args[1].get_ident()->get_alias();
         alias *css = args[2].get_ident()->get_alias();
         if (!cret || !css) {
-            ret.set_int(0);
+            ret.set_integer(0);
             return;
         }
         any_value result{cs}, tback{cs};
@@ -82,15 +82,15 @@ void init_lib_base(state &gcs) {
         try {
             result = cs.run(args[0].get_code());
         } catch (error const &e) {
-            result.set_str(e.what());
+            result.set_string(e.what());
             if (e.get_stack().get()) {
                 charbuf buf{cs};
                 print_stack(std::back_inserter(buf), e.get_stack());
-                tback.set_str(buf.str());
+                tback.set_string(buf.str());
             }
             rc = false;
         }
-        ret.set_int(rc);
+        ret.set_integer(rc);
         auto &ts = state_p{cs}.ts();
         ts.get_astack(cret).set_alias(cret, ts, result);
         ts.get_astack(css).set_alias(css, ts, tback);
@@ -119,11 +119,11 @@ void init_lib_base(state &gcs) {
     });
 
     gcs.new_command("case", "ite2V", [](auto &cs, auto args, auto &res) {
-        integer_type val = args[0].get_int();
+        integer_type val = args[0].get_integer();
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
                 (args[i].get_type() == value_type::NONE) ||
-                (args[i].get_int() == val)
+                (args[i].get_integer() == val)
             ) {
                 res = cs.run(args[i + 1].get_code());
                 return;
@@ -145,11 +145,11 @@ void init_lib_base(state &gcs) {
     });
 
     gcs.new_command("cases", "ste2V", [](auto &cs, auto args, auto &res) {
-        string_ref val = args[0].get_str();
+        string_ref val = args[0].get_string();
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
                 (args[i].get_type() == value_type::NONE) ||
-                (args[i].get_str() == val)
+                (args[i].get_string() == val)
             ) {
                 res = cs.run(args[i + 1].get_code());
                 return;
@@ -171,57 +171,59 @@ void init_lib_base(state &gcs) {
 
     gcs.new_command("loop", "rie", [](auto &cs, auto args, auto &) {
         do_loop(
-            cs, *args[0].get_ident(), 0, args[1].get_int(), 1, nullptr,
+            cs, *args[0].get_ident(), 0, args[1].get_integer(), 1, nullptr,
             args[2].get_code()
         );
     });
 
     gcs.new_command("loop+", "riie", [](auto &cs, auto args, auto &) {
         do_loop(
-            cs, *args[0].get_ident(), args[1].get_int(), args[2].get_int(), 1,
-            nullptr, args[3].get_code()
+            cs, *args[0].get_ident(), args[1].get_integer(),
+            args[2].get_integer(), 1, nullptr, args[3].get_code()
         );
     });
 
     gcs.new_command("loop*", "riie", [](auto &cs, auto args, auto &) {
         do_loop(
-            cs, *args[0].get_ident(), 0, args[1].get_int(), args[2].get_int(),
-            nullptr, args[3].get_code()
+            cs, *args[0].get_ident(), 0, args[1].get_integer(),
+            args[2].get_integer(), nullptr, args[3].get_code()
         );
     });
 
     gcs.new_command("loop+*", "riiie", [](auto &cs, auto args, auto &) {
         do_loop(
-            cs, *args[0].get_ident(), args[1].get_int(), args[3].get_int(),
-            args[2].get_int(), nullptr, args[4].get_code()
+            cs, *args[0].get_ident(), args[1].get_integer(),
+            args[3].get_integer(), args[2].get_integer(),
+            nullptr, args[4].get_code()
         );
     });
 
     gcs.new_command("loopwhile", "riee", [](auto &cs, auto args, auto &) {
         do_loop(
-            cs, *args[0].get_ident(), 0, args[1].get_int(), 1,
+            cs, *args[0].get_ident(), 0, args[1].get_integer(), 1,
             args[2].get_code(), args[3].get_code()
         );
     });
 
     gcs.new_command("loopwhile+", "riiee", [](auto &cs, auto args, auto &) {
         do_loop(
-            cs, *args[0].get_ident(), args[1].get_int(), args[2].get_int(), 1,
-            args[3].get_code(), args[4].get_code()
+            cs, *args[0].get_ident(), args[1].get_integer(),
+            args[2].get_integer(), 1, args[3].get_code(), args[4].get_code()
         );
     });
 
     gcs.new_command("loopwhile*", "riiee", [](auto &cs, auto args, auto &) {
         do_loop(
-            cs, *args[0].get_ident(), 0, args[2].get_int(), args[1].get_int(),
-            args[3].get_code(), args[4].get_code()
+            cs, *args[0].get_ident(), 0, args[2].get_integer(),
+            args[1].get_integer(), args[3].get_code(), args[4].get_code()
         );
     });
 
     gcs.new_command("loopwhile+*", "riiiee", [](auto &cs, auto args, auto &) {
         do_loop(
-            cs, *args[0].get_ident(), args[1].get_int(), args[3].get_int(),
-            args[2].get_int(), args[4].get_code(), args[5].get_code()
+            cs, *args[0].get_ident(), args[1].get_integer(),
+            args[3].get_integer(), args[2].get_integer(), args[4].get_code(),
+            args[5].get_code()
         );
     });
 
@@ -242,35 +244,36 @@ end:
 
     gcs.new_command("loopconcat", "rie", [](auto &cs, auto args, auto &res) {
         do_loop_conc(
-            cs, res, *args[0].get_ident(), 0, args[1].get_int(), 1,
+            cs, res, *args[0].get_ident(), 0, args[1].get_integer(), 1,
             args[2].get_code(), true
         );
     });
 
     gcs.new_command("loopconcat+", "riie", [](auto &cs, auto args, auto &res) {
         do_loop_conc(
-            cs, res, *args[0].get_ident(), args[1].get_int(),
-            args[2].get_int(), 1, args[3].get_code(), true
+            cs, res, *args[0].get_ident(), args[1].get_integer(),
+            args[2].get_integer(), 1, args[3].get_code(), true
         );
     });
 
     gcs.new_command("loopconcat*", "riie", [](auto &cs, auto args, auto &res) {
         do_loop_conc(
-            cs, res, *args[0].get_ident(), 0, args[2].get_int(),
-            args[1].get_int(), args[3].get_code(), true
+            cs, res, *args[0].get_ident(), 0, args[2].get_integer(),
+            args[1].get_integer(), args[3].get_code(), true
         );
     });
 
     gcs.new_command("loopconcat+*", "riiie", [](auto &cs, auto args, auto &res) {
         do_loop_conc(
-            cs, res, *args[0].get_ident(), args[1].get_int(),
-            args[3].get_int(), args[2].get_int(), args[4].get_code(), true
+            cs, res, *args[0].get_ident(), args[1].get_integer(),
+            args[3].get_integer(), args[2].get_integer(),
+            args[4].get_code(), true
         );
     });
 
     gcs.new_command("loopconcatword", "rie", [](auto &cs, auto args, auto &res) {
         do_loop_conc(
-            cs, res, *args[0].get_ident(), 0, args[1].get_int(), 1,
+            cs, res, *args[0].get_ident(), 0, args[1].get_integer(), 1,
             args[2].get_code(), false
         );
     });
@@ -279,8 +282,8 @@ end:
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
-            cs, res, *args[0].get_ident(), args[1].get_int(),
-            args[2].get_int(), 1, args[3].get_code(), false
+            cs, res, *args[0].get_ident(), args[1].get_integer(),
+            args[2].get_integer(), 1, args[3].get_code(), false
         );
     });
 
@@ -288,8 +291,8 @@ end:
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
-            cs, res, *args[0].get_ident(), 0, args[2].get_int(),
-            args[1].get_int(), args[3].get_code(), false
+            cs, res, *args[0].get_ident(), 0, args[2].get_integer(),
+            args[1].get_integer(), args[3].get_code(), false
         );
     });
 
@@ -297,8 +300,9 @@ end:
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
-            cs, res, *args[0].get_ident(), args[1].get_int(), args[3].get_int(),
-            args[2].get_int(), args[4].get_code(), false
+            cs, res, *args[0].get_ident(), args[1].get_integer(),
+            args[3].get_integer(), args[2].get_integer(),
+            args[4].get_code(), false
         );
     });
 
@@ -313,21 +317,21 @@ end:
     });
 
     gcs.new_command("resetvar", "s", [](auto &cs, auto args, auto &) {
-        cs.reset_var(args[0].get_str());
+        cs.reset_var(args[0].get_string());
     });
 
     gcs.new_command("alias", "st", [](auto &cs, auto args, auto &) {
-        cs.set_alias(args[0].get_str(), args[1]);
+        cs.set_alias(args[0].get_string(), args[1]);
     });
 
     gcs.new_command("identexists", "s", [](auto &cs, auto args, auto &res) {
-        res.set_int(cs.have_ident(args[0].get_str()));
+        res.set_integer(cs.have_ident(args[0].get_string()));
     });
 
     gcs.new_command("getalias", "s", [](auto &cs, auto args, auto &res) {
-        auto *id = cs.get_alias(args[0].get_str());
+        auto *id = cs.get_alias(args[0].get_string());
         if (id) {
-           id->get_value(cs).get_val(res);
+            res = id->get_value(cs);
         }
     });
 }

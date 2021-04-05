@@ -28,12 +28,12 @@ static inline void force_arg(any_value &v, int type) {
     switch (type) {
         case BC_RET_STRING:
             if (v.get_type() != value_type::STRING) {
-                v.force_str();
+                v.force_string();
             }
             break;
         case BC_RET_INT:
-            if (v.get_type() != value_type::INT) {
-                v.force_int();
+            if (v.get_type() != value_type::INTEGER) {
+                v.force_integer();
             }
             break;
         case BC_RET_FLOAT:
@@ -58,10 +58,10 @@ void exec_command(
                     if (rep) {
                         break;
                     }
-                    args[i].set_int(0);
+                    args[i].set_integer(0);
                     fakeargs++;
                 } else {
-                    args[i].force_int();
+                    args[i].force_integer();
                 }
                 break;
             case 'b':
@@ -69,10 +69,12 @@ void exec_command(
                     if (rep) {
                         break;
                     }
-                    args[i].set_int(std::numeric_limits<integer_type>::min());
+                    args[i].set_integer(
+                        std::numeric_limits<integer_type>::min()
+                    );
                     fakeargs++;
                 } else {
-                    args[i].force_int();
+                    args[i].force_integer();
                 }
                 break;
             case 'f':
@@ -102,10 +104,10 @@ void exec_command(
                     if (rep) {
                         break;
                     }
-                    args[i].set_str("");
+                    args[i].set_string("");
                     fakeargs++;
                 } else {
-                    args[i].force_str();
+                    args[i].force_string();
                 }
                 break;
             case 'T':
@@ -126,9 +128,9 @@ void exec_command(
                     args[i].set_none();
                     fakeargs++;
                 } else if (args[i].get_type() == value_type::STRING) {
-                    auto str = std::string_view{args[i].get_str()};
+                    auto str = std::string_view{args[i].get_string()};
                     if (str.empty()) {
-                        args[i].set_int(0);
+                        args[i].set_integer(0);
                     } else {
                         args[i].force_code(*ts.pstate);
                     }
@@ -164,12 +166,12 @@ void exec_command(
                 break;
             case 'N':
                 i += 1;
-                args[i].set_int(integer_type(lookup ? -1 : i - fakeargs));
+                args[i].set_integer(integer_type(lookup ? -1 : i - fakeargs));
                 break;
             case 'C': {
                 i = std::max(i + 1, numargs);
                 any_value tv{*ts.pstate};
-                tv.set_str(concat_values(
+                tv.set_string(concat_values(
                     *ts.pstate, std::span{args, std::size_t(i)}, " "
                 ));
                 static_cast<command_impl *>(id)->call(
@@ -198,6 +200,7 @@ void exec_command(
     static_cast<command_impl *>(id)->call(
         ts, std::span<any_value>{args, std::size_t(i)}, res
     );
+    res.force_plain();
 }
 
 bool exec_alias(
@@ -238,7 +241,7 @@ bool exec_alias(
     if (!aast.node->code) {
         codegen_state gs{ts};
         gs.code.reserve(64);
-        gs.gen_main(aast.node->val_s.get_str());
+        gs.gen_main(aast.node->val_s.get_string());
         /* i wish i could steal the memory somehow */
         uint32_t *code = bcode_alloc(ts.istate, gs.code.size());
         memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
@@ -317,7 +320,7 @@ static inline int get_lookupu_type(
     if (arg.get_type() != value_type::STRING) {
         return -2; /* default case */
     }
-    id = ts.pstate->get_ident(arg.get_str());
+    id = ts.pstate->get_ident(arg.get_string());
     if (id) {
         switch(id->get_type()) {
             case ident_type::ALIAS: {
@@ -354,7 +357,7 @@ static inline int get_lookupu_type(
                 return ID_UNKNOWN;
         }
     }
-    throw error{*ts.pstate, "unknown alias lookup: %s", arg.get_str().data()};
+    throw error{*ts.pstate, "unknown alias lookup: %s", arg.get_string().data()};
 }
 
 std::uint32_t *vm_exec(
@@ -380,44 +383,44 @@ std::uint32_t *vm_exec(
                 result.set_none();
                 continue;
             case BC_INST_NULL | BC_RET_STRING:
-                result.set_str("");
+                result.set_string("");
                 continue;
             case BC_INST_NULL | BC_RET_INT:
-                result.set_int(0);
+                result.set_integer(0);
                 continue;
             case BC_INST_NULL | BC_RET_FLOAT:
                 result.set_float(0.0f);
                 continue;
 
             case BC_INST_FALSE | BC_RET_STRING:
-                result.set_str("0");
+                result.set_string("0");
                 continue;
             case BC_INST_FALSE | BC_RET_NULL:
             case BC_INST_FALSE | BC_RET_INT:
-                result.set_int(0);
+                result.set_integer(0);
                 continue;
             case BC_INST_FALSE | BC_RET_FLOAT:
                 result.set_float(0.0f);
                 continue;
 
             case BC_INST_TRUE | BC_RET_STRING:
-                result.set_str("1");
+                result.set_string("1");
                 continue;
             case BC_INST_TRUE | BC_RET_NULL:
             case BC_INST_TRUE | BC_RET_INT:
-                result.set_int(1);
+                result.set_integer(1);
                 continue;
             case BC_INST_TRUE | BC_RET_FLOAT:
                 result.set_float(1.0f);
                 continue;
 
             case BC_INST_NOT | BC_RET_STRING:
-                result.set_str(args.back().get_bool() ? "0" : "1");
+                result.set_string(args.back().get_bool() ? "0" : "1");
                 args.pop_back();
                 continue;
             case BC_INST_NOT | BC_RET_NULL:
             case BC_INST_NOT | BC_RET_INT:
-                result.set_int(!args.back().get_bool());
+                result.set_integer(!args.back().get_bool());
                 args.pop_back();
                 continue;
             case BC_INST_NOT | BC_RET_FLOAT:
@@ -464,10 +467,10 @@ std::uint32_t *vm_exec(
                 continue;
 
             case BC_INST_FORCE | BC_RET_STRING:
-                args.back().force_str();
+                args.back().force_string();
                 continue;
             case BC_INST_FORCE | BC_RET_INT:
-                args.back().force_int();
+                args.back().force_integer();
                 continue;
             case BC_INST_FORCE | BC_RET_FLOAT:
                 args.back().force_float();
@@ -475,12 +478,12 @@ std::uint32_t *vm_exec(
 
             case BC_INST_DUP | BC_RET_NULL: {
                 auto &v = args.back();
-                v.get_val(args.emplace_back(cs));
+                args.emplace_back(cs) = v.get_plain();
                 continue;
             }
             case BC_INST_DUP | BC_RET_INT: {
                 auto &v = args.back();
-                args.emplace_back(cs).set_int(v.get_int());
+                args.emplace_back(cs).set_integer(v.get_integer());
                 continue;
             }
             case BC_INST_DUP | BC_RET_FLOAT: {
@@ -492,13 +495,13 @@ std::uint32_t *vm_exec(
                 auto &v = args.back();
                 auto &nv = args.emplace_back(cs);
                 nv = v;
-                nv.force_str();
+                nv.force_string();
                 continue;
             }
 
             case BC_INST_VAL | BC_RET_STRING: {
                 std::uint32_t len = op >> 8;
-                args.emplace_back(cs).set_str(std::string_view{
+                args.emplace_back(cs).set_string(std::string_view{
                     reinterpret_cast<char const *>(code), len
                 });
                 code += len / sizeof(std::uint32_t) + 1;
@@ -511,7 +514,7 @@ std::uint32_t *vm_exec(
                     char((op >> 24) & 0xFF), '\0'
                 };
                 /* gotta cast or r.size() == potentially 3 */
-                args.emplace_back(cs).set_str(static_cast<char const *>(s));
+                args.emplace_back(cs).set_string(static_cast<char const *>(s));
                 continue;
             }
             case BC_INST_VAL | BC_RET_NULL:
@@ -519,13 +522,13 @@ std::uint32_t *vm_exec(
                 args.emplace_back(cs).set_none();
                 continue;
             case BC_INST_VAL | BC_RET_INT:
-                args.emplace_back(cs).set_int(
+                args.emplace_back(cs).set_integer(
                     *reinterpret_cast<integer_type const *>(code)
                 );
                 code += bc_store_size<integer_type>;
                 continue;
             case BC_INST_VAL_INT | BC_RET_INT:
-                args.emplace_back(cs).set_int(integer_type(op) >> 8);
+                args.emplace_back(cs).set_integer(integer_type(op) >> 8);
                 continue;
             case BC_INST_VAL | BC_RET_FLOAT:
                 args.emplace_back(cs).set_float(
@@ -686,10 +689,10 @@ std::uint32_t *vm_exec(
                 any_value &arg = args.back();
                 codegen_state gs{ts};
                 switch (arg.get_type()) {
-                    case value_type::INT:
+                    case value_type::INTEGER:
                         gs.code.reserve(8);
                         gs.code.push_back(BC_INST_START);
-                        gs.gen_int(arg.get_int());
+                        gs.gen_int(arg.get_integer());
                         gs.code.push_back(BC_INST_RESULT);
                         gs.code.push_back(BC_INST_EXIT);
                         break;
@@ -702,7 +705,7 @@ std::uint32_t *vm_exec(
                         break;
                     case value_type::STRING:
                         gs.code.reserve(64);
-                        gs.gen_main(arg.get_str());
+                        gs.gen_main(arg.get_string());
                         break;
                     default:
                         gs.code.reserve(8);
@@ -728,7 +731,7 @@ std::uint32_t *vm_exec(
                 any_value &arg = args.back();
                 switch (arg.get_type()) {
                     case value_type::STRING: {
-                        std::string_view s = arg.get_str();
+                        std::string_view s = arg.get_string();
                         if (!s.empty()) {
                             codegen_state gs{ts};
                             gs.code.reserve(64);
@@ -769,7 +772,7 @@ std::uint32_t *vm_exec(
                 ident *id = ts.istate->id_dummy;
                 if (arg.get_type() == value_type::STRING) {
                     id = &ts.istate->new_ident(
-                        cs, arg.get_str(), IDENT_FLAG_UNKNOWN
+                        cs, arg.get_string(), IDENT_FLAG_UNKNOWN
                     );
                 }
                 alias *a = static_cast<alias *>(id);
@@ -788,21 +791,27 @@ std::uint32_t *vm_exec(
                 switch (get_lookupu_type(ts, arg, id, op, ast)) {
                     case ID_ALIAS:
                         arg = ast->node->val_s;
-                        arg.force_str();
+                        arg.force_string();
                         continue;
                     case ID_SVAR:
-                        arg.set_str(static_cast<string_var *>(id)->get_value());
+                        arg.set_string(
+                            static_cast<string_var *>(id)->get_value()
+                        );
                         continue;
                     case ID_IVAR:
-                        arg.set_int(static_cast<integer_var *>(id)->get_value());
-                        arg.force_str();
+                        arg.set_integer(
+                            static_cast<integer_var *>(id)->get_value()
+                         );
+                        arg.force_string();
                         continue;
                     case ID_FVAR:
-                        arg.set_float(static_cast<float_var *>(id)->get_value());
-                        arg.force_str();
+                        arg.set_float(
+                            static_cast<float_var *>(id)->get_value()
+                        );
+                        arg.force_string();
                         continue;
                     case ID_UNKNOWN:
-                        arg.set_str("");
+                        arg.set_string("");
                         continue;
                     default:
                         continue;
@@ -813,11 +822,11 @@ std::uint32_t *vm_exec(
                 alias_stack *ast;
                 alias *a = get_lookup_id(ts, op, ast);
                 if (!a) {
-                    args.emplace_back(cs).set_str("");
+                    args.emplace_back(cs).set_string("");
                 } else {
                     auto &v = args.emplace_back(cs);
                     v = ast->node->val_s;
-                    v.force_str();
+                    v.force_string();
                 }
                 continue;
             }
@@ -828,23 +837,25 @@ std::uint32_t *vm_exec(
                 any_value &arg = args.back();
                 switch (get_lookupu_type(ts, arg, id, op, ast)) {
                     case ID_ALIAS:
-                        arg.set_int(ast->node->val_s.get_int());
+                        arg.set_integer(ast->node->val_s.get_integer());
                         continue;
                     case ID_SVAR:
-                        arg.set_int(parse_int(
+                        arg.set_integer(parse_int(
                             static_cast<string_var *>(id)->get_value()
                         ));
                         continue;
                     case ID_IVAR:
-                        arg.set_int(static_cast<integer_var *>(id)->get_value());
-                        continue;
-                    case ID_FVAR:
-                        arg.set_int(
-                            integer_type(static_cast<float_var *>(id)->get_value())
+                        arg.set_integer(
+                            static_cast<integer_var *>(id)->get_value()
                         );
                         continue;
+                    case ID_FVAR:
+                        arg.set_integer(integer_type(
+                            static_cast<float_var *>(id)->get_value()
+                        ));
+                        continue;
                     case ID_UNKNOWN:
-                        arg.set_int(0);
+                        arg.set_integer(0);
                         continue;
                     default:
                         continue;
@@ -854,9 +865,11 @@ std::uint32_t *vm_exec(
                 alias_stack *ast;
                 alias *a = get_lookup_id(ts, op, ast);
                 if (!a) {
-                    args.emplace_back(cs).set_int(0);
+                    args.emplace_back(cs).set_integer(0);
                 } else {
-                    args.emplace_back(cs).set_int(ast->node->val_s.get_int());
+                    args.emplace_back(cs).set_integer(
+                        ast->node->val_s.get_integer()
+                    );
                 }
                 continue;
             }
@@ -908,13 +921,17 @@ std::uint32_t *vm_exec(
                 any_value &arg = args.back();
                 switch (get_lookupu_type(ts, arg, id, op, ast)) {
                     case ID_ALIAS:
-                        ast->node->val_s.get_val(arg);
+                        arg = ast->node->val_s.get_plain();
                         continue;
                     case ID_SVAR:
-                        arg.set_str(static_cast<string_var *>(id)->get_value());
+                        arg.set_string(
+                            static_cast<string_var *>(id)->get_value()
+                        );
                         continue;
                     case ID_IVAR:
-                        arg.set_int(static_cast<integer_var *>(id)->get_value());
+                        arg.set_integer(
+                            static_cast<integer_var *>(id)->get_value()
+                        );
                         continue;
                     case ID_FVAR:
                         arg.set_float(
@@ -934,7 +951,7 @@ std::uint32_t *vm_exec(
                 if (!a) {
                     args.emplace_back(cs).set_none();
                 } else {
-                    ast->node->val_s.get_val(args.emplace_back(cs));
+                    args.emplace_back(cs) = ast->node->val_s.get_plain();
                 }
                 continue;
             }
@@ -953,19 +970,19 @@ std::uint32_t *vm_exec(
                     ((op & BC_INST_OP_MASK) == BC_INST_CONC) ? " " : ""
                 );
                 args.resize(args.size() - numconc, any_value{cs});
-                args.emplace_back(cs).set_str(buf);
+                args.emplace_back(cs).set_string(buf);
                 force_arg(args.back(), op & BC_INST_RET_MASK);
                 continue;
             }
 
             case BC_INST_SVAR | BC_RET_STRING:
             case BC_INST_SVAR | BC_RET_NULL:
-                args.emplace_back(cs).set_str(static_cast<string_var *>(
+                args.emplace_back(cs).set_string(static_cast<string_var *>(
                     ts.istate->identmap[op >> 8]
                 )->get_value());
                 continue;
             case BC_INST_SVAR | BC_RET_INT:
-                args.emplace_back(cs).set_int(parse_int(
+                args.emplace_back(cs).set_integer(parse_int(
                     static_cast<string_var *>(
                         ts.istate->identmap[op >> 8]
                     )->get_value()
@@ -981,16 +998,16 @@ std::uint32_t *vm_exec(
 
             case BC_INST_IVAR | BC_RET_INT:
             case BC_INST_IVAR | BC_RET_NULL:
-                args.emplace_back(cs).set_int(static_cast<integer_var *>(
+                args.emplace_back(cs).set_integer(static_cast<integer_var *>(
                     ts.istate->identmap[op >> 8]
                 )->get_value());
                 continue;
             case BC_INST_IVAR | BC_RET_STRING: {
                 auto &v = args.emplace_back(cs);
-                v.set_int(static_cast<integer_var *>(
+                v.set_integer(static_cast<integer_var *>(
                     ts.istate->identmap[op >> 8]
                 )->get_value());
-                v.force_str();
+                v.force_string();
                 continue;
             }
             case BC_INST_IVAR | BC_RET_FLOAT:
@@ -1009,16 +1026,18 @@ std::uint32_t *vm_exec(
                 continue;
             case BC_INST_FVAR | BC_RET_STRING: {
                 auto &v = args.emplace_back(cs);
-                v.set_int(integer_type(std::floor(static_cast<float_var *>(
+                v.set_float(static_cast<float_var *>(
                     ts.istate->identmap[op >> 8]
-                )->get_value())));
-                v.force_str();
+                )->get_value());
+                v.force_string();
                 continue;
             }
             case BC_INST_FVAR | BC_RET_INT:
-                args.emplace_back(cs).set_int(int(static_cast<float_var *>(
-                    ts.istate->identmap[op >> 8]
-                )->get_value()));
+                args.emplace_back(cs).set_integer(
+                    integer_type(std::floor(static_cast<float_var *>(
+                        ts.istate->identmap[op >> 8]
+                    )->get_value()))
+                );
                 continue;
 
             case BC_INST_ALIAS: {
@@ -1037,7 +1056,7 @@ std::uint32_t *vm_exec(
             case BC_INST_ALIAS_U: {
                 auto v = std::move(args.back());
                 args.pop_back();
-                cs.set_alias(args.back().get_str(), std::move(v));
+                cs.set_alias(args.back().get_string(), std::move(v));
                 args.pop_back();
                 continue;
             }
@@ -1082,7 +1101,7 @@ litval:
                     args.resize(offset - 1, any_value{cs});
                     continue;
                 }
-                auto idn = idarg.get_str();
+                auto idn = idarg.get_string();
                 ident *id = cs.get_ident(idn);
                 if (!id) {
 noid:
@@ -1248,7 +1267,7 @@ noid:
                 result.force_none();
                 {
                     any_value tv{cs};
-                    tv.set_str(concat_values(cs, std::span{
+                    tv.set_string(concat_values(cs, std::span{
                         &args[offset], callargs
                     }, " "));
                     id->call(ts, std::span<any_value>{&tv, 1}, result);

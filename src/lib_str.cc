@@ -15,87 +15,87 @@ static inline void str_cmp_by(
 ) {
     bool val;
     if (args.size() >= 2) {
-        val = cfunc(args[0].get_str(), args[1].get_str());
+        val = cfunc(args[0].get_string(), args[1].get_string());
         for (size_t i = 2; (i < args.size()) && val; ++i) {
-            val = cfunc(args[i - 1].get_str(), args[i].get_str());
+            val = cfunc(args[i - 1].get_string(), args[i].get_string());
         }
     } else {
         val = cfunc(
-            !args.empty() ? args[0].get_str() : std::string_view(),
+            !args.empty() ? args[0].get_string() : std::string_view(),
             std::string_view()
         );
     }
-    res.set_int(integer_type(val));
+    res.set_integer(integer_type(val));
 }
 
 void init_lib_string(state &cs) {
     cs.new_command("strstr", "ss", [](auto &, auto args, auto &res) {
-        std::string_view a = args[0].get_str(), b = args[1].get_str();
+        std::string_view a = args[0].get_string(), b = args[1].get_string();
         auto pos = a.find(b);
         if (pos == a.npos) {
-            res.set_int(-1);
+            res.set_integer(-1);
         } else {
-            res.set_int(integer_type(pos));
+            res.set_integer(integer_type(pos));
         }
     });
 
     cs.new_command("strlen", "s", [](auto &, auto args, auto &res) {
-        res.set_int(integer_type(args[0].get_str().size()));
+        res.set_integer(integer_type(args[0].get_string().size()));
     });
 
     cs.new_command("strcode", "si", [](auto &, auto args, auto &res) {
-        std::string_view str = args[0].get_str();
-        integer_type i = args[1].get_int();
+        std::string_view str = args[0].get_string();
+        integer_type i = args[1].get_integer();
         if (i >= integer_type(str.size())) {
-            res.set_int(0);
+            res.set_integer(0);
         } else {
-            res.set_int(static_cast<unsigned char>(str[i]));
+            res.set_integer(static_cast<unsigned char>(str[i]));
         }
     });
 
     cs.new_command("codestr", "i", [](auto &, auto args, auto &res) {
-        char const p[2] = { char(args[0].get_int()), '\0' };
-        res.set_str(std::string_view{static_cast<char const *>(p)});
+        char const p[2] = { char(args[0].get_integer()), '\0' };
+        res.set_string(std::string_view{static_cast<char const *>(p)});
     });
 
     cs.new_command("strlower", "s", [](auto &ccs, auto args, auto &res) {
-        auto inps = std::string_view{args[0].get_str()};
+        auto inps = std::string_view{args[0].get_string()};
         auto *ics = state_p{ccs}.ts().istate;
         auto *buf = ics->strman->alloc_buf(inps.size());
         for (std::size_t i = 0; i < inps.size(); ++i) {
             buf[i] = char(tolower(inps[i]));
         }
-        res.set_str(ics->strman->steal(buf));
+        res.set_string(ics->strman->steal(buf));
     });
 
     cs.new_command("strupper", "s", [](auto &ccs, auto args, auto &res) {
-        auto inps = std::string_view{args[0].get_str()};
+        auto inps = std::string_view{args[0].get_string()};
         auto *ics = state_p{ccs}.ts().istate;
         auto *buf = ics->strman->alloc_buf(inps.size());
         for (std::size_t i = 0; i < inps.size(); ++i) {
             buf[i] = char(toupper(inps[i]));
         }
-        res.set_str(ics->strman->steal(buf));
+        res.set_string(ics->strman->steal(buf));
     });
 
     cs.new_command("escape", "s", [](auto &ccs, auto args, auto &res) {
         charbuf s{ccs};
-        escape_string(std::back_inserter(s), args[0].get_str());
-        res.set_str(s.str());
+        escape_string(std::back_inserter(s), args[0].get_string());
+        res.set_string(s.str());
     });
 
     cs.new_command("unescape", "s", [](auto &ccs, auto args, auto &res) {
         charbuf s{ccs};
-        unescape_string(std::back_inserter(s), args[0].get_str());
-        res.set_str(s.str());
+        unescape_string(std::back_inserter(s), args[0].get_string());
+        res.set_string(s.str());
     });
 
     cs.new_command("concat", "V", [](auto &ccs, auto args, auto &res) {
-        res.set_str(concat_values(ccs, args, " "));
+        res.set_string(concat_values(ccs, args, " "));
     });
 
     cs.new_command("concatword", "V", [](auto &ccs, auto args, auto &res) {
-        res.set_str(concat_values(ccs, args));
+        res.set_string(concat_values(ccs, args));
     });
 
     cs.new_command("format", "V", [](auto &ccs, auto args, auto &res) {
@@ -103,7 +103,7 @@ void init_lib_string(state &cs) {
             return;
         }
         charbuf s{ccs};
-        string_ref fs = args[0].get_str();
+        string_ref fs = args[0].get_string();
         std::string_view f{fs};
         for (auto it = f.begin(); it != f.end(); ++it) {
             char c = *it;
@@ -114,7 +114,7 @@ void init_lib_string(state &cs) {
                 if ((ic >= '1') && (ic <= '9')) {
                     int i = ic - '0';
                     if (std::size_t(i) < args.size()) {
-                        s.append(args[i].get_str());
+                        s.append(args[i].get_string());
                     }
                 } else {
                     s.push_back(ic);
@@ -123,14 +123,14 @@ void init_lib_string(state &cs) {
                 s.push_back(c);
             }
         }
-        res.set_str(s.str());
+        res.set_string(s.str());
     });
 
     cs.new_command("tohex", "ii", [](auto &ccs, auto args, auto &res) {
         char buf[32];
         /* use long long as the largest signed integer type */
-        auto val = static_cast<long long>(args[0].get_int());
-        int prec = std::max(int(args[1].get_int()), 1);
+        auto val = static_cast<long long>(args[0].get_integer());
+        int prec = std::max(int(args[1].get_integer()), 1);
         int n = snprintf(buf, sizeof(buf), "0x%.*llX", prec, val);
         if (n >= int(sizeof(buf))) {
             charbuf s{ccs};
@@ -138,11 +138,11 @@ void init_lib_string(state &cs) {
             s.data()[0] = '\0';
             int nn = snprintf(s.data(), n + 1, "0x%.*llX", prec, val);
             if ((nn > 0) && (nn <= n)) {
-                res.set_str(std::string_view{s.data(), std::size_t(nn)});
+                res.set_string(std::string_view{s.data(), std::size_t(nn)});
                 return;
             }
         } else if (n > 0) {
-            res.set_str(static_cast<char const *>(buf));
+            res.set_string(static_cast<char const *>(buf));
             return;
         }
         /* should pretty much be unreachable */
@@ -150,11 +150,12 @@ void init_lib_string(state &cs) {
     });
 
     cs.new_command("substr", "siiN", [](auto &, auto args, auto &res) {
-        std::string_view s = args[0].get_str();
-        integer_type start = args[1].get_int(), count = args[2].get_int();
-        integer_type numargs = args[3].get_int();
-        integer_type len = integer_type(s.size()), offset = std::clamp(start, integer_type(0), len);
-        res.set_str(std::string_view{
+        std::string_view s = args[0].get_string();
+        auto start = args[1].get_integer(), count = args[2].get_integer();
+        auto numargs = args[3].get_integer();
+        auto len = integer_type(s.size());
+        auto offset = std::clamp(start, integer_type(0), len);
+        res.set_string(std::string_view{
             &s[offset],
             ((numargs >= 3)
                 ? size_t(std::clamp(count, integer_type(0), len - offset))
@@ -185,15 +186,15 @@ void init_lib_string(state &cs) {
     });
 
     cs.new_command("strreplace", "ssss", [](auto &ccs, auto args, auto &res) {
-        std::string_view s = args[0].get_str();
-        std::string_view oldval = args[1].get_str(),
-                         newval = args[2].get_str(),
-                         newval2 = args[3].get_str();
+        std::string_view s = args[0].get_string();
+        std::string_view oldval = args[1].get_string(),
+                         newval = args[2].get_string(),
+                         newval2 = args[3].get_string();
         if (newval2.empty()) {
             newval2 = newval;
         }
         if (oldval.empty()) {
-            res.set_str(s);
+            res.set_string(s);
             return;
         }
         charbuf buf{ccs};
@@ -201,7 +202,7 @@ void init_lib_string(state &cs) {
             auto p = s.find(oldval);
             if (p == s.npos) {
                 buf.append(s);
-                res.set_str(s);
+                res.set_string(s);
                 return;
             }
             buf.append(s.substr(0, p));
@@ -214,10 +215,10 @@ void init_lib_string(state &cs) {
     });
 
     cs.new_command("strsplice", "ssii", [](auto &ccs, auto args, auto &res) {
-        std::string_view s = args[0].get_str();
-        std::string_view vals = args[1].get_str();
-        integer_type skip  = args[2].get_int(),
-              count  = args[3].get_int();
+        std::string_view s = args[0].get_string();
+        std::string_view vals = args[1].get_string();
+        integer_type skip  = args[2].get_integer(),
+              count  = args[3].get_integer();
         integer_type offset = std::clamp(skip, integer_type(0), integer_type(s.size())),
               len     = std::clamp(count, integer_type(0), integer_type(s.size()) - offset);
         charbuf p{ccs};
@@ -229,7 +230,7 @@ void init_lib_string(state &cs) {
         if ((offset + len) < integer_type(s.size())) {
             p.append(s.substr(offset + len, s.size() - offset - len));
         }
-        res.set_str(p.str());
+        res.set_string(p.str());
     });
 }
 

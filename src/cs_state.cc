@@ -131,10 +131,10 @@ state::state(alloc_func func, void *data) {
         auto &cs, auto args, auto &
     ) {
         auto *iv = args[0].get_ident()->get_ivar();
-        if (args[2].get_int() <= 1) {
+        if (args[2].get_integer() <= 1) {
             std::printf("%s = %d\n", iv->get_name().data(), iv->get_value());
         } else {
-            iv->set_value(cs, args[1].get_int());
+            iv->set_value(cs, args[1].get_integer());
         }
     });
 
@@ -142,7 +142,7 @@ state::state(alloc_func func, void *data) {
         auto &cs, auto args, auto &
     ) {
         auto *fv = args[0].get_ident()->get_fvar();
-        if (args[2].get_int() <= 1) {
+        if (args[2].get_integer() <= 1) {
             auto val = fv->get_value();
             if (std::floor(val) == val) {
                 std::printf("%s = %.1f\n", fv->get_name().data(), val);
@@ -158,7 +158,7 @@ state::state(alloc_func func, void *data) {
         auto &cs, auto args, auto &
     ) {
         auto *sv = args[0].get_ident()->get_svar();
-        if (args[2].get_int() <= 1) {
+        if (args[2].get_integer() <= 1) {
             auto val = std::string_view{sv->get_value()};
             if (val.find('"') == val.npos) {
                 std::printf("%s = \"%s\"\n", sv->get_name().data(), val.data());
@@ -166,7 +166,7 @@ state::state(alloc_func func, void *data) {
                 std::printf("%s = [%s]\n", sv->get_name().data(), val.data());
             }
         } else {
-            sv->set_value(cs, args[1].get_str());
+            sv->set_value(cs, args[1].get_string());
         }
     });
 
@@ -197,13 +197,13 @@ state::state(alloc_func func, void *data) {
     static_cast<command_impl *>(p)->p_type = ID_RESULT;
 
     p = &new_command("!", "t", [](auto &, auto args, auto &res) {
-        res.set_int(!args[0].get_bool());
+        res.set_integer(!args[0].get_bool());
     });
     static_cast<command_impl *>(p)->p_type = ID_NOT;
 
     p = &new_command("&&", "E1V", [](auto &cs, auto args, auto &res) {
         if (args.empty()) {
-            res.set_int(1);
+            res.set_integer(1);
         } else {
             for (size_t i = 0; i < args.size(); ++i) {
                 auto code = args[i].get_code();
@@ -222,7 +222,7 @@ state::state(alloc_func func, void *data) {
 
     p = &new_command("||", "E1V", [](auto &cs, auto args, auto &res) {
         if (args.empty()) {
-            res.set_int(0);
+            res.set_integer(0);
         } else {
             for (size_t i = 0; i < args.size(); ++i) {
                 auto code = args[i].get_code();
@@ -339,7 +339,7 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
     switch (id.get_type()) {
         case ident_type::ALIAS: {
             auto &ast = p_tstate->get_astack(static_cast<alias *>(&id));
-            ast.node->val_s.set_str("");
+            ast.node->val_s.set_string("");
             ast.node->code = bcode_ref{};
             ast.flags &= ~IDENT_FLAG_OVERRIDDEN;
             return;

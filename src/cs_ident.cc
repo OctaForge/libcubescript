@@ -40,7 +40,7 @@ alias_impl::alias_impl(
 ):
     ident_impl{ident_type::ALIAS, name, fl}, p_initial{cs}
 {
-    p_initial.val_s.set_str(a);
+    p_initial.val_s.set_string(a);
 }
 
 alias_impl::alias_impl(
@@ -48,13 +48,13 @@ alias_impl::alias_impl(
 ):
     ident_impl{ident_type::ALIAS, name, fl}, p_initial{cs}
 {
-    p_initial.val_s.set_str(a);
+    p_initial.val_s.set_string(a);
 }
 
 alias_impl::alias_impl(state &cs, string_ref name, integer_type a, int fl):
     ident_impl{ident_type::ALIAS, name, fl}, p_initial{cs}
 {
-    p_initial.val_s.set_int(a);
+    p_initial.val_s.set_integer(a);
 }
 
 alias_impl::alias_impl(state &cs, string_ref name, float_type a, int fl):
@@ -72,7 +72,7 @@ alias_impl::alias_impl(state &cs, string_ref name, int fl):
 alias_impl::alias_impl(state &cs, string_ref name, any_value v, int fl):
     ident_impl{ident_type::ALIAS, name, fl}, p_initial{cs}
 {
-    p_initial.val_s = v;
+    p_initial.val_s = v.get_plain();
 }
 
 command_impl::command_impl(

@@ -74,7 +74,7 @@ private:
 };
 
 enum class value_type {
-    NONE = 0, INT, FLOAT, STRING, CODE, IDENT
+    NONE = 0, INTEGER, FLOAT, STRING, CODE, IDENT
 };
 
 struct LIBCUBESCRIPT_EXPORT any_value {
@@ -92,27 +92,28 @@ struct LIBCUBESCRIPT_EXPORT any_value {
 
     value_type get_type() const;
 
-    void set_int(integer_type val);
+    void set_integer(integer_type val);
     void set_float(float_type val);
-    void set_str(std::string_view val);
-    void set_str(string_ref const &val);
+    void set_string(std::string_view val);
+    void set_string(string_ref const &val);
     void set_none();
     void set_code(bcode_ref const &val);
     void set_ident(ident *val);
 
-    string_ref get_str() const;
-    integer_type get_int() const;
+    string_ref get_string() const;
+    integer_type get_integer() const;
     float_type get_float() const;
     bcode_ref get_code() const;
     ident *get_ident() const;
-    void get_val(any_value &r) const;
+    any_value get_plain() const;
 
     bool get_bool() const;
 
     void force_none();
+    void force_plain();
     float_type force_float();
-    integer_type force_int();
-    std::string_view force_str();
+    integer_type force_integer();
+    std::string_view force_string();
     bcode_ref force_code(state &cs);
     ident &force_ident(state &cs);
 

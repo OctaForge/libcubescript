@@ -18,10 +18,10 @@ struct math_val;
 template<>
 struct math_val<integer_type> {
     static integer_type get(any_value &tv) {
-        return tv.get_int();
+        return tv.get_integer();
     }
     static void set(any_value &res, integer_type val) {
-        res.set_int(val);
+        res.set_integer(val);
     }
 };
 
@@ -70,7 +70,7 @@ static inline void cmp_op(std::span<any_value> args, any_value &res, F cmp) {
     } else {
         val = cmp(!args.empty() ? math_val<T>::get(args[0]) : T(0), T(0));
     }
-    res.set_int(integer_type(val));
+    res.set_integer(integer_type(val));
 }
 
 void init_lib_math(state &cs) {
@@ -115,18 +115,18 @@ void init_lib_math(state &cs) {
     });
 
     cs.new_command("min", "i1V", [](auto &, auto args, auto &res) {
-        integer_type v = (!args.empty() ? args[0].get_int() : 0);
+        integer_type v = (!args.empty() ? args[0].get_integer() : 0);
         for (size_t i = 1; i < args.size(); ++i) {
-            v = std::min(v, args[i].get_int());
+            v = std::min(v, args[i].get_integer());
         }
-        res.set_int(v);
+        res.set_integer(v);
     });
     cs.new_command("max", "i1V", [](auto &, auto args, auto &res) {
-        integer_type v = (!args.empty() ? args[0].get_int() : 0);
+        integer_type v = (!args.empty() ? args[0].get_integer() : 0);
         for (size_t i = 1; i < args.size(); ++i) {
-            v = std::max(v, args[i].get_int());
+            v = std::max(v, args[i].get_integer());
         }
-        res.set_int(v);
+        res.set_integer(v);
     });
     cs.new_command("minf", "f1V", [](auto &, auto args, auto &res) {
         float_type v = (!args.empty() ? args[0].get_float() : 0);
@@ -144,7 +144,7 @@ void init_lib_math(state &cs) {
     });
 
     cs.new_command("abs", "i", [](auto &, auto args, auto &res) {
-        res.set_int(std::abs(args[0].get_int()));
+        res.set_integer(std::abs(args[0].get_integer()));
     });
     cs.new_command("absf", "f", [](auto &, auto args, auto &res) {
         res.set_float(std::abs(args[0].get_float()));
@@ -208,38 +208,38 @@ void init_lib_math(state &cs) {
     cs.new_command("^~", "i1V", [](auto &, auto args, auto &res) {
         integer_type val;
         if (args.size() >= 2) {
-            val = args[0].get_int() ^ ~args[1].get_int();
+            val = args[0].get_integer() ^ ~args[1].get_integer();
             for (size_t i = 2; i < args.size(); ++i) {
-                val ^= ~args[i].get_int();
+                val ^= ~args[i].get_integer();
             }
         } else {
-            val = !args.empty() ? args[0].get_int() : 0;
+            val = !args.empty() ? args[0].get_integer() : 0;
         }
-        res.set_int(val);
+        res.set_integer(val);
     });
     cs.new_command("&~", "i1V", [](auto &, auto args, auto &res) {
         integer_type val;
         if (args.size() >= 2) {
-            val = args[0].get_int() & ~args[1].get_int();
+            val = args[0].get_integer() & ~args[1].get_integer();
             for (size_t i = 2; i < args.size(); ++i) {
-                val &= ~args[i].get_int();
+                val &= ~args[i].get_integer();
             }
         } else {
-            val = !args.empty() ? args[0].get_int() : 0;
+            val = !args.empty() ? args[0].get_integer() : 0;
         }
-        res.set_int(val);
+        res.set_integer(val);
     });
     cs.new_command("|~", "i1V", [](auto &, auto args, auto &res) {
         integer_type val;
         if (args.size() >= 2) {
-            val = args[0].get_int() | ~args[1].get_int();
+            val = args[0].get_integer() | ~args[1].get_integer();
             for (size_t i = 2; i < args.size(); ++i) {
-                val |= ~args[i].get_int();
+                val |= ~args[i].get_integer();
             }
         } else {
-            val = !args.empty() ? args[0].get_int() : 0;
+            val = !args.empty() ? args[0].get_integer() : 0;
         }
-        res.set_int(val);
+        res.set_integer(val);
     });
 
     cs.new_command("<<", "i1V", [](auto &, auto args, auto &res) {
