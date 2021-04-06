@@ -132,7 +132,9 @@ state::state(alloc_func func, void *data) {
     ) {
         auto *iv = args[0].get_ident()->get_ivar();
         if (args[2].get_integer() <= 1) {
-            std::printf("%s = %d\n", iv->get_name().data(), iv->get_value());
+            std::printf("%s = ", iv->get_name().data());
+            std::printf(INTEGER_FORMAT, iv->get_value());
+            std::printf("\n");
         } else {
             iv->set_value(cs, args[1].get_integer());
         }
@@ -144,11 +146,13 @@ state::state(alloc_func func, void *data) {
         auto *fv = args[0].get_ident()->get_fvar();
         if (args[2].get_integer() <= 1) {
             auto val = fv->get_value();
+            std::printf("%s = ", fv->get_name().data());
             if (std::floor(val) == val) {
-                std::printf("%s = %.1f\n", fv->get_name().data(), val);
+                std::printf(ROUND_FLOAT_FORMAT, val);
             } else {
-                std::printf("%s = %.7g\n", fv->get_name().data(), val);
+                std::printf(FLOAT_FORMAT, val);
             }
+            std::printf("\n");
         } else {
             fv->set_value(cs, args[1].get_float());
         }

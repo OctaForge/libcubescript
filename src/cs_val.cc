@@ -11,10 +11,10 @@ namespace cubescript {
 
 static std::string_view intstr(integer_type v, charbuf &buf) {
     buf.reserve(32);
-    int n = snprintf(buf.data(), 32, INT_FORMAT, v);
+    int n = snprintf(buf.data(), 32, INTEGER_FORMAT, v);
     if (n > 32) {
         buf.reserve(n + 1);
-        int nn = snprintf(buf.data(), n + 1, INT_FORMAT, v);
+        int nn = snprintf(buf.data(), n + 1, INTEGER_FORMAT, v);
         if ((nn > n) || (nn <= 0)) {
             n = -1;
         } else {
