@@ -1,6 +1,13 @@
 libcubescript_header_src = [
     '../include/cubescript/cubescript.hh',
-    '../include/cubescript/cubescript_conf.hh'
+    '../include/cubescript/cubescript_conf.hh',
+    '../include/cubescript/cubescript/callable.hh',
+    '../include/cubescript/cubescript/error.hh',
+    '../include/cubescript/cubescript/ident.hh',
+    '../include/cubescript/cubescript/platform.hh',
+    '../include/cubescript/cubescript/state.hh',
+    '../include/cubescript/cubescript/util.hh',
+    '../include/cubescript/cubescript/value.hh',
 ]
 
 libcubescript_src = [
