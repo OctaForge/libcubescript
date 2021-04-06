@@ -1,8 +1,8 @@
 project('libcubescript', ['cpp'],
     version: '0.1.0',
     default_options: [
-        'buildtype=debugoptimized', 'cpp_std=c++2a',
-        'warning_level=3', 'cpp_rtti=false'
+        'buildtype=debugoptimized', 'warning_level=3', 'cpp_rtti=false',
+        'cpp_std=none'
     ],
     meson_version: '>=0.50'
 )
@@ -26,6 +26,24 @@ if get_option('buildtype') != 'plain'
     endif
     if cxx.has_argument('-Wold-style-cast')
         extra_cxxflags += '-Wold-style-cast'
+    endif
+endif
+
+# Meson does not support C++20 std in a portable way in this version
+# unless specified explicitly, have our own logic which will guess it
+if get_option('cpp_std') == 'none'
+    if cxx.has_argument('-std=c++20')
+        # modern gcc/clang
+        extra_cxxflags += '-std=c++20'
+    elif cxx.has_argument('-std=c++2a')
+        # older gcc/clang
+        extra_cxxflags += '-std=c++2a'
+    elif cxx.has_argument('/std:c++20')
+        # future msvc++? not supported anywhere yet
+        extra_cxxflags += '/std:c++20'
+    elif cxx.has_argument('/std:c++latest')
+        # msvc++ 2019
+        extra_cxxflags += '/std:c++latest'
     endif
 endif
 

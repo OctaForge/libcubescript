@@ -110,7 +110,7 @@ compilers include:
 
 * GCC 10
 * Clang 11
-* Visual Studio 2019
+* Microsoft Visual C++ 2019
 
 Older versions of GCC and Clang may work, with no guarantees.
 
