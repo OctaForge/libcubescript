@@ -1116,7 +1116,7 @@ noid:
                     };
                 }
                 result.force_none();
-                switch (id->get_raw_type()) {
+                switch (ident_p{*id}.impl().p_type) {
                     default:
                         if (!ident_is_callable(id)) {
                             args.resize(offset - 1, any_value{cs});

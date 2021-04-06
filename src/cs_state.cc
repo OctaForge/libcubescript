@@ -22,7 +22,7 @@ internal_state::internal_state(alloc_func af, void *data):
 
 internal_state::~internal_state() {
     for (auto &p: idents) {
-        destroy(p.second->p_impl);
+        destroy(&ident_p{*p.second}.impl());
     }
     bcode_free_empty(this, empty);
     destroy(strman);
@@ -48,7 +48,7 @@ ident *internal_state::add_ident(ident *id, ident_impl *impl) {
     if (!id) {
         return nullptr;
     }
-    id->p_impl = impl;
+    ident_p{*id}.impl(impl);
     idents[id->get_name()] = id;
     impl->p_index = int(identmap.size());
     identmap.push_back(id);

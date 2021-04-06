@@ -19,7 +19,6 @@ struct alias;
 struct command;
 
 struct LIBCUBESCRIPT_EXPORT ident {
-    int get_raw_type() const;
     ident_type get_type() const;
     std::string_view get_name() const;
     int get_index() const;
@@ -54,9 +53,9 @@ struct LIBCUBESCRIPT_EXPORT ident {
     bool is_persistent(state &cs) const;
 
 protected:
-    ident() = default;
+    friend struct ident_p;
 
-    friend struct internal_state;
+    ident() = default;
 
     struct ident_impl *p_impl{};
 };

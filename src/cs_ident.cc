@@ -156,10 +156,6 @@ void alias_stack::set_alias(alias *a, thread_state &ts, any_value &v) {
 
 /* public interface */
 
-LIBCUBESCRIPT_EXPORT int ident::get_raw_type() const {
-    return p_impl->p_type;
-}
-
 LIBCUBESCRIPT_EXPORT ident_type ident::get_type() const {
     if (p_impl->p_type > ID_ALIAS) {
         return ident_type::SPECIAL;

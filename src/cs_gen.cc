@@ -1108,7 +1108,7 @@ static void compile_and_or(
     }
     if (!more) {
         gs.code.push_back(
-            ((id->get_raw_type() == ID_AND)
+            ((ident_p{*id}.impl().p_type == ID_AND)
                 ? BC_INST_TRUE : BC_INST_FALSE) | ret_code(rettype)
         );
     } else {
@@ -1140,7 +1140,7 @@ static void compile_and_or(
             );
             gs.code.push_back(numargs);
         } else {
-            std::uint32_t op = (id->get_raw_type() == ID_AND)
+            std::uint32_t op = (ident_p{*id}.impl().p_type == ID_AND)
                 ? (BC_INST_JUMP_RESULT | BC_INST_FLAG_FALSE)
                 : (BC_INST_JUMP_RESULT | BC_INST_FLAG_TRUE);
             gs.code.push_back(op);
@@ -1271,7 +1271,7 @@ noid:
                 }
                 gs.code.push_back(BC_INST_RESULT);
             } else {
-                switch (id->get_raw_type()) {
+                switch (ident_p{*id}.impl().p_type) {
                     case ID_ALIAS:
                         compile_alias(
                             gs, static_cast<alias *>(id), more

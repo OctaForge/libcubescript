@@ -135,6 +135,15 @@ struct command_impl: ident_impl, command {
 
 bool ident_is_used_arg(ident *id, thread_state &ts);
 
+struct ident_p {
+    ident_p(ident &id): ip{&id} {}
+
+    ident_impl &impl() { return *ip->p_impl; }
+    void impl(ident_impl *impl) { ip->p_impl = impl; }
+
+    ident *ip;
+};
+
 } /* namespace cubescript */
 
 #endif
