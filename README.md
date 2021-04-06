@@ -4,77 +4,122 @@
 
 ## Overview
 
-Libcubescript is an embeddable implementation of the CubeScript scripting
-language. CubeScript is the console/config language of the Cube engines/games
-(and derived engines/games). It's a simplistic language defined around the
-idea of everything being a string, with Lisp-like syntax (allowing various
-control structures to be defined as commands).
+Cubescript is a minimal scripting language first introduced in the Cube FPS
+and carried over into derived games and game engines such as Sauerbraten.
+Originally being little more than a few hundred lines of code, serving
+primarily as the console and configuration file format of the game, it
+grew more advanced features as well as a bytecode VM.
 
-## Benefits and use cases
+Nowadays, it is a minimal but relatively fully featured scripting language
+based around the concept that everything can be interpreted as a string.
+It excels at its original purpose as well as things like text preprocessing.
+It comes with a Lisp-like syntax and a variety of standard library functions.
 
-CubeScript is suitable for any use that calls for a simple scripting language
-that is easy to embed. It's particularly strong at macro processing, so it can
-be used as a preprocessor, or for any string-heavy use. Since it has descended
-from a console language for a video game, it can still be used for that very
-purpose, as well as a configuration file language.
+Libcubescript is a project that aims to provide an independent, improved,
+separate implementation of the language, available as a library, intended to
+satisfy the needs of the OctaForge project. It was originally forked from
+Cubescript as present in the Tesseract game/engine and gradually rewritten;
+right now, very little of the original code remains. At language level it is
+mostly compatible with the other implementations (although with a stricter
+parser and extra features), while the standard library does not aim to be
+fully compatible. Some features are also left up to the user to customize,
+so that it is not tied to game engines feature-wise.
 
-Its thread-friendliness allows for usage in any context that requires parallel
-processing and involvement of the scripting system in it.
+Like the codebase it is derived from, it is available under the permissive
+zlib license, and therefore compatible with just about anything.
 
-As far as benefits over the original implementation go, while it is based on
-the original implementation, it's largely rewritten; thus, it's gained many
-advantages, including:
+## Benefits and differences
 
-* Independent implementation (can be embedded in any project)
-* No global state (multiple CubeScripts in a single program)
-* Modern C++20 API
-* C++ lambdas can be used as commands (including captures and type inference)
-* Error handling including recovery (protected call system similar to Lua)
-* Stricter parsing (strings cannot be left unfinished etc.)
-* Loop control statements (`break` and `continue`)
-* No manual memory mangement, values manage themselves
-* Clean codebase that is easy to read and contribute to
-* Support for arbitrary size integers and floats (can be set at compile time)
-* Allows building into a static or shared library, supports `-fvisibility=hidden`
-* Custom allocator support (control over how heap memory is allocated)
+There's a variety of things that set this implementation apart:
 
-There are some features that are a work in progress and will come later:
+* It's independent and can be embedded in any project
+* There is no global state, so you can have as many Cubescripts as you want,
+  in one program
+* Written in C++20, following modern language conventions, both internally
+  and at API level
+* That means the ability to use lambdas as commands, including captures,
+  type inference and so on
+* There is a robust allocator system in place, and all memory the library
+  uses is allocated through it; that gives you complete control over its
+  memory (for tracking, sandboxing, limits, etc.)
+* A large degree of memory safety, with no manual management
+* Strings are interned, with a single reference counted instance of any
+  string existing at a time, which lowers memory usage and simplifies its
+  management
+* Minimal stack memory usage, which means no artificial limits on recursion
+  depth as well as safe usage from threads and coroutines with small stacks
+* Errors will no longer cause the interpreter to march on, instead acting
+  like real errors
+* Protected calls allow you to catch errors in a similar way to exceptions,
+  and nearly every error can be caught
+* Stricter parsing, with things like unfinished strings being caught
+* Loops now have `break` and `continue` statements
+* Customizable integer and floating point types
+* Full support for symbol visibility in API
+* Highly portable and cross-platform, no dependencies other than a compiler
+* Clean codebase that is easy to pick up and contribute to
 
-* More helpful debug information (proper line infos at both parse and run time)
-* A degree of thread safety (see below)
-* Coroutines
+More features and enhancements are planned, such as:
 
-The API is currently very unstable, as is the actual codebase. Therefore you
-should not use the project in production environments just yet, but you're
-also free to experiment - feedback is welcome.
+* Improved support for debugging information (line information tracking
+  at runtime rather than just compile-time)
+* Thread safety
 
-**The project is also open for contributions.** You can use pull requests on
-GitHub and there is also a discussion channel `#octaforge` on FreeNode; this
-project is a part of the larger OctaForge umbrella.
+Right now, the codebase is unstable, but quickly approaching production
+readiness. You are encouraged to test things and report bugs; contributions
+of any kind are also welcome (you can use pull requests in our Gitea instance
+as well as the GitHub mirror).
 
-## Threads and coroutines
+Our primary means of communication is the `#octaforge` IRC channel on Freenode.
 
-*(In progress)*
+### Threads
 
-Libcubescript supports integration with coroutines and threads by providing a
-concept of threads itself. You can create a thread (child state) using the
-main state and it will share global data with the main state, but it also
-has its own call stack.
+The API provides a concept of threads. The first created thread is the main
+thread, which owns all variables and most state. Based on the main thread
+you can create side threads, which share a lot of state with the main thread
+but have their own call stack.
 
-The "global" state is thread safe, allowing concurrent access from multiple
-threads. The "local" state can be yielded as a part of the coroutine without
-affecting any other threads.
+In the future, accesses to "global" state (the state shared between threads)
+will be made thread safe.
 
-This functionality is not exposed into the language itself, but it can be
-utilized in the outside native code.
+That means you will be able to use the library in multithreaded contexts, as
+long as you make sure to only use any Cubescript thread from at most one
+real thread at a time (accesses to thread state will not be thread-safe).
+
+Right now, this at least means the library is coroutine-safe. You can call
+into a Cubescript thread inside a coroutine, yield somewhere mid-command,
+and still be able to access the state safely through other Cubescript
+threads. Once you resume the coroutine, it will continue where it left
+off, without anything being wrong.
+
+Since strings are interned and reference counted, this is also geared
+towards thread safety - any API returning a string will give you your own
+reference, which means nothing can free it while you are still using it.
+Similarly, things taking string references will generally increment the
+count for their own purposes. This all happens automatically thanks to
+C++'s scoped value handling.
 
 ## Building and usage
 
-There are no dependencies (other than a suitable compiler and the standard
-library).
+The library has absolutely no dependencies other than a C++20 compiler,
+similarly there are no dependencies on system or architecture specific
+things, so it should work on any OS and any CPU.
 
-Libcubescript is built using `meson`. After installing it, you can do
-something like this:
+The C++20 support does not have to be complete. Right now, tested
+compilers include:
+
+* GCC 10
+* Clang 11
+* Visual Studio 2019
+
+Older versions of GCC and Clang may work, with no guarantees.
+
+You will need [Meson](https://mesonbuild.com/) to build the project. Most
+Unix-like systems have it in their package management, on Windows there is
+an installer available on their website. Being written in Python, you can
+also use `pip` to get an up to date version on any OS.
+
+Once you have it, compiling is simple, e.g. on Unix-likes you can do:
 
 ~~~
 mkdir build && cd build
@@ -82,22 +127,21 @@ meson ..
 ninja all
 ~~~
 
-Link the `libcubescript` library together with your application and everything
-should just work. It also builds the REPL by default.
+Refer to Meson's manual for how to customize whether you want a shared or
+static library and so on. By default, you will get a shared library plus
+a REPL (interactive interpreter). The REPL also serves as an example of
+how to use the API.
 
-For the REPL (when not disabled with `-Drepl=disabled`) you have a choice of
-two line editing libraries - either the `readline` library (which is always
-disabled by default, so you need to enable it manually) or the `linenoise`
-library (bundled and enabled by default). There is also a fallback without
-any line editing, used when you disable both (but then there is no line
-editing or history).
+If you don't want the REPL, use `-Drepl=disabled`. When compiled, it can
+have support for line editing and command history. This is provided either
+through `linenoise` (which is a minimal single-file line editing library
+bundled with the project, and is the default) or through `readline` (a
+popular line editing library on many Unix-like systems). There is also
+a fallback for when you disable both (but then you lose line editing and
+command history in the interpreter).
 
 The version of `linenoise` bundled with the project is `cpp-linenoise`, available
 at https://github.com/yhirose/cpp-linenoise. Our version is modified, so that
 it builds cleanly with our flags, and so that it supports the "hints" feature
 available in original `linenoise`. Other than the modifications, it is baseed
-on upstream git revision a927043cdd5bfe203560802e56a7e7ed43156ed3.
-
-## Licensing
-
-See COPYING.md for licensing information.
+on upstream git revision `a927043cdd5bfe203560802e56a7e7ed43156ed3`.
