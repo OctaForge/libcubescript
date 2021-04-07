@@ -63,7 +63,6 @@ else
         libcubescript_src, include_directories: lib_incdirs,
         cpp_args: dyn_cxxflags,
         install: true,
-        pic: true,
         version: meson.project_version()
     )
 endif
