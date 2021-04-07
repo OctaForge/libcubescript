@@ -1,15 +1,3 @@
-libcubescript_header_src = [
-    '../include/cubescript/cubescript.hh',
-    '../include/cubescript/cubescript_conf.hh',
-    '../include/cubescript/cubescript/callable.hh',
-    '../include/cubescript/cubescript/error.hh',
-    '../include/cubescript/cubescript/ident.hh',
-    '../include/cubescript/cubescript/platform.hh',
-    '../include/cubescript/cubescript/state.hh',
-    '../include/cubescript/cubescript/util.hh',
-    '../include/cubescript/cubescript/value.hh',
-]
-
 libcubescript_src = [
     'cs_bcode.cc',
     'cs_error.cc',
@@ -71,5 +59,3 @@ libcubescript = declare_dependency(
     include_directories: libcubescript_includes,
     link_with: libcubescript_target
 )
-
-install_headers(libcubescript_header_src, install_dir: dir_package_include)

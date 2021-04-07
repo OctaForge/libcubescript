@@ -47,6 +47,7 @@ if get_option('cpp_std') == 'none'
     endif
 endif
 
+subdir('include')
 subdir('src')
 subdir('tools')
 
