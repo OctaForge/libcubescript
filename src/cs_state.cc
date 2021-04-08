@@ -655,11 +655,12 @@ static any_value do_run(
     thread_state &ts, std::string_view file, std::string_view code
 ) {
     any_value ret{*ts.pstate};
-    parser_state gs{ts};
-    gs.src_name = file;
+    gen_state gs{ts};
+    parser_state ps{ts, gs};
+    ps.src_name = file;
     gs.code.reserve(64);
-    gs.gen_main(code, VAL_ANY);
-    gs.done();
+    ps.gen_main(code, VAL_ANY);
+    ps.done();
     std::uint32_t *cbuf = bcode_alloc(ts.istate, gs.code.size());
     std::memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(std::uint32_t));
     bcode_ref cref{reinterpret_cast<bcode *>(cbuf + 1)};

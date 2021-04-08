@@ -239,9 +239,10 @@ bool exec_alias(
     ident_link aliaslink = {a, ts.callstack, uargs};
     ts.callstack = &aliaslink;
     if (!aast.node->code) {
-        parser_state gs{ts};
+        gen_state gs{ts};
+        parser_state ps{ts, gs};
         gs.code.reserve(64);
-        gs.gen_main(aast.node->val_s.get_string());
+        ps.gen_main(aast.node->val_s.get_string());
         /* i wish i could steal the memory somehow */
         uint32_t *code = bcode_alloc(ts.istate, gs.code.size());
         memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
@@ -687,35 +688,37 @@ std::uint32_t *vm_exec(
 
             case BC_INST_COMPILE: {
                 any_value &arg = args.back();
-                parser_state gs{ts};
+                gen_state gs{ts};
                 switch (arg.get_type()) {
                     case value_type::INTEGER:
                         gs.code.reserve(8);
                         gs.code.push_back(BC_INST_START);
-                        gs.gen_int(arg.get_integer());
+                        gs.gen_val_integer(arg.get_integer());
                         gs.code.push_back(BC_INST_RESULT);
                         gs.code.push_back(BC_INST_EXIT);
                         break;
                     case value_type::FLOAT:
                         gs.code.reserve(8);
                         gs.code.push_back(BC_INST_START);
-                        gs.gen_float(arg.get_float());
+                        gs.gen_val_float(arg.get_float());
                         gs.code.push_back(BC_INST_RESULT);
                         gs.code.push_back(BC_INST_EXIT);
                         break;
-                    case value_type::STRING:
+                    case value_type::STRING: {
+                        parser_state ps{ts, gs};
                         gs.code.reserve(64);
-                        gs.gen_main(arg.get_string());
+                        ps.gen_main(arg.get_string());
+                        ps.done();
                         break;
+                    }
                     default:
                         gs.code.reserve(8);
                         gs.code.push_back(BC_INST_START);
-                        gs.gen_null();
+                        gs.gen_val_null();
                         gs.code.push_back(BC_INST_RESULT);
                         gs.code.push_back(BC_INST_EXIT);
                         break;
                 }
-                gs.done();
                 std::uint32_t *cbuf = bcode_alloc(ts.istate, gs.code.size());
                 std::memcpy(
                     cbuf, gs.code.data(),
@@ -733,10 +736,11 @@ std::uint32_t *vm_exec(
                     case value_type::STRING: {
                         std::string_view s = arg.get_string();
                         if (!s.empty()) {
-                            parser_state gs{ts};
+                            gen_state gs{ts};
+                            parser_state ps{ts, gs};
                             gs.code.reserve(64);
-                            gs.gen_main(s);
-                            gs.done();
+                            ps.gen_main(s);
+                            ps.done();
                             std::uint32_t *cbuf = bcode_alloc(
                                 ts.istate, gs.code.size()
                             );
