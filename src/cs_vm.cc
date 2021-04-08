@@ -241,10 +241,7 @@ bool exec_alias(
     if (!aast.node->code) {
         gen_state gs{ts};
         parser_state{ts, gs}.gen_main(aast.node->val_s.get_string());
-        /* i wish i could steal the memory somehow */
-        uint32_t *code = bcode_alloc(ts.istate, gs.code.size());
-        memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
-        aast.node->code = bcode_ref{reinterpret_cast<bcode *>(code + 1)};
+        aast.node->code = gs.steal_ref();
     }
     bcode_ref coderef = aast.node->code;
     auto cleanup = [&]() {
@@ -701,14 +698,7 @@ std::uint32_t *vm_exec(
                         gs.gen_main_null();
                         break;
                 }
-                std::uint32_t *cbuf = bcode_alloc(ts.istate, gs.code.size());
-                std::memcpy(
-                    cbuf, gs.code.data(),
-                    gs.code.size() * sizeof(std::uint32_t)
-                );
-                arg.set_code(
-                    reinterpret_cast<bcode *>(cbuf + 1)
-                );
+                arg.set_code(gs.steal_ref());
                 continue;
             }
 
@@ -720,14 +710,7 @@ std::uint32_t *vm_exec(
                         if (!s.empty()) {
                             gen_state gs{ts};
                             parser_state{ts, gs}.gen_main(s);
-                            std::uint32_t *cbuf = bcode_alloc(
-                                ts.istate, gs.code.size()
-                            );
-                            std::memcpy(
-                                cbuf, gs.code.data(),
-                                gs.code.size() * sizeof(std::uint32_t)
-                            );
-                            arg.set_code(reinterpret_cast<bcode *>(cbuf + 1));
+                            arg.set_code(gs.steal_ref());
                         } else {
                             arg.force_none();
                         }

@@ -271,11 +271,9 @@ bcode_ref any_value::force_code(state &cs) {
     }
     gen_state gs{state_p{cs}.ts()};
     parser_state{state_p{cs}.ts(), gs}.gen_main(get_string());
-    uint32_t *cbuf = bcode_alloc(state_p{cs}.ts().istate, gs.code.size());
-    std::memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(std::uint32_t));
-    auto *bc = reinterpret_cast<bcode *>(cbuf + 1);
+    auto bc = gs.steal_ref();
     set_code(bc);
-    return bcode_ref{bc};
+    return bc;
 }
 
 ident &any_value::force_ident(state &cs) {

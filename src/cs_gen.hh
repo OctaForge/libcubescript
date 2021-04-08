@@ -8,6 +8,7 @@
 #include <cubescript/cubescript.hh>
 
 #include "cs_std.hh"
+#include "cs_bcode.hh"
 #include "cs_thread.hh"
 
 namespace cubescript {
@@ -20,6 +21,8 @@ struct gen_state {
     gen_state(thread_state &tsr):
         ts{tsr}, code{tsr.istate}
     {}
+
+    bcode_ref steal_ref();
 
     void gen_val_null();
 

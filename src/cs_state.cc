@@ -661,9 +661,7 @@ static any_value do_run(
         ps.src_name = file;
         ps.gen_main(code, VAL_ANY);
     }
-    std::uint32_t *cbuf = bcode_alloc(ts.istate, gs.code.size());
-    std::memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(std::uint32_t));
-    bcode_ref cref{reinterpret_cast<bcode *>(cbuf + 1)};
+    auto cref = gs.steal_ref();
     bcode *p = cref;
     vm_exec(ts, p->get_raw(), ret);
     return ret;

@@ -4,11 +4,16 @@
 
 #include "cs_gen.hh"
 
-#include "cs_bcode.hh"
 #include "cs_ident.hh"
 #include "cs_parser.hh"
 
 namespace cubescript {
+
+bcode_ref gen_state::steal_ref() {
+    auto *cp = bcode_alloc(ts.istate, code.size());
+    std::memcpy(cp, code.data(), code.size() * sizeof(std::uint32_t));
+    return bcode_ref{reinterpret_cast<bcode *>(cp + 1)};
+}
 
 void gen_state::gen_val_null() {
     code.push_back(BC_INST_VAL_INT | BC_RET_NULL);
