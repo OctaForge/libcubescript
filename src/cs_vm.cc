@@ -239,7 +239,7 @@ bool exec_alias(
     ident_link aliaslink = {a, ts.callstack, uargs};
     ts.callstack = &aliaslink;
     if (!aast.node->code) {
-        codegen_state gs{ts};
+        parser_state gs{ts};
         gs.code.reserve(64);
         gs.gen_main(aast.node->val_s.get_string());
         /* i wish i could steal the memory somehow */
@@ -687,7 +687,7 @@ std::uint32_t *vm_exec(
 
             case BC_INST_COMPILE: {
                 any_value &arg = args.back();
-                codegen_state gs{ts};
+                parser_state gs{ts};
                 switch (arg.get_type()) {
                     case value_type::INTEGER:
                         gs.code.reserve(8);
@@ -733,7 +733,7 @@ std::uint32_t *vm_exec(
                     case value_type::STRING: {
                         std::string_view s = arg.get_string();
                         if (!s.empty()) {
-                            codegen_state gs{ts};
+                            parser_state gs{ts};
                             gs.code.reserve(64);
                             gs.gen_main(s);
                             gs.done();

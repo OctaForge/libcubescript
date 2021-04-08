@@ -6,7 +6,6 @@
 #include "cs_state.hh"
 #include "cs_thread.hh"
 #include "cs_strman.hh"
-#include "cs_gen.hh"
 #include "cs_vm.hh" // break/continue, call_with_args
 #include "cs_parser.hh"
 
@@ -656,7 +655,7 @@ static any_value do_run(
     thread_state &ts, std::string_view file, std::string_view code
 ) {
     any_value ret{*ts.pstate};
-    codegen_state gs{ts};
+    parser_state gs{ts};
     gs.src_name = file;
     gs.code.reserve(64);
     gs.gen_main(code, VAL_ANY);

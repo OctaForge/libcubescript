@@ -11,7 +11,7 @@
 
 namespace cubescript {
 
-struct codegen_state;
+struct parser_state;
 
 struct thread_state {
     using astack_allocator = std_allocator<std::pair<int const, alias_stack>>;
@@ -22,7 +22,7 @@ struct thread_state {
     /* the public state interface */
     state *pstate{};
     /* current codegen state for diagnostics */
-    codegen_state *cstate{};
+    parser_state *cstate{};
     /* VM stack */
     valbuf<any_value> vmstack;
     /* ident stack */

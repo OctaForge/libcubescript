@@ -5,7 +5,6 @@
 
 #include "cs_std.hh"
 #include "cs_ident.hh"
-#include "cs_gen.hh"
 #include "cs_thread.hh"
 
 namespace cubescript {

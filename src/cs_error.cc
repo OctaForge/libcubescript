@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#include "cs_gen.hh"
+#include "cs_parser.hh"
 #include "cs_thread.hh"
 
 namespace cubescript {
@@ -49,7 +49,7 @@ LIBCUBESCRIPT_EXPORT char *error::request_buf(
 ) {
     auto &ts = state_p{cs}.ts();
     charbuf &cb = ts.errbuf;
-    codegen_state *gs = ts.cstate;
+    parser_state *gs = ts.cstate;
     cb.clear();
     std::size_t sz = 0;
     if (gs) {

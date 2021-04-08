@@ -1,5 +1,4 @@
 #include <cubescript/cubescript.hh>
-#include "cs_gen.hh"
 #include "cs_std.hh"
 #include "cs_parser.hh"
 #include "cs_state.hh"
@@ -270,7 +269,7 @@ bcode_ref any_value::force_code(state &cs) {
         default:
             break;
     }
-    codegen_state gs{state_p{cs}.ts()};
+    parser_state gs{state_p{cs}.ts()};
     gs.code.reserve(64);
     gs.gen_main(get_string());
     gs.done();

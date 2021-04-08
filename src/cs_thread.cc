@@ -1,7 +1,5 @@
 #include "cs_thread.hh"
 
-#include "cs_gen.hh"
-
 namespace cubescript {
 
 thread_state::thread_state(internal_state *cs):
