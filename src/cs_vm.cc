@@ -691,18 +691,10 @@ std::uint32_t *vm_exec(
                 gen_state gs{ts};
                 switch (arg.get_type()) {
                     case value_type::INTEGER:
-                        gs.code.reserve(8);
-                        gs.code.push_back(BC_INST_START);
-                        gs.gen_val_integer(arg.get_integer());
-                        gs.code.push_back(BC_INST_RESULT);
-                        gs.code.push_back(BC_INST_EXIT);
+                        gs.gen_main_integer(arg.get_integer());
                         break;
                     case value_type::FLOAT:
-                        gs.code.reserve(8);
-                        gs.code.push_back(BC_INST_START);
-                        gs.gen_val_float(arg.get_float());
-                        gs.code.push_back(BC_INST_RESULT);
-                        gs.code.push_back(BC_INST_EXIT);
+                        gs.gen_main_float(arg.get_float());
                         break;
                     case value_type::STRING: {
                         parser_state ps{ts, gs};
@@ -712,11 +704,7 @@ std::uint32_t *vm_exec(
                         break;
                     }
                     default:
-                        gs.code.reserve(8);
-                        gs.code.push_back(BC_INST_START);
-                        gs.gen_val_null();
-                        gs.code.push_back(BC_INST_RESULT);
-                        gs.code.push_back(BC_INST_EXIT);
+                        gs.gen_main_null();
                         break;
                 }
                 std::uint32_t *cbuf = bcode_alloc(ts.istate, gs.code.size());

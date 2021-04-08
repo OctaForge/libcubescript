@@ -40,6 +40,10 @@ struct gen_state {
         std::size_t line = 0
     );
 
+    void gen_main_null();
+    void gen_main_integer(integer_type v);
+    void gen_main_float(float_type v);
+
     void gen_block();
     std::pair<std::size_t, std::string_view> gen_block(
         std::string_view v, std::size_t line,

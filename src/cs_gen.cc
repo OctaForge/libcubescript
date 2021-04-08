@@ -118,6 +118,30 @@ void gen_state::gen_val(
     }
 }
 
+void gen_state::gen_main_null() {
+    code.reserve(code.size() + 4);
+    code.push_back(BC_INST_START);
+    gen_val_null();
+    code.push_back(BC_INST_RESULT);
+    code.push_back(BC_INST_EXIT);
+}
+
+void gen_state::gen_main_integer(integer_type v) {
+    code.reserve(code.size() + bc_store_size<integer_type> + 3);
+    code.push_back(BC_INST_START);
+    gen_val_integer(v);
+    code.push_back(BC_INST_RESULT);
+    code.push_back(BC_INST_EXIT);
+}
+
+void gen_state::gen_main_float(float_type v) {
+    code.reserve(code.size() + bc_store_size<float_type> + 3);
+    code.push_back(BC_INST_START);
+    gen_val_float(v);
+    code.push_back(BC_INST_RESULT);
+    code.push_back(BC_INST_EXIT);
+}
+
 void gen_state::gen_block() {
     code.push_back(BC_INST_EMPTY);
 }
