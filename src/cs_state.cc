@@ -659,7 +659,6 @@ static any_value do_run(
     {
         parser_state ps{ts, gs};
         ps.src_name = file;
-        gs.code.reserve(64);
         ps.gen_main(code, VAL_ANY);
     }
     std::uint32_t *cbuf = bcode_alloc(ts.istate, gs.code.size());

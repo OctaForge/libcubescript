@@ -240,9 +240,7 @@ bool exec_alias(
     ts.callstack = &aliaslink;
     if (!aast.node->code) {
         gen_state gs{ts};
-        parser_state ps{ts, gs};
-        gs.code.reserve(64);
-        ps.gen_main(aast.node->val_s.get_string());
+        parser_state{ts, gs}.gen_main(aast.node->val_s.get_string());
         /* i wish i could steal the memory somehow */
         uint32_t *code = bcode_alloc(ts.istate, gs.code.size());
         memcpy(code, gs.code.data(), gs.code.size() * sizeof(uint32_t));
@@ -696,12 +694,9 @@ std::uint32_t *vm_exec(
                     case value_type::FLOAT:
                         gs.gen_main_float(arg.get_float());
                         break;
-                    case value_type::STRING: {
-                        parser_state ps{ts, gs};
-                        gs.code.reserve(64);
-                        ps.gen_main(arg.get_string());
+                    case value_type::STRING:
+                        parser_state{ts, gs}.gen_main(arg.get_string());
                         break;
-                    }
                     default:
                         gs.gen_main_null();
                         break;
@@ -724,11 +719,7 @@ std::uint32_t *vm_exec(
                         std::string_view s = arg.get_string();
                         if (!s.empty()) {
                             gen_state gs{ts};
-                            {
-                                parser_state ps{ts, gs};
-                                gs.code.reserve(64);
-                                ps.gen_main(s);
-                            }
+                            parser_state{ts, gs}.gen_main(s);
                             std::uint32_t *cbuf = bcode_alloc(
                                 ts.istate, gs.code.size()
                             );
