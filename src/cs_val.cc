@@ -270,10 +270,11 @@ bcode_ref any_value::force_code(state &cs) {
             break;
     }
     gen_state gs{state_p{cs}.ts()};
-    parser_state ps{state_p{cs}.ts(), gs};
-    gs.code.reserve(64);
-    ps.gen_main(get_string());
-    ps.done();
+    {
+        parser_state ps{state_p{cs}.ts(), gs};
+        gs.code.reserve(64);
+        ps.gen_main(get_string());
+    }
     uint32_t *cbuf = bcode_alloc(state_p{cs}.ts().istate, gs.code.size());
     std::memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(std::uint32_t));
     auto *bc = reinterpret_cast<bcode *>(cbuf + 1);

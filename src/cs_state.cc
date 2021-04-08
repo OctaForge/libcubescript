@@ -656,11 +656,12 @@ static any_value do_run(
 ) {
     any_value ret{*ts.pstate};
     gen_state gs{ts};
-    parser_state ps{ts, gs};
-    ps.src_name = file;
-    gs.code.reserve(64);
-    ps.gen_main(code, VAL_ANY);
-    ps.done();
+    {
+        parser_state ps{ts, gs};
+        ps.src_name = file;
+        gs.code.reserve(64);
+        ps.gen_main(code, VAL_ANY);
+    }
     std::uint32_t *cbuf = bcode_alloc(ts.istate, gs.code.size());
     std::memcpy(cbuf, gs.code.data(), gs.code.size() * sizeof(std::uint32_t));
     bcode_ref cref{reinterpret_cast<bcode *>(cbuf + 1)};

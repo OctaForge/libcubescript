@@ -700,7 +700,6 @@ std::uint32_t *vm_exec(
                         parser_state ps{ts, gs};
                         gs.code.reserve(64);
                         ps.gen_main(arg.get_string());
-                        ps.done();
                         break;
                     }
                     default:
@@ -725,10 +724,11 @@ std::uint32_t *vm_exec(
                         std::string_view s = arg.get_string();
                         if (!s.empty()) {
                             gen_state gs{ts};
-                            parser_state ps{ts, gs};
-                            gs.code.reserve(64);
-                            ps.gen_main(s);
-                            ps.done();
+                            {
+                                parser_state ps{ts, gs};
+                                gs.code.reserve(64);
+                                ps.gen_main(s);
+                            }
                             std::uint32_t *cbuf = bcode_alloc(
                                 ts.istate, gs.code.size()
                             );

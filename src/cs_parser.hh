@@ -38,10 +38,6 @@ struct parser_state {
     }
 
     ~parser_state() {
-        done();
-    }
-
-    void done() {
         if (!parsing) {
             return;
         }
