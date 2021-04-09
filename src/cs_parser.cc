@@ -479,7 +479,7 @@ lookupid:
                             gs.gs.gen_lookup_alias(id);
                             break;
                         default:
-                            gs.gs.gen_lookup_alias(id, ltype, BC_RET_STRING);
+                            gs.gs.gen_lookup_alias(id, ltype, VAL_STRING);
                             break;
                     }
                     goto done;
@@ -505,7 +505,7 @@ lookupid:
                                 numargs++;
                                 break;
                             case 'F':
-                                gs.gs.code.push_back(BC_INST_DUP | BC_RET_FLOAT);
+                                gs.gs.gen_dup(VAL_FLOAT);
                                 numargs++;
                                 break;
                             case 'E':
@@ -531,10 +531,10 @@ lookupid:
                                 break;
                             case 'C':
                                 comtype = BC_INST_COM_C;
-                                goto compilecomv;
+                                break;
                             case 'V':
                                 comtype = BC_INST_COM_V;
-                                goto compilecomv;
+                                break;
                             case '1':
                             case '2':
                             case '3':
@@ -542,21 +542,8 @@ lookupid:
                                 break;
                         }
                     }
-                    gs.gs.code.push_back(
-                        comtype | ret_code(ltype) | (id.get_index() << 8)
-                    );
-                    gs.gs.code.push_back(
-                        BC_INST_RESULT_ARG | ret_code(ltype)
-                    );
-                    goto done;
-    compilecomv:
-                    gs.gs.code.push_back(
-                        comtype | ret_code(ltype) | (id.get_index() << 8)
-                    );
-                    gs.gs.code.push_back(numargs);
-                    gs.gs.code.push_back(
-                        BC_INST_RESULT_ARG | ret_code(ltype)
-                    );
+                    gs.gs.gen_command_call(id, comtype, ltype, numargs);
+                    gs.gs.gen_push_result(ltype);
                     goto done;
                 }
                 default:
@@ -741,9 +728,7 @@ static void compileblockmain(parser_state &gs, int wordtype) {
             concs++;
         }
     }
-    if (concs) {
-        gs.gs.code.push_back(BC_INST_CONC_W | ret_code(wordtype) | (concs << 8));
-    }
+    gs.gs.gen_concat(concs, false, wordtype);
     switch (wordtype) {
         case VAL_POP:
             if (concs || gs.source - 1 > start) {
@@ -784,7 +769,7 @@ static void compileblockmain(parser_state &gs, int wordtype) {
                 if (gs.source - 1 <= start) {
                     gs.gs.gen_val(wordtype);
                 } else {
-                    gs.gs.code.push_back(BC_INST_FORCE | (wordtype << BC_INST_RET));
+                    gs.gs.gen_force(wordtype);
                 }
             }
             break;
@@ -841,10 +826,10 @@ static bool compilearg(
             return true;
         case '(': {
             gs.next_char();
-            std::size_t start = gs.gs.code.size();
+            auto start = gs.gs.count();
             gs.parse_block(VAL_ANY, ')');
-            if (gs.gs.code.size() > start) {
-                gs.gs.code.push_back(BC_INST_RESULT_ARG | ret_code(wordtype));
+            if (gs.gs.count() > start) {
+                gs.gs.gen_push_result(wordtype);
             } else {
                 gs.gs.gen_val(wordtype);
                 return true;
@@ -942,7 +927,7 @@ static void compile_cmd(
                         numconc++;
                     }
                     if (numconc > 1) {
-                        gs.gs.code.push_back(BC_INST_CONC | BC_RET_STRING | (numconc << 8));
+                        gs.gs.gen_concat(numconc, true, VAL_STRING);
                     }
                 }
                 numargs++;
@@ -998,7 +983,7 @@ static void compile_cmd(
                     if (rep) {
                         break;
                     }
-                    gs.gs.code.push_back(BC_INST_DUP | BC_RET_FLOAT);
+                    gs.gs.gen_dup(VAL_FLOAT);
                     fakeargs++;
                 }
                 numargs++;
@@ -1080,7 +1065,7 @@ static void compile_cmd(
                         numcargs++;
                     }
                 }
-                goto compilecomv;
+                break;
             case 'V': /* varargs */
                 comtype = BC_INST_COM_V;
                 if (more && (!limit || (numcargs < limit))) {
@@ -1093,7 +1078,7 @@ static void compile_cmd(
                         numcargs++;
                     }
                 }
-                goto compilecomv;
+                break;
             case '1': /* vararg repetition */
             case '2':
             case '3':
@@ -1106,13 +1091,7 @@ static void compile_cmd(
                 break;
         }
     }
-    gs.gs.code.push_back(comtype | ret_code(rettype) | (id->get_index() << 8));
-    return;
-compilecomv:
-    gs.gs.code.push_back(
-        comtype | ret_code(rettype) | (id->get_index() << 8)
-    );
-    gs.gs.code.push_back(numargs);
+    gs.gs.gen_command_call(*id, comtype, rettype, numargs);
 }
 
 static void compile_alias(parser_state &gs, alias *id, bool &more) {
@@ -1124,10 +1103,7 @@ static void compile_alias(parser_state &gs, alias *id, bool &more) {
         }
         ++numargs;
     }
-    gs.gs.code.push_back(
-        BC_INST_CALL | (id->get_index() << 8)
-    );
-    gs.gs.code.push_back(numargs);
+    gs.gs.gen_alias_call(*id, numargs);
 }
 
 static void compile_local(parser_state &gs, bool &more) {
@@ -1141,7 +1117,7 @@ static void compile_local(parser_state &gs, bool &more) {
             numargs++;
         }
     }
-    gs.gs.code.push_back(BC_INST_LOCAL | (numargs << 8));
+    gs.gs.gen_local(numargs);
 }
 
 static void compile_do(
@@ -1150,7 +1126,11 @@ static void compile_do(
     if (more) {
         more = compilearg(gs, VAL_CODE);
     }
-    gs.gs.code.push_back((more ? opcode : BC_INST_NULL) | ret_code(rettype));
+    if (!more) {
+        gs.gs.gen_result_null(rettype);
+    } else {
+        gs.gs.code.push_back(opcode | ret_code(rettype));
+    }
 }
 
 static void compile_if(
@@ -1160,13 +1140,13 @@ static void compile_if(
         more = compilearg(gs, VAL_ANY);
     }
     if (!more) {
-        gs.gs.code.push_back(BC_INST_NULL | ret_code(rettype));
+        gs.gs.gen_result_null(rettype);
     } else {
         std::size_t start1 = gs.gs.code.size();
         more = compilearg(gs, VAL_CODE);
         if (!more) {
             gs.gs.gen_pop();
-            gs.gs.code.push_back(BC_INST_NULL | ret_code(rettype));
+            gs.gs.gen_result_null(rettype);
         } else {
             std::size_t start2 = gs.gs.code.size();
             more = compilearg(gs, VAL_CODE);
@@ -1225,10 +1205,11 @@ static void compile_and_or(
         more = compilearg(gs, VAL_COND);
     }
     if (!more) {
-        gs.gs.code.push_back(
-            ((ident_p{*id}.impl().p_type == ID_AND)
-                ? BC_INST_TRUE : BC_INST_FALSE) | ret_code(rettype)
-        );
+        if (ident_p{*id}.impl().p_type == ID_AND) {
+            gs.gs.gen_result_true(rettype);
+        } else {
+            gs.gs.gen_result_false(rettype);
+        }
     } else {
         numargs++;
         std::size_t start = gs.gs.code.size(), end = start;
@@ -1363,7 +1344,7 @@ noid:
                 }
                 ++numargs;
             }
-            gs.code.push_back(BC_INST_CALL_U | (numargs << 8));
+            gs.gen_call(numargs);
         } else {
             idname.push_back('\0');
             ident *id = ts.pstate->get_ident(idname.str_term());
@@ -1423,18 +1404,21 @@ noid:
                         if (more) {
                             more = compilearg(*this, VAL_ANY);
                         }
-                        gs.code.push_back(
-                            (more ? BC_INST_RESULT : BC_INST_NULL) |
-                                ret_code(rettype)
-                        );
+                        if (!more) {
+                            gs.gen_result_null(rettype);
+                        } else {
+                            gs.code.push_back(BC_INST_RESULT | ret_code(rettype));
+                        }
                         break;
                     case ID_NOT:
                         if (more) {
                             more = compilearg(*this, VAL_ANY);
                         }
-                        gs.code.push_back(
-                            (more ? BC_INST_NOT : BC_INST_TRUE) | ret_code(rettype)
-                        );
+                        if (!more) {
+                            gs.gen_result_true(rettype);
+                        } else {
+                            gs.code.push_back(BC_INST_NOT | ret_code(rettype));
+                        }
                         break;
                     case ID_AND:
                     case ID_OR:

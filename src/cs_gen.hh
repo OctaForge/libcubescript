@@ -22,11 +22,19 @@ struct gen_state {
         ts{tsr}, code{tsr.istate}
     {}
 
+    std::size_t count() const;
+
     bcode_ref steal_ref();
 
     void gen_pop();
+    void gen_dup(int ltype = 0);
+    void gen_push_result(int ltype = 0);
+    void gen_force(int ltype);
 
     void gen_val_null();
+    void gen_result_null(int ltype = 0);
+    void gen_result_true(int ltype = 0);
+    void gen_result_false(int ltype = 0);
 
     void gen_val_integer(integer_type v = 0);
     void gen_val_integer(std::string_view v);
@@ -56,6 +64,16 @@ struct gen_state {
 
     void gen_compile(bool cond = false);
     void gen_ident_lookup();
+
+    void gen_concat(std::size_t concs, bool space, int ltype = 0);
+
+    void gen_command_call(
+        ident &id, int comt, int ltype = 0, std::uint32_t nargs = 0
+    );
+    void gen_alias_call(ident &id, std::uint32_t nargs = 0);
+    void gen_call(std::uint32_t nargs = 0);
+
+    void gen_local(std::uint32_t nargs);
 
     void gen_main_null();
     void gen_main_integer(integer_type v);

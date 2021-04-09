@@ -9,6 +9,17 @@
 
 namespace cubescript {
 
+static inline int ret_code(int type, int def = 0) {
+    if (type >= VAL_ANY) {
+        return def;
+    }
+    return type << BC_INST_RET;
+}
+
+std::size_t gen_state::count() const {
+    return code.size();
+}
+
 bcode_ref gen_state::steal_ref() {
     auto *cp = bcode_alloc(ts.istate, code.size());
     std::memcpy(cp, code.data(), code.size() * sizeof(std::uint32_t));
@@ -19,8 +30,32 @@ void gen_state::gen_pop() {
     code.push_back(BC_INST_POP);
 }
 
+void gen_state::gen_dup(int ltype) {
+    code.push_back(BC_INST_DUP | ret_code(ltype));
+}
+
+void gen_state::gen_push_result(int ltype) {
+    code.push_back(BC_INST_RESULT_ARG | ret_code(ltype));
+}
+
+void gen_state::gen_force(int ltype) {
+    code.push_back(BC_INST_FORCE | ret_code(ltype, BC_RET_STRING));
+}
+
 void gen_state::gen_val_null() {
     code.push_back(BC_INST_VAL_INT | BC_RET_NULL);
+}
+
+void gen_state::gen_result_null(int ltype) {
+    code.push_back(BC_INST_NULL | ret_code(ltype));
+}
+
+void gen_state::gen_result_true(int ltype) {
+    code.push_back(BC_INST_TRUE | ret_code(ltype));
+}
+
+void gen_state::gen_result_false(int ltype) {
+    code.push_back(BC_INST_FALSE | ret_code(ltype));
 }
 
 void gen_state::gen_val_integer(integer_type v) {
@@ -218,13 +253,6 @@ void gen_state::gen_val(
     }
 }
 
-static inline int ret_code(int type, int def = 0) {
-    if (type >= VAL_ANY) {
-        return def;
-    }
-    return type << BC_INST_RET;
-}
-
 void gen_state::gen_lookup_ivar(ident &id, int ltype) {
     code.push_back(
         BC_INST_IVAR | ret_code(ltype, BC_RET_INT) | (id.get_index() << 8)
@@ -245,7 +273,7 @@ void gen_state::gen_lookup_svar(ident &id, int ltype) {
 
 void gen_state::gen_lookup_alias(ident &id, int ltype, int dtype) {
     code.push_back(
-        BC_INST_LOOKUP | ret_code(ltype, dtype) | (id.get_index() << 8)
+        BC_INST_LOOKUP | ret_code(ltype, ret_code(dtype)) | (id.get_index() << 8)
     );
 }
 
@@ -263,6 +291,39 @@ void gen_state::gen_compile(bool cond) {
 
 void gen_state::gen_ident_lookup() {
     code.push_back(BC_INST_IDENT_U);
+}
+
+void gen_state::gen_concat(std::size_t concs, bool space, int ltype) {
+    if (!concs) {
+        return;
+    }
+    if (space) {
+        code.push_back(BC_INST_CONC | ret_code(ltype) | (concs << 8));
+    } else {
+        code.push_back(BC_INST_CONC_W | ret_code(ltype) | (concs << 8));
+    }
+}
+
+void gen_state::gen_command_call(
+    ident &id, int comt, int ltype, std::uint32_t nargs
+) {
+    code.push_back(comt | ret_code(ltype) | (id.get_index() << 8));
+    if (comt != BC_INST_COM) {
+        code.push_back(nargs);
+    }
+}
+
+void gen_state::gen_alias_call(ident &id, std::uint32_t nargs) {
+    code.push_back(BC_INST_CALL | (id.get_index() << 8));
+    code.push_back(nargs);
+}
+
+void gen_state::gen_call(std::uint32_t nargs) {
+    code.push_back(BC_INST_CALL_U | (nargs << 8));
+}
+
+void gen_state::gen_local(std::uint32_t nargs) {
+    code.push_back(BC_INST_LOCAL | (nargs << 8));
 }
 
 void gen_state::gen_main_null() {

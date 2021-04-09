@@ -135,10 +135,10 @@ enum {
      */
     BC_INST_LOOKUP_U,
     /* concatenate D values on top of the stack together, with topmost value
-     * being last; push the result according to M
+     * being last; delimit with spaces; push the result according to M
      */
     BC_INST_CONC,
-    /* like above but delimit with spaces */
+    /* like above but without delimiter */
     BC_INST_CONC_W,
     /* push the value of svar with index D on the stack according to M */
     BC_INST_SVAR,
