@@ -33,6 +33,8 @@ struct gen_state {
     void gen_val_float(std::string_view v);
 
     void gen_val_string(std::string_view v = std::string_view{});
+    void gen_val_string_unescape(std::string_view str);
+    void gen_val_block(std::string_view str);
 
     void gen_val_ident();
     void gen_val_ident(ident &i);

@@ -403,26 +403,6 @@ static inline int ret_code(int type, int def = 0) {
     return type << BC_INST_RET;
 }
 
-static inline void compileunescapestr(parser_state &gs) {
-    auto str = gs.get_str();
-    gs.gs.code.push_back(BC_INST_VAL | BC_RET_STRING);
-    gs.gs.code.reserve(
-        gs.gs.code.size() + str.size() / sizeof(uint32_t) + 1
-    );
-    size_t bufs = (gs.gs.code.capacity() - gs.gs.code.size()) * sizeof(uint32_t);
-    auto alloc = std_allocator<char>{gs.ts.istate};
-    auto *buf = alloc.allocate(bufs + 1);
-    char *wbuf = unescape_string(&buf[0], str);
-    memset(
-        &buf[wbuf - buf], 0,
-        sizeof(uint32_t) - (wbuf - buf) % sizeof(uint32_t)
-    );
-    gs.gs.code.back() |= (wbuf - buf) << 8;
-    uint32_t *ubuf = reinterpret_cast<uint32_t *>(buf);
-    gs.gs.code.append(ubuf, ubuf + ((wbuf - buf) / sizeof(uint32_t) + 1));
-    alloc.deallocate(buf, bufs + 1);
-}
-
 static bool compilearg(
     parser_state &gs, int wordtype, charbuf *word = nullptr
 );
@@ -640,62 +620,6 @@ invalid:
     }
 }
 
-static bool compileblockstr(parser_state &gs, char const *str, char const *send) {
-    std::size_t startc = gs.gs.code.size();
-    gs.gs.code.push_back(BC_INST_VAL | BC_RET_STRING);
-    gs.gs.code.reserve(gs.gs.code.size() + (send - str) / sizeof(uint32_t) + 1);
-    auto alloc = std_allocator<char>{gs.ts.istate};
-    auto asz = ((send - str) / sizeof(uint32_t) + 1) * sizeof(uint32_t);
-    char *buf = alloc.allocate(asz);
-    std::size_t len = 0;
-    while (str < send) {
-        std::string_view chrs{"\r/\"@]"};
-        char const *orig = str;
-        str = std::find_first_of(str, send, chrs.begin(), chrs.end());
-        memcpy(&buf[len], orig, str - orig);
-        len += (str - orig);
-        if (str == send) {
-            goto done;
-        }
-        switch (*str) {
-            case '\r':
-                ++str;
-                break;
-            case '\"': {
-                char const *start = str;
-                str = parse_string(
-                    *gs.ts.pstate, std::string_view{str, send}
-                );
-                memcpy(&buf[len], start, std::size_t(str - start));
-                len += (str - start);
-                break;
-            }
-            case '/':
-                if (((str + 1) != send) && str[1] == '/') {
-                    str = std::find(str, send, '\n');
-                } else {
-                    buf[len++] = *str++;
-                }
-                break;
-            case '@':
-            case ']':
-                if (str < send) {
-                    buf[len++] = *str++;
-                } else {
-                    goto done;
-                }
-                break;
-        }
-    }
-done:
-    memset(&buf[len], '\0', sizeof(uint32_t) - len % sizeof(uint32_t));
-    uint32_t *ubuf = reinterpret_cast<uint32_t *>(buf);
-    gs.gs.code.append(ubuf, ubuf + (len / sizeof(uint32_t) + 1));
-    gs.gs.code[startc] |= len << 8;
-    alloc.deallocate(buf, asz);
-    return true;
-}
-
 static bool compileblocksub(parser_state &gs) {
     charbuf lookup{gs.ts};
     switch (gs.current()) {
@@ -790,9 +714,8 @@ static void compileblockmain(parser_state &gs, int wordtype) {
                     throw error{*gs.ts.pstate, "too many @s"};
                     return;
                 }
-                if (compileblockstr(gs, start, esc)) {
-                    concs++;
-                }
+                gs.gs.gen_val_block(std::string_view{start, esc});
+                concs++;
                 if (compileblocksub(gs)) {
                     concs++;
                 }
@@ -829,7 +752,7 @@ static void compileblockmain(parser_state &gs, int wordtype) {
                     return;
             }
         }
-        compileblockstr(gs, start, gs.source - 1);
+        gs.gs.gen_val_block(std::string_view{start, gs.source - 1});
         if (concs > 1) {
             concs++;
         }
@@ -918,7 +841,7 @@ static bool compilearg(
                     break;
                 case VAL_ANY:
                 case VAL_STRING:
-                    compileunescapestr(gs);
+                    gs.gs.gen_val_string_unescape(gs.get_str());
                     break;
                 default: {
                     int line = int(gs.current_line);

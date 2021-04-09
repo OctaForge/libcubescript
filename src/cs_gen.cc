@@ -73,6 +73,97 @@ void gen_state::gen_val_string(std::string_view v) {
     code.push_back(u);
 }
 
+/* FIXME: figure out how to do without the intermediate buffer */
+template<typename F>
+static void gen_str_filter(
+    valbuf<std::uint32_t> &code, thread_state &ts, std::string_view v, F &&func
+) {
+    code.push_back(BC_INST_VAL | BC_RET_STRING);
+    auto ncode = code.size();
+    /* we're reserving a proper number of words */
+    auto nwords = (v.size() / sizeof(std::uint32_t)) + 1;
+    code.reserve(ncode + nwords);
+    /* allocate a character buffer that's at least that many words */
+    auto al = std_allocator<char>{ts.istate};
+    auto *buf = al.allocate(nwords * sizeof(std::uint32_t));
+    /* the body */
+    auto len = func(&buf[0]);
+    /* fill the leftover bytes with zeroes */
+    memset(&buf[len], 0, sizeof(std::uint32_t) - len % sizeof(std::uint32_t));
+    /* set the actual length */
+    code.back() |= (len << 8);
+    auto *ubuf = reinterpret_cast<std::uint32_t *>(buf);
+    code.append(ubuf, ubuf + ((len / sizeof(std::uint32_t)) + 1));
+    al.deallocate(buf, nwords * sizeof(std::uint32_t));
+}
+
+void gen_state::gen_val_string_unescape(std::string_view v) {
+    gen_str_filter(code, ts, v, [&v](auto *buf) {
+        auto *wbuf = unescape_string(buf, v);
+        return std::size_t(wbuf - buf);
+    });
+}
+
+void gen_state::gen_val_block(std::string_view v) {
+    gen_str_filter(code, ts, v, [&v, this](auto *buf) {
+        auto *str = v.data();
+        auto *send = v.data() + v.size();
+        std::size_t len = 0;
+        for (std::string_view chrs{"\r/\"@]"}; str < send;) {
+            auto *orig = str;
+            /* find a boundary character */
+            str = std::find_first_of(str, send, chrs.begin(), chrs.end());
+            /* copy everything up until boundary character */
+            std::memcpy(&buf[len], orig, str - orig);
+            len += (str - orig);
+            /* found nothing: bail out */
+            if (str == send) {
+                return len;
+            }
+            switch (*str) {
+                case '\r': /* filter out */
+                    ++str;
+                    break;
+                case '\"': { /* quoted string */
+                    char const *start = str;
+                    str = parse_string(
+                        *ts.pstate, std::string_view{str, send}
+                    );
+                    std::memcpy(&buf[len], start, std::size_t(str - start));
+                    len += (str - start);
+                    break;
+                }
+                case '/':
+                    if (((str + 1) != send) && (str[1] == '/')) {
+                        /* comment */
+                        char const *start = str;
+                        str = std::find(str, send, '\n');
+                        if (((start + 2) != send) && std::ispunct(start[2])) {
+                            /* these comments will be preserved */
+                            std::memcpy(
+                                &buf[len], start, std::size_t(str - start)
+                            );
+                            len += (str - start);
+                        }
+                    } else {
+                        /* write and skip */
+                        buf[len++] = *str++;
+                    }
+                    break;
+                case '@':
+                case ']':
+                    if (str <send) {
+                        buf[len++] = *str++;
+                    } else {
+                        return len;
+                    }
+                    break;
+            }
+        }
+        return len;
+    });
+}
+
 void gen_state::gen_val_ident() {
     gen_val_ident(*ts.istate->id_dummy);
 }
