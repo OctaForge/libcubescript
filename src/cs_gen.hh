@@ -24,6 +24,8 @@ struct gen_state {
 
     bcode_ref steal_ref();
 
+    void gen_pop();
+
     void gen_val_null();
 
     void gen_val_integer(integer_type v = 0);
@@ -48,6 +50,9 @@ struct gen_state {
     void gen_lookup_ivar(ident &id, int ltype);
     void gen_lookup_fvar(ident &id, int ltype);
     void gen_lookup_svar(ident &id, int ltype);
+
+    void gen_compile(bool cond = false);
+    void gen_ident_lookup();
 
     void gen_main_null();
     void gen_main_integer(integer_type v);

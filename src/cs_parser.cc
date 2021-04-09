@@ -440,11 +440,11 @@ lookupid:
                             break;
                         case VAL_CODE:
                             gs.gs.gen_lookup_ivar(id, ltype);
-                            gs.gs.code.push_back(BC_INST_COMPILE);
+                            gs.gs.gen_compile();
                             break;
                         case VAL_IDENT:
                             gs.gs.gen_lookup_ivar(id, ltype);
-                            gs.gs.code.push_back(BC_INST_IDENT_U);
+                            gs.gs.gen_ident_lookup();
                             break;
                     }
                     return;
@@ -454,11 +454,11 @@ lookupid:
                             break;
                         case VAL_CODE:
                             gs.gs.gen_lookup_fvar(id, ltype);
-                            gs.gs.code.push_back(BC_INST_COMPILE);
+                            gs.gs.gen_compile();
                             break;
                         case VAL_IDENT:
                             gs.gs.gen_lookup_fvar(id, ltype);
-                            gs.gs.code.push_back(BC_INST_IDENT_U);
+                            gs.gs.gen_ident_lookup();
                             break;
                     }
                     return;
@@ -583,16 +583,16 @@ lookupid:
 done:
     switch (ltype) {
         case VAL_POP:
-            gs.gs.code.push_back(BC_INST_POP);
+            gs.gs.gen_pop();
             break;
         case VAL_CODE:
-            gs.gs.code.push_back(BC_INST_COMPILE);
+            gs.gs.gen_compile();
             break;
         case VAL_COND:
-            gs.gs.code.push_back(BC_INST_COND);
+            gs.gs.gen_compile(true);
             break;
         case VAL_IDENT:
-            gs.gs.code.push_back(BC_INST_IDENT_U);
+            gs.gs.gen_ident_lookup();
             break;
     }
     return;
@@ -755,28 +755,28 @@ static void compileblockmain(parser_state &gs, int wordtype) {
     switch (wordtype) {
         case VAL_POP:
             if (concs || gs.source - 1 > start) {
-                gs.gs.code.push_back(BC_INST_POP);
+                gs.gs.gen_pop();
             }
             break;
         case VAL_COND:
             if (!concs && gs.source - 1 <= start) {
                 gs.gs.gen_val_null();
             } else {
-                gs.gs.code.push_back(BC_INST_COND);
+                gs.gs.gen_compile(true);
             }
             break;
         case VAL_CODE:
             if (!concs && gs.source - 1 <= start) {
                 gs.gs.gen_block();
             } else {
-                gs.gs.code.push_back(BC_INST_COMPILE);
+                gs.gs.gen_compile();
             }
             break;
         case VAL_IDENT:
             if (!concs && gs.source - 1 <= start) {
                 gs.gs.gen_val_ident();
             } else {
-                gs.gs.code.push_back(BC_INST_IDENT_U);
+                gs.gs.gen_ident_lookup();
             }
             break;
         case VAL_STRING:
@@ -859,16 +859,16 @@ static bool compilearg(
             }
             switch (wordtype) {
                 case VAL_POP:
-                    gs.gs.code.push_back(BC_INST_POP);
+                    gs.gs.gen_pop();
                     break;
                 case VAL_COND:
-                    gs.gs.code.push_back(BC_INST_COND);
+                    gs.gs.gen_compile(true);
                     break;
                 case VAL_CODE:
-                    gs.gs.code.push_back(BC_INST_COMPILE);
+                    gs.gs.gen_compile();
                     break;
                 case VAL_IDENT:
-                    gs.gs.code.push_back(BC_INST_IDENT_U);
+                    gs.gs.gen_ident_lookup();
                     break;
             }
             return true;
@@ -1173,7 +1173,7 @@ static void compile_if(
         std::size_t start1 = gs.gs.code.size();
         more = compilearg(gs, VAL_CODE);
         if (!more) {
-            gs.gs.code.push_back(BC_INST_POP);
+            gs.gs.gen_pop();
             gs.gs.code.push_back(BC_INST_NULL | ret_code(rettype));
         } else {
             std::size_t start2 = gs.gs.code.size();

@@ -15,6 +15,10 @@ bcode_ref gen_state::steal_ref() {
     return bcode_ref{reinterpret_cast<bcode *>(cp + 1)};
 }
 
+void gen_state::gen_pop() {
+    code.push_back(BC_INST_POP);
+}
+
 void gen_state::gen_val_null() {
     code.push_back(BC_INST_VAL_INT | BC_RET_NULL);
 }
@@ -237,6 +241,18 @@ void gen_state::gen_lookup_svar(ident &id, int ltype) {
     code.push_back(
         BC_INST_SVAR | ret_code(ltype, BC_RET_STRING) | (id.get_index() << 8)
     );
+}
+
+void gen_state::gen_compile(bool cond) {
+    if (cond) {
+        code.push_back(BC_INST_COND);
+    } else {
+        code.push_back(BC_INST_COMPILE);
+    }
+}
+
+void gen_state::gen_ident_lookup() {
+    code.push_back(BC_INST_IDENT_U);
 }
 
 void gen_state::gen_main_null() {
