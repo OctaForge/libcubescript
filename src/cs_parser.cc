@@ -476,16 +476,10 @@ lookupid:
                         case VAL_POP:
                             return;
                         case VAL_COND:
-                            gs.gs.code.push_back(
-                                BC_INST_LOOKUP | (id.get_index() << 8)
-                            );
+                            gs.gs.gen_lookup_alias(id);
                             break;
                         default:
-                            gs.gs.code.push_back(
-                                BC_INST_LOOKUP |
-                                ret_code(ltype, BC_RET_STRING) |
-                                (id.get_index() << 8)
-                            );
+                            gs.gs.gen_lookup_alias(id, ltype, BC_RET_STRING);
                             break;
                     }
                     goto done;
@@ -574,10 +568,10 @@ lookupid:
     }
     switch (ltype) {
         case VAL_COND:
-            gs.gs.code.push_back(BC_INST_LOOKUP_U);
+            gs.gs.gen_lookup_ident();
             break;
         default:
-            gs.gs.code.push_back(BC_INST_LOOKUP_U | ret_code(ltype));
+            gs.gs.gen_lookup_ident(ltype);
             break;
     }
 done:
@@ -624,7 +618,7 @@ static bool compileblocksub(parser_state &gs) {
             if (!compilearg(gs, VAL_STRING)) {
                 return false;
             }
-            gs.gs.code.push_back(BC_INST_LOOKUP_U);
+            gs.gs.gen_lookup_ident();
             break;
         case '\"':
             lookup = gs.get_str_dup();
@@ -642,24 +636,22 @@ lookupid:
             );
             switch (id.get_type()) {
                 case ident_type::IVAR:
-                    gs.gs.code.push_back(BC_INST_IVAR | (id.get_index() << 8));
+                    gs.gs.gen_lookup_ivar(id);
                     goto done;
                 case ident_type::FVAR:
-                    gs.gs.code.push_back(BC_INST_FVAR | (id.get_index() << 8));
+                    gs.gs.gen_lookup_fvar(id);
                     goto done;
                 case ident_type::SVAR:
-                    gs.gs.code.push_back(BC_INST_SVAR | (id.get_index() << 8));
+                    gs.gs.gen_lookup_svar(id);
                     goto done;
                 case ident_type::ALIAS:
-                    gs.gs.code.push_back(
-                        BC_INST_LOOKUP | (id.get_index() << 8)
-                    );
+                    gs.gs.gen_lookup_alias(id);
                     goto done;
                 default:
                     break;
             }
             gs.gs.gen_val_string(lookup.str_term());
-            gs.gs.code.push_back(BC_INST_LOOKUP_U);
+            gs.gs.gen_lookup_ident();
 done:
             break;
         }

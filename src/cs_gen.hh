@@ -47,9 +47,12 @@ struct gen_state {
         std::size_t line = 0
     );
 
-    void gen_lookup_ivar(ident &id, int ltype);
-    void gen_lookup_fvar(ident &id, int ltype);
-    void gen_lookup_svar(ident &id, int ltype);
+    void gen_lookup_ivar(ident &id, int ltype = 0);
+    void gen_lookup_fvar(ident &id, int ltype = 0);
+    void gen_lookup_svar(ident &id, int ltype = 0);
+
+    void gen_lookup_alias(ident &id, int ltype = 0, int dtype = 0);
+    void gen_lookup_ident(int ltype = 0);
 
     void gen_compile(bool cond = false);
     void gen_ident_lookup();

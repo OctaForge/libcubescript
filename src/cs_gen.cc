@@ -243,6 +243,16 @@ void gen_state::gen_lookup_svar(ident &id, int ltype) {
     );
 }
 
+void gen_state::gen_lookup_alias(ident &id, int ltype, int dtype) {
+    code.push_back(
+        BC_INST_LOOKUP | ret_code(ltype, dtype) | (id.get_index() << 8)
+    );
+}
+
+void gen_state::gen_lookup_ident(int ltype) {
+    code.push_back(BC_INST_LOOKUP_U | ret_code(ltype));
+}
+
 void gen_state::gen_compile(bool cond) {
     if (cond) {
         code.push_back(BC_INST_COND);
