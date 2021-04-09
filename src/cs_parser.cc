@@ -1483,15 +1483,6 @@ endstatement:
     }
 }
 
-void parser_state::gen_main(std::string_view s, int ret_type) {
-    source = s.data();
-    send = s.data() + s.size();
-    gs.code.reserve(gs.code.size() + 8);
-    gs.code.push_back(BC_INST_START);
-    parse_block(VAL_ANY);
-    gs.code.push_back(BC_INST_EXIT | ((ret_type < VAL_ANY) ? (ret_type << BC_INST_RET) : 0));
-}
-
 /* list parser public implementation */
 
 LIBCUBESCRIPT_EXPORT bool list_parser::parse() {

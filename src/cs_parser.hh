@@ -51,7 +51,6 @@ struct parser_state {
     std::string_view get_word();
 
     void parse_block(int ret_type, int term = '\0');
-    void gen_main(std::string_view s, int ret_type = VAL_ANY);
 
     void next_char() {
         if (source == send) {

@@ -240,7 +240,7 @@ bool exec_alias(
     ts.callstack = &aliaslink;
     if (!aast.node->code) {
         gen_state gs{ts};
-        parser_state{ts, gs}.gen_main(aast.node->val_s.get_string());
+        gs.gen_main(aast.node->val_s.get_string());
         aast.node->code = gs.steal_ref();
     }
     bcode_ref coderef = aast.node->code;
@@ -692,7 +692,7 @@ std::uint32_t *vm_exec(
                         gs.gen_main_float(arg.get_float());
                         break;
                     case value_type::STRING:
-                        parser_state{ts, gs}.gen_main(arg.get_string());
+                        gs.gen_main(arg.get_string());
                         break;
                     default:
                         gs.gen_main_null();
@@ -709,7 +709,7 @@ std::uint32_t *vm_exec(
                         std::string_view s = arg.get_string();
                         if (!s.empty()) {
                             gen_state gs{ts};
-                            parser_state{ts, gs}.gen_main(s);
+                            gs.gen_main(s);
                             arg.set_code(gs.steal_ref());
                         } else {
                             arg.force_none();

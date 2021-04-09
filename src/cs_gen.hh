@@ -75,6 +75,9 @@ struct gen_state {
 
     void gen_local(std::uint32_t nargs);
 
+    void gen_main(
+        std::string_view s, std::string_view src = std::string_view{}
+    );
     void gen_main_null();
     void gen_main_integer(integer_type v);
     void gen_main_float(float_type v);

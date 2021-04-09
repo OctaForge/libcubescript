@@ -656,11 +656,7 @@ static any_value do_run(
 ) {
     any_value ret{*ts.pstate};
     gen_state gs{ts};
-    {
-        parser_state ps{ts, gs};
-        ps.src_name = file;
-        ps.gen_main(code, VAL_ANY);
-    }
+    gs.gen_main(code, file);
     auto cref = gs.steal_ref();
     bcode *p = cref;
     vm_exec(ts, p->get_raw(), ret);

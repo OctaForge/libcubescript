@@ -270,7 +270,7 @@ bcode_ref any_value::force_code(state &cs) {
             break;
     }
     gen_state gs{state_p{cs}.ts()};
-    parser_state{state_p{cs}.ts(), gs}.gen_main(get_string());
+    gs.gen_main(get_string());
     auto bc = gs.steal_ref();
     set_code(bc);
     return bc;
