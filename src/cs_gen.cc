@@ -214,6 +214,31 @@ void gen_state::gen_val(
     }
 }
 
+static inline int ret_code(int type, int def = 0) {
+    if (type >= VAL_ANY) {
+        return def;
+    }
+    return type << BC_INST_RET;
+}
+
+void gen_state::gen_lookup_ivar(ident &id, int ltype) {
+    code.push_back(
+        BC_INST_IVAR | ret_code(ltype, BC_RET_INT) | (id.get_index() << 8)
+    );
+}
+
+void gen_state::gen_lookup_fvar(ident &id, int ltype) {
+    code.push_back(
+        BC_INST_FVAR | ret_code(ltype, BC_RET_FLOAT) | (id.get_index() << 8)
+    );
+}
+
+void gen_state::gen_lookup_svar(ident &id, int ltype) {
+    code.push_back(
+        BC_INST_SVAR | ret_code(ltype, BC_RET_STRING) | (id.get_index() << 8)
+    );
+}
+
 void gen_state::gen_main_null() {
     code.reserve(code.size() + 4);
     code.push_back(BC_INST_START);

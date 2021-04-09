@@ -434,35 +434,30 @@ lookupid:
             );
             switch (id.get_type()) {
                 case ident_type::IVAR:
-                    gs.gs.code.push_back(
-                        BC_INST_IVAR | ret_code(ltype, BC_RET_INT) |
-                            (id.get_index() << 8)
-                    );
+                    gs.gs.gen_lookup_ivar(id, ltype);
                     switch (ltype) {
                         case VAL_POP:
-                            gs.gs.code.pop_back();
                             break;
                         case VAL_CODE:
+                            gs.gs.gen_lookup_ivar(id, ltype);
                             gs.gs.code.push_back(BC_INST_COMPILE);
                             break;
                         case VAL_IDENT:
+                            gs.gs.gen_lookup_ivar(id, ltype);
                             gs.gs.code.push_back(BC_INST_IDENT_U);
                             break;
                     }
                     return;
                 case ident_type::FVAR:
-                    gs.gs.code.push_back(
-                        BC_INST_FVAR | ret_code(ltype, BC_RET_FLOAT) |
-                            (id.get_index() << 8)
-                    );
                     switch (ltype) {
                         case VAL_POP:
-                            gs.gs.code.pop_back();
                             break;
                         case VAL_CODE:
+                            gs.gs.gen_lookup_fvar(id, ltype);
                             gs.gs.code.push_back(BC_INST_COMPILE);
                             break;
                         case VAL_IDENT:
+                            gs.gs.gen_lookup_fvar(id, ltype);
                             gs.gs.code.push_back(BC_INST_IDENT_U);
                             break;
                     }
@@ -472,10 +467,7 @@ lookupid:
                         case VAL_POP:
                             return;
                         default:
-                            gs.gs.code.push_back(
-                                BC_INST_SVAR | ret_code(ltype, BC_RET_STRING) |
-                                    (id.get_index() << 8)
-                            );
+                            gs.gs.gen_lookup_svar(id, ltype);
                             break;
                     }
                     goto done;
