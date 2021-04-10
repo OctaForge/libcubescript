@@ -72,6 +72,16 @@ struct parser_state {
     bool parse_subblock();
     void parse_blockarg(int ltype);
     bool parse_arg(int ltype, charbuf *word = nullptr);
+
+    bool parse_call_command(
+        command_impl *id, ident &self, int rettype, std::uint32_t limit = 0
+    );
+    bool parse_call_alias(alias &id);
+
+    bool parse_id_local();
+    bool parse_id_do(bool args, int ltype);
+    bool parse_id_if(ident &id, int ltype);
+    bool parse_id_and_or(ident &id, int ltype);
 };
 
 } /* namespace cubescript */
