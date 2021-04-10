@@ -593,56 +593,56 @@ lookup_id:
     lookup_invalid(gs, ltype);
 }
 
-static bool compileblocksub(parser_state &gs) {
-    charbuf lookup{gs.ts};
-    switch (gs.current()) {
+/* parses @... macro substitutions within block strings */
+bool parser_state::parse_subblock() {
+    charbuf lookup{ts};
+    switch (current()) {
+        /* @(...) */
         case '(':
-            if (!compilearg(gs, VAL_ANY)) {
-                return false;
-            }
-            break;
+            return compilearg(*this, VAL_ANY);
+        /* @[...]; like a variable lookup */
         case '[':
-            if (!compilearg(gs, VAL_STRING)) {
+            if (!compilearg(*this, VAL_STRING)) {
                 return false;
             }
-            gs.gs.gen_lookup_ident();
-            break;
+            gs.gen_lookup_ident();
+            return true;
+        /* @"..."; like the above but easier (no inner compiles) */
         case '\"':
-            lookup = gs.get_str_dup();
+            lookup = get_str_dup();
             lookup.push_back('\0');
-            goto lookupid;
-        default: {
-            lookup.append(gs.read_macro_name());
-            if (lookup.empty()) {
-                return false;
-            }
-            lookup.push_back('\0');
-lookupid:
-            ident &id = gs.ts.istate->new_ident(
-                *gs.ts.pstate, lookup.str_term(), IDENT_FLAG_UNKNOWN
-            );
-            switch (id.get_type()) {
-                case ident_type::IVAR:
-                    gs.gs.gen_lookup_ivar(id);
-                    goto done;
-                case ident_type::FVAR:
-                    gs.gs.gen_lookup_fvar(id);
-                    goto done;
-                case ident_type::SVAR:
-                    gs.gs.gen_lookup_svar(id);
-                    goto done;
-                case ident_type::ALIAS:
-                    gs.gs.gen_lookup_alias(id);
-                    goto done;
-                default:
-                    break;
-            }
-            gs.gs.gen_val_string(lookup.str_term());
-            gs.gs.gen_lookup_ident();
-done:
+            goto lookup_id;
+        /* anything else, presumably a valid name */
+        default:
             break;
-        }
     }
+    lookup.append(read_macro_name());
+    if (lookup.empty()) {
+        return false;
+    }
+    lookup.push_back('\0');
+lookup_id:
+    ident &id = ts.istate->new_ident(
+        *ts.pstate, lookup.str_term(), IDENT_FLAG_UNKNOWN
+    );
+    switch (id.get_type()) {
+        case ident_type::IVAR:
+            gs.gen_lookup_ivar(id);
+            return true;
+        case ident_type::FVAR:
+            gs.gen_lookup_fvar(id);
+            return true;
+        case ident_type::SVAR:
+            gs.gen_lookup_svar(id);
+            return true;
+        case ident_type::ALIAS:
+            gs.gen_lookup_alias(id);
+            return true;
+        default:
+            break;
+    }
+    gs.gen_val_string(lookup.str_term());
+    gs.gen_lookup_ident();
     return true;
 }
 
@@ -687,7 +687,7 @@ static void compileblockmain(parser_state &gs, int wordtype) {
                 }
                 gs.gs.gen_val_block(std::string_view{start, esc});
                 concs++;
-                if (compileblocksub(gs)) {
+                if (gs.parse_subblock()) {
                     concs++;
                 }
                 if (concs) {
