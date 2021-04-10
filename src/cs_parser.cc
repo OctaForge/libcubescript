@@ -1121,7 +1121,7 @@ static void compile_local(parser_state &gs, bool &more) {
 }
 
 static void compile_do(
-    parser_state &gs, bool &more, int rettype, int opcode
+    parser_state &gs, bool args, int rettype, bool &more
 ) {
     if (more) {
         more = compilearg(gs, VAL_CODE);
@@ -1129,7 +1129,7 @@ static void compile_do(
     if (!more) {
         gs.gs.gen_result_null(rettype);
     } else {
-        gs.gs.code.push_back(opcode | ret_code(rettype));
+        gs.gs.gen_do(args, rettype);
     }
 }
 
@@ -1293,9 +1293,7 @@ void parser_state::parse_block(int rettype, int brak) {
                                 if (!more) {
                                     gs.gen_val_string();
                                 }
-                                gs.code.push_back(
-                                    BC_INST_ALIAS | (id.get_index() << 8)
-                                );
+                                gs.gen_assign_alias(id);
                                 goto endstatement;
                             case ident_type::IVAR: {
                                 auto *hid = ts.istate->cmd_ivar;
@@ -1330,7 +1328,7 @@ void parser_state::parse_block(int rettype, int brak) {
                     if (!more) {
                         gs.gen_val_string();
                     }
-                    gs.code.push_back(BC_INST_ALIAS_U);
+                    gs.gen_assign();
                     goto endstatement;
             }
         }
@@ -1368,7 +1366,7 @@ noid:
                         gs.gen_val(rettype, idname.str_term(), int(curline));
                         break;
                 }
-                gs.code.push_back(BC_INST_RESULT);
+                gs.gen_result();
             } else {
                 switch (ident_p{*id}.impl().p_type) {
                     case ID_ALIAS:
@@ -1386,19 +1384,19 @@ noid:
                         compile_local(*this, more);
                         break;
                     case ID_DO:
-                        compile_do(*this, more, rettype, BC_INST_DO);
+                        compile_do(*this, false, rettype, more);
                         break;
                     case ID_DOARGS:
-                        compile_do(*this, more, rettype, BC_INST_DO_ARGS);
+                        compile_do(*this, true, rettype, more);
                         break;
                     case ID_IF:
                         compile_if(*this, id, more, rettype);
                         break;
                     case ID_BREAK:
-                        gs.code.push_back(BC_INST_BREAK | BC_INST_FLAG_FALSE);
+                        gs.gen_break();
                         break;
                     case ID_CONTINUE:
-                        gs.code.push_back(BC_INST_BREAK | BC_INST_FLAG_TRUE);
+                        gs.gen_continue();
                         break;
                     case ID_RESULT:
                         if (more) {
@@ -1407,7 +1405,7 @@ noid:
                         if (!more) {
                             gs.gen_result_null(rettype);
                         } else {
-                            gs.code.push_back(BC_INST_RESULT | ret_code(rettype));
+                            gs.gen_result(rettype);
                         }
                         break;
                     case ID_NOT:
@@ -1417,7 +1415,7 @@ noid:
                         if (!more) {
                             gs.gen_result_true(rettype);
                         } else {
-                            gs.code.push_back(BC_INST_NOT | ret_code(rettype));
+                            gs.gen_not(rettype);
                         }
                         break;
                     case ID_AND:

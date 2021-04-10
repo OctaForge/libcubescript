@@ -28,8 +28,11 @@ struct gen_state {
 
     void gen_pop();
     void gen_dup(int ltype = 0);
+    void gen_result(int ltype = 0);
     void gen_push_result(int ltype = 0);
     void gen_force(int ltype);
+
+    void gen_not(int ltype = 0);
 
     void gen_val_null();
     void gen_result_null(int ltype = 0);
@@ -62,6 +65,9 @@ struct gen_state {
     void gen_lookup_alias(ident &id, int ltype = 0, int dtype = 0);
     void gen_lookup_ident(int ltype = 0);
 
+    void gen_assign_alias(ident &id);
+    void gen_assign();
+
     void gen_compile(bool cond = false);
     void gen_ident_lookup();
 
@@ -74,6 +80,10 @@ struct gen_state {
     void gen_call(std::uint32_t nargs = 0);
 
     void gen_local(std::uint32_t nargs);
+    void gen_do(bool args, int ltype = 0);
+
+    void gen_break();
+    void gen_continue();
 
     void gen_main(
         std::string_view s, std::string_view src = std::string_view{}

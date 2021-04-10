@@ -34,12 +34,20 @@ void gen_state::gen_dup(int ltype) {
     code.push_back(BC_INST_DUP | ret_code(ltype));
 }
 
+void gen_state::gen_result(int ltype) {
+    code.push_back(BC_INST_RESULT | ret_code(ltype));
+}
+
 void gen_state::gen_push_result(int ltype) {
     code.push_back(BC_INST_RESULT_ARG | ret_code(ltype));
 }
 
 void gen_state::gen_force(int ltype) {
     code.push_back(BC_INST_FORCE | ret_code(ltype, BC_RET_STRING));
+}
+
+void gen_state::gen_not(int ltype) {
+    code.push_back(BC_INST_NOT | ret_code(ltype));
 }
 
 void gen_state::gen_val_null() {
@@ -281,6 +289,14 @@ void gen_state::gen_lookup_ident(int ltype) {
     code.push_back(BC_INST_LOOKUP_U | ret_code(ltype));
 }
 
+void gen_state::gen_assign_alias(ident &id) {
+    code.push_back(BC_INST_ALIAS | (id.get_index() << 8));
+}
+
+void gen_state::gen_assign() {
+    code.push_back(BC_INST_ALIAS_U);
+}
+
 void gen_state::gen_compile(bool cond) {
     if (cond) {
         code.push_back(BC_INST_COND);
@@ -326,6 +342,22 @@ void gen_state::gen_local(std::uint32_t nargs) {
     code.push_back(BC_INST_LOCAL | (nargs << 8));
 }
 
+void gen_state::gen_do(bool args, int ltype) {
+    if (args) {
+        code.push_back(BC_INST_DO_ARGS | ret_code(ltype));
+    } else {
+        code.push_back(BC_INST_DO | ret_code(ltype));
+    }
+}
+
+void gen_state::gen_break() {
+    code.push_back(BC_INST_BREAK | BC_INST_FLAG_FALSE);
+}
+
+void gen_state::gen_continue() {
+    code.push_back(BC_INST_BREAK | BC_INST_FLAG_TRUE);
+}
+
 void gen_state::gen_main(std::string_view v, std::string_view src) {
     parser_state ps{ts, *this};
     ps.source = v.data();
@@ -340,7 +372,7 @@ void gen_state::gen_main_null() {
     code.reserve(code.size() + 4);
     code.push_back(BC_INST_START);
     gen_val_null();
-    code.push_back(BC_INST_RESULT);
+    gen_result();
     code.push_back(BC_INST_EXIT);
 }
 
@@ -348,7 +380,7 @@ void gen_state::gen_main_integer(integer_type v) {
     code.reserve(code.size() + bc_store_size<integer_type> + 3);
     code.push_back(BC_INST_START);
     gen_val_integer(v);
-    code.push_back(BC_INST_RESULT);
+    gen_result();
     code.push_back(BC_INST_EXIT);
 }
 
@@ -356,7 +388,7 @@ void gen_state::gen_main_float(float_type v) {
     code.reserve(code.size() + bc_store_size<float_type> + 3);
     code.push_back(BC_INST_START);
     gen_val_float(v);
-    code.push_back(BC_INST_RESULT);
+    gen_result();
     code.push_back(BC_INST_EXIT);
 }
 
