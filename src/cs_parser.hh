@@ -73,9 +73,7 @@ struct parser_state {
     void parse_blockarg(int ltype);
     bool parse_arg(int ltype, charbuf *word = nullptr);
 
-    bool parse_call_command(
-        command_impl *id, ident &self, int rettype, std::uint32_t limit = 0
-    );
+    bool parse_call_command(command_impl *id, ident &self, int rettype);
     bool parse_call_alias(alias &id);
     bool parse_call_id(ident &id, int ltype);
 
