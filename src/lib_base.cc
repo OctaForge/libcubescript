@@ -171,7 +171,7 @@ void init_lib_base(state &gcs) {
 
     gcs.new_command("loop", "rie", [](auto &cs, auto args, auto &) {
         do_loop(
-            cs, *args[0].get_ident(), 0, args[1].get_integer(), 1, nullptr,
+            cs, *args[0].get_ident(), 0, args[1].get_integer(), 1, bcode_ref{},
             args[2].get_code()
         );
     });
@@ -179,14 +179,14 @@ void init_lib_base(state &gcs) {
     gcs.new_command("loop+", "riie", [](auto &cs, auto args, auto &) {
         do_loop(
             cs, *args[0].get_ident(), args[1].get_integer(),
-            args[2].get_integer(), 1, nullptr, args[3].get_code()
+            args[2].get_integer(), 1, bcode_ref{}, args[3].get_code()
         );
     });
 
     gcs.new_command("loop*", "riie", [](auto &cs, auto args, auto &) {
         do_loop(
             cs, *args[0].get_ident(), 0, args[1].get_integer(),
-            args[2].get_integer(), nullptr, args[3].get_code()
+            args[2].get_integer(), bcode_ref{}, args[3].get_code()
         );
     });
 
@@ -194,7 +194,7 @@ void init_lib_base(state &gcs) {
         do_loop(
             cs, *args[0].get_ident(), args[1].get_integer(),
             args[3].get_integer(), args[2].get_integer(),
-            nullptr, args[4].get_code()
+            bcode_ref{}, args[4].get_code()
         );
     });
 

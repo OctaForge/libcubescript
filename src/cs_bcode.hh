@@ -208,6 +208,20 @@ empty_block *bcode_init_empty(internal_state *cs);
 void bcode_free_empty(internal_state *cs, empty_block *empty);
 bcode *bcode_get_empty(empty_block *empty, std::size_t val);
 
+struct bcode_p {
+    bcode_p(bcode_ref const &r): br{const_cast<bcode_ref *>(&r)} {}
+
+    bcode *get() {
+        return br->p_code;
+    }
+
+    static bcode_ref make_ref(bcode *v) {
+        return bcode_ref{v};
+    }
+
+    bcode_ref *br;
+};
+
 } /* namespace cubescript */
 
 #endif

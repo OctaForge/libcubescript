@@ -27,7 +27,7 @@ std::uint32_t gen_state::peek(std::size_t idx) const {
 bcode_ref gen_state::steal_ref() {
     auto *cp = bcode_alloc(ts.istate, code.size());
     std::memcpy(cp, code.data(), code.size() * sizeof(std::uint32_t));
-    return bcode_ref{reinterpret_cast<bcode *>(cp + 1)};
+    return bcode_p::make_ref(reinterpret_cast<bcode *>(cp + 1));
 }
 
 void gen_state::gen_pop() {

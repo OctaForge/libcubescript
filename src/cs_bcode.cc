@@ -45,10 +45,6 @@ LIBCUBESCRIPT_EXPORT bcode_ref::operator bool() const {
     return p_code != nullptr;
 }
 
-LIBCUBESCRIPT_EXPORT bcode_ref::operator bcode *() const {
-    return p_code;
-}
-
 /* private funcs */
 
 struct bcode_hdr {

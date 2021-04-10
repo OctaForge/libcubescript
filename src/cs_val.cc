@@ -168,7 +168,7 @@ void any_value::set_none() {
 }
 
 void any_value::set_code(bcode_ref const &val) {
-    bcode *p = val;
+    bcode *p = bcode_p{val}.get();
     csv_cleanup(p_type, &p_stor);
     p_type = value_type::CODE;
     bcode_addref(p->get_raw());
@@ -265,7 +265,7 @@ std::string_view any_value::force_string() {
 bcode_ref any_value::force_code(state &cs) {
     switch (get_type()) {
         case value_type::CODE:
-            return bcode_ref{csv_get<bcode *>(&p_stor)};
+            return bcode_p::make_ref(csv_get<bcode *>(&p_stor));
         default:
             break;
     }
@@ -326,7 +326,7 @@ bcode_ref any_value::get_code() const {
     if (get_type() != value_type::CODE) {
         return bcode_ref{};
     }
-    return bcode_ref{csv_get<bcode *>(&p_stor)};
+    return bcode_p::make_ref(csv_get<bcode *>(&p_stor));
 }
 
 ident *any_value::get_ident() const {

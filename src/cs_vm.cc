@@ -141,9 +141,9 @@ void exec_command(
                     if (rep) {
                         break;
                     }
-                    args[i].set_code(
+                    args[i].set_code(bcode_p::make_ref(
                         bcode_get_empty(ts.istate->empty, VAL_NULL)
-                    );
+                    ));
                     fakeargs++;
                 } else {
                     args[i].force_code(*ts.pstate);
@@ -268,8 +268,7 @@ bool exec_alias(
         nargs = offset - skip;
     };
     try {
-        bcode *p = coderef;
-        vm_exec(ts, p->get_raw(), result);
+        vm_exec(ts, bcode_p{coderef}.get()->get_raw(), result);
     } catch (...) {
         cleanup();
         throw;
@@ -653,32 +652,32 @@ std::uint32_t *vm_exec(
 
             case BC_INST_BLOCK: {
                 std::uint32_t len = op >> 8;
-                args.emplace_back(cs).set_code(
+                args.emplace_back(cs).set_code(bcode_p::make_ref(
                     reinterpret_cast<bcode *>(code + 1)
-                );
+                ));
                 code += len;
                 continue;
             }
 
             case BC_INST_EMPTY | BC_RET_NULL:
-                args.emplace_back(cs).set_code(
+                args.emplace_back(cs).set_code(bcode_p::make_ref(
                     bcode_get_empty(ts.istate->empty, VAL_NULL)
-                );
+                ));
                 break;
             case BC_INST_EMPTY | BC_RET_STRING:
-                args.emplace_back(cs).set_code(
+                args.emplace_back(cs).set_code(bcode_p::make_ref(
                     bcode_get_empty(ts.istate->empty, VAL_STRING)
-                );
+                ));
                 break;
             case BC_INST_EMPTY | BC_RET_INT:
-                args.emplace_back(cs).set_code(
+                args.emplace_back(cs).set_code(bcode_p::make_ref(
                     bcode_get_empty(ts.istate->empty, VAL_INT)
-                );
+                ));
                 break;
             case BC_INST_EMPTY | BC_RET_FLOAT:
-                args.emplace_back(cs).set_code(
+                args.emplace_back(cs).set_code(bcode_p::make_ref(
                     bcode_get_empty(ts.istate->empty, VAL_FLOAT)
-                );
+                ));
                 break;
 
             case BC_INST_COMPILE: {

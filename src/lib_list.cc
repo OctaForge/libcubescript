@@ -622,7 +622,7 @@ static void init_lib_list_sort(state &gcs) {
     gcs.new_command("uniquelist", "srre", [](auto &cs, auto args, auto &res) {
         list_sort(
             cs, res, args[0].get_string(), args[1].get_ident(),
-            args[2].get_ident(), nullptr, args[3].get_code()
+            args[2].get_ident(), bcode_ref{}, args[3].get_code()
         );
     });
 }

@@ -14,7 +14,6 @@ struct LIBCUBESCRIPT_EXPORT bcode_ref {
     bcode_ref():
         p_code(nullptr)
     {}
-    bcode_ref(struct bcode *v);
     bcode_ref(bcode_ref const &v);
     bcode_ref(bcode_ref &&v):
         p_code(v.p_code)
@@ -28,11 +27,13 @@ struct LIBCUBESCRIPT_EXPORT bcode_ref {
     bcode_ref &operator=(bcode_ref &&v);
 
     bool empty() const;
-
     operator bool() const;
-    operator struct bcode *() const;
 
 private:
+    friend struct bcode_p;
+
+    bcode_ref(struct bcode *v);
+
     struct bcode *p_code;
 };
 

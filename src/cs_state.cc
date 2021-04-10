@@ -646,8 +646,7 @@ LIBCUBESCRIPT_EXPORT void state::init_libs(int libs) {
 
 LIBCUBESCRIPT_EXPORT any_value state::run(bcode_ref const &code) {
     any_value ret{*this};
-    bcode *p = code;
-    vm_exec(*p_tstate, reinterpret_cast<std::uint32_t *>(p), ret);
+    vm_exec(*p_tstate, bcode_p{code}.get()->get_raw(), ret);
     return ret;
 }
 
@@ -658,8 +657,7 @@ static any_value do_run(
     gen_state gs{ts};
     gs.gen_main(code, file);
     auto cref = gs.steal_ref();
-    bcode *p = cref;
-    vm_exec(ts, p->get_raw(), ret);
+    vm_exec(ts, bcode_p{cref}.get()->get_raw(), ret);
     return ret;
 }
 
