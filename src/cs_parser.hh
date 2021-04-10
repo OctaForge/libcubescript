@@ -71,6 +71,7 @@ struct parser_state {
     void parse_lookup(int ltype);
     bool parse_subblock();
     void parse_blockarg(int ltype);
+    bool parse_arg(int ltype, charbuf *word = nullptr);
 };
 
 } /* namespace cubescript */

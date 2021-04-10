@@ -396,10 +396,6 @@ std::string_view parser_state::get_word() {
     return std::string_view{beg, std::size_t(source - beg)};
 }
 
-static bool compilearg(
-    parser_state &gs, int wordtype, charbuf *word = nullptr
-);
-
 /* lookups that are invalid but not causing an error */
 static void lookup_invalid(gen_state &gs, int ltype) {
     switch (ltype) {
@@ -443,7 +439,7 @@ void parser_state::parse_lookup(int ltype) {
         /* $(...), $[...] */
         case '(':
         case '[':
-            if (!compilearg(*this, VAL_STRING)) {
+            if (!parse_arg(VAL_STRING)) {
                 lookup_invalid(gs, ltype);
                 return;
             }
@@ -602,10 +598,10 @@ bool parser_state::parse_subblock() {
     switch (current()) {
         /* @(...) */
         case '(':
-            return compilearg(*this, VAL_ANY);
+            return parse_arg(VAL_ANY);
         /* @[...]; like a variable lookup */
         case '[':
-            if (!compilearg(*this, VAL_STRING)) {
+            if (!parse_arg(VAL_STRING)) {
                 return false;
             }
             gs.gen_lookup_ident();
@@ -807,125 +803,127 @@ done:
     }
 }
 
-static bool compilearg(
-    parser_state &gs, int wordtype, charbuf *word
-) {
-    gs.skip_comments();
-    switch (gs.current()) {
+/* parses a single argument passed to anything
+ * this also includes left and right sides in assignments
+ * returns if we parsed something
+ */
+bool parser_state::parse_arg(int ltype, charbuf *word) {
+    /* not a part of the grammar */
+    skip_comments();
+    /* guess what our argument is */
+    switch (current()) {
+        /* a plain string literal: "..." */
         case '\"':
-            switch (wordtype) {
+            switch (ltype) {
                 case VAL_POP:
-                    gs.get_str();
+                    get_str();
                     break;
                 case VAL_COND: {
-                    size_t line = gs.current_line;
-                    auto s = gs.get_str_dup();
+                    auto line = current_line;
+                    auto s = get_str_dup();
                     if (!s.empty()) {
                         s.push_back('\0');
-                        gs.gs.gen_block(s.str_term(), line);
+                        gs.gen_block(s.str_term(), line);
                     } else {
-                        gs.gs.gen_val_null();
+                        gs.gen_val_null();
                     }
                     break;
                 }
                 case VAL_CODE: {
-                    auto s = gs.get_str_dup();
+                    auto line = current_line;
+                    auto s = get_str_dup();
                     s.push_back('\0');
-                    gs.gs.gen_block(s.str_term(), gs.current_line);
+                    gs.gen_block(s.str_term(), line);
                     break;
                 }
-                case VAL_WORD:
-                    if (word) {
-                        *word = gs.get_str_dup();
-                    }
+                /* used to begin a statement */
+                case VAL_WORD: {
+                    *word = get_str_dup();
                     break;
+                }
                 case VAL_ANY:
                 case VAL_STRING:
-                    gs.gs.gen_val_string_unescape(gs.get_str());
+                    gs.gen_val_string_unescape(get_str());
                     break;
                 default: {
-                    int line = int(gs.current_line);
-                    auto s = gs.get_str_dup();
+                    auto line = current_line;
+                    auto s = get_str_dup();
                     s.push_back('\0');
-                    gs.gs.gen_val(wordtype, s.str_term(), line);
+                    gs.gen_val(ltype, s.str_term(), line);
                     break;
                 }
             }
             return true;
+        /* a lookup: $foo */
         case '$':
-            gs.parse_lookup(wordtype);
+            parse_lookup(ltype);
             return true;
+        /* an expression: (...) */
         case '(': {
-            gs.next_char();
-            auto start = gs.gs.count();
-            gs.parse_block(VAL_ANY, ')');
-            if (gs.gs.count() > start) {
-                gs.gs.gen_push_result(wordtype);
+            next_char();
+            auto start = gs.count();
+            parse_block(VAL_ANY, ')');
+            if (gs.count() > start) {
+                /* non-empty */
+                gs.gen_push_result(ltype);
             } else {
-                gs.gs.gen_val(wordtype);
+                gs.gen_val(ltype);
                 return true;
             }
-            switch (wordtype) {
+            switch (ltype) {
                 case VAL_POP:
-                    gs.gs.gen_pop();
+                    gs.gen_pop();
                     break;
                 case VAL_COND:
-                    gs.gs.gen_compile(true);
-                    break;
                 case VAL_CODE:
-                    gs.gs.gen_compile();
+                    gs.gen_compile(ltype == VAL_COND);
                     break;
                 case VAL_IDENT:
-                    gs.gs.gen_ident_lookup();
+                    gs.gen_ident_lookup();
                     break;
             }
             return true;
         }
+        /* a block: [...] */
         case '[':
-            gs.next_char();
-            gs.parse_blockarg(wordtype);
+            next_char();
+            parse_blockarg(ltype);
             return true;
+        /* something else, presumably a word */
         default:
-            switch (wordtype) {
-                case VAL_POP: {
-                    return !gs.get_word().empty();
-                }
-                case VAL_COND: {
-                    size_t line = gs.current_line;
-                    auto s = gs.get_word();
-                    if (s.empty()) {
-                        return false;
-                    }
-                    gs.gs.gen_block(s, line);
-                    return true;
-                }
-                case VAL_CODE: {
-                    size_t line = gs.current_line;
-                    auto s = gs.get_word();
-                    if (s.empty()) {
-                        return false;
-                    }
-                    gs.gs.gen_block(s, line);
-                    return true;
-                }
-                case VAL_WORD: {
-                    auto w = gs.get_word();
-                    if (word) {
-                        word->clear();
-                        word->append(w);
-                    }
-                    return !w.empty();
-                }
-                default: {
-                    int line = int(gs.current_line);
-                    auto s = gs.get_word();
-                    if (s.empty()) {
-                        return false;
-                    }
-                    gs.gs.gen_val(wordtype, s, line);
-                    return true;
-                }
+            break;
+    }
+    switch (ltype) {
+        case VAL_POP:
+            return !get_word().empty();
+        case VAL_COND:
+        case VAL_CODE: {
+            auto line = current_line;
+            auto s = get_word();
+            if (s.empty()) {
+                return false;
             }
+            gs.gen_block(s, line);
+            return true;
+        }
+        case VAL_WORD: {
+            auto s = get_word();
+            if (s.empty()) {
+                return false;
+            }
+            word->clear();
+            word->append(s);
+            return true;
+        }
+        default: {
+            auto line = current_line;
+            auto s = get_word();
+            if (s.empty()) {
+                return false;
+            }
+            gs.gen_val(ltype, s, line);
+            return true;
+        }
     }
 }
 
@@ -940,7 +938,7 @@ static void compile_cmd(
         switch (*it) {
             case 's': /* string */
                 if (more && (!limit || (numcargs < limit))) {
-                    more = compilearg(gs, VAL_STRING);
+                    more = gs.parse_arg(VAL_STRING);
                 }
                 if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
@@ -951,7 +949,7 @@ static void compile_cmd(
                 } else if ((it + 1) == fmt.end()) {
                     int numconc = 1;
                     for (;;) {
-                        more = compilearg(gs, VAL_STRING);
+                        more = gs.parse_arg(VAL_STRING);
                         if (!more) {
                             break;
                         }
@@ -966,7 +964,7 @@ static void compile_cmd(
                 break;
             case 'i': /* integer */
                 if (more && (!limit || (numcargs < limit))) {
-                    more = compilearg(gs, VAL_INT);
+                    more = gs.parse_arg(VAL_INT);
                 }
                 if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
@@ -980,7 +978,7 @@ static void compile_cmd(
                 break;
             case 'b': /* integer, INT_MIN default */
                 if (more && (!limit || (numcargs < limit))) {
-                    more = compilearg(gs, VAL_INT);
+                    more = gs.parse_arg(VAL_INT);
                 }
                 if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
@@ -994,7 +992,7 @@ static void compile_cmd(
                 break;
             case 'f': /* float */
                 if (more && (!limit || (numcargs < limit))) {
-                    more = compilearg(gs, VAL_FLOAT);
+                    more = gs.parse_arg(VAL_FLOAT);
                 }
                 if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
@@ -1008,7 +1006,7 @@ static void compile_cmd(
                 break;
             case 'F': /* float, prev-argument default */
                 if (more && (!limit || (numcargs < limit))) {
-                    more = compilearg(gs, VAL_FLOAT);
+                    more = gs.parse_arg(VAL_FLOAT);
                 }
                 if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
@@ -1022,7 +1020,7 @@ static void compile_cmd(
                 break;
             case 't': /* any arg */
                 if (more && (!limit || (numcargs < limit))) {
-                    more = compilearg(gs, VAL_ANY);
+                    more = gs.parse_arg(VAL_ANY);
                 }
                 if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
@@ -1036,7 +1034,7 @@ static void compile_cmd(
                 break;
             case 'E': /* condition */
                 if (more && (!limit || (numcargs < limit))) {
-                    more = compilearg(gs, VAL_COND);
+                    more = gs.parse_arg(VAL_COND);
                 }
                 if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
@@ -1050,7 +1048,7 @@ static void compile_cmd(
                 break;
             case 'e': /* code */
                 if (more && (!limit || (numcargs < limit))) {
-                    more = compilearg(gs, VAL_CODE);
+                    more = gs.parse_arg(VAL_CODE);
                 }
                 if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
@@ -1064,7 +1062,7 @@ static void compile_cmd(
                 break;
             case 'r': /* ident */
                 if (more && (!limit || (numcargs < limit))) {
-                    more = compilearg(gs, VAL_IDENT);
+                    more = gs.parse_arg(VAL_IDENT);
                 }
                 if (!more || (limit && (numcargs >= limit))) {
                     if (rep) {
@@ -1088,7 +1086,7 @@ static void compile_cmd(
                 comtype = BC_INST_COM_C;
                 if (more && (!limit || (numcargs < limit))) {
                     for (;;) {
-                        more = compilearg(gs, VAL_ANY);
+                        more = gs.parse_arg(VAL_ANY);
                         if (!more || (limit && (numcargs >= limit))) {
                             break;
                         }
@@ -1101,7 +1099,7 @@ static void compile_cmd(
                 comtype = BC_INST_COM_V;
                 if (more && (!limit || (numcargs < limit))) {
                     for(;;) {
-                        more = compilearg(gs, VAL_ANY);
+                        more = gs.parse_arg(VAL_ANY);
                         if (!more || (limit && (numcargs >= limit))) {
                             break;
                         }
@@ -1128,7 +1126,7 @@ static void compile_cmd(
 static void compile_alias(parser_state &gs, alias *id, bool &more) {
     std::uint32_t numargs = 0;
     for (;;) {
-        more = compilearg(gs, VAL_ANY);
+        more = gs.parse_arg(VAL_ANY);
         if (!more) {
             break;
         }
@@ -1141,7 +1139,7 @@ static void compile_local(parser_state &gs, bool &more) {
     std::uint32_t numargs = 0;
     if (more) {
         for (;;) {
-            more = compilearg(gs, VAL_IDENT);
+            more = gs.parse_arg(VAL_IDENT);
             if (!more) {
                 break;
             }
@@ -1155,7 +1153,7 @@ static void compile_do(
     parser_state &gs, bool args, int rettype, bool &more
 ) {
     if (more) {
-        more = compilearg(gs, VAL_CODE);
+        more = gs.parse_arg(VAL_CODE);
     }
     if (!more) {
         gs.gs.gen_result_null(rettype);
@@ -1169,7 +1167,7 @@ static void compile_if(
 ) {
     if (more) {
         /* condition */
-        more = compilearg(gs, VAL_ANY);
+        more = gs.parse_arg(VAL_ANY);
     }
     if (!more) {
         /* no condition: expr is nothing */
@@ -1177,7 +1175,7 @@ static void compile_if(
     } else {
         auto tpos = gs.gs.count();
         /* true block */
-        more = compilearg(gs, VAL_CODE);
+        more = gs.parse_arg(VAL_CODE);
         if (!more) {
             /* we only had condition: expr is nothing */
             gs.gs.gen_pop();
@@ -1185,7 +1183,7 @@ static void compile_if(
         } else {
             auto fpos = gs.gs.count();
             /* false block */
-            more = compilearg(gs, VAL_CODE);
+            more = gs.parse_arg(VAL_CODE);
             if (!gs.gs.gen_if(tpos, more ? fpos : 0)) {
                 /* can't fully compile: use a call */
                 gs.gs.gen_command_call(*id, BC_INST_COM, rettype);
@@ -1200,7 +1198,7 @@ static void compile_and_or(
     std::uint32_t numargs = 0;
     if (more) {
         /* first */
-        more = compilearg(gs, VAL_COND);
+        more = gs.parse_arg(VAL_COND);
     }
     if (!more) {
         /* no first: generate true or false */
@@ -1214,7 +1212,7 @@ static void compile_and_or(
         std::size_t start = gs.gs.count(), end = start;
         for (;;) {
             /* keep going as long as we only get blocks */
-            more = compilearg(gs, VAL_COND);
+            more = gs.parse_arg(VAL_COND);
             if (!more) {
                 break;
             }
@@ -1228,7 +1226,7 @@ static void compile_and_or(
             /* last parsed thing was not a block, fall back to call */
             for (;;) {
                 /* but first, parse out the remainder of values */
-                more = compilearg(gs, VAL_COND);
+                more = gs.parse_arg(VAL_COND);
                 if (!more) {
                     break;
                 }
@@ -1248,7 +1246,7 @@ void parser_state::parse_block(int rettype, int brak) {
         skip_comments();
         idname.clear();
         size_t curline = current_line;
-        bool more = compilearg(*this, VAL_WORD, &idname);
+        bool more = parse_arg(VAL_WORD, &idname);
         if (!more) {
             goto endstatement;
         }
@@ -1274,7 +1272,7 @@ void parser_state::parse_block(int rettype, int brak) {
                         );
                         switch (id.get_type()) {
                             case ident_type::ALIAS:
-                                more = compilearg(*this, VAL_ANY);
+                                more = parse_arg(VAL_ANY);
                                 if (!more) {
                                     gs.gen_val_string();
                                 }
@@ -1309,7 +1307,7 @@ void parser_state::parse_block(int rettype, int brak) {
                         }
                         gs.gen_val_string(idname.str_term());
                     }
-                    more = compilearg(*this, VAL_ANY);
+                    more = parse_arg(VAL_ANY);
                     if (!more) {
                         gs.gen_val_string();
                     }
@@ -1321,7 +1319,7 @@ void parser_state::parse_block(int rettype, int brak) {
 noid:
             std::uint32_t numargs = 0;
             for (;;) {
-                more = compilearg(*this, VAL_ANY);
+                more = parse_arg(VAL_ANY);
                 if (!more) {
                     break;
                 }
@@ -1385,7 +1383,7 @@ noid:
                         break;
                     case ID_RESULT:
                         if (more) {
-                            more = compilearg(*this, VAL_ANY);
+                            more = parse_arg(VAL_ANY);
                         }
                         if (!more) {
                             gs.gen_result_null(rettype);
@@ -1395,7 +1393,7 @@ noid:
                         break;
                     case ID_NOT:
                         if (more) {
-                            more = compilearg(*this, VAL_ANY);
+                            more = parse_arg(VAL_ANY);
                         }
                         if (!more) {
                             gs.gen_result_true(rettype);
@@ -1436,7 +1434,7 @@ noid:
         }
 endstatement:
         if (more) {
-            while (compilearg(*this, VAL_POP));
+            while (parse_arg(VAL_POP));
         }
         switch (skip_until(")];/\n")) {
             case '\0':
