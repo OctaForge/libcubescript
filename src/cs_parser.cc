@@ -400,177 +400,8 @@ static bool compilearg(
     parser_state &gs, int wordtype, charbuf *word = nullptr
 );
 
-static void compilelookup(parser_state &gs, int ltype) {
-    charbuf lookup{gs.ts};
-    gs.next_char();
-    switch (gs.current()) {
-        case '(':
-        case '[':
-            if (!compilearg(gs, VAL_STRING)) {
-                goto invalid;
-            }
-            break;
-        case '$':
-            compilelookup(gs, VAL_STRING);
-            break;
-        case '\"':
-            lookup = gs.get_str_dup();
-            lookup.push_back('\0');
-            goto lookupid;
-        default: {
-            lookup.append(gs.get_word());
-            if (lookup.empty()) goto invalid;
-            lookup.push_back('\0');
-lookupid:
-            ident &id = gs.ts.istate->new_ident(
-                *gs.ts.pstate, lookup.str_term(), IDENT_FLAG_UNKNOWN
-            );
-            switch (id.get_type()) {
-                case ident_type::IVAR:
-                    gs.gs.gen_lookup_ivar(id, ltype);
-                    switch (ltype) {
-                        case VAL_POP:
-                            break;
-                        case VAL_CODE:
-                            gs.gs.gen_lookup_ivar(id, ltype);
-                            gs.gs.gen_compile();
-                            break;
-                        case VAL_IDENT:
-                            gs.gs.gen_lookup_ivar(id, ltype);
-                            gs.gs.gen_ident_lookup();
-                            break;
-                    }
-                    return;
-                case ident_type::FVAR:
-                    switch (ltype) {
-                        case VAL_POP:
-                            break;
-                        case VAL_CODE:
-                            gs.gs.gen_lookup_fvar(id, ltype);
-                            gs.gs.gen_compile();
-                            break;
-                        case VAL_IDENT:
-                            gs.gs.gen_lookup_fvar(id, ltype);
-                            gs.gs.gen_ident_lookup();
-                            break;
-                    }
-                    return;
-                case ident_type::SVAR:
-                    switch (ltype) {
-                        case VAL_POP:
-                            return;
-                        default:
-                            gs.gs.gen_lookup_svar(id, ltype);
-                            break;
-                    }
-                    goto done;
-                case ident_type::ALIAS:
-                    switch (ltype) {
-                        case VAL_POP:
-                            return;
-                        case VAL_COND:
-                            gs.gs.gen_lookup_alias(id);
-                            break;
-                        default:
-                            gs.gs.gen_lookup_alias(id, ltype, VAL_STRING);
-                            break;
-                    }
-                    goto done;
-                case ident_type::COMMAND: {
-                    std::uint32_t comtype = BC_INST_COM, numargs = 0;
-                    auto fmt = static_cast<command_impl &>(id).get_args();
-                    for (char c: fmt) {
-                        switch (c) {
-                            case 's':
-                                gs.gs.gen_val_string(std::string_view{});
-                                numargs++;
-                                break;
-                            case 'i':
-                                gs.gs.gen_val_integer();
-                                numargs++;
-                                break;
-                            case 'b':
-                                gs.gs.gen_val_integer(std::numeric_limits<integer_type>::min());
-                                numargs++;
-                                break;
-                            case 'f':
-                                gs.gs.gen_val_float();
-                                numargs++;
-                                break;
-                            case 'F':
-                                gs.gs.gen_dup(VAL_FLOAT);
-                                numargs++;
-                                break;
-                            case 'E':
-                            case 't':
-                                gs.gs.gen_val_null();
-                                numargs++;
-                                break;
-                            case 'e':
-                                gs.gs.gen_block();
-                                numargs++;
-                                break;
-                            case 'r':
-                                gs.gs.gen_val_ident();
-                                numargs++;
-                                break;
-                            case '$':
-                                gs.gs.gen_val_ident(id);
-                                numargs++;
-                                break;
-                            case 'N':
-                                gs.gs.gen_val_integer(-1);
-                                numargs++;
-                                break;
-                            case 'C':
-                                comtype = BC_INST_COM_C;
-                                break;
-                            case 'V':
-                                comtype = BC_INST_COM_V;
-                                break;
-                            case '1':
-                            case '2':
-                            case '3':
-                            case '4':
-                                break;
-                        }
-                    }
-                    gs.gs.gen_command_call(id, comtype, ltype, numargs);
-                    gs.gs.gen_push_result(ltype);
-                    goto done;
-                }
-                default:
-                    goto invalid;
-            }
-            gs.gs.gen_val_string(lookup.str_term());
-            break;
-        }
-    }
-    switch (ltype) {
-        case VAL_COND:
-            gs.gs.gen_lookup_ident();
-            break;
-        default:
-            gs.gs.gen_lookup_ident(ltype);
-            break;
-    }
-done:
-    switch (ltype) {
-        case VAL_POP:
-            gs.gs.gen_pop();
-            break;
-        case VAL_CODE:
-            gs.gs.gen_compile();
-            break;
-        case VAL_COND:
-            gs.gs.gen_compile(true);
-            break;
-        case VAL_IDENT:
-            gs.gs.gen_ident_lookup();
-            break;
-    }
-    return;
-invalid:
+/* lookups that are invalid but not causing an error */
+static void lookup_invalid(gen_state &gs, int ltype) {
     switch (ltype) {
         case VAL_POP:
             break;
@@ -578,12 +409,188 @@ invalid:
         case VAL_ANY:
         case VAL_WORD:
         case VAL_COND:
-            gs.gs.gen_val_null();
+            gs.gen_val_null();
             break;
         default:
-            gs.gs.gen_val(ltype);
+            gs.gen_val(ltype);
             break;
     }
+}
+
+/* on success, handles non-value return types not handled by type mask */
+static void lookup_done(gen_state &gs, int ltype) {
+    switch (ltype) {
+        case VAL_POP:
+            gs.gen_pop();
+            break;
+        case VAL_CODE:
+            gs.gen_compile();
+            break;
+        case VAL_COND:
+            gs.gen_compile(true);
+            break;
+        case VAL_IDENT:
+            gs.gen_ident_lookup();
+            break;
+    }
+}
+
+/* parses $foo */
+void parser_state::parse_lookup(int ltype) {
+    charbuf lookup{gs.ts};
+    next_char(); /* skip $ */
+    switch (current()) {
+        /* $(...), $[...] */
+        case '(':
+        case '[':
+            if (!compilearg(*this, VAL_STRING)) {
+                lookup_invalid(gs, ltype);
+                return;
+            }
+            gs.gen_lookup_ident(ltype);
+            lookup_done(gs, ltype);
+            return;
+        /* $$...; sub-lookup */
+        case '$':
+            parse_lookup(VAL_STRING);
+            gs.gen_lookup_ident(ltype);
+            lookup_done(gs, ltype);
+            return;
+        /* $"..."; like $foo but looser */
+        case '\"':
+            lookup = get_str_dup();
+            lookup.push_back('\0');
+            goto lookup_id;
+        /* any other thing, presumably a valid name */
+        default:
+            break;
+    }
+    lookup.append(get_word());
+    if (lookup.empty()) {
+        lookup_invalid(gs, ltype);
+        return;
+    }
+    lookup.push_back('\0');
+lookup_id:
+    /* fetch an ident or prepare a fresh one */
+    ident &id = ts.istate->new_ident(
+        *ts.pstate, lookup.str_term(), IDENT_FLAG_UNKNOWN
+    );
+    switch (id.get_type()) {
+        case ident_type::IVAR:
+            switch (ltype) {
+                case VAL_CODE:
+                case VAL_IDENT:
+                    gs.gen_lookup_ivar(id, ltype);
+                    break;
+                default:
+                    return;
+            }
+            lookup_done(gs, ltype);
+            return;
+        case ident_type::FVAR:
+            switch (ltype) {
+                case VAL_CODE:
+                case VAL_IDENT:
+                    gs.gen_lookup_fvar(id, ltype);
+                    break;
+                default:
+                    return;
+            }
+            lookup_done(gs, ltype);
+            return;
+        case ident_type::SVAR:
+            switch (ltype) {
+                case VAL_POP:
+                    return;
+                default:
+                    gs.gen_lookup_svar(id, ltype);
+                    break;
+            }
+            lookup_done(gs, ltype);
+            return;
+        case ident_type::ALIAS:
+            switch (ltype) {
+                case VAL_POP:
+                    return;
+                case VAL_COND:
+                    gs.gen_lookup_alias(id, ltype);
+                    break;
+                default:
+                    gs.gen_lookup_alias(id, ltype, VAL_STRING);
+            }
+            lookup_done(gs, ltype);
+            return;
+        case ident_type::COMMAND: {
+            std::uint32_t comtype = BC_INST_COM, numargs = 0;
+            auto fmt = static_cast<command_impl &>(id).get_args();
+            for (char c: fmt) {
+                switch (c) {
+                    case 's':
+                        gs.gen_val_string(std::string_view{});
+                        numargs++;
+                        break;
+                    case 'i':
+                        gs.gen_val_integer();
+                        numargs++;
+                        break;
+                    case 'b':
+                        gs.gen_val_integer(
+                            std::numeric_limits<integer_type>::min()
+                        );
+                        numargs++;
+                        break;
+                    case 'f':
+                        gs.gen_val_float();
+                        numargs++;
+                        break;
+                    case 'F':
+                        gs.gen_dup(VAL_FLOAT);
+                        numargs++;
+                        break;
+                    case 'E':
+                    case 't':
+                        gs.gen_val_null();
+                        numargs++;
+                        break;
+                    case 'e':
+                        gs.gen_block();
+                        numargs++;
+                        break;
+                    case 'r':
+                        gs.gen_val_ident();
+                        numargs++;
+                        break;
+                    case '$':
+                        gs.gen_val_ident(id);
+                        numargs++;
+                        break;
+                    case 'N':
+                        gs.gen_val_integer(-1);
+                        numargs++;
+                        break;
+                    case 'C':
+                        comtype = BC_INST_COM_C;
+                        break;
+                    case 'V':
+                        comtype = BC_INST_COM_V;
+                        break;
+                    case '1':
+                    case '2':
+                    case '3':
+                    case '4':
+                        break;
+                }
+            }
+            gs.gen_command_call(id, comtype, ltype, numargs);
+            gs.gen_push_result(ltype);
+            lookup_done(gs, ltype);
+            return;
+        }
+        default:
+            break;
+    }
+    lookup_invalid(gs, ltype);
 }
 
 static bool compileblocksub(parser_state &gs) {
@@ -815,7 +822,7 @@ static bool compilearg(
             }
             return true;
         case '$':
-            compilelookup(gs, wordtype);
+            gs.parse_lookup(wordtype);
             return true;
         case '(': {
             gs.next_char();

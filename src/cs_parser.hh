@@ -67,6 +67,8 @@ struct parser_state {
     char skip_until(char cf);
 
     void skip_comments();
+
+    void parse_lookup(int ltype);
 };
 
 } /* namespace cubescript */
