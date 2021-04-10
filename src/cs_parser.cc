@@ -396,13 +396,6 @@ std::string_view parser_state::get_word() {
     return std::string_view{beg, std::size_t(source - beg)};
 }
 
-static inline int ret_code(int type, int def = 0) {
-    if (type >= VAL_ANY) {
-        return def;
-    }
-    return type << BC_INST_RET;
-}
-
 static bool compilearg(
     parser_state &gs, int wordtype, charbuf *word = nullptr
 );
@@ -710,7 +703,7 @@ static void compileblockmain(parser_state &gs, int wordtype) {
                 case VAL_COND: {
                     auto ret = gs.gs.gen_block(std::string_view{
                         start, gs.send
-                    }, curline, BC_RET_NULL, ']');
+                    }, curline, VAL_NULL, ']');
                     gs.source = ret.second.data();
                     gs.send = ret.second.data() + ret.second.size();
                     gs.current_line = ret.first;

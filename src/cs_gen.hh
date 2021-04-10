@@ -99,7 +99,7 @@ struct gen_state {
     void gen_block();
     std::pair<std::size_t, std::string_view> gen_block(
         std::string_view v, std::size_t line,
-        int ret_type = BC_RET_NULL, int term = '\0'
+        int ltype = VAL_NULL, int term = '\0'
     );
 
 private:

@@ -475,7 +475,7 @@ void gen_state::gen_block() {
 }
 
 std::pair<std::size_t, std::string_view> gen_state::gen_block(
-    std::string_view v, std::size_t line, int ret_type, int term
+    std::string_view v, std::size_t line, int ltype, int term
 ) {
     auto csz = code.size();
     code.push_back(BC_INST_BLOCK);
@@ -495,13 +495,13 @@ std::pair<std::size_t, std::string_view> gen_state::gen_block(
         ret_line = ps.current_line;
     }
     if (code.size() > (csz + 2)) {
-        code.push_back(BC_INST_EXIT | ret_type);
+        code.push_back(BC_INST_EXIT | ret_code(ltype));
         /* encode the block size in BC_INST_BLOCK */
         code[csz] |= (std::uint32_t(code.size() - csz - 1) << 8);
     } else {
         /* empty code */
         code.resize(csz);
-        code.push_back(BC_INST_EMPTY | ret_type);
+        code.push_back(BC_INST_EMPTY | ret_code(ltype));
     }
     return std::make_pair(ret_line, v);
 }
