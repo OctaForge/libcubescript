@@ -20,6 +20,10 @@ std::size_t gen_state::count() const {
     return code.size();
 }
 
+std::uint32_t gen_state::peek(std::size_t idx) const {
+    return code[idx];
+}
+
 bcode_ref gen_state::steal_ref() {
     auto *cp = bcode_alloc(ts.istate, code.size());
     std::memcpy(cp, code.data(), code.size() * sizeof(std::uint32_t));
@@ -48,6 +52,71 @@ void gen_state::gen_force(int ltype) {
 
 void gen_state::gen_not(int ltype) {
     code.push_back(BC_INST_NOT | ret_code(ltype));
+}
+
+bool gen_state::gen_if(std::size_t tpos, std::size_t fpos, int ltype) {
+    auto inst1 = code[tpos];
+    auto op1 = inst1 & ~BC_INST_RET_MASK;
+    auto tlen = std::uint32_t(fpos - tpos - 1);
+    if (!fpos) {
+        if (is_block(tpos, fpos)) {
+            code[tpos] = (tlen << 8) | BC_INST_JUMP_B | BC_INST_FLAG_FALSE;
+            code[tpos + 1] = BC_INST_ENTER_RESULT;
+            code[tpos + tlen] = (
+                code[tpos + tlen] & ~BC_INST_RET_MASK
+            ) | ret_code(ltype);
+            return true;
+        }
+        gen_block();
+    } else {
+        auto inst2 = code[fpos];
+        auto flen = std::uint32_t(count() - fpos - 1);
+        if (is_block(fpos)) {
+            if (is_block(tpos, fpos)) {
+                code[tpos] = (std::uint32_t(fpos - tpos) << 8)
+                    | BC_INST_JUMP_B | BC_INST_FLAG_FALSE;
+                code[tpos + 1] = BC_INST_ENTER_RESULT;
+                code[tpos + tlen] = (
+                    code[tpos + tlen] & ~BC_INST_RET_MASK
+                ) | ret_code(ltype);
+                code[fpos] = (flen << 8) | BC_INST_JUMP;
+                code[fpos + 1] = BC_INST_ENTER_RESULT;
+                code[fpos + flen] = (
+                    code[fpos + flen] & ~BC_INST_RET_MASK
+                ) | ret_code(ltype);
+                return true;
+            } else if (op1 == BC_INST_EMPTY) {
+                code[tpos] = BC_INST_NULL | (inst2 & BC_INST_RET_MASK);
+                code[fpos] = (flen << 8) | BC_INST_JUMP_B | BC_INST_FLAG_TRUE;
+                code[fpos + 1] = BC_INST_ENTER_RESULT;
+                code[fpos + flen] = (
+                    code[fpos + flen] & ~BC_INST_RET_MASK
+                ) | ret_code(ltype);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void gen_state::gen_and_or(bool is_or, std::size_t start, int ltype) {
+    std::uint32_t op;
+    if (is_or) {
+        op = (BC_INST_JUMP_RESULT | BC_INST_FLAG_TRUE);
+    } else {
+        op = (BC_INST_JUMP_RESULT | BC_INST_FLAG_FALSE);
+    }
+    code.push_back(op);
+    std::size_t end = count();
+    while ((start + 1) < end) {
+        uint32_t len = code[start] >> 8;
+        code[start] = std::uint32_t((end - start - 1) << 8) | op;
+        code[start + 1] = BC_INST_ENTER;
+        code[start + len] = (
+            code[start + len] & ~BC_INST_RET_MASK
+        ) | ret_code(ltype);
+        start += len + 1;
+    }
 }
 
 void gen_state::gen_val_null() {
@@ -390,6 +459,15 @@ void gen_state::gen_main_float(float_type v) {
     gen_val_float(v);
     gen_result();
     code.push_back(BC_INST_EXIT);
+}
+
+bool gen_state::is_block(std::size_t idx, std::size_t epos) const {
+    if (!epos) {
+        epos = count();
+    }
+    return ((code[idx] & ~BC_INST_RET_MASK) == (
+        BC_INST_BLOCK | (std::uint32_t(epos - idx - 1) << 8)
+    ));
 }
 
 void gen_state::gen_block() {

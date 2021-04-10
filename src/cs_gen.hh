@@ -15,7 +15,6 @@ namespace cubescript {
 
 struct gen_state {
     thread_state &ts;
-    valbuf<std::uint32_t> code;
 
     gen_state() = delete;
     gen_state(thread_state &tsr):
@@ -23,6 +22,7 @@ struct gen_state {
     {}
 
     std::size_t count() const;
+    std::uint32_t peek(std::size_t idx) const;
 
     bcode_ref steal_ref();
 
@@ -33,6 +33,8 @@ struct gen_state {
     void gen_force(int ltype);
 
     void gen_not(int ltype = 0);
+    bool gen_if(std::size_t tpos, std::size_t fpos, int ltype = 0);
+    void gen_and_or(bool is_or, std::size_t start, int ltype = 0);
 
     void gen_val_null();
     void gen_result_null(int ltype = 0);
@@ -92,11 +94,16 @@ struct gen_state {
     void gen_main_integer(integer_type v);
     void gen_main_float(float_type v);
 
+    bool is_block(std::size_t idx, std::size_t epos = 0) const;
+
     void gen_block();
     std::pair<std::size_t, std::string_view> gen_block(
         std::string_view v, std::size_t line,
         int ret_type = BC_RET_NULL, int term = '\0'
     );
+
+private:
+    valbuf<std::uint32_t> code;
 };
 
 } /* namespace cubescript */

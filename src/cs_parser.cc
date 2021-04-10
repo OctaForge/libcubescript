@@ -1137,62 +1137,28 @@ static void compile_if(
     parser_state &gs, ident *id, bool &more, int rettype
 ) {
     if (more) {
+        /* condition */
         more = compilearg(gs, VAL_ANY);
     }
     if (!more) {
+        /* no condition: expr is nothing */
         gs.gs.gen_result_null(rettype);
     } else {
-        std::size_t start1 = gs.gs.code.size();
+        auto tpos = gs.gs.count();
+        /* true block */
         more = compilearg(gs, VAL_CODE);
         if (!more) {
+            /* we only had condition: expr is nothing */
             gs.gs.gen_pop();
             gs.gs.gen_result_null(rettype);
         } else {
-            std::size_t start2 = gs.gs.code.size();
+            auto fpos = gs.gs.count();
+            /* false block */
             more = compilearg(gs, VAL_CODE);
-            std::uint32_t inst1 = gs.gs.code[start1];
-            std::uint32_t op1 = inst1 & ~BC_INST_RET_MASK;
-            auto len1 = std::uint32_t(start2 - (start1 + 1));
-            if (!more) {
-                if (op1 == (BC_INST_BLOCK | (len1 << 8))) {
-                    gs.gs.code[start1] = (len1 << 8) | BC_INST_JUMP_B | BC_INST_FLAG_FALSE;
-                    gs.gs.code[start1 + 1] = BC_INST_ENTER_RESULT;
-                    gs.gs.code[start1 + len1] = (
-                        gs.gs.code[start1 + len1] & ~BC_INST_RET_MASK
-                    ) | ret_code(rettype);
-                    return;
-                }
-                gs.gs.gen_block();
-            } else {
-                std::uint32_t inst2 = gs.gs.code[start2];
-                std::uint32_t op2 = inst2 & ~BC_INST_RET_MASK;
-                auto len2 = std::uint32_t(gs.gs.code.size() - (start2 + 1));
-                if (op2 == (BC_INST_BLOCK | (len2 << 8))) {
-                    if (op1 == (BC_INST_BLOCK | (len1 << 8))) {
-                        gs.gs.code[start1] = (std::uint32_t(start2 - start1) << 8)
-                            | BC_INST_JUMP_B | BC_INST_FLAG_FALSE;
-                        gs.gs.code[start1 + 1] = BC_INST_ENTER_RESULT;
-                        gs.gs.code[start1 + len1] = (
-                            gs.gs.code[start1 + len1] & ~BC_INST_RET_MASK
-                        ) | ret_code(rettype);
-                        gs.gs.code[start2] = (len2 << 8) | BC_INST_JUMP;
-                        gs.gs.code[start2 + 1] = BC_INST_ENTER_RESULT;
-                        gs.gs.code[start2 + len2] = (
-                            gs.gs.code[start2 + len2] & ~BC_INST_RET_MASK
-                        ) | ret_code(rettype);
-                        return;
-                    } else if (op1 == (BC_INST_EMPTY | (len1 << 8))) {
-                        gs.gs.code[start1] = BC_INST_NULL | (inst2 & BC_INST_RET_MASK);
-                        gs.gs.code[start2] = (len2 << 8) | BC_INST_JUMP_B | BC_INST_FLAG_TRUE;
-                        gs.gs.code[start2 + 1] = BC_INST_ENTER_RESULT;
-                        gs.gs.code[start2 + len2] = (
-                            gs.gs.code[start2 + len2] & ~BC_INST_RET_MASK
-                        ) | ret_code(rettype);
-                        return;
-                    }
-                }
+            if (!gs.gs.gen_if(tpos, more ? fpos : 0)) {
+                /* can't fully compile: use a call */
+                gs.gs.gen_command_call(*id, BC_INST_COM, rettype);
             }
-            gs.gs.code.push_back(BC_INST_COM | ret_code(rettype) | (id->get_index() << 8));
         }
     }
 }
@@ -1202,9 +1168,11 @@ static void compile_and_or(
 ) {
     std::uint32_t numargs = 0;
     if (more) {
+        /* first */
         more = compilearg(gs, VAL_COND);
     }
     if (!more) {
+        /* no first: generate true or false */
         if (ident_p{*id}.impl().p_type == ID_AND) {
             gs.gs.gen_result_true(rettype);
         } else {
@@ -1212,47 +1180,33 @@ static void compile_and_or(
         }
     } else {
         numargs++;
-        std::size_t start = gs.gs.code.size(), end = start;
+        std::size_t start = gs.gs.count(), end = start;
         for (;;) {
+            /* keep going as long as we only get blocks */
             more = compilearg(gs, VAL_COND);
             if (!more) {
                 break;
             }
             numargs++;
-            if ((gs.gs.code[end] & ~BC_INST_RET_MASK) != (
-                BC_INST_BLOCK | (uint32_t(gs.gs.code.size() - (end + 1)) << 8)
-            )) {
+            if (!gs.gs.is_block(end)) {
                 break;
             }
-            end = gs.gs.code.size();
+            end = gs.gs.count();
         }
         if (more) {
+            /* last parsed thing was not a block, fall back to call */
             for (;;) {
+                /* but first, parse out the remainder of values */
                 more = compilearg(gs, VAL_COND);
                 if (!more) {
                     break;
                 }
                 numargs++;
             }
-            gs.gs.code.push_back(
-                BC_INST_COM_V | ret_code(rettype) | (id->get_index() << 8)
-            );
-            gs.gs.code.push_back(numargs);
+            gs.gs.gen_command_call(*id, BC_INST_COM_V, rettype, numargs);
         } else {
-            std::uint32_t op = (ident_p{*id}.impl().p_type == ID_AND)
-                ? (BC_INST_JUMP_RESULT | BC_INST_FLAG_FALSE)
-                : (BC_INST_JUMP_RESULT | BC_INST_FLAG_TRUE);
-            gs.gs.code.push_back(op);
-            end = gs.gs.code.size();
-            while ((start + 1) < end) {
-                uint32_t len = gs.gs.code[start] >> 8;
-                gs.gs.code[start] = std::uint32_t((end - (start + 1)) << 8) | op;
-                gs.gs.code[start + 1] = BC_INST_ENTER;
-                gs.gs.code[start + len] = (
-                    gs.gs.code[start + len] & ~BC_INST_RET_MASK
-                ) | ret_code(rettype);
-                start += len + 1;
-            }
+            /* all blocks and nothing left */
+            gs.gs.gen_and_or((ident_p{*id}.impl().p_type != ID_AND), start);
         }
     }
 }
