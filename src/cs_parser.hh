@@ -42,7 +42,7 @@ struct parser_state {
 
     std::string_view get_word();
 
-    void parse_block(int ret_type, int term = '\0');
+    void parse_block(int ltype, int term = '\0');
 
     void next_char() {
         if (source == send) {
@@ -77,6 +77,9 @@ struct parser_state {
         command_impl *id, ident &self, int rettype, std::uint32_t limit = 0
     );
     bool parse_call_alias(alias &id);
+    bool parse_call_id(ident &id, int ltype);
+
+    bool parse_assign(charbuf &idname, int ltype, int term, bool &noass);
 
     bool parse_id_local();
     bool parse_id_do(bool args, int ltype);

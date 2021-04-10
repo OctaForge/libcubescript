@@ -307,6 +307,9 @@ bool is_valid_name(std::string_view s) {
     }
 }
 
+/* parse out a quoted string; return the raw string, without the quotes
+ * current parser state will be after the final quote
+ */
 std::string_view parser_state::get_str() {
     size_t nl;
     char const *beg = source;
@@ -318,12 +321,18 @@ std::string_view parser_state::get_str() {
     return ret.substr(1, ret.size() - 2);
 }
 
+/* like the above, but unescapes the string and dups it as a buffer */
 charbuf parser_state::get_str_dup() {
     charbuf buf{ts};
     unescape_string(std::back_inserter(buf), get_str());
     return buf;
 }
 
+/* a simple name, used for @foo in macro substitutions
+ *
+ * consists of an alpha character (or '_') followed
+ * by alphanumeric characters (or more '_')
+ */
 std::string_view parser_state::read_macro_name() {
     char const *op = source;
     char c = current();
@@ -336,6 +345,7 @@ std::string_view parser_state::read_macro_name() {
     return std::string_view{op, std::size_t(source - op)};
 }
 
+/* advance the parser until we reach any of the given chars, then stop at it */
 char parser_state::skip_until(std::string_view chars) {
     char c = current();
     while (c && (chars.find(c) == std::string_view::npos)) {
@@ -345,6 +355,7 @@ char parser_state::skip_until(std::string_view chars) {
     return c;
 }
 
+/* advance the parser until we reach the given character, then stop at it */
 char parser_state::skip_until(char cf) {
     char c = current();
     while (c && (c != cf)) {
@@ -382,8 +393,13 @@ void parser_state::skip_comments() {
         if ((current() != '/') || (current(1) != '/')) {
             return;
         }
-        while (current() != '\n') {
-            next_char();
+        for (;;) {
+            auto c = current();
+            if (c && (c != '\n')) {
+                next_char();
+            } else {
+                break;
+            }
         }
     }
 }
@@ -1234,220 +1250,282 @@ bool parser_state::parse_id_and_or(ident &id, int ltype) {
     return more;
 }
 
-void parser_state::parse_block(int rettype, int brak) {
-    charbuf idname{gs.ts};
-    for (;;) {
-        skip_comments();
-        idname.clear();
-        size_t curline = current_line;
-        bool more = parse_arg(VAL_WORD, &idname);
-        if (!more) {
-            goto endstatement;
+static bool finish_statement(parser_state &ps, bool more, int term) {
+    /* skip through any remaining args in the statement */
+    if (more) {
+        while (ps.parse_arg(VAL_POP)) {}
+    }
+    /* handle special characters */
+    switch (ps.skip_until(")];/\n")) {
+        /* EOS */
+        case '\0':
+            if (ps.current() != term) {
+                throw error{*ps.ts.pstate, "missing \"%c\"", char(term)};
+            }
+            return false;
+        /* terminating parens/brackets */
+        case ')':
+        case ']':
+            /* if the expected terminator, finish normally */
+            if (ps.current() == term) {
+                ps.next_char();
+                return false;
+            }
+            throw error{*ps.ts.pstate, "unexpected \"%c\"", ps.current()};
+        /* potential comment */
+        case '/':
+            ps.next_char();
+            if (ps.current() == '/') {
+                ps.skip_until('\n');
+            }
+            return finish_statement(ps, false, term);
+        /* next statement */
+        default:
+            ps.next_char();
+            break;
+    }
+    /* advance to next statement */
+    return true;
+}
+
+bool parser_state::parse_call_id(ident &id, int ltype) {
+    switch (ident_p{id}.impl().p_type) {
+        case ID_ALIAS:
+            return parse_call_alias(static_cast<alias &>(id));
+        case ID_COMMAND:
+            return parse_call_command(
+                static_cast<command_impl *>(&id), id, ltype
+            );
+        case ID_LOCAL:
+            return parse_id_local();
+        case ID_DO:
+            return parse_id_do(false, ltype);
+        case ID_DOARGS:
+            return parse_id_do(true, ltype);
+        case ID_IF:
+            return parse_id_if(id, ltype);
+        case ID_BREAK:
+            gs.gen_break();
+            return true;
+        case ID_CONTINUE:
+            gs.gen_continue();
+            return true;
+        case ID_RESULT: {
+            bool more = parse_arg(VAL_ANY);
+            if (!more) {
+                gs.gen_result_null(ltype);
+            } else {
+                gs.gen_result(ltype);
+            }
+            return more;
         }
-        skip_comments();
-        if (current() == '=') {
-            switch (current(1)) {
-                case '/':
-                    if (current(2) != '/') {
-                        break;
+        case ID_NOT: {
+            bool more = parse_arg(VAL_ANY);
+            if (!more) {
+                gs.gen_result_true(ltype);
+            } else {
+                gs.gen_not(ltype);
+            }
+            return more;
+        }
+        case ID_AND:
+        case ID_OR:
+            return parse_id_and_or(id, ltype);
+        case ID_IVAR: {
+            auto *hid = ts.istate->cmd_ivar;
+            return parse_call_command(
+                static_cast<command_impl *>(hid), id, ltype
+            );
+        }
+        case ID_FVAR: {
+            auto *hid = ts.istate->cmd_fvar;
+            return parse_call_command(
+                static_cast<command_impl *>(hid), id, ltype
+            );
+        }
+        case ID_SVAR: {
+            auto *hid = ts.istate->cmd_svar;
+            return parse_call_command(
+                static_cast<command_impl *>(hid), id, ltype
+            );
+        }
+        default:
+            /* unreachable */
+            break;
+    }
+    return true;
+}
+
+/* generates a call to an unknown entity on the stack */
+static bool parse_no_id(parser_state &ps, int term) {
+    std::uint32_t nargs = 0;
+    /* the entity is already on the stack, parse out any arguments to it */
+    while (ps.parse_arg(VAL_ANY)) {
+        ++nargs;
+    }
+    ps.gs.gen_call(nargs);
+    return finish_statement(ps, false, term);
+}
+
+bool parser_state::parse_assign(
+    charbuf &idname, int ltype, int term, bool &noass
+) {
+    /* lookahead */
+    switch (current(1)) {
+        /* the = can be followed by a bunch of stuff
+         * some of these result in empty assignments
+         */
+        case '/': /* a comment maybe? */
+            if (current(2) != '/') {
+                /* not a comment */
+                noass = true;
+                return true;
+            }
+            [[fallthrough]];
+        case ' ':
+        case '\t':
+        case '\r':
+        case '\n':
+        case '\0': {
+            /* skip = */
+            next_char();
+            /* we had a name on the left hand side */
+            if (!idname.empty()) {
+                idname.push_back('\0');
+                /* fetch an ident or make up a fresh one (unknown alias) */
+                ident &id = ts.istate->new_ident(
+                    *ts.pstate, idname.str_term(), IDENT_FLAG_UNKNOWN
+                );
+                /* check what we're assigning */
+                switch (id.get_type()) {
+                    case ident_type::ALIAS: {
+                        /* alias assignment: parse out any one argument */
+                        bool more = parse_arg(VAL_ANY);
+                        if (!more) {
+                            gs.gen_val_string();
+                        }
+                        gs.gen_assign_alias(id);
+                        return finish_statement(*this, more, term);
                     }
-                    [[fallthrough]];
-                case ';':
-                case ' ':
-                case '\t':
-                case '\r':
-                case '\n':
-                case '\0':
-                    next_char();
-                    if (!idname.empty()) {
-                        idname.push_back('\0');
-                        ident &id = ts.istate->new_ident(
-                            *ts.pstate, idname.str_term(), IDENT_FLAG_UNKNOWN
+                    case ident_type::IVAR: {
+                        auto *hid = ts.istate->cmd_ivar;
+                        bool more = parse_call_command(
+                            static_cast<command_impl *>(hid),
+                            id, ltype, 1
                         );
-                        switch (id.get_type()) {
-                            case ident_type::ALIAS:
-                                more = parse_arg(VAL_ANY);
-                                if (!more) {
-                                    gs.gen_val_string();
-                                }
-                                gs.gen_assign_alias(id);
-                                goto endstatement;
-                            case ident_type::IVAR: {
-                                auto *hid = ts.istate->cmd_ivar;
-                                more = parse_call_command(
-                                    static_cast<command_impl *>(hid),
-                                    id, rettype, 1
-                                );
-                                goto endstatement;
-                            }
-                            case ident_type::FVAR: {
-                                auto *hid = ts.istate->cmd_fvar;
-                                more = parse_call_command(
-                                    static_cast<command_impl *>(hid),
-                                    id, rettype, 1
-                                );
-                                goto endstatement;
-                            }
-                            case ident_type::SVAR: {
-                                auto *hid = ts.istate->cmd_svar;
-                                more = parse_call_command(
-                                    static_cast<command_impl *>(hid),
-                                    id, rettype, 1
-                                );
-                                goto endstatement;
-                            }
-                            default:
-                                break;
-                        }
-                        gs.gen_val_string(idname.str_term());
+                        return finish_statement(*this, more, term);
                     }
-                    more = parse_arg(VAL_ANY);
-                    if (!more) {
-                        gs.gen_val_string();
+                    case ident_type::FVAR: {
+                        auto *hid = ts.istate->cmd_fvar;
+                        bool more = parse_call_command(
+                            static_cast<command_impl *>(hid),
+                            id, ltype, 1
+                        );
+                        return finish_statement(*this, more, term);
                     }
-                    gs.gen_assign();
-                    goto endstatement;
-            }
-        }
-        if (idname.empty()) {
-noid:
-            std::uint32_t numargs = 0;
-            for (;;) {
-                more = parse_arg(VAL_ANY);
-                if (!more) {
-                    break;
-                }
-                ++numargs;
-            }
-            gs.gen_call(numargs);
-        } else {
-            idname.push_back('\0');
-            ident *id = ts.pstate->get_ident(idname.str_term());
-            if (!id) {
-                if (is_valid_name(idname.str_term())) {
-                    gs.gen_val_string(idname.str_term());
-                    goto noid;
-                }
-                switch (rettype) {
-                    case VAL_ANY: {
-                        std::string_view end = idname.str_term();
-                        integer_type val = parse_int(end, &end);
-                        if (!end.empty()) {
-                            gs.gen_val_string(idname.str_term());
-                        } else {
-                            gs.gen_val_integer(val);
-                        }
-                        break;
+                    case ident_type::SVAR: {
+                        auto *hid = ts.istate->cmd_svar;
+                        bool more = parse_call_command(
+                            static_cast<command_impl *>(hid),
+                            id, ltype, 1
+                        );
+                        return finish_statement(*this, more, term);
                     }
                     default:
-                        gs.gen_val(rettype, idname.str_term(), int(curline));
                         break;
                 }
-                gs.gen_result();
-            } else {
-                switch (ident_p{*id}.impl().p_type) {
-                    case ID_ALIAS:
-                        more = parse_call_alias(static_cast<alias &>(*id));
-                        break;
-                    case ID_COMMAND:
-                        more = parse_call_command(
-                            static_cast<command_impl *>(id), *id, rettype
-                        );
-                        break;
-                    case ID_LOCAL:
-                        more = parse_id_local();
-                        break;
-                    case ID_DO:
-                        more = parse_id_do(false, rettype);
-                        break;
-                    case ID_DOARGS:
-                        more = parse_id_do(true, rettype);
-                        break;
-                    case ID_IF:
-                        more = parse_id_if(*id, rettype);
-                        break;
-                    case ID_BREAK:
-                        gs.gen_break();
-                        break;
-                    case ID_CONTINUE:
-                        gs.gen_continue();
-                        break;
-                    case ID_RESULT:
-                        if (more) {
-                            more = parse_arg(VAL_ANY);
-                        }
-                        if (!more) {
-                            gs.gen_result_null(rettype);
-                        } else {
-                            gs.gen_result(rettype);
-                        }
-                        break;
-                    case ID_NOT:
-                        if (more) {
-                            more = parse_arg(VAL_ANY);
-                        }
-                        if (!more) {
-                            gs.gen_result_true(rettype);
-                        } else {
-                            gs.gen_not(rettype);
-                        }
-                        break;
-                    case ID_AND:
-                    case ID_OR:
-                        more = parse_id_and_or(*id, rettype);
-                        break;
-                    case ID_IVAR: {
-                        auto *hid = ts.istate->cmd_ivar;
-                        more = parse_call_command(
-                            static_cast<command_impl *>(hid), *id, rettype
-                        );
-                        break;
-                    }
-                    case ID_FVAR: {
-                        auto *hid = ts.istate->cmd_fvar;
-                        more = parse_call_command(
-                            static_cast<command_impl *>(hid), *id, rettype
-                        );
-                        break;
-                    }
-                    case ID_SVAR: {
-                        auto *hid = ts.istate->cmd_svar;
-                        more = parse_call_command(
-                            static_cast<command_impl *>(hid), *id, rettype
-                        );
-                        break;
-                    }
-                }
+                gs.gen_val_string(idname.str_term());
+            }
+            /* unknown thing, make it the VM's problem */
+            bool more = parse_arg(VAL_ANY);
+            if (!more) {
+                gs.gen_val_string();
+            }
+            gs.gen_assign();
+            return finish_statement(*this, more, term);
+        }
+        /* not followed by any of these: not an assignment */
+        default:
+            noass = true;
+            return true;
+    }
+    return true;
+}
+
+void parser_state::parse_block(int ltype, int term) {
+    charbuf idname{gs.ts};
+    /* the main statement parse loop */
+    for (;;) {
+        /* first, skip any comments in the way and prepare the env */
+        skip_comments();
+        idname.clear();
+        std::size_t curline = current_line;
+        bool more = true;
+        /* parse the left hand side of the statement */
+        if (!parse_arg(VAL_WORD, &idname)) {
+            if (!finish_statement(*this, more, term)) {
+                return;
+            }
+            continue;
+        }
+        skip_comments();
+        /* potentially an assignment */
+        if (current() == '=') {
+            bool noass = false;
+            if (!parse_assign(idname, ltype, term, noass)) {
+                /* terminated */
+                return;
+            }
+            if (!noass) {
+                /* was actually an assignment */
+                continue;
             }
         }
-endstatement:
-        if (more) {
-            while (parse_arg(VAL_POP));
+        /* we didn't get a name to look up: treat as unknown */
+        if (idname.empty()) {
+            if (!parse_no_id(*this, term)) {
+                return;
+            }
+            continue;
         }
-        switch (skip_until(")];/\n")) {
-            case '\0':
-                if (current() != brak) {
-                    throw error{*ts.pstate, "missing \"%c\"", char(brak)};
+        idname.push_back('\0');
+        auto idstr = idname.str_term();
+        ident *id = ts.pstate->get_ident(idstr);
+        if (!id) {
+            /* no such ident exists but the name is valid, which means
+             * it's a syntactically ok call, make it the VM's problem
+             */
+            if (is_valid_name(idstr)) {
+                /* VAL_WORD does not codegen, put the name on the stack */
+                gs.gen_val_string(idstr);
+                if (!parse_no_id(*this, term)) {
                     return;
                 }
-                return;
-            case ')':
-            case ']':
-                if (current() == brak) {
-                    next_char();
-                    return;
+                continue;
+            }
+            /* not a valid command name: treat like an expression */
+            switch (ltype) {
+                case VAL_ANY: {
+                    auto end = idstr;
+                    auto val = parse_int(idstr, &end);
+                    if (!end.empty()) {
+                        gs.gen_val_string(idstr);
+                    } else {
+                        gs.gen_val_integer(val);
+                    }
+                    break;
                 }
-                throw error{*ts.pstate, "unexpected \"%c\"", current()};
-                return;
-            case '/':
-                next_char();
-                if (current() == '/') {
-                    skip_until('\n');
-                }
-                goto endstatement;
-            default:
-                next_char();
-                break;
+                default:
+                    gs.gen_val(ltype, idname.str_term(), int(curline));
+                    break;
+            }
+            gs.gen_result();
+            continue;
+        }
+        /* the ident exists; treat like a call according to its type */
+        more = parse_call_id(*id, ltype);
+        if (!finish_statement(*this, more, term)) {
+            return;
         }
     }
 }
