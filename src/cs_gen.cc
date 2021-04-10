@@ -431,10 +431,17 @@ void gen_state::gen_main(std::string_view v, std::string_view src) {
     parser_state ps{ts, *this};
     ps.source = v.data();
     ps.send = v.data() + v.size();
-    ps.src_name = src;
-    code.push_back(BC_INST_START);
-    ps.parse_block(VAL_ANY);
-    code.push_back(BC_INST_EXIT);
+    auto psrc = ts.source;
+    ts.source = src;
+    try {
+        code.push_back(BC_INST_START);
+        ps.parse_block(VAL_ANY);
+        code.push_back(BC_INST_EXIT);
+    } catch (...) {
+        ts.source = psrc;
+        throw;
+    }
+    ts.source = psrc;
 }
 
 void gen_state::gen_main_null() {

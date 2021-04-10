@@ -2,7 +2,6 @@
 
 #include <algorithm>
 
-#include "cs_parser.hh"
 #include "cs_thread.hh"
 
 namespace cubescript {
@@ -49,26 +48,25 @@ LIBCUBESCRIPT_EXPORT char *error::request_buf(
 ) {
     auto &ts = state_p{cs}.ts();
     charbuf &cb = ts.errbuf;
-    parser_state *gs = ts.cstate;
     cb.clear();
     std::size_t sz = 0;
-    if (gs) {
+    if (ts.current_line) {
         /* we can attach line number */
-        sz = gs->src_name.size() + 32;
+        sz = ts.source.size() + 32;
         for (;;) {
             /* we are using so the buffer tracks the elements and therefore
              * does not wipe them when we attempt to reserve more capacity
              */
             cb.resize(sz);
             int nsz;
-            if (!gs->src_name.empty()) {
+            if (!ts.source.empty()) {
                 nsz = std::snprintf(
                     cb.data(), sz, "%.*s:%zu: ",
-                    int(gs->src_name.size()), gs->src_name.data(),
-                    gs->current_line
+                    int(ts.source.size()), ts.source.data(),
+                    *ts.current_line
                 );
             } else {
-                nsz = std::snprintf(cb.data(), sz, "%zu: ", gs->current_line);
+                nsz = std::snprintf(cb.data(), sz, "%zu: ", *ts.current_line);
             }
             if (nsz <= 0) {
                 throw internal_error{"format error"};

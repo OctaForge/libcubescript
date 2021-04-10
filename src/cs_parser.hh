@@ -23,26 +23,18 @@ bool is_valid_name(std::string_view input);
 struct parser_state {
     thread_state &ts;
     gen_state &gs;
-    parser_state *prevps;
-    bool parsing = true;
     char const *source, *send;
     std::size_t current_line;
-    std::string_view src_name;
 
     parser_state() = delete;
     parser_state(thread_state &tsr, gen_state &gsr):
-        ts{tsr}, gs{gsr}, prevps{tsr.cstate},
-        source{}, send{}, current_line{1}, src_name{}
+        ts{tsr}, gs{gsr}, source{}, send{}, current_line{1}
     {
-        tsr.cstate = this;
+        ts.current_line = &current_line;
     }
 
     ~parser_state() {
-        if (!parsing) {
-            return;
-        }
-        ts.cstate = prevps;
-        parsing = false;
+        ts.current_line = nullptr;
     }
 
     std::string_view get_str();

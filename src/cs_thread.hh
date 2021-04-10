@@ -11,8 +11,6 @@
 
 namespace cubescript {
 
-struct parser_state;
-
 struct thread_state {
     using astack_allocator = std_allocator<std::pair<int const, alias_stack>>;
     /* thread call stack */
@@ -21,8 +19,6 @@ struct thread_state {
     internal_state *istate{};
     /* the public state interface */
     state *pstate{};
-    /* current codegen state for diagnostics */
-    parser_state *cstate{};
     /* VM stack */
     valbuf<any_value> vmstack;
     /* ident stack */
@@ -45,6 +41,9 @@ struct thread_state {
     std::size_t run_depth = 0;
     /* loop nesting level */
     std::size_t loop_level = 0;
+    /* debug info */
+    std::string_view source{};
+    std::size_t *current_line = nullptr;
 
     thread_state(internal_state *cs);
 
