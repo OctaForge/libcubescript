@@ -593,7 +593,10 @@ lookup_id:
     lookup_invalid(gs, ltype);
 }
 
-/* parses @... macro substitutions within block strings */
+/* parses @... macro substitutions within block strings
+ *
+ * only called from within parse_blockarg
+ */
 bool parser_state::parse_subblock() {
     charbuf lookup{ts};
     switch (current()) {
@@ -646,130 +649,158 @@ lookup_id:
     return true;
 }
 
-static void compileblockmain(parser_state &gs, int wordtype) {
-    char const *start = gs.source;
-    size_t curline = gs.current_line;
-    int concs = 0;
-    for (int brak = 1; brak;) {
-        switch (gs.skip_until("@\"/[]")) {
+/* [...] argument parser */
+void parser_state::parse_blockarg(int ltype) {
+    char const *start = source;
+    /* current bracket level */
+    std::size_t blevel = 1;
+    std::size_t curline = current_line;
+    /* number of strings to concatenate */
+    std::size_t concs = 0;
+    while (blevel > 0) {
+        /* skip until a significant character */
+        switch (skip_until("@\"/[]")) {
+            /* EOS */
             case '\0':
-                throw error{*gs.ts.pstate, "missing \"]\""};
-                return;
+                throw error{*ts.pstate, "missing \"]\""};
+            /* inner string, parse through it */
             case '\"':
-                gs.get_str();
+                get_str();
                 break;
+            /* possibly a comment */
             case '/':
-                gs.next_char();
-                if (gs.current() == '/') {
-                    gs.skip_until('\n');
+                next_char();
+                if (current() == '/') {
+                    /* yup, just go until we reach a newline */
+                    skip_until('\n');
                 }
                 break;
+            /* keep it nice and balanced */
             case '[':
-                gs.next_char();
-                brak++;
+                next_char();
+                ++blevel;
                 break;
             case ']':
-                gs.next_char();
-                brak--;
+                next_char();
+                --blevel;
                 break;
+            /* macro substitution */
             case '@': {
-                char const *esc = gs.source;
-                int level = 0;
-                while (gs.current() == '@') {
-                    ++level;
-                    gs.next_char();
+                char const *end = source;
+                std::size_t alevel = 0;
+                while (current() == '@') {
+                    ++alevel;
+                    next_char();
                 }
-                if (brak > level) {
-                    continue;
-                } else if (brak < level) {
-                    throw error{*gs.ts.pstate, "too many @s"};
-                    return;
+                if (blevel > alevel) {
+                    /* deeper block level than macro level
+                     * we can't substitute at this point so leave it alone
+                     */
+                     continue;
                 }
-                gs.gs.gen_val_block(std::string_view{start, esc});
-                concs++;
-                if (gs.parse_subblock()) {
-                    concs++;
+                if (blevel < alevel) {
+                    /* shallower block level than macro level
+                     * this is an error, we can't substitute this
+                     */
+                     throw error{*ts.pstate, "too many @s"};
+                }
+                /* generate a block string for everything until now */
+                if (start != end) {
+                    gs.gen_val_block(std::string_view{start, end});
+                    ++concs;
+                }
+                if (parse_subblock()) {
+                    ++concs;
                 }
                 if (concs) {
-                    start = gs.source;
-                    curline = gs.current_line;
+                    start = source;
+                    curline = current_line;
                 }
                 break;
             }
+            /* actually unreachable, we handle all incl. EOS */
             default:
-                gs.next_char();
+                next_char();
                 break;
         }
     }
-    if (gs.source - 1 > start) {
-        if (!concs) {
-            switch (wordtype) {
-                case VAL_POP:
-                    return;
-                case VAL_CODE:
-                case VAL_COND: {
-                    auto ret = gs.gs.gen_block(std::string_view{
-                        start, gs.send
-                    }, curline, VAL_NULL, ']');
-                    gs.source = ret.second.data();
-                    gs.send = ret.second.data() + ret.second.size();
-                    gs.current_line = ret.first;
-                    return;
-                }
-                case VAL_IDENT:
-                    gs.gs.gen_val_ident(std::string_view{
-                        start, std::size_t((gs.source - 1) - start)
-                    });
-                    return;
+    if ((source - 1) <= start) {
+        /* possibly empty */
+        goto done;
+    }
+    /* non-empty */
+    if (!concs) {
+        /* one contiguous string */
+        switch (ltype) {
+            case VAL_POP:
+                /* ignore */
+                return;
+            case VAL_CODE:
+            case VAL_COND: {
+                /* compile */
+                auto ret = gs.gen_block(
+                    std::string_view{start, send}, curline, VAL_NULL, ']'
+                );
+                source = ret.second.data();
+                send = source + ret.second.size();
+                current_line = ret.first;
+                return;
             }
-        }
-        gs.gs.gen_val_block(std::string_view{start, gs.source - 1});
-        if (concs > 1) {
-            concs++;
+            case VAL_IDENT:
+                gs.gen_val_ident(std::string_view{start, source - 1});
+                return;
+            default:
+                gs.gen_val_block(std::string_view{start, source - 1});
+                goto done;
         }
     }
-    gs.gs.gen_concat(concs, false, wordtype);
-    switch (wordtype) {
+    gs.gen_val_block(std::string_view{start, source - 1});
+    /* concat the pieces */
+    gs.gen_concat(++concs, false, ltype);
+done:
+    bool got_val = (concs || ((source - 1) > start));
+    /* handle the result */
+    switch (ltype) {
         case VAL_POP:
-            if (concs || gs.source - 1 > start) {
-                gs.gs.gen_pop();
+            if (got_val) {
+                gs.gen_pop();
             }
             break;
         case VAL_COND:
-            if (!concs && gs.source - 1 <= start) {
-                gs.gs.gen_val_null();
+            if (!got_val) {
+                gs.gen_val_null();
             } else {
-                gs.gs.gen_compile(true);
+                gs.gen_compile(true);
             }
             break;
         case VAL_CODE:
-            if (!concs && gs.source - 1 <= start) {
-                gs.gs.gen_block();
+            if (!got_val) {
+                gs.gen_block();
             } else {
-                gs.gs.gen_compile();
+                gs.gen_compile();
             }
             break;
         case VAL_IDENT:
-            if (!concs && gs.source - 1 <= start) {
-                gs.gs.gen_val_ident();
+            if (!got_val) {
+                gs.gen_val_ident();
             } else {
-                gs.gs.gen_ident_lookup();
+                gs.gen_ident_lookup();
             }
             break;
         case VAL_STRING:
         case VAL_NULL:
         case VAL_ANY:
         case VAL_WORD:
-            if (!concs && gs.source - 1 <= start) {
-                gs.gs.gen_val_string();
+            if (!got_val) {
+                gs.gen_val_string();
             }
             break;
         default:
             if (!concs) {
-                if (gs.source - 1 <= start) {
-                    gs.gs.gen_val(wordtype);
+                if ((source - 1) <= start) {
+                    gs.gen_val(ltype);
                 } else {
-                    gs.gs.gen_force(wordtype);
+                    gs.gen_force(ltype);
                 }
             }
             break;
@@ -852,7 +883,7 @@ static bool compilearg(
         }
         case '[':
             gs.next_char();
-            compileblockmain(gs, wordtype);
+            gs.parse_blockarg(wordtype);
             return true;
         default:
             switch (wordtype) {
