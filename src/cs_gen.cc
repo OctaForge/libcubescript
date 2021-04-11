@@ -383,9 +383,13 @@ void gen_state::gen_concat(std::size_t concs, bool space, int ltype) {
         return;
     }
     if (space) {
-        code.push_back(BC_INST_CONC | ret_code(ltype) | (concs << 8));
+        code.push_back(
+            BC_INST_CONC | ret_code(ltype) | std::uint32_t(concs << 8)
+        );
     } else {
-        code.push_back(BC_INST_CONC_W | ret_code(ltype) | (concs << 8));
+        code.push_back(
+            BC_INST_CONC_W | ret_code(ltype) | std::uint32_t(concs << 8)
+        );
     }
 }
 
