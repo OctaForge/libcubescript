@@ -8,6 +8,8 @@
 
 namespace cubescript {
 
+struct internal_state;
+
 struct bcode {
     std::uint32_t init;
 

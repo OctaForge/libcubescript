@@ -7,7 +7,6 @@
 
 namespace cubescript {
 
-struct internal_state;
 struct ident;
 
 struct LIBCUBESCRIPT_EXPORT bcode_ref {
@@ -42,7 +41,6 @@ struct LIBCUBESCRIPT_EXPORT string_ref {
     friend struct string_pool;
 
     string_ref() = delete;
-    string_ref(internal_state *cs, std::string_view str);
     string_ref(state &cs, std::string_view str);
 
     string_ref(string_ref const &ref);

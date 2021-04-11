@@ -122,12 +122,6 @@ std::string_view str_managed_view(char const *str) {
 
 /* strref implementation */
 
-LIBCUBESCRIPT_EXPORT string_ref::string_ref(
-    internal_state *cs, std::string_view str
-) {
-    p_str = cs->strman->add(str);
-}
-
 LIBCUBESCRIPT_EXPORT string_ref::string_ref(state &cs, std::string_view str) {
     p_str = state_p{cs}.ts().istate->strman->add(str);
 }

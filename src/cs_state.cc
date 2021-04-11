@@ -63,7 +63,7 @@ ident &internal_state::new_ident(state &cs, std::string_view name, int flags) {
             };
         }
         auto *inst = create<alias_impl>(
-            cs, string_ref{this, name}, flags
+            cs, string_ref{cs, name}, flags
         );
         id = add_ident(inst, inst);
     }
@@ -280,7 +280,8 @@ LIBCUBESCRIPT_EXPORT void state::destroy() {
     p_tstate = nullptr;
 }
 
-state::state(internal_state *s) {
+state::state(void *is) {
+    auto *s = static_cast<internal_state *>(is);
     p_tstate = s->create<thread_state>(s);
     p_tstate->pstate = this;
     p_tstate->istate = s;
@@ -422,8 +423,7 @@ LIBCUBESCRIPT_EXPORT integer_var &state::new_ivar(
     std::string_view n, integer_type v, bool read_only, var_type vtp
 ) {
     auto *iv = p_tstate->istate->create<ivar_impl>(
-        string_ref{p_tstate->istate, n}, v,
-        var_flags(read_only, vtp)
+        string_ref{*this, n}, v, var_flags(read_only, vtp)
     );
     try {
         var_name_check(*this, p_tstate->istate->get_ident(n), n);
@@ -439,8 +439,7 @@ LIBCUBESCRIPT_EXPORT float_var &state::new_fvar(
     std::string_view n, float_type v, bool read_only, var_type vtp
 ) {
     auto *fv = p_tstate->istate->create<fvar_impl>(
-        string_ref{p_tstate->istate, n}, v,
-        var_flags(read_only, vtp)
+        string_ref{*this, n}, v, var_flags(read_only, vtp)
     );
     try {
         var_name_check(*this, p_tstate->istate->get_ident(n), n);
@@ -456,8 +455,7 @@ LIBCUBESCRIPT_EXPORT string_var &state::new_svar(
     std::string_view n, std::string_view v, bool read_only, var_type vtp
 ) {
     auto *sv = p_tstate->istate->create<svar_impl>(
-        string_ref{p_tstate->istate, n}, string_ref{p_tstate->istate, v},
-        var_flags(read_only, vtp)
+        string_ref{*this, n}, string_ref{*this, v}, var_flags(read_only, vtp)
     );
     try {
         var_name_check(*this, p_tstate->istate->get_ident(n), n);
@@ -517,7 +515,7 @@ LIBCUBESCRIPT_EXPORT void state::set_alias(
         throw error{*this, "cannot alias invalid name '%s'", name.data()};
     } else {
         auto *a = p_tstate->istate->create<alias_impl>(
-            *this, string_ref{p_tstate->istate, name}, std::move(v),
+            *this, string_ref{*this, name}, std::move(v),
             p_tstate->ident_flags
         );
         p_tstate->istate->add_ident(a, a);
@@ -588,7 +586,8 @@ LIBCUBESCRIPT_EXPORT command &state::new_command(
     }
     auto &is = *p_tstate->istate;
     auto *cmd = is.create<command_impl>(
-        string_ref{&is, name}, string_ref{&is, args}, nargs, std::move(func)
+        string_ref{*this, name}, string_ref{*this, args},
+        nargs, std::move(func)
     );
     /* we can set these builtins */
     command **bptrs[] = {

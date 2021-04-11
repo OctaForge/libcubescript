@@ -127,6 +127,8 @@ struct LIBCUBESCRIPT_EXPORT state {
 private:
     friend struct state_p;
 
+    LIBCUBESCRIPT_LOCAL state(void *is);
+
     hook_func set_call_hook(hook_func func);
 
     command &new_command(
@@ -138,8 +140,6 @@ private:
     ) {
         return static_cast<state *>(data)->alloc(p, os, ns);
     }
-
-    LIBCUBESCRIPT_LOCAL state(internal_state *s);
 
     void *alloc(void *ptr, size_t olds, size_t news);
 
