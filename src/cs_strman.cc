@@ -6,6 +6,7 @@
 namespace cubescript {
 
 struct string_ref_state {
+    internal_state *state;
     std::size_t length;
     std::size_t refcount;
 };
@@ -97,6 +98,7 @@ char *string_pool::alloc_buf(std::size_t len) const {
     auto mem = cstate->alloc(nullptr, 0, len + sizeof(string_ref_state) + 1);
     /* write length and initial refcount */
     auto *sst = static_cast<string_ref_state *>(mem);
+    sst->state = cstate;
     sst->length = len;
     sst->refcount = 1;
     /* pre-terminate */
@@ -112,43 +114,39 @@ char *string_pool::alloc_buf(std::size_t len) const {
 
 LIBCUBESCRIPT_EXPORT string_ref::string_ref(
     internal_state *cs, std::string_view str
-): p_state{cs}
-{
+) {
     p_str = cs->strman->add(str);
 }
 
-LIBCUBESCRIPT_EXPORT string_ref::string_ref(state &cs, std::string_view str):
-    p_state{state_p{cs}.ts().istate}
-{
-    p_str = p_state->strman->add(str);
+LIBCUBESCRIPT_EXPORT string_ref::string_ref(state &cs, std::string_view str) {
+    p_str = state_p{cs}.ts().istate->strman->add(str);
 }
 
 LIBCUBESCRIPT_EXPORT string_ref::string_ref(string_ref const &ref):
-    p_state{ref.p_state}, p_str{ref.p_str}
+    p_str{ref.p_str}
 {
-    p_state->strman->ref(p_str);
+    get_ref_state(p_str)->state->strman->ref(p_str);
 }
 
 /* this can be used by friends to do quick string_ref creation */
-LIBCUBESCRIPT_EXPORT string_ref::string_ref(char const *p, internal_state *cs):
-    p_state{cs}
-{
-    p_str = p_state->strman->ref(p);
+LIBCUBESCRIPT_EXPORT string_ref::string_ref(
+    char const *p, internal_state *cs
+) {
+    p_str = cs->strman->ref(p);
 }
 
 LIBCUBESCRIPT_EXPORT string_ref::~string_ref() {
-    p_state->strman->unref(p_str);
+    get_ref_state(p_str)->state->strman->unref(p_str);
 }
 
 LIBCUBESCRIPT_EXPORT string_ref &string_ref::operator=(string_ref const &ref) {
     p_str = ref.p_str;
-    p_state = ref.p_state;
-    p_state->strman->ref(p_str);
+    get_ref_state(p_str)->state->strman->ref(p_str);
     return *this;
 }
 
 LIBCUBESCRIPT_EXPORT string_ref::operator std::string_view() const {
-    return p_state->strman->get(p_str);
+    return get_ref_state(p_str)->state->strman->get(p_str);
 }
 
 LIBCUBESCRIPT_EXPORT bool string_ref::operator==(string_ref const &s) const {

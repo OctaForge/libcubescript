@@ -169,7 +169,7 @@ state::state(alloc_func func, void *data) {
                 std::printf("%s = [%s]\n", sv->get_name().data(), val.data());
             }
         } else {
-            sv->set_value(cs, args[1].get_string());
+            sv->set_value(cs, args[1].get_string(cs));
         }
     });
 
@@ -342,7 +342,7 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
     switch (id.get_type()) {
         case ident_type::ALIAS: {
             auto &ast = p_tstate->get_astack(static_cast<alias *>(&id));
-            ast.node->val_s.set_string("");
+            ast.node->val_s.set_string("", *this);
             ast.node->code = bcode_ref{};
             ast.flags &= ~IDENT_FLAG_OVERRIDDEN;
             return;
@@ -645,7 +645,7 @@ LIBCUBESCRIPT_EXPORT void state::init_libs(int libs) {
 }
 
 LIBCUBESCRIPT_EXPORT any_value state::run(bcode_ref const &code) {
-    any_value ret{*this};
+    any_value ret{};
     vm_exec(*p_tstate, bcode_p{code}.get()->get_raw(), ret);
     return ret;
 }
@@ -653,7 +653,7 @@ LIBCUBESCRIPT_EXPORT any_value state::run(bcode_ref const &code) {
 static any_value do_run(
     thread_state &ts, std::string_view file, std::string_view code
 ) {
-    any_value ret{*ts.pstate};
+    any_value ret{};
     gen_state gs{ts};
     gs.gen_main(code, file);
     auto cref = gs.steal_ref();
@@ -674,7 +674,7 @@ LIBCUBESCRIPT_EXPORT any_value state::run(
 LIBCUBESCRIPT_EXPORT any_value state::run(
     ident &id, std::span<any_value> args
 ) {
-    any_value ret{*this};
+    any_value ret{};
     std::size_t nargs = args.size();
     run_depth_guard level{*p_tstate}; /* incr and decr on scope exit */
     switch (id.get_type()) {
@@ -689,7 +689,7 @@ LIBCUBESCRIPT_EXPORT any_value state::run(
                 stack_guard s{*p_tstate}; /* restore after call */
                 auto &targs = p_tstate->vmstack;
                 auto osz = targs.size();
-                targs.resize(osz + cimpl.get_num_args(), any_value{*this});
+                targs.resize(osz + cimpl.get_num_args());
                 for (std::size_t i = 0; i < nargs; ++i) {
                     targs[osz + i] = args[i];
                 }
@@ -711,7 +711,7 @@ LIBCUBESCRIPT_EXPORT any_value state::run(
             auto osz = targs.size();
             auto anargs = std::size_t(cimp->get_num_args());
             targs.resize(
-                osz + std::max(args.size(), anargs + 1), any_value{*this}
+                osz + std::max(args.size(), anargs + 1)
             );
             for (std::size_t i = 0; i < nargs; ++i) {
                 targs[osz + i + 1] = args[i];
@@ -728,7 +728,7 @@ LIBCUBESCRIPT_EXPORT any_value state::run(
             auto osz = targs.size();
             auto anargs = std::size_t(cimp->get_num_args());
             targs.resize(
-                osz + std::max(args.size(), anargs + 1), any_value{*this}
+                osz + std::max(args.size(), anargs + 1)
             );
             for (std::size_t i = 0; i < nargs; ++i) {
                 targs[osz + i + 1] = args[i];
@@ -745,7 +745,7 @@ LIBCUBESCRIPT_EXPORT any_value state::run(
             auto osz = targs.size();
             auto anargs = std::size_t(cimp->get_num_args());
             targs.resize(
-                osz + std::max(args.size(), anargs + 1), any_value{*this}
+                osz + std::max(args.size(), anargs + 1)
             );
             for (std::size_t i = 0; i < nargs; ++i) {
                 targs[osz + i + 1] = args[i];
@@ -790,7 +790,7 @@ LIBCUBESCRIPT_EXPORT loop_state state::run_loop(
 }
 
 LIBCUBESCRIPT_EXPORT loop_state state::run_loop(bcode_ref const &code) {
-    any_value ret{*this};
+    any_value ret{};
     return run_loop(code, ret);
 }
 

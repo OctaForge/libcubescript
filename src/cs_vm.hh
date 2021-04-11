@@ -35,7 +35,7 @@ struct stack_guard {
     {}
 
     ~stack_guard() {
-        tsp->vmstack.resize(oldtop, any_value{*tsp->pstate});
+        tsp->vmstack.resize(oldtop);
     }
 
     stack_guard(stack_guard const &) = delete;
@@ -55,7 +55,7 @@ static void call_with_args(thread_state &ts, F body) {
             auto &ast = ts.get_astack(
                 static_cast<alias *>(ts.istate->identmap[i])
             );
-            auto &st = ts.idstack.emplace_back(*ts.pstate);
+            auto &st = ts.idstack.emplace_back();
             st.next = ast.node;
             ast.node = ast.node->next;
         }
@@ -84,7 +84,7 @@ static void call_with_args(thread_state &ts, F body) {
             }
             mask2 >>= 1;
         }
-        ts.idstack.resize(noff, ident_stack{*ts.pstate});
+        ts.idstack.resize(noff);
     };
     try {
         body();

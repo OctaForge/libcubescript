@@ -78,7 +78,6 @@ private:
     /* for internal use only */
     string_ref(char const *p, internal_state *cs);
 
-    internal_state *p_state;
     char const *p_str;
 };
 
@@ -87,11 +86,9 @@ enum class value_type {
 };
 
 struct LIBCUBESCRIPT_EXPORT any_value {
-    any_value() = delete;
-    ~any_value();
+    any_value();
 
-    any_value(state &);
-    any_value(internal_state &);
+    ~any_value();
 
     any_value(any_value const &);
     any_value(any_value &&v);
@@ -103,13 +100,13 @@ struct LIBCUBESCRIPT_EXPORT any_value {
 
     void set_integer(integer_type val);
     void set_float(float_type val);
-    void set_string(std::string_view val);
+    void set_string(std::string_view val, state &cs);
     void set_string(string_ref const &val);
     void set_none();
     void set_code(bcode_ref const &val);
     void set_ident(ident *val);
 
-    string_ref get_string() const;
+    string_ref get_string(state &cs) const;
     integer_type get_integer() const;
     float_type get_float() const;
     bcode_ref get_code() const;
@@ -122,27 +119,15 @@ struct LIBCUBESCRIPT_EXPORT any_value {
     void force_plain();
     float_type force_float();
     integer_type force_integer();
-    std::string_view force_string();
+    std::string_view force_string(state &cs);
     bcode_ref force_code(state &cs);
     ident &force_ident(state &cs);
 
 private:
-    template<typename T>
-    struct stor_t {
-        internal_state *state;
-        T val;
-    };
-
-    internal_state *get_state() const {
-        return std::launder(
-            reinterpret_cast<stor_t<void *> const *>(&p_stor)
-        )->state;
-    }
-
     std::aligned_union_t<1,
-        stor_t<integer_type>,
-        stor_t<float_type>,
-        stor_t<void *>,
+        integer_type,
+        float_type,
+        void *,
         string_ref
     > p_stor;
     value_type p_type;

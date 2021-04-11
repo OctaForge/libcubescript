@@ -35,9 +35,9 @@ svar_impl::svar_impl(string_ref name, string_ref v, int fl):
 {}
 
 alias_impl::alias_impl(
-    state &cs, string_ref name, string_ref a, int fl
+    state &, string_ref name, string_ref a, int fl
 ):
-    ident_impl{ident_type::ALIAS, name, fl}, p_initial{cs}
+    ident_impl{ident_type::ALIAS, name, fl}, p_initial{}
 {
     p_initial.val_s.set_string(a);
 }
@@ -45,31 +45,31 @@ alias_impl::alias_impl(
 alias_impl::alias_impl(
     state &cs, string_ref name, std::string_view a, int fl
 ):
-    ident_impl{ident_type::ALIAS, name, fl}, p_initial{cs}
+    ident_impl{ident_type::ALIAS, name, fl}, p_initial{}
 {
-    p_initial.val_s.set_string(a);
+    p_initial.val_s.set_string(a, cs);
 }
 
-alias_impl::alias_impl(state &cs, string_ref name, integer_type a, int fl):
-    ident_impl{ident_type::ALIAS, name, fl}, p_initial{cs}
+alias_impl::alias_impl(state &, string_ref name, integer_type a, int fl):
+    ident_impl{ident_type::ALIAS, name, fl}, p_initial{}
 {
     p_initial.val_s.set_integer(a);
 }
 
-alias_impl::alias_impl(state &cs, string_ref name, float_type a, int fl):
-    ident_impl{ident_type::ALIAS, name, fl}, p_initial{cs}
+alias_impl::alias_impl(state &, string_ref name, float_type a, int fl):
+    ident_impl{ident_type::ALIAS, name, fl}, p_initial{}
 {
     p_initial.val_s.set_float(a);
 }
 
-alias_impl::alias_impl(state &cs, string_ref name, int fl):
-    ident_impl{ident_type::ALIAS, name, fl}, p_initial{cs}
+alias_impl::alias_impl(state &, string_ref name, int fl):
+    ident_impl{ident_type::ALIAS, name, fl}, p_initial{}
 {
     p_initial.val_s.set_none();
 }
 
-alias_impl::alias_impl(state &cs, string_ref name, any_value v, int fl):
-    ident_impl{ident_type::ALIAS, name, fl}, p_initial{cs}
+alias_impl::alias_impl(state &, string_ref name, any_value v, int fl):
+    ident_impl{ident_type::ALIAS, name, fl}, p_initial{}
 {
     p_initial.val_s = v.get_plain();
 }
@@ -87,7 +87,7 @@ void var_changed(thread_state &ts, ident *id) {
         return;
     }
     auto *cimp = static_cast<command_impl *>(cid);
-    any_value val{*ts.pstate};
+    any_value val{};
     val.set_ident(id);
     cimp->call(ts, std::span<any_value>{&val, 1}, val);
 }
@@ -111,10 +111,10 @@ void command_impl::call(
     try {
         p_cb_cftv(*ts.pstate, args, ret);
     } catch (...) {
-        ts.idstack.resize(idstsz, ident_stack{*ts.pstate});
+        ts.idstack.resize(idstsz);
         throw;
     }
-    ts.idstack.resize(idstsz, ident_stack{*ts.pstate});
+    ts.idstack.resize(idstsz);
 }
 
 bool ident_is_used_arg(ident *id, thread_state &ts) {
@@ -137,7 +137,7 @@ void alias_stack::set_arg(alias *a, thread_state &ts, any_value &v) {
     if (ident_is_used_arg(a, ts)) {
         node->code = bcode_ref{};
     } else {
-        push(ts.idstack.emplace_back(*ts.pstate));
+        push(ts.idstack.emplace_back());
         ts.callstack->usedargs[a->get_index()] = true;
     }
     node->val_s = std::move(v);
@@ -470,7 +470,7 @@ LIBCUBESCRIPT_EXPORT alias_local::alias_local(state &cs, ident *a) {
     auto &ts = state_p{cs}.ts();
     p_alias = static_cast<alias *>(a);
     auto &ast = ts.get_astack(p_alias);
-    ast.push(ts.idstack.emplace_back(cs));
+    ast.push(ts.idstack.emplace_back());
     p_sp = &ast;
     ast.flags &= ~IDENT_FLAG_UNKNOWN;
 }

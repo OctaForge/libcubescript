@@ -29,7 +29,7 @@ struct ident_stack {
     any_value val_s;
     bcode_ref code;
     ident_stack *next;
-    ident_stack(state &cs): val_s{cs}, code{}, next{nullptr} {}
+    ident_stack(): val_s{}, code{}, next{nullptr} {}
 };
 
 struct alias_stack {

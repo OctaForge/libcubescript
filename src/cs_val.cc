@@ -54,25 +54,19 @@ static std::string_view floatstr(float_type v, charbuf &buf) {
     return std::string_view{buf.data(), std::size_t(n)};
 }
 
-template<typename T>
-struct stor_priv_t {
-    internal_state *state;
-    T val;
-};
-
 template<typename T, typename U>
 static inline T &csv_get(U *stor) {
     /* ugly, but internal and unlikely to cause bugs */
-    return const_cast<T &>(std::launder(
-        reinterpret_cast<stor_priv_t<T> const *>(stor)
-    )->val);
+    return const_cast<T &>(*std::launder(
+        reinterpret_cast<T const *>(stor)
+    ));
 }
 
 template<typename T>
 static inline void csv_cleanup(value_type tv, T *stor) {
     switch (tv) {
         case value_type::STRING:
-            std::launder(reinterpret_cast<string_ref *>(stor))->~string_ref();
+            csv_get<string_ref>(stor).~string_ref();
             break;
         case value_type::CODE: {
             bcode_unref(csv_get<uint32_t *>(stor));
@@ -83,23 +77,19 @@ static inline void csv_cleanup(value_type tv, T *stor) {
     }
 }
 
-any_value::any_value(state &st): any_value(*state_p{st}.ts().istate) {}
-
-any_value::any_value(internal_state &st):
-    p_stor(), p_type(value_type::NONE)
-{
-    std::launder(reinterpret_cast<stor_priv_t<void *> *>(&p_stor))->state = &st;
-}
+any_value::any_value():
+    p_stor{}, p_type{value_type::NONE}
+{}
 
 any_value::~any_value() {
     csv_cleanup(p_type, &p_stor);
 }
 
-any_value::any_value(any_value const &v): any_value(*v.get_state()) {
+any_value::any_value(any_value const &v): any_value{} {
     *this = v;
 }
 
-any_value::any_value(any_value &&v): any_value(*v.get_state()) {
+any_value::any_value(any_value &&v): any_value{} {
     *this = std::move(v);
 }
 
@@ -115,8 +105,8 @@ any_value &any_value::operator=(any_value const &v) {
             break;
         case value_type::STRING:
             p_type = value_type::STRING;
-            new (&p_stor) string_ref{
-                *std::launder(reinterpret_cast<string_ref const *>(&v.p_stor))
+            new (&csv_get<string_ref>(&p_stor)) string_ref{
+                csv_get<string_ref>(&v.p_stor)
             };
             break;
         case value_type::CODE:
@@ -150,15 +140,15 @@ void any_value::set_float(float_type val) {
     csv_get<float_type>(&p_stor) = val;
 }
 
-void any_value::set_string(std::string_view val) {
+void any_value::set_string(std::string_view val, state &cs) {
     csv_cleanup(p_type, &p_stor);
-    new (&p_stor) string_ref{get_state(), val};
+    new (&csv_get<string_ref>(&p_stor)) string_ref{cs, val};
     p_type = value_type::STRING;
 }
 
 void any_value::set_string(string_ref const &val) {
     csv_cleanup(p_type, &p_stor);
-    new (&p_stor) string_ref{val};
+    new (&csv_get<string_ref>(&p_stor)) string_ref{val};
     p_type = value_type::STRING;
 }
 
@@ -207,9 +197,7 @@ float_type any_value::force_float() {
             rf = float_type(csv_get<integer_type>(&p_stor));
             break;
         case value_type::STRING:
-            rf = parse_float(
-                *std::launder(reinterpret_cast<string_ref const *>(&p_stor))
-            );
+            rf = parse_float(csv_get<string_ref>(&p_stor));
             break;
         case value_type::FLOAT:
             return csv_get<float_type>(&p_stor);
@@ -227,9 +215,7 @@ integer_type any_value::force_integer() {
             ri = integer_type(std::floor(csv_get<float_type>(&p_stor)));
             break;
         case value_type::STRING:
-            ri = parse_int(
-                *std::launder(reinterpret_cast<string_ref const *>(&p_stor))
-            );
+            ri = parse_int(csv_get<string_ref>(&p_stor));
             break;
         case value_type::INTEGER:
             return csv_get<integer_type>(&p_stor);
@@ -240,8 +226,8 @@ integer_type any_value::force_integer() {
     return ri;
 }
 
-std::string_view any_value::force_string() {
-    charbuf rs{get_state()};
+std::string_view any_value::force_string(state &cs) {
+    charbuf rs{cs};
     std::string_view str;
     switch (get_type()) {
         case value_type::FLOAT:
@@ -251,15 +237,13 @@ std::string_view any_value::force_string() {
             str = intstr(csv_get<integer_type>(&p_stor), rs);
             break;
         case value_type::STRING:
-            return *std::launder(reinterpret_cast<string_ref const *>(&p_stor));
+            return csv_get<string_ref>(&p_stor);
         default:
             str = rs.str();
             break;
     }
-    set_string(str);
-    return std::string_view(*std::launder(
-        reinterpret_cast<string_ref const *>(&p_stor)
-    ));
+    set_string(str, cs);
+    return csv_get<string_ref>(&p_stor);
 }
 
 bcode_ref any_value::force_code(state &cs) {
@@ -270,7 +254,7 @@ bcode_ref any_value::force_code(state &cs) {
             break;
     }
     gen_state gs{state_p{cs}.ts()};
-    gs.gen_main(get_string());
+    gs.gen_main(get_string(cs));
     auto bc = gs.steal_ref();
     set_code(bc);
     return bc;
@@ -284,7 +268,7 @@ ident &any_value::force_ident(state &cs) {
             break;
     }
     auto &id = state_p{cs}.ts().istate->new_ident(
-        cs, get_string(), IDENT_FLAG_UNKNOWN
+        cs, get_string(cs), IDENT_FLAG_UNKNOWN
     );
     set_ident(&id);
     return id;
@@ -297,9 +281,7 @@ integer_type any_value::get_integer() const {
         case value_type::INTEGER:
             return csv_get<integer_type>(&p_stor);
         case value_type::STRING:
-            return parse_int(
-                *std::launder(reinterpret_cast<string_ref const *>(&p_stor))
-            );
+            return parse_int(csv_get<string_ref>(&p_stor));
         default:
             break;
     }
@@ -313,9 +295,7 @@ float_type any_value::get_float() const {
         case value_type::INTEGER:
             return float_type(csv_get<integer_type>(&p_stor));
         case value_type::STRING:
-            return parse_float(
-                *std::launder(reinterpret_cast<string_ref const *>(&p_stor))
-            );
+            return parse_float(csv_get<string_ref>(&p_stor));
         default:
             break;
     }
@@ -336,26 +316,26 @@ ident *any_value::get_ident() const {
     return csv_get<ident *>(&p_stor);
 }
 
-string_ref any_value::get_string() const {
+string_ref any_value::get_string(state &cs) const {
     switch (get_type()) {
         case value_type::STRING:
-            return *std::launder(reinterpret_cast<string_ref const *>(&p_stor));
+            return csv_get<string_ref>(&p_stor);
         case value_type::INTEGER: {
-            charbuf rs{get_state()};
+            charbuf rs{cs};
             return string_ref{
-                get_state(), intstr(csv_get<integer_type>(&p_stor), rs)
+                cs, intstr(csv_get<integer_type>(&p_stor), rs)
             };
         }
         case value_type::FLOAT: {
-            charbuf rs{get_state()};
+            charbuf rs{cs};
             return string_ref{
-                get_state(), floatstr(csv_get<float_type>(&p_stor), rs)
+                cs, floatstr(csv_get<float_type>(&p_stor), rs)
             };
         }
         default:
             break;
     }
-    return string_ref{get_state(), ""};
+    return string_ref{cs, ""};
 }
 
 any_value any_value::get_plain() const {
@@ -367,7 +347,7 @@ any_value any_value::get_plain() const {
         default:
             break;
     }
-    return any_value{*get_state()};
+    return any_value{};
 }
 
 bool any_value::get_bool() const {
@@ -377,9 +357,7 @@ bool any_value::get_bool() const {
         case value_type::INTEGER:
             return csv_get<integer_type>(&p_stor) != 0;
         case value_type::STRING: {
-            std::string_view s = *std::launder(
-                reinterpret_cast<string_ref const *>(&p_stor)
-            );
+            std::string_view s = csv_get<string_ref>(&p_stor);
             if (s.empty()) {
                 return false;
             }
@@ -412,7 +390,8 @@ LIBCUBESCRIPT_EXPORT string_ref concat_values(
             case value_type::FLOAT:
             case value_type::STRING:
                 std::ranges::copy(
-                    any_value{vals[i]}.force_string(), std::back_inserter(buf)
+                    any_value{vals[i]}.force_string(cs),
+                    std::back_inserter(buf)
                 );
                 break;
             default:

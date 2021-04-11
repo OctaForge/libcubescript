@@ -16,7 +16,7 @@ static inline void do_loop(
         return;
     }
     if (alias_local st{cs, &id}; st) {
-        any_value idv{cs};
+        any_value idv{};
         for (integer_type i = 0; i < n; ++i) {
             idv.set_integer(offset + i * step);
             st.set(idv);
@@ -42,11 +42,11 @@ static inline void do_loop_conc(
     }
     if (alias_local st{cs, &id}; st) {
         charbuf s{cs};
-        any_value idv{cs};
+        any_value idv{};
         for (integer_type i = 0; i < n; ++i) {
             idv.set_integer(offset + i * step);
             st.set(idv);
-            any_value v{cs};
+            any_value v{};
             switch (cs.run_loop(body, v)) {
                 case loop_state::BREAK:
                     goto end;
@@ -58,16 +58,16 @@ static inline void do_loop_conc(
             if (space && i) {
                 s.push_back(' ');
             }
-            s.append(v.get_string());
+            s.append(v.get_string(cs));
         }
 end:
-        res.set_string(s.str());
+        res.set_string(s.str(), cs);
     }
 }
 
 void init_lib_base(state &gcs) {
     gcs.new_command("error", "s", [](auto &cs, auto args, auto &) {
-        throw error{cs, args[0].get_string()};
+        throw error{cs, args[0].get_string(cs)};
     });
 
     gcs.new_command("pcall", "err", [](auto &cs, auto args, auto &ret) {
@@ -77,16 +77,16 @@ void init_lib_base(state &gcs) {
             ret.set_integer(0);
             return;
         }
-        any_value result{cs}, tback{cs};
+        any_value result{}, tback{};
         bool rc = true;
         try {
             result = cs.run(args[0].get_code());
         } catch (error const &e) {
-            result.set_string(e.what());
+            result.set_string(e.what(), cs);
             if (e.get_stack().get()) {
                 charbuf buf{cs};
                 print_stack(std::back_inserter(buf), e.get_stack());
-                tback.set_string(buf.str());
+                tback.set_string(buf.str(), cs);
             }
             rc = false;
         }
@@ -145,11 +145,11 @@ void init_lib_base(state &gcs) {
     });
 
     gcs.new_command("cases", "ste2V", [](auto &cs, auto args, auto &res) {
-        string_ref val = args[0].get_string();
+        string_ref val = args[0].get_string(cs);
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
                 (args[i].get_type() == value_type::NONE) ||
-                (args[i].get_string() == val)
+                (args[i].get_string(cs) == val)
             ) {
                 res = cs.run(args[i + 1].get_code());
                 return;
@@ -317,19 +317,19 @@ end:
     });
 
     gcs.new_command("resetvar", "s", [](auto &cs, auto args, auto &) {
-        cs.reset_var(args[0].get_string());
+        cs.reset_var(args[0].get_string(cs));
     });
 
     gcs.new_command("alias", "st", [](auto &cs, auto args, auto &) {
-        cs.set_alias(args[0].get_string(), args[1]);
+        cs.set_alias(args[0].get_string(cs), args[1]);
     });
 
     gcs.new_command("identexists", "s", [](auto &cs, auto args, auto &res) {
-        res.set_integer(cs.have_ident(args[0].get_string()));
+        res.set_integer(cs.have_ident(args[0].get_string(cs)));
     });
 
     gcs.new_command("getalias", "s", [](auto &cs, auto args, auto &res) {
-        auto *id = cs.get_alias(args[0].get_string());
+        auto *id = cs.get_alias(args[0].get_string(cs));
         if (id) {
             res = id->get_value(cs);
         }

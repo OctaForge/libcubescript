@@ -229,7 +229,7 @@ static bool do_run_file(
 }
 
 static bool do_call(cs::state &cs, std::string_view line, bool file = false) {
-    cs::any_value ret{cs};
+    cs::any_value ret{};
     scs = &cs;
     signal(SIGINT, do_sigint);
     try {
@@ -271,7 +271,7 @@ static bool do_call(cs::state &cs, std::string_view line, bool file = false) {
     signal(SIGINT, SIG_DFL);
     scs = nullptr;
     if (ret.get_type() != cs::value_type::NONE) {
-        std::printf("%s\n", std::string_view{ret.get_string()}.data());
+        std::printf("%s\n", std::string_view{ret.get_string(cs)}.data());
     }
     return false;
 }
@@ -362,8 +362,8 @@ int main(int argc, char **argv) {
     });
 
     gcs.new_command("exec", "s", [](auto &css, auto args, auto &) {
-        auto file = args[0].get_string();
-        cs::any_value val{css};
+        auto file = args[0].get_string(css);
+        cs::any_value val{};
         bool ret = do_run_file(css, file, val);
         if (!ret) {
             throw cs::error(
@@ -372,8 +372,8 @@ int main(int argc, char **argv) {
         }
     });
 
-    gcs.new_command("echo", "C", [](auto &, auto args, auto &) {
-        std::printf("%s\n", std::string_view{args[0].get_string()}.data());
+    gcs.new_command("echo", "C", [](auto &css, auto args, auto &) {
+        std::printf("%s\n", std::string_view{args[0].get_string(css)}.data());
     });
 
     int firstarg = 0;
