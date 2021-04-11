@@ -266,18 +266,34 @@ state::state(alloc_func func, void *data) {
     init_lib_base(*this);
 }
 
-LIBCUBESCRIPT_EXPORT state::~state() {
-    destroy();
-}
 
-LIBCUBESCRIPT_EXPORT void state::destroy() {
+
+LIBCUBESCRIPT_EXPORT state::~state() {
     if (!p_tstate || !p_tstate->owner) {
         return;
     }
     auto *sp = p_tstate->istate;
     sp->destroy(p_tstate);
     sp->destroy(sp);
-    p_tstate = nullptr;
+}
+
+LIBCUBESCRIPT_EXPORT state::state(state &&s) {
+    swap(s);
+}
+
+LIBCUBESCRIPT_EXPORT state &state::operator=(state &&s) {
+    if (p_tstate && p_tstate->owner) {
+        auto *sp = p_tstate->istate;
+        sp->destroy(p_tstate);
+        sp->destroy(sp);
+    }
+    p_tstate = s.p_tstate;
+    s.p_tstate = nullptr;
+    return *this;
+}
+
+LIBCUBESCRIPT_EXPORT void state::swap(state &s) {
+    std::swap(p_tstate, s.p_tstate);
 }
 
 state::state(void *is) {

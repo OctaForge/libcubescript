@@ -38,22 +38,12 @@ struct LIBCUBESCRIPT_EXPORT state {
     virtual ~state();
 
     state(state const &) = delete;
-    state(state &&s) {
-        swap(s);
-    }
+    state(state &&s);
 
     state &operator=(state const &) = delete;
-    state &operator=(state &&s) {
-        swap(s);
-        s.destroy();
-        return *this;
-    }
+    state &operator=(state &&s);
 
-    void destroy();
-
-    void swap(state &s) {
-        std::swap(p_tstate, s.p_tstate);
-    }
+    void swap(state &s);
 
     state new_thread();
 
