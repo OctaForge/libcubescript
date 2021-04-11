@@ -52,15 +52,15 @@ struct LIBCUBESCRIPT_EXPORT state {
     void clear_override(ident &id);
     void clear_overrides();
 
-    integer_var &new_ivar(
+    integer_var &new_var(
         std::string_view n, integer_type v, bool read_only = false,
         var_type vtp = var_type::DEFAULT
     );
-    float_var &new_fvar(
+    float_var &new_var(
         std::string_view n, float_type v, bool read_only = false,
         var_type vtp = var_type::DEFAULT
     );
-    string_var &new_svar(
+    string_var &new_var(
         std::string_view n, std::string_view v, bool read_only = false,
         var_type vtp = var_type::DEFAULT
     );

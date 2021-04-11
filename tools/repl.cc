@@ -277,8 +277,8 @@ static bool do_call(cs::state &cs, std::string_view line, bool file = false) {
 }
 
 static void do_tty(cs::state &cs) {
-    auto &prompt = cs.new_svar("PROMPT", "> ");
-    auto &prompt2 = cs.new_svar("PROMPT2", ">> ");
+    auto &prompt = cs.new_var("PROMPT", "> ");
+    auto &prompt2 = cs.new_var("PROMPT2", ">> ");
 
     bool do_exit = false;
     cs.new_command("quit", "", [&do_exit](auto &, auto, auto &) {
