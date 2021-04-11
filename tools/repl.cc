@@ -318,7 +318,7 @@ static void do_tty(cs::state &cs) {
 
 int main(int argc, char **argv) {
     cs::state gcs;
-    gcs.init_libs();
+    cs::std_init_all(gcs);
 
     /* this is how you can override a setter for variables; fvar and svar
      * work equivalently - in this case we want to allow multiple values

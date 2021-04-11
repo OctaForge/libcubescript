@@ -16,17 +16,10 @@ struct state;
 
 using alloc_func   = void *(*)(void *, void *, size_t, size_t);
 
-using hook_func    = internal::callable<void, struct state &>;
+using hook_func    = internal::callable<void, state &>;
 using command_func = internal::callable<
     void, state &, std::span<any_value>, any_value &
 >;
-
-enum {
-    LIB_MATH   = 1 << 0,
-    LIB_STRING = 1 << 1,
-    LIB_LIST   = 1 << 2,
-    LIB_ALL    = 0b111
-};
 
 enum class loop_state {
     NORMAL = 0, BREAK, CONTINUE
@@ -55,8 +48,6 @@ struct LIBCUBESCRIPT_EXPORT state {
     }
     hook_func const &get_call_hook() const;
     hook_func &get_call_hook();
-
-    void init_libs(int libs = LIB_ALL);
 
     void clear_override(ident &id);
     void clear_overrides();
@@ -135,6 +126,13 @@ private:
 
     struct thread_state *p_tstate = nullptr;
 };
+
+LIBCUBESCRIPT_EXPORT void std_init_base(state &cs);
+LIBCUBESCRIPT_EXPORT void std_init_math(state &cs);
+LIBCUBESCRIPT_EXPORT void std_init_string(state &cs);
+LIBCUBESCRIPT_EXPORT void std_init_list(state &cs);
+
+LIBCUBESCRIPT_EXPORT void std_init_all(state &cs);
 
 } /* namespace cubescript */
 

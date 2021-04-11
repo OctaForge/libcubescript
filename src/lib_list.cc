@@ -141,14 +141,14 @@ static inline void list_merge(
 
 static void init_lib_list_sort(state &cs);
 
-void init_lib_list(state &gcs) {
-    gcs.new_command("listlen", "s", [](auto &cs, auto args, auto &res) {
+LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
+    new_cmd_quiet(gcs, "listlen", "s", [](auto &cs, auto args, auto &res) {
         res.set_integer(
             integer_type(list_parser{cs, args[0].get_string(cs)}.count())
         );
     });
 
-    gcs.new_command("at", "si1V", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "at", "si1V", [](auto &cs, auto args, auto &res) {
         if (args.empty()) {
             return;
         }
@@ -173,7 +173,7 @@ void init_lib_list(state &gcs) {
         res.set_string(p.get_item());
     });
 
-    gcs.new_command("sublist", "siiN", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "sublist", "siiN", [](auto &cs, auto args, auto &res) {
         integer_type skip   = args[1].get_integer(),
               count   = args[2].get_integer(),
               numargs = args[3].get_integer();
@@ -205,7 +205,7 @@ void init_lib_list(state &gcs) {
         res.set_string(std::string_view{list, qend}, cs);
     });
 
-    gcs.new_command("listfind", "rse", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "listfind", "rse", [](auto &cs, auto args, auto &res) {
         if (alias_local st{cs, args[0].get_ident()}; st) {
             any_value idv{};
             auto body = args[2].get_code();
@@ -223,7 +223,7 @@ void init_lib_list(state &gcs) {
         res.set_integer(-1);
     });
 
-    gcs.new_command("listassoc", "rse", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "listassoc", "rse", [](auto &cs, auto args, auto &res) {
         if (alias_local st{cs, args[0].get_ident()}; st) {
             any_value idv{};
             auto body = args[2].get_code();
@@ -245,21 +245,21 @@ void init_lib_list(state &gcs) {
         }
     });
 
-    gcs.new_command("listfind=", "i", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "listfind=", "i", [](auto &cs, auto args, auto &res) {
         list_find<integer_type>(
             cs, args, res, [](list_parser const &p, integer_type val) {
                 return parse_int(p.get_raw_item()) == val;
             }
         );
     });
-    gcs.new_command("listfind=f", "f", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "listfind=f", "f", [](auto &cs, auto args, auto &res) {
         list_find<float_type>(
             cs, args, res, [](list_parser const &p, float_type val) {
                 return parse_float(p.get_raw_item()) == val;
             }
         );
     });
-    gcs.new_command("listfind=s", "s", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "listfind=s", "s", [](auto &cs, auto args, auto &res) {
         list_find<std::string_view>(
             cs, args, res, [](list_parser const &p, std::string_view val) {
                 return p.get_raw_item() == val;
@@ -267,21 +267,21 @@ void init_lib_list(state &gcs) {
         );
     });
 
-    gcs.new_command("listassoc=", "i", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "listassoc=", "i", [](auto &cs, auto args, auto &res) {
         list_assoc<integer_type>(
             cs, args, res, [](list_parser const &p, integer_type val) {
                 return parse_int(p.get_raw_item()) == val;
             }
         );
     });
-    gcs.new_command("listassoc=f", "f", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "listassoc=f", "f", [](auto &cs, auto args, auto &res) {
         list_assoc<float_type>(
             cs, args, res, [](list_parser const &p, float_type val) {
                 return parse_float(p.get_raw_item()) == val;
             }
         );
     });
-    gcs.new_command("listassoc=s", "s", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "listassoc=s", "s", [](auto &cs, auto args, auto &res) {
         list_assoc<std::string_view>(
             cs, args, res, [](list_parser const &p, std::string_view val) {
                 return p.get_raw_item() == val;
@@ -289,7 +289,7 @@ void init_lib_list(state &gcs) {
         );
     });
 
-    gcs.new_command("looplist", "rse", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "looplist", "rse", [](auto &cs, auto args, auto &) {
         if (alias_local st{cs, args[0].get_ident()}; st) {
             any_value idv{};
             auto body = args[2].get_code();
@@ -307,7 +307,7 @@ void init_lib_list(state &gcs) {
         }
     });
 
-    gcs.new_command("looplist2", "rrse", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "looplist2", "rrse", [](auto &cs, auto args, auto &) {
         alias_local st1{cs, args[0].get_ident()};
         alias_local st2{cs, args[1].get_ident()};
         if (!st1 || !st2) {
@@ -334,7 +334,7 @@ void init_lib_list(state &gcs) {
         }
     });
 
-    gcs.new_command("looplist3", "rrrse", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "looplist3", "rrrse", [](auto &cs, auto args, auto &) {
         alias_local st1{cs, args[0].get_ident()};
         alias_local st2{cs, args[1].get_ident()};
         alias_local st3{cs, args[2].get_ident()};
@@ -368,14 +368,16 @@ void init_lib_list(state &gcs) {
         }
     });
 
-    gcs.new_command("looplistconcat", "rse", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "looplistconcat", "rse", [](
+        auto &cs, auto args, auto &res
+    ) {
         loop_list_conc(
             cs, res, args[0].get_ident(), args[1].get_string(cs),
             args[2].get_code(), true
         );
     });
 
-    gcs.new_command("looplistconcatword", "rse", [](
+    new_cmd_quiet(gcs, "looplistconcatword", "rse", [](
         auto &cs, auto args, auto &res
     ) {
         loop_list_conc(
@@ -384,7 +386,9 @@ void init_lib_list(state &gcs) {
         );
     });
 
-    gcs.new_command("listfilter", "rse", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "listfilter", "rse", [](
+        auto &cs, auto args, auto &res
+    ) {
         if (alias_local st{cs, args[0].get_ident()}; st) {
             any_value idv{};
             auto body = args[2].get_code();
@@ -404,7 +408,7 @@ void init_lib_list(state &gcs) {
         }
     });
 
-    gcs.new_command("listcount", "rse", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "listcount", "rse", [](auto &cs, auto args, auto &res) {
         if (alias_local st{cs, args[0].get_ident()}; st) {
             any_value idv{};
             auto body = args[2].get_code();
@@ -420,7 +424,7 @@ void init_lib_list(state &gcs) {
         }
     });
 
-    gcs.new_command("prettylist", "ss", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "prettylist", "ss", [](auto &cs, auto args, auto &res) {
         charbuf buf{cs};
         std::string_view s = args[0].get_string(cs);
         std::string_view conj = args[1].get_string(cs);
@@ -448,23 +452,27 @@ void init_lib_list(state &gcs) {
         res.set_string(buf.str(), cs);
     });
 
-    gcs.new_command("indexof", "ss", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "indexof", "ss", [](auto &cs, auto args, auto &res) {
         res.set_integer(
             list_includes(cs, args[0].get_string(cs), args[1].get_string(cs))
         );
     });
 
-    gcs.new_command("listdel", "ss", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "listdel", "ss", [](auto &cs, auto args, auto &res) {
         list_merge<false, false>(cs, args, res, std::less<int>());
     });
-    gcs.new_command("listintersect", "ss", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "listintersect", "ss", [](
+        auto &cs, auto args, auto &res
+    ) {
         list_merge<false, false>(cs, args, res, std::greater_equal<int>());
     });
-    gcs.new_command("listunion", "ss", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "listunion", "ss", [](auto &cs, auto args, auto &res) {
         list_merge<true, true>(cs, args, res, std::less<int>());
     });
 
-    gcs.new_command("listsplice", "ssii", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "listsplice", "ssii", [](
+        auto &cs, auto args, auto &res
+    ) {
         integer_type offset = std::max(args[2].get_integer(), integer_type(0));
         integer_type len    = std::max(args[3].get_integer(), integer_type(0));
         std::string_view s = args[0].get_string(cs);
@@ -615,13 +623,17 @@ static void list_sort(
 }
 
 static void init_lib_list_sort(state &gcs) {
-    gcs.new_command("sortlist", "srree", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "sortlist", "srree", [](
+        auto &cs, auto args, auto &res
+    ) {
         list_sort(
             cs, res, args[0].get_string(cs), args[1].get_ident(),
             args[2].get_ident(), args[3].get_code(), args[4].get_code()
         );
     });
-    gcs.new_command("uniquelist", "srre", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "uniquelist", "srre", [](
+        auto &cs, auto args, auto &res
+     ) {
         list_sort(
             cs, res, args[0].get_string(cs), args[1].get_ident(),
             args[2].get_ident(), bcode_ref{}, args[3].get_code()

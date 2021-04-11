@@ -28,8 +28,8 @@ static inline void str_cmp_by(
     res.set_integer(integer_type(val));
 }
 
-void init_lib_string(state &cs) {
-    cs.new_command("strstr", "ss", [](auto &ccs, auto args, auto &res) {
+LIBCUBESCRIPT_EXPORT void std_init_string(state &cs) {
+    new_cmd_quiet(cs, "strstr", "ss", [](auto &ccs, auto args, auto &res) {
         std::string_view a = args[0].get_string(ccs);
         std::string_view b = args[1].get_string(ccs);
         auto pos = a.find(b);
@@ -40,11 +40,11 @@ void init_lib_string(state &cs) {
         }
     });
 
-    cs.new_command("strlen", "s", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "strlen", "s", [](auto &ccs, auto args, auto &res) {
         res.set_integer(integer_type(args[0].get_string(ccs).size()));
     });
 
-    cs.new_command("strcode", "si", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "strcode", "si", [](auto &ccs, auto args, auto &res) {
         std::string_view str = args[0].get_string(ccs);
         integer_type i = args[1].get_integer();
         if (i >= integer_type(str.size())) {
@@ -54,12 +54,12 @@ void init_lib_string(state &cs) {
         }
     });
 
-    cs.new_command("codestr", "i", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "codestr", "i", [](auto &ccs, auto args, auto &res) {
         char const p[2] = { char(args[0].get_integer()), '\0' };
         res.set_string(std::string_view{static_cast<char const *>(p)}, ccs);
     });
 
-    cs.new_command("strlower", "s", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "strlower", "s", [](auto &ccs, auto args, auto &res) {
         auto inps = args[0].get_string(ccs);
         auto *ics = state_p{ccs}.ts().istate;
         auto *buf = ics->strman->alloc_buf(inps.size());
@@ -69,7 +69,7 @@ void init_lib_string(state &cs) {
         res.set_string(ics->strman->steal(buf));
     });
 
-    cs.new_command("strupper", "s", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "strupper", "s", [](auto &ccs, auto args, auto &res) {
         auto inps = args[0].get_string(ccs);
         auto *ics = state_p{ccs}.ts().istate;
         auto *buf = ics->strman->alloc_buf(inps.size());
@@ -79,27 +79,27 @@ void init_lib_string(state &cs) {
         res.set_string(ics->strman->steal(buf));
     });
 
-    cs.new_command("escape", "s", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "escape", "s", [](auto &ccs, auto args, auto &res) {
         charbuf s{ccs};
         escape_string(std::back_inserter(s), args[0].get_string(ccs));
         res.set_string(s.str(), ccs);
     });
 
-    cs.new_command("unescape", "s", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "unescape", "s", [](auto &ccs, auto args, auto &res) {
         charbuf s{ccs};
         unescape_string(std::back_inserter(s), args[0].get_string(ccs));
         res.set_string(s.str(), ccs);
     });
 
-    cs.new_command("concat", "V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "concat", "V", [](auto &ccs, auto args, auto &res) {
         res.set_string(concat_values(ccs, args, " "));
     });
 
-    cs.new_command("concatword", "V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "concatword", "V", [](auto &ccs, auto args, auto &res) {
         res.set_string(concat_values(ccs, args));
     });
 
-    cs.new_command("format", "V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "format", "V", [](auto &ccs, auto args, auto &res) {
         if (args.empty()) {
             return;
         }
@@ -127,7 +127,7 @@ void init_lib_string(state &cs) {
         res.set_string(s.str(), ccs);
     });
 
-    cs.new_command("tohex", "ii", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "tohex", "ii", [](auto &ccs, auto args, auto &res) {
         char buf[32];
         /* use long long as the largest signed integer type */
         auto val = static_cast<long long>(args[0].get_integer());
@@ -152,7 +152,7 @@ void init_lib_string(state &cs) {
         throw internal_error{"format error"};
     });
 
-    cs.new_command("substr", "siiN", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "substr", "siiN", [](auto &ccs, auto args, auto &res) {
         std::string_view s = args[0].get_string(ccs);
         auto start = args[1].get_integer(), count = args[2].get_integer();
         auto numargs = args[3].get_integer();
@@ -166,29 +166,31 @@ void init_lib_string(state &cs) {
         }, ccs);
     });
 
-    cs.new_command("strcmp", "s1V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "strcmp", "s1V", [](auto &ccs, auto args, auto &res) {
         str_cmp_by(ccs, args, res, std::equal_to<std::string_view>());
     });
-    cs.new_command("=s", "s1V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "=s", "s1V", [](auto &ccs, auto args, auto &res) {
         str_cmp_by(ccs, args, res, std::equal_to<std::string_view>());
     });
-    cs.new_command("!=s", "s1V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "!=s", "s1V", [](auto &ccs, auto args, auto &res) {
         str_cmp_by(ccs, args, res, std::not_equal_to<std::string_view>());
     });
-    cs.new_command("<s", "s1V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "<s", "s1V", [](auto &ccs, auto args, auto &res) {
         str_cmp_by(ccs, args, res, std::less<std::string_view>());
     });
-    cs.new_command(">s", "s1V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, ">s", "s1V", [](auto &ccs, auto args, auto &res) {
         str_cmp_by(ccs, args, res, std::greater<std::string_view>());
     });
-    cs.new_command("<=s", "s1V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "<=s", "s1V", [](auto &ccs, auto args, auto &res) {
         str_cmp_by(ccs, args, res, std::less_equal<std::string_view>());
     });
-    cs.new_command(">=s", "s1V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, ">=s", "s1V", [](auto &ccs, auto args, auto &res) {
         str_cmp_by(ccs, args, res, std::greater_equal<std::string_view>());
     });
 
-    cs.new_command("strreplace", "ssss", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "strreplace", "ssss", [](
+        auto &ccs, auto args, auto &res
+    ) {
         std::string_view s = args[0].get_string(ccs);
         std::string_view oldval = args[1].get_string(ccs),
                          newval = args[2].get_string(ccs),
@@ -217,7 +219,9 @@ void init_lib_string(state &cs) {
         }
     });
 
-    cs.new_command("strsplice", "ssii", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "strsplice", "ssii", [](
+        auto &ccs, auto args, auto &res
+    ) {
         std::string_view s = args[0].get_string(ccs);
         std::string_view vals = args[1].get_string(ccs);
         integer_type skip  = args[2].get_integer(),

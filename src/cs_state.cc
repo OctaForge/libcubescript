@@ -78,11 +78,6 @@ ident *internal_state::get_ident(std::string_view name) const {
     return id->second;
 }
 
-void init_lib_base(state &cs);
-void init_lib_math(state &cs);
-void init_lib_string(state &cs);
-void init_lib_list(state &cs);
-
 /* public interfaces */
 
 state::state(): state{default_alloc, nullptr} {}
@@ -262,11 +257,7 @@ state::state(alloc_func func, void *data) {
         }
     });
     static_cast<command_impl *>(p)->p_type = ID_CONTINUE;
-
-    init_lib_base(*this);
 }
-
-
 
 LIBCUBESCRIPT_EXPORT state::~state() {
     if (!p_tstate || !p_tstate->owner) {
@@ -647,18 +638,6 @@ do_add:
     return *cmd;
 }
 
-LIBCUBESCRIPT_EXPORT void state::init_libs(int libs) {
-    if (libs & LIB_MATH) {
-        init_lib_math(*this);
-    }
-    if (libs & LIB_STRING) {
-        init_lib_string(*this);
-    }
-    if (libs & LIB_LIST) {
-        init_lib_list(*this);
-    }
-}
-
 LIBCUBESCRIPT_EXPORT any_value state::run(bcode_ref const &code) {
     any_value ret{};
     vm_exec(*p_tstate, bcode_p{code}.get()->get_raw(), ret);
@@ -845,6 +824,13 @@ LIBCUBESCRIPT_EXPORT std::size_t state::set_max_run_depth(std::size_t v) {
     auto old = p_tstate->max_run_depth;
     p_tstate->max_run_depth = v;
     return old;
+}
+
+LIBCUBESCRIPT_EXPORT void std_init_all(state &cs) {
+    std_init_base(cs);
+    std_init_math(cs);
+    std_init_string(cs);
+    std_init_list(cs);
 }
 
 } /* namespace cubescript */

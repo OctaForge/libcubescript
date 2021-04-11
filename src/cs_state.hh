@@ -124,6 +124,17 @@ inline void std_allocator<T>::deallocate(T *p, std::size_t n) {
     istate->alloc(p, n, 0);
 }
 
+template<typename F>
+inline void new_cmd_quiet(
+    state &cs, std::string_view name, std::string_view args, F &&f
+) {
+    try {
+        cs.new_command(name, args, std::forward<F>(f));
+    } catch (error const &) {
+        return;
+    }
+}
+
 } /* namespace cubescript */
 
 #endif

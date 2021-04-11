@@ -65,12 +65,12 @@ end:
     }
 }
 
-void init_lib_base(state &gcs) {
-    gcs.new_command("error", "s", [](auto &cs, auto args, auto &) {
+LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
+    new_cmd_quiet(gcs, "error", "s", [](auto &cs, auto args, auto &) {
         throw error{cs, args[0].get_string(cs)};
     });
 
-    gcs.new_command("pcall", "err", [](auto &cs, auto args, auto &ret) {
+    new_cmd_quiet(gcs, "pcall", "err", [](auto &cs, auto args, auto &ret) {
         alias *cret = args[1].get_ident()->get_alias();
         alias *css = args[2].get_ident()->get_alias();
         if (!cret || !css) {
@@ -96,15 +96,15 @@ void init_lib_base(state &gcs) {
         ts.get_astack(css).set_alias(css, ts, tback);
     });
 
-    gcs.new_command("?", "ttt", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(gcs, "?", "ttt", [](auto &, auto args, auto &res) {
         if (args[0].get_bool()) {
-            res = args[1];
+            res = std::move(args[1]);
         } else {
-            res = args[2];
+            res = std::move(args[2]);
         }
     });
 
-    gcs.new_command("cond", "ee2V", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "cond", "ee2V", [](auto &cs, auto args, auto &res) {
         for (size_t i = 0; i < args.size(); i += 2) {
             if ((i + 1) < args.size()) {
                 if (cs.run(args[i].get_code()).get_bool()) {
@@ -118,7 +118,7 @@ void init_lib_base(state &gcs) {
         }
     });
 
-    gcs.new_command("case", "ite2V", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "case", "ite2V", [](auto &cs, auto args, auto &res) {
         integer_type val = args[0].get_integer();
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
@@ -131,7 +131,7 @@ void init_lib_base(state &gcs) {
         }
     });
 
-    gcs.new_command("casef", "fte2V", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "casef", "fte2V", [](auto &cs, auto args, auto &res) {
         float_type val = args[0].get_float();
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
@@ -144,7 +144,7 @@ void init_lib_base(state &gcs) {
         }
     });
 
-    gcs.new_command("cases", "ste2V", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "cases", "ste2V", [](auto &cs, auto args, auto &res) {
         string_ref val = args[0].get_string(cs);
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
@@ -157,7 +157,7 @@ void init_lib_base(state &gcs) {
         }
     });
 
-    gcs.new_command("pushif", "rte", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "pushif", "rte", [](auto &cs, auto args, auto &res) {
         if (alias_local st{cs, args[0].get_ident()}; st) {
             if (st.get_alias()->is_arg()) {
                 return;
@@ -169,28 +169,28 @@ void init_lib_base(state &gcs) {
         }
     });
 
-    gcs.new_command("loop", "rie", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "loop", "rie", [](auto &cs, auto args, auto &) {
         do_loop(
             cs, *args[0].get_ident(), 0, args[1].get_integer(), 1, bcode_ref{},
             args[2].get_code()
         );
     });
 
-    gcs.new_command("loop+", "riie", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "loop+", "riie", [](auto &cs, auto args, auto &) {
         do_loop(
             cs, *args[0].get_ident(), args[1].get_integer(),
             args[2].get_integer(), 1, bcode_ref{}, args[3].get_code()
         );
     });
 
-    gcs.new_command("loop*", "riie", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "loop*", "riie", [](auto &cs, auto args, auto &) {
         do_loop(
             cs, *args[0].get_ident(), 0, args[1].get_integer(),
             args[2].get_integer(), bcode_ref{}, args[3].get_code()
         );
     });
 
-    gcs.new_command("loop+*", "riiie", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "loop+*", "riiie", [](auto &cs, auto args, auto &) {
         do_loop(
             cs, *args[0].get_ident(), args[1].get_integer(),
             args[3].get_integer(), args[2].get_integer(),
@@ -198,28 +198,30 @@ void init_lib_base(state &gcs) {
         );
     });
 
-    gcs.new_command("loopwhile", "riee", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "loopwhile", "riee", [](auto &cs, auto args, auto &) {
         do_loop(
             cs, *args[0].get_ident(), 0, args[1].get_integer(), 1,
             args[2].get_code(), args[3].get_code()
         );
     });
 
-    gcs.new_command("loopwhile+", "riiee", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "loopwhile+", "riiee", [](auto &cs, auto args, auto &) {
         do_loop(
             cs, *args[0].get_ident(), args[1].get_integer(),
             args[2].get_integer(), 1, args[3].get_code(), args[4].get_code()
         );
     });
 
-    gcs.new_command("loopwhile*", "riiee", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "loopwhile*", "riiee", [](auto &cs, auto args, auto &) {
         do_loop(
             cs, *args[0].get_ident(), 0, args[2].get_integer(),
             args[1].get_integer(), args[3].get_code(), args[4].get_code()
         );
     });
 
-    gcs.new_command("loopwhile+*", "riiiee", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "loopwhile+*", "riiiee", [](
+        auto &cs, auto args, auto &
+    ) {
         do_loop(
             cs, *args[0].get_ident(), args[1].get_integer(),
             args[3].get_integer(), args[2].get_integer(), args[4].get_code(),
@@ -227,7 +229,7 @@ void init_lib_base(state &gcs) {
         );
     });
 
-    gcs.new_command("while", "ee", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "while", "ee", [](auto &cs, auto args, auto &) {
         auto cond = args[0].get_code();
         auto body = args[1].get_code();
         while (cs.run(cond).get_bool()) {
@@ -242,28 +244,36 @@ end:
         return;
     });
 
-    gcs.new_command("loopconcat", "rie", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "loopconcat", "rie", [](
+        auto &cs, auto args, auto &res
+    ) {
         do_loop_conc(
             cs, res, *args[0].get_ident(), 0, args[1].get_integer(), 1,
             args[2].get_code(), true
         );
     });
 
-    gcs.new_command("loopconcat+", "riie", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "loopconcat+", "riie", [](
+        auto &cs, auto args, auto &res
+    ) {
         do_loop_conc(
             cs, res, *args[0].get_ident(), args[1].get_integer(),
             args[2].get_integer(), 1, args[3].get_code(), true
         );
     });
 
-    gcs.new_command("loopconcat*", "riie", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "loopconcat*", "riie", [](
+        auto &cs, auto args, auto &res
+    ) {
         do_loop_conc(
             cs, res, *args[0].get_ident(), 0, args[2].get_integer(),
             args[1].get_integer(), args[3].get_code(), true
         );
     });
 
-    gcs.new_command("loopconcat+*", "riiie", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "loopconcat+*", "riiie", [](
+        auto &cs, auto args, auto &res
+    ) {
         do_loop_conc(
             cs, res, *args[0].get_ident(), args[1].get_integer(),
             args[3].get_integer(), args[2].get_integer(),
@@ -271,14 +281,16 @@ end:
         );
     });
 
-    gcs.new_command("loopconcatword", "rie", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "loopconcatword", "rie", [](
+        auto &cs, auto args, auto &res
+    ) {
         do_loop_conc(
             cs, res, *args[0].get_ident(), 0, args[1].get_integer(), 1,
             args[2].get_code(), false
         );
     });
 
-    gcs.new_command("loopconcatword+", "riie", [](
+    new_cmd_quiet(gcs, "loopconcatword+", "riie", [](
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
@@ -287,7 +299,7 @@ end:
         );
     });
 
-    gcs.new_command("loopconcatword*", "riie", [](
+    new_cmd_quiet(gcs, "loopconcatword*", "riie", [](
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
@@ -296,7 +308,7 @@ end:
         );
     });
 
-    gcs.new_command("loopconcatword+*", "riiie", [](
+    new_cmd_quiet(gcs, "loopconcatword+*", "riiie", [](
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
@@ -306,7 +318,7 @@ end:
         );
     });
 
-    gcs.new_command("push", "rte", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "push", "rte", [](auto &cs, auto args, auto &res) {
         if (alias_local st{cs, args[0].get_ident()}; st) {
             if (st.get_alias()->is_arg()) {
                 return;
@@ -316,19 +328,19 @@ end:
         }
     });
 
-    gcs.new_command("resetvar", "s", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "resetvar", "s", [](auto &cs, auto args, auto &) {
         cs.reset_var(args[0].get_string(cs));
     });
 
-    gcs.new_command("alias", "st", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "alias", "st", [](auto &cs, auto args, auto &) {
         cs.set_alias(args[0].get_string(cs), args[1]);
     });
 
-    gcs.new_command("identexists", "s", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "identexists", "s", [](auto &cs, auto args, auto &res) {
         res.set_integer(cs.have_ident(args[0].get_string(cs)));
     });
 
-    gcs.new_command("getalias", "s", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "getalias", "s", [](auto &cs, auto args, auto &res) {
         auto *id = cs.get_alias(args[0].get_string(cs));
         if (id) {
             res = id->get_value(cs);
