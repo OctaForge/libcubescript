@@ -13,6 +13,10 @@ namespace cubescript {
 
 struct string_ref_state;
 
+char const *str_managed_ref(char const *str);
+void str_managed_unref(char const *str);
+std::string_view str_managed_view(char const *str);
+
 /* string manager
  *
  * the purpose of this is to handle interning of strings; each string within

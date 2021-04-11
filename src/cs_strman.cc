@@ -54,12 +54,12 @@ string_ref string_pool::steal(char *ptr) {
         if (st) {
             /* the buffer is superfluous now */
             cstate->alloc(ss, ss->length + sizeof(string_ref_state) + 1, 0);
-            return string_ref{reinterpret_cast<char const *>(st + 1), cstate};
+            return string_ref{reinterpret_cast<char const *>(st + 1)};
         }
     }
     ss->refcount = 0; /* string_ref will increment it */
     counts.emplace(sr, ss);
-    return string_ref{ptr, cstate};
+    return string_ref{ptr};
 }
 
 void string_pool::unref(char const *ptr) {
@@ -108,9 +108,19 @@ char *string_pool::alloc_buf(std::size_t len) const {
     return strp;
 }
 
-/* strref implementation */
+char const *str_managed_ref(char const *str) {
+    return get_ref_state(str)->state->strman->ref(str);
+}
 
-/* strref */
+void str_managed_unref(char const *str) {
+    get_ref_state(str)->state->strman->unref(str);
+}
+
+std::string_view str_managed_view(char const *str) {
+    return get_ref_state(str)->state->strman->get(str);
+}
+
+/* strref implementation */
 
 LIBCUBESCRIPT_EXPORT string_ref::string_ref(
     internal_state *cs, std::string_view str
@@ -129,24 +139,25 @@ LIBCUBESCRIPT_EXPORT string_ref::string_ref(string_ref const &ref):
 }
 
 /* this can be used by friends to do quick string_ref creation */
-LIBCUBESCRIPT_EXPORT string_ref::string_ref(
-    char const *p, internal_state *cs
-) {
-    p_str = cs->strman->ref(p);
+LIBCUBESCRIPT_EXPORT string_ref::string_ref(char const *p) {
+    p_str = str_managed_ref(p);
 }
 
 LIBCUBESCRIPT_EXPORT string_ref::~string_ref() {
-    get_ref_state(p_str)->state->strman->unref(p_str);
+    str_managed_unref(p_str);
 }
 
 LIBCUBESCRIPT_EXPORT string_ref &string_ref::operator=(string_ref const &ref) {
-    p_str = ref.p_str;
-    get_ref_state(p_str)->state->strman->ref(p_str);
+    p_str = str_managed_ref(ref.p_str);
     return *this;
 }
 
+LIBCUBESCRIPT_EXPORT char const *string_ref::data() const {
+    return p_str;
+}
+
 LIBCUBESCRIPT_EXPORT string_ref::operator std::string_view() const {
-    return get_ref_state(p_str)->state->strman->get(p_str);
+    return str_managed_view(p_str);
 }
 
 LIBCUBESCRIPT_EXPORT bool string_ref::operator==(string_ref const &s) const {

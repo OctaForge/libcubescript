@@ -2,6 +2,7 @@
 #include "cs_std.hh"
 #include "cs_parser.hh"
 #include "cs_state.hh"
+#include "cs_strman.hh"
 
 #include <cmath>
 #include <iterator>
@@ -66,7 +67,7 @@ template<typename T>
 static inline void csv_cleanup(value_type tv, T *stor) {
     switch (tv) {
         case value_type::STRING:
-            csv_get<string_ref>(stor).~string_ref();
+            str_managed_unref(csv_get<char const *>(stor));
             break;
         case value_type::CODE: {
             bcode_unref(csv_get<uint32_t *>(stor));
@@ -105,9 +106,8 @@ any_value &any_value::operator=(any_value const &v) {
             break;
         case value_type::STRING:
             p_type = value_type::STRING;
-            new (&csv_get<string_ref>(&p_stor)) string_ref{
-                csv_get<string_ref>(&v.p_stor)
-            };
+            p_stor = v.p_stor;
+            str_managed_ref(csv_get<char const *>(&p_stor));
             break;
         case value_type::CODE:
             set_code(v.get_code());
@@ -142,13 +142,13 @@ void any_value::set_float(float_type val) {
 
 void any_value::set_string(std::string_view val, state &cs) {
     csv_cleanup(p_type, &p_stor);
-    new (&csv_get<string_ref>(&p_stor)) string_ref{cs, val};
+    csv_get<char const *>(&p_stor) = state_p{cs}.ts().istate->strman->add(val);
     p_type = value_type::STRING;
 }
 
 void any_value::set_string(string_ref const &val) {
     csv_cleanup(p_type, &p_stor);
-    new (&csv_get<string_ref>(&p_stor)) string_ref{val};
+    csv_get<char const *>(&p_stor) = str_managed_ref(val.p_str);
     p_type = value_type::STRING;
 }
 
@@ -197,7 +197,7 @@ float_type any_value::force_float() {
             rf = float_type(csv_get<integer_type>(&p_stor));
             break;
         case value_type::STRING:
-            rf = parse_float(csv_get<string_ref>(&p_stor));
+            rf = parse_float(str_managed_view(csv_get<char const *>(&p_stor)));
             break;
         case value_type::FLOAT:
             return csv_get<float_type>(&p_stor);
@@ -215,7 +215,7 @@ integer_type any_value::force_integer() {
             ri = integer_type(std::floor(csv_get<float_type>(&p_stor)));
             break;
         case value_type::STRING:
-            ri = parse_int(csv_get<string_ref>(&p_stor));
+            ri = parse_int(str_managed_view(csv_get<char const *>(&p_stor)));
             break;
         case value_type::INTEGER:
             return csv_get<integer_type>(&p_stor);
@@ -237,13 +237,13 @@ std::string_view any_value::force_string(state &cs) {
             str = intstr(csv_get<integer_type>(&p_stor), rs);
             break;
         case value_type::STRING:
-            return csv_get<string_ref>(&p_stor);
+            return str_managed_view(csv_get<char const *>(&p_stor));
         default:
             str = rs.str();
             break;
     }
     set_string(str, cs);
-    return csv_get<string_ref>(&p_stor);
+    return str_managed_view(csv_get<char const *>(&p_stor));
 }
 
 bcode_ref any_value::force_code(state &cs) {
@@ -281,7 +281,7 @@ integer_type any_value::get_integer() const {
         case value_type::INTEGER:
             return csv_get<integer_type>(&p_stor);
         case value_type::STRING:
-            return parse_int(csv_get<string_ref>(&p_stor));
+            return parse_int(str_managed_view(csv_get<char const *>(&p_stor)));
         default:
             break;
     }
@@ -295,7 +295,9 @@ float_type any_value::get_float() const {
         case value_type::INTEGER:
             return float_type(csv_get<integer_type>(&p_stor));
         case value_type::STRING:
-            return parse_float(csv_get<string_ref>(&p_stor));
+            return parse_float(
+                str_managed_view(csv_get<char const *>(&p_stor))
+            );
         default:
             break;
     }
@@ -319,7 +321,7 @@ ident *any_value::get_ident() const {
 string_ref any_value::get_string(state &cs) const {
     switch (get_type()) {
         case value_type::STRING:
-            return csv_get<string_ref>(&p_stor);
+            return string_ref{csv_get<char const *>(&p_stor)};
         case value_type::INTEGER: {
             charbuf rs{cs};
             return string_ref{
@@ -357,7 +359,9 @@ bool any_value::get_bool() const {
         case value_type::INTEGER:
             return csv_get<integer_type>(&p_stor) != 0;
         case value_type::STRING: {
-            std::string_view s = csv_get<string_ref>(&p_stor);
+            std::string_view s = str_managed_view(
+                csv_get<char const *>(&p_stor)
+            );
             if (s.empty()) {
                 return false;
             }

@@ -60,9 +60,7 @@ struct LIBCUBESCRIPT_EXPORT string_ref {
         return std::string_view{*this}.length();
     }
 
-    char const *data() const {
-        return std::string_view{*this}.data();
-    }
+    char const *data() const;
 
     std::string_view view() const {
         return std::string_view{*this};
@@ -75,8 +73,7 @@ struct LIBCUBESCRIPT_EXPORT string_ref {
     bool operator==(string_ref const &s) const;
 
 private:
-    /* for internal use only */
-    string_ref(char const *p, internal_state *cs);
+    string_ref(char const *p);
 
     char const *p_str;
 };
@@ -124,12 +121,7 @@ struct LIBCUBESCRIPT_EXPORT any_value {
     ident &force_ident(state &cs);
 
 private:
-    std::aligned_union_t<1,
-        integer_type,
-        float_type,
-        void *,
-        string_ref
-    > p_stor;
+    std::aligned_union_t<1, integer_type, float_type, void *> p_stor;
     value_type p_type;
 };
 
