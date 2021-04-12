@@ -62,7 +62,9 @@ if [ "$(uname -s)" != "Linux" ]; then
     exit 0
 fi
 
-current_triplet=`gcc -dumpmachine`
+sudo apt-get install gcc-10 g++-10 || exit 1
+
+current_triplet=`gcc-10 -dumpmachine`
 
 if [ -z "$current_triplet" ]; then
     echo "ERROR: Native compiler not present!"
@@ -83,6 +85,6 @@ else
     extra_packages="qemu-user"
 fi
 
-sudo apt-get install gcc-${gcc_suffix} g++-${gcc_suffix} ${extra_packages} || exit 1
+sudo apt-get install gcc-10-${gcc_suffix} g++-10-${gcc_suffix} ${extra_packages} || exit 1
 
 exit $?

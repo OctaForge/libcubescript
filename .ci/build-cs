@@ -12,7 +12,7 @@ current_triplet=`$CC -dumpmachine`
 if [ "$CC" = "clang" ]; then
     export CXX="clang++"
 else
-    export CXX="g++"
+    export CXX="g++-10"
 fi
 
 if [ "$TARGET" != "darwin" -a "$CC" != "clang" -a "$expected_triplet" != "$current_triplet" ]; then
