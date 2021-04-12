@@ -66,22 +66,22 @@ jobs:
       - name: Build and test cubescript
         run: bash ./.ci/build-cs-windows
 
-#  mac:
-#    name: MacOS
-#    runs-on: macos-10.15
+  mac:
+    name: MacOS
+    runs-on: macos-10.15
 
-#    env:
-#      TARGET: 'darwin'
-#      CC: 'clang'
+    env:
+      TARGET: 'darwin'
+      CC: 'clang'
 
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v2
-#        with:
-#          persist-credentials: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
 
-#      - name: Prepare environment
-#        run: sh ./.ci/install-env
+      - name: Prepare environment
+        run: sh ./.ci/install-env
 
-#      - name: Build and test cubescript
-#        run: sh ./.ci/build-cs
+      - name: Build and test cubescript
+        run: sh ./.ci/build-cs

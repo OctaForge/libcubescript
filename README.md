@@ -107,15 +107,14 @@ The library has absolutely no dependencies other than a C++20 compiler,
 similarly there are no dependencies on system or architecture specific
 things, so it should work on any OS and any CPU.
 
-The C++20 support does not have to be complete. Right now, tested
-compilers include:
+The C++20 support does not have to be complete. These are the baselines
+(which are ensured by the CI):
 
 * GCC 10
-* Clang 11
+* Clang 10 (with libstdc++ or libc++)
 * Microsoft Visual C++ 2019
 
-Older versions of Clang may work, with no guarantees (GCC 9 does not, though,
-as it's missing features in libstdc++).
+Older versions of either of these are known not to work.
 
 You will need [Meson](https://mesonbuild.com/) to build the project. Most
 Unix-like systems have it in their package management, on Windows there is
