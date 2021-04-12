@@ -114,7 +114,8 @@ compilers include:
 * Clang 11
 * Microsoft Visual C++ 2019
 
-Older versions of GCC and Clang may work, with no guarantees.
+Older versions of Clang may work, with no guarantees (GCC 9 does not, though,
+as it's missing features in libstdc++).
 
 You will need [Meson](https://mesonbuild.com/) to build the project. Most
 Unix-like systems have it in their package management, on Windows there is

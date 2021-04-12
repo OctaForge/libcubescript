@@ -35,7 +35,8 @@ jobs:
           - { target: mips-linux-gnu, cc: gcc-10, buildtype: debugoptimized }
           - { target: m68k-linux-gnu, cc: gcc-10, buildtype: debug }
           # x86_64 windows cross, release mode
-          - { target: x86_64-w64-mingw32, cc: gcc-10, buildtype: release }
+          # there is no gcc10 mingw64 crosscompiler yet and gcc9 is too old
+          #- { target: x86_64-w64-mingw32, cc: gcc-10, buildtype: release }
 
     steps:
       - name: Checkout
@@ -53,9 +54,6 @@ jobs:
     name: Windows
     runs-on: windows-2019
 
-    env:
-      LUA_VERSIONS: '5.4.2 5.3.6 5.2.4 5.1.5'
-
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -68,23 +66,22 @@ jobs:
       - name: Build and test cubescript
         run: bash ./.ci/build-cs-windows
 
-  mac:
-    name: MacOS
-    runs-on: macos-10.15
+#  mac:
+#    name: MacOS
+#    runs-on: macos-10.15
 
-    env:
-      TARGET: 'darwin'
-      LUA_VERSIONS: '5.4.2 5.3.6 5.2.4 5.1.5'
-      CC: 'clang'
+#    env:
+#      TARGET: 'darwin'
+#      CC: 'clang'
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-        with:
-          persist-credentials: false
+#    steps:
+#      - name: Checkout
+#        uses: actions/checkout@v2
+#        with:
+#          persist-credentials: false
 
-      - name: Prepare environment
-        run: sh ./.ci/install-env
+#      - name: Prepare environment
+#        run: sh ./.ci/install-env
 
-      - name: Build and test cubescript
-        run: sh ./.ci/build-cs
+#      - name: Build and test cubescript
+#        run: sh ./.ci/build-cs

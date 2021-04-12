@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <new>
 #include <utility>
+#include <vector>
 #include <type_traits>
 #include <string_view>
 
