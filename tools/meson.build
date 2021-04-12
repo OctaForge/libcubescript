@@ -5,19 +5,8 @@ repl_src = [
 repl_deps = [libcubescript]
 repl_flags = []
 
-if get_option('readline').enabled()
-    use_readline = true
-    use_linenoise = false
-elif not get_option('linenoise').disabled()
-    use_readline = false
-    use_linenoise = true
-endif
-
 if not get_option('repl').disabled()
-    if use_readline
-        repl_deps += [dependency('readline')]
-        repl_flags = ['-DCS_REPL_USE_READLINE']
-    elif use_linenoise
+    if not get_option('linenoise').disabled()
         repl_flags = ['-DCS_REPL_USE_LINENOISE']
     endif
     executable('cubescript',

@@ -4,12 +4,6 @@ option('repl',
     description: 'Enable the REPL (command line tool)'
 )
 
-option('readline',
-    type: 'feature',
-    value: 'auto',
-    description: 'Use GNU readline for the REPL'
-)
-
 option('linenoise',
     type: 'feature',
     value: 'auto',

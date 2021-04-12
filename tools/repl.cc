@@ -165,7 +165,6 @@ inline cs::command *get_hint_cmd(cs::state &cs, std::string_view buf) {
 }
 
 #include "edit_linenoise.hh"
-#include "edit_readline.hh"
 #include "edit_fallback.hh"
 
 /* usage */
