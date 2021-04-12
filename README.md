@@ -135,15 +135,15 @@ a REPL (interactive interpreter). The REPL also serves as an example of
 how to use the API.
 
 If you don't want the REPL, use `-Drepl=disabled`. When compiled, it can
-have support for line editing and command history. This is provided either
-through `linenoise` (which is a minimal single-file line editing library
-bundled with the project, and is the default) or through `readline` (a
-popular line editing library on many Unix-like systems). There is also
-a fallback for when you disable both (but then you lose line editing and
-command history in the interpreter).
+have support for line editing and command history. This is provided through
+`linenoise` (which is a minimal single-file line editing library bundled
+with the project, and is the default). In case you're on a platform that
+`linenoise` does not support (highly unlikely), there is a fallback without
+any line editing as well. Pass `-Dlinenoise=disabled` to use the fallback.
 
 The version of `linenoise` bundled with the project is `cpp-linenoise`, available
 at https://github.com/yhirose/cpp-linenoise. Our version is modified, so that
 it builds cleanly with our flags, and so that it supports the "hints" feature
 available in original `linenoise`. Other than the modifications, it is baseed
-on upstream git revision `a927043cdd5bfe203560802e56a7e7ed43156ed3`.
+on upstream git revision `a927043cdd5bfe203560802e56a7e7ed43156ed3`. The reason
+we use this instead of upstream `linenoise` is Windows support.
