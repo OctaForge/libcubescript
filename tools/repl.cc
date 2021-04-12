@@ -16,6 +16,7 @@
 #include <optional>
 #include <memory>
 #include <iterator>
+#include <string>
 
 #include <cubescript/cubescript.hh>
 

@@ -202,7 +202,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         }
         auto quote = p.get_quoted_item();
         auto *qend = &quote[quote.size()];
-        res.set_string(std::string_view{list, qend}, cs);
+        res.set_string(make_str_view(list, qend), cs);
     });
 
     new_cmd_quiet(gcs, "listfind", "rse", [](auto &cs, auto args, auto &res) {

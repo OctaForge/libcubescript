@@ -57,8 +57,7 @@ end:
     nlines = nl;
     if ((beg == end) || (*beg != '\"')) {
         throw error{
-            cs, "unfinished string '%s'",
-            std::string_view{orig, std::size_t(beg - orig)}
+            cs, "unfinished string '%.*s'", int(beg - orig), orig
         };
     }
     return ++beg;
@@ -90,18 +89,14 @@ LIBCUBESCRIPT_EXPORT char const *parse_word(
                 break;
             case '[':
                 ++it;
-                it = parse_word(cs, std::string_view{
-                    it, std::size_t(end - it)
-                });
+                it = parse_word(cs, make_str_view(it, end));
                 if ((it == end) || (*it != ']')) {
                     throw error{cs, "missing \"]\""};
                 }
                 break;
             case '(':
                 ++it;
-                it = parse_word(cs, std::string_view{
-                    it, std::size_t(end - it)
-                });
+                it = parse_word(cs, make_str_view(it, end));
                 if ((it == end) || (*it != ')')) {
                     throw error{cs, "missing \")\""};
                 }
@@ -127,7 +122,7 @@ static inline void p_set_end(
     if (!end) {
         return;
     }
-    *end = std::string_view{nbeg, nend};
+    *end = make_str_view(nbeg, nend);
 }
 /* this function assumes the input is definitely a hex digit */
 static inline integer_type p_hexd_to_int(char c) {
@@ -313,11 +308,9 @@ bool is_valid_name(std::string_view s) {
 std::string_view parser_state::get_str() {
     size_t nl;
     char const *beg = source;
-    source = parse_string(
-        *ts.pstate, std::string_view{source, std::size_t(send - source)}, nl
-    );
+    source = parse_string(*ts.pstate, make_str_view(source, send), nl);
     current_line += nl - 1;
-    auto ret = std::string_view{beg, std::size_t(source - beg)};
+    auto ret = make_str_view(beg, source);
     return ret.substr(1, ret.size() - 2);
 }
 
@@ -342,7 +335,7 @@ std::string_view parser_state::read_macro_name() {
     for (; isalnum(c) || (c == '_'); c = current()) {
         next_char();
     }
-    return std::string_view{op, std::size_t(source - op)};
+    return make_str_view(op, source);
 }
 
 /* advance the parser until we reach any of the given chars, then stop at it */
@@ -406,10 +399,8 @@ void parser_state::skip_comments() {
 
 std::string_view parser_state::get_word() {
     char const *beg = source;
-    source = parse_word(
-        *ts.pstate, std::string_view{source, std::size_t(send - source)}
-    );
-    return std::string_view{beg, std::size_t(source - beg)};
+    source = parse_word(*ts.pstate, make_str_view(source, send));
+    return make_str_view(beg, source);
 }
 
 /* lookups that are invalid but not causing an error */
@@ -718,7 +709,7 @@ void parser_state::parse_blockarg(int ltype) {
                 }
                 /* generate a block string for everything until now */
                 if (start != end) {
-                    gs.gen_val_block(std::string_view{start, end});
+                    gs.gen_val_block(make_str_view(start, end));
                     ++concs;
                 }
                 if (parse_subblock()) {
@@ -751,7 +742,7 @@ void parser_state::parse_blockarg(int ltype) {
             case VAL_COND: {
                 /* compile */
                 auto ret = gs.gen_block(
-                    std::string_view{start, send}, curline, VAL_NULL, ']'
+                    make_str_view(start, send), curline, VAL_NULL, ']'
                 );
                 source = ret.second.data();
                 send = source + ret.second.size();
@@ -759,14 +750,14 @@ void parser_state::parse_blockarg(int ltype) {
                 return;
             }
             case VAL_IDENT:
-                gs.gen_val_ident(std::string_view{start, source - 1});
+                gs.gen_val_ident(make_str_view(start, source - 1));
                 return;
             default:
-                gs.gen_val_block(std::string_view{start, source - 1});
+                gs.gen_val_block(make_str_view(start, source - 1));
                 goto done;
         }
     }
-    gs.gen_val_block(std::string_view{start, source - 1});
+    gs.gen_val_block(make_str_view(start, source - 1));
     /* concat the pieces */
     gs.gen_concat(++concs, false, ltype);
 done:

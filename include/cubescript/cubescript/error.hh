@@ -51,7 +51,7 @@ struct LIBCUBESCRIPT_EXPORT error {
     {}
 
     std::string_view what() const {
-        return std::string_view{p_errbeg, p_errend};
+        return std::string_view{p_errbeg, std::size_t(p_errend - p_errbeg)};
     }
 
     stack_state &get_stack() {

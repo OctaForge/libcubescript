@@ -93,6 +93,13 @@ struct charbuf: valbuf<char> {
     }
 };
 
+/* because the dual-iterator constructor is not supported everywhere
+ * and the pointer + size constructor is ugly as heck
+ */
+inline std::string_view make_str_view(char const *a, char const *b) {
+    return std::string_view{a, std::size_t(b - a)};
+}
+
 } /* namespace cubescript */
 
 #endif

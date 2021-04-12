@@ -242,9 +242,7 @@ void gen_state::gen_val_block(std::string_view v) {
                     break;
                 case '\"': { /* quoted string */
                     char const *start = str;
-                    str = parse_string(
-                        *ts.pstate, std::string_view{str, send}
-                    );
+                    str = parse_string(*ts.pstate, make_str_view(str, send));
                     std::memcpy(&buf[len], start, std::size_t(str - start));
                     len += (str - start);
                     break;
@@ -502,7 +500,7 @@ std::pair<std::size_t, std::string_view> gen_state::gen_block(
         ps.send = v.data() + v.size();
         ps.current_line = line;
         ps.parse_block(VAL_ANY, term);
-        v = std::string_view{ps.source, ps.send};
+        v = make_str_view(ps.source, ps.send);
         ret_line = ps.current_line;
     }
     if (code.size() > (csz + 2)) {

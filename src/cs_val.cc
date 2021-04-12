@@ -392,19 +392,19 @@ LIBCUBESCRIPT_EXPORT string_ref concat_values(
         switch (vals[i].get_type()) {
             case value_type::INTEGER:
             case value_type::FLOAT:
-            case value_type::STRING:
-                std::ranges::copy(
-                    any_value{vals[i]}.force_string(cs),
-                    std::back_inserter(buf)
-                );
+            case value_type::STRING: {
+                auto val = any_value{vals[i]};
+                auto str = val.force_string(cs);
+                std::copy(str.begin(), str.end(), std::back_inserter(buf));
                 break;
+            }
             default:
                 break;
         }
         if (i == (vals.size() - 1)) {
             break;
         }
-        std::ranges::copy(sep, std::back_inserter(buf));
+        std::copy(sep.begin(), sep.end(), std::back_inserter(buf));
     }
     return string_ref{cs, buf.str()};
 }

@@ -5,6 +5,7 @@
 
 #include <unordered_map>
 #include <string>
+#include <vector>
 
 #include "cs_bcode.hh"
 #include "cs_ident.hh"

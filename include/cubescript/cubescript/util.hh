@@ -43,7 +43,9 @@ struct LIBCUBESCRIPT_EXPORT list_parser {
     }
 
     std::string_view get_input() const {
-        return std::string_view{p_input_beg, p_input_end};
+        return std::string_view{
+            p_input_beg, std::size_t(p_input_end - p_input_beg)
+        };
     }
 
     bool parse();
@@ -52,10 +54,10 @@ struct LIBCUBESCRIPT_EXPORT list_parser {
     string_ref get_item() const;
 
     std::string_view get_raw_item() const {
-        return std::string_view{p_ibeg, p_iend};
+        return std::string_view{p_ibeg, std::size_t(p_iend - p_ibeg)};
     }
     std::string_view get_quoted_item() const {
-        return std::string_view{p_qbeg, p_qend};
+        return std::string_view{p_qbeg, std::size_t(p_qend - p_qbeg)};
     }
 
     void skip_until_item();
