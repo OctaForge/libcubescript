@@ -1,5 +1,7 @@
 # libcubescript
 
+[![Build Status](https://github.com/octaforge/libcubescript/actions/workflows/build.yaml/badge.svg)](https://github.com/octaforge/libcubescript/actions)
+
 ![CubeScript REPL](https://ftp.octaforge.org/q66/random/libcs_repl.gif)
 
 ## Overview

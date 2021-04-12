@@ -1,0 +1,15 @@
+#!/bin/bash
+
+ninja_version=1.10.2
+
+echo ">> Installing meson..."
+
+mkdir -p host_tools
+
+curl -L -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v${ninja_version}/ninja-win.zip || exit 1
+7z x ninja.zip || exit 1
+mv ninja.exe host_tools
+
+pip3 install meson
+
+exit 0

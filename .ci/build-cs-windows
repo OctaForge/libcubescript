@@ -1,0 +1,23 @@
+#!/bin/bash
+
+unset CC CXX CC_FOR_BUILD CXX_FOR_BUILD
+
+export PATH="$(pwd)/host_tools:$PATH"
+
+echo ">> Building and testing cubescript..."
+
+args=""
+if [ -n "$BUILDTYPE" ]; then
+    args="${args} --buildtype=$BUILDTYPE"
+fi
+
+mkdir -p build
+cd build-
+
+cmd.exe //C 'C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat' amd64 '&&' \
+meson .. ${args} '&&' \
+ninja all '&&' ninja test || exit 1
+
+cd ..
+
+exit 0
