@@ -1,5 +1,10 @@
 /* a rudimentary test runner for cubescript files */
 
+#ifdef _MSC_VER
+/* avoid silly complaints about fopen */
+#  define _CRT_SECURE_NO_WARNINGS 1
+#endif
+
 #include <cstdio>
 #include <string>
 #include <string_view>
