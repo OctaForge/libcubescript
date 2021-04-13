@@ -9,3 +9,15 @@ option('linenoise',
     value: 'auto',
     description: 'Use linenoise for the REPL'
 )
+
+option('tests',
+    type: 'boolean',
+    value: 'true',
+    description: 'Whether to build tests'
+)
+
+option('tests_cross',
+    type: 'boolean',
+    value: 'false',
+    description: 'Whether to build tests when cross-compiling'
+)

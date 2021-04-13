@@ -1,0 +1,21 @@
+// a simple test mainly to serve as an example
+
+echo "hello world"
+
+// addition
+assert [=  (+ 5 10) 15]
+assert [!= (+ 4  5) 11]
+
+// multiplication
+assert [=  (* 5  2) 10]
+assert [!= (* 3  4) 13]
+
+// string equality
+assert [=s  "hello world" "hello world"]
+assert [!=s "hello world" "dlrow olleh"]
+
+// simple loop
+x = 5
+loop i 3 [x = (* $x 2); echo $x]
+
+assert [= $x 40]

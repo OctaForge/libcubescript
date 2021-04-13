@@ -47,9 +47,21 @@ if get_option('cpp_std') == 'none'
     endif
 endif
 
+build_root = meson.current_build_dir()
+
 subdir('include')
 subdir('src')
 subdir('tools')
+
+if meson.is_cross_build() and get_option('tests')
+    build_tests = get_option('tests_cross')
+else
+    build_tests = get_option('tests')
+endif
+
+if build_tests
+    subdir('tests')
+endif
 
 pkg = import('pkgconfig')
 

@@ -136,11 +136,29 @@ cd build
 
 args=""
 if [ -n "${cross}" ]; then
+    if [ "${meson_system}" = "windows" ]; then
+        cat << EOF > meson-exewrapper
+#!/bin/sh
+export WINEDEBUG=-all
+export WINEPREFIX="$(pwd)/.wine"
+export DISPLAY=
+wine "\$@"
+EOF
+    else
+        cat << EOF > meson-exewrapper
+#!/bin/sh
+qemu-${qemu_cpu} -L /usr/${expected_triplet} "\$@"
+EOF
+    fi
+    chmod +x meson-exewrapper
     cat << EOF > crossfile
 [binaries]
 c = '${CC}'
 cpp = '${CXX}'
+ar = '${AR}'
+as = '${AS}'
 strip = '${STRIP}'
+exe_wrapper = '$(pwd)/meson-exewrapper'
 
 [host_machine]
 system = '${meson_system}'
@@ -154,7 +172,7 @@ if [ -n "$BUILDTYPE" ]; then
     args="${args} --buildtype=$BUILDTYPE"
 fi
 
-meson .. ${args} || exit 1
+meson .. -Dtests_cross=true ${args} || exit 1
 ninja all || exit 1
 ninja test || exit 1
 cd ..
