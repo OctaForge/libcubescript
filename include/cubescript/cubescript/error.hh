@@ -1,3 +1,12 @@
+/** @file error.hh
+ *
+ * @brief Error handling API.
+ *
+ * Defines structures and methods used for error handling in the library.
+ *
+ * @copyright See COPYING.md in the project tree for further information.
+ */
+
 #ifndef LIBCUBESCRIPT_CUBESCRIPT_ERROR_HH
 #define LIBCUBESCRIPT_CUBESCRIPT_ERROR_HH
 

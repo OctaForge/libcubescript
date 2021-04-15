@@ -1,3 +1,14 @@
+/** @file util.hh
+ *
+ * @brief Utility API.
+ *
+ * This contains various utilities that don't quite fit within the other
+ * structures, but provide convenience; this includes things such as parsing
+ * of lists, strings and numbers.
+ *
+ * @copyright See COPYING.md in the project tree for further information.
+ */
+
 #ifndef LIBCUBESCRIPT_CUBESCRIPT_UTIL_HH
 #define LIBCUBESCRIPT_CUBESCRIPT_UTIL_HH
 

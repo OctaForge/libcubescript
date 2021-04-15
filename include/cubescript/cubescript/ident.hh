@@ -1,3 +1,14 @@
+/** @file ident.hh
+ *
+ * @brief Identifier management.
+ *
+ * Identifiers in `libcubescript` represent variables, aliases, commands
+ * and so on. This file contains the handles for those and everything you
+ * need to interface with them.
+ *
+ * @copyright See COPYING.md in the project tree for further information.
+ */
+
 #ifndef LIBCUBESCRIPT_CUBESCRIPT_IDENT_HH
 #define LIBCUBESCRIPT_CUBESCRIPT_IDENT_HH
 

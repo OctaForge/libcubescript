@@ -1,3 +1,13 @@
+/** @file state.hh
+ *
+ * @brief State API.
+ *
+ * The state is the main handle using which you interact with the language
+ * from C++. It represents a single Cubescript thread.
+ *
+ * @copyright See COPYING.md in the project tree for further information.
+ */
+
 #ifndef LIBCUBESCRIPT_CUBESCRIPT_STATE_HH
 #define LIBCUBESCRIPT_CUBESCRIPT_STATE_HH
 

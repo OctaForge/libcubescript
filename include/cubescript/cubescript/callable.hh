@@ -1,3 +1,12 @@
+/** @file callable.hh
+ *
+ * @brief Internal callable data structure.
+ *
+ * There is no public API in this file.
+ *
+ * @copyright See COPYING.md in the project tree for further information.
+ */
+
 #ifndef LIBCUBESCRIPT_CUBESCRIPT_CALLABLE_HH
 #define LIBCUBESCRIPT_CUBESCRIPT_CALLABLE_HH
 
@@ -10,6 +19,7 @@
 namespace cubescript {
 namespace internal {
 
+/** @private */
 template<typename R, typename ...A>
 struct callable {
 private:

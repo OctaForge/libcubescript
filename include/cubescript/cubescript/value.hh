@@ -1,3 +1,15 @@
+/** @file value.hh
+ *
+ * @brief Value API.
+ *
+ * This file contains value handles. These include the main value handle,
+ * which represents any Cubescript value as a tagged union (and you use it
+ * for handling of things such as command arguments and return values), as
+ * well as string references and bytecode references.
+ *
+ * @copyright See COPYING.md in the project tree for further information.
+ */
+
 #ifndef LIBCUBESCRIPT_CUBESCRIPT_VALUE_HH
 #define LIBCUBESCRIPT_CUBESCRIPT_VALUE_HH
 
