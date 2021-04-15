@@ -98,7 +98,7 @@ LIBCUBESCRIPT_EXPORT char const *parse_word(
 );
 
 LIBCUBESCRIPT_EXPORT string_ref concat_values(
-    state &cs, std::span<any_value> vals,
+    state &cs, span_type<any_value> vals,
     std::string_view sep = std::string_view{}
 );
 

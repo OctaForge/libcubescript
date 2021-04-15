@@ -46,7 +46,7 @@ struct math_noop {
 
 template<typename T, typename F1, typename F2>
 static inline void math_op(
-    std::span<any_value> args, any_value &res, T initval,
+    span_type<any_value> args, any_value &res, T initval,
     F1 binop, F2 unop
 ) {
     T val;
@@ -62,7 +62,7 @@ static inline void math_op(
 }
 
 template<typename T, typename F>
-static inline void cmp_op(std::span<any_value> args, any_value &res, F cmp) {
+static inline void cmp_op(span_type<any_value> args, any_value &res, F cmp) {
     bool val;
     if (args.size() >= 2) {
         val = cmp(math_val<T>::get(args[0]), math_val<T>::get(args[1]));

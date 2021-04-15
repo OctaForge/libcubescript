@@ -385,7 +385,7 @@ bool any_value::get_bool() const {
 /* public utilities */
 
 LIBCUBESCRIPT_EXPORT string_ref concat_values(
-    state &cs, std::span<any_value> vals, std::string_view sep
+    state &cs, span_type<any_value> vals, std::string_view sep
 ) {
     charbuf buf{cs};
     for (std::size_t i = 0; i < vals.size(); ++i) {

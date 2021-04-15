@@ -172,17 +172,17 @@ void exec_command(
                 i = std::max(i + 1, numargs);
                 any_value tv{};
                 tv.set_string(concat_values(
-                    *ts.pstate, std::span{args, std::size_t(i)}, " "
+                    *ts.pstate, span_type<any_value>{args, std::size_t(i)}, " "
                 ));
                 static_cast<command_impl *>(id)->call(
-                    ts, std::span<any_value>(&tv, &tv + 1), res
+                    ts, span_type<any_value>(&tv, &tv + 1), res
                 );
                 return;
             }
             case 'V':
                 i = std::max(i + 1, numargs);
                 static_cast<command_impl *>(id)->call(
-                    ts, std::span{args, std::size_t(i)}, res
+                    ts, span_type<any_value>{args, std::size_t(i)}, res
                 );
                 return;
             case '1':
@@ -198,7 +198,7 @@ void exec_command(
     }
     ++i;
     static_cast<command_impl *>(id)->call(
-        ts, std::span<any_value>{args, std::size_t(i)}, res
+        ts, span_type<any_value>{args, std::size_t(i)}, res
     );
     res.force_plain();
 }
@@ -936,8 +936,9 @@ std::uint32_t *vm_exec(
             case BC_INST_CONC_W | BC_RET_INT: {
                 std::size_t numconc = op >> 8;
                 auto buf = concat_values(
-                    cs, std::span{&args[args.size() - numconc], numconc},
-                    ((op & BC_INST_OP_MASK) == BC_INST_CONC) ? " " : ""
+                    cs, span_type<any_value>{
+                        &args[args.size() - numconc], numconc
+                    }, ((op & BC_INST_OP_MASK) == BC_INST_CONC) ? " " : ""
                 );
                 args.resize(args.size() - numconc);
                 args.emplace_back().set_string(buf);
@@ -1202,7 +1203,7 @@ noid:
                 );
                 std::size_t offset = args.size() - id->get_num_args();
                 result.force_none();
-                id->call(ts, std::span<any_value>{
+                id->call(ts, span_type<any_value>{
                     &args[offset], std::size_t(id->get_num_args())
                 }, result);
                 force_arg(cs, result, op & BC_INST_RET_MASK);
@@ -1220,7 +1221,9 @@ noid:
                 std::size_t callargs = *code++;
                 std::size_t offset = args.size() - callargs;
                 result.force_none();
-                id->call(ts, std::span{&args[offset], callargs}, result);
+                id->call(
+                    ts, span_type<any_value>{&args[offset], callargs}, result
+                );
                 force_arg(cs, result, op & BC_INST_RET_MASK);
                 args.resize(offset);
                 continue;
@@ -1237,10 +1240,10 @@ noid:
                 result.force_none();
                 {
                     any_value tv{};
-                    tv.set_string(concat_values(cs, std::span{
+                    tv.set_string(concat_values(cs, span_type<any_value>{
                         &args[offset], callargs
                     }, " "));
-                    id->call(ts, std::span<any_value>{&tv, 1}, result);
+                    id->call(ts, span_type<any_value>{&tv, 1}, result);
                 }
                 force_arg(cs, result, op & BC_INST_RET_MASK);
                 args.resize(offset);

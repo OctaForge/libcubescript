@@ -89,7 +89,7 @@ void var_changed(thread_state &ts, ident *id) {
     auto *cimp = static_cast<command_impl *>(cid);
     any_value val{};
     val.set_ident(id);
-    cimp->call(ts, std::span<any_value>{&val, 1}, val);
+    cimp->call(ts, span_type<any_value>{&val, 1}, val);
 }
 
 void ivar_impl::save_val() {
@@ -105,7 +105,7 @@ void svar_impl::save_val() {
 }
 
 void command_impl::call(
-    thread_state &ts, std::span<any_value> args, any_value &ret
+    thread_state &ts, span_type<any_value> args, any_value &ret
 ) {
     auto idstsz = ts.idstack.size();
     try {

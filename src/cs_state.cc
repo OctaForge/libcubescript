@@ -331,16 +331,16 @@ LIBCUBESCRIPT_EXPORT bool state::have_ident(std::string_view name) {
     return p_tstate->istate->idents.find(name) != p_tstate->istate->idents.end();
 }
 
-LIBCUBESCRIPT_EXPORT std::span<ident *> state::get_idents() {
-    return std::span<ident *>{
+LIBCUBESCRIPT_EXPORT span_type<ident *> state::get_idents() {
+    return span_type<ident *>{
         p_tstate->istate->identmap.data(),
         p_tstate->istate->identmap.size()
     };
 }
 
-LIBCUBESCRIPT_EXPORT std::span<ident const *> state::get_idents() const {
+LIBCUBESCRIPT_EXPORT span_type<ident const *> state::get_idents() const {
     auto ptr = const_cast<ident const **>(p_tstate->istate->identmap.data());
-    return std::span<ident const *>{ptr, p_tstate->istate->identmap.size()};
+    return span_type<ident const *>{ptr, p_tstate->istate->identmap.size()};
 }
 
 LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
@@ -510,7 +510,7 @@ LIBCUBESCRIPT_EXPORT void state::set_alias(
             case ident_type::IVAR:
             case ident_type::FVAR:
             case ident_type::SVAR:
-                run(*id, std::span<any_value>{&v, 1});
+                run(*id, span_type<any_value>{&v, 1});
                 break;
             default:
                 throw error{
@@ -666,7 +666,7 @@ LIBCUBESCRIPT_EXPORT any_value state::run(
 }
 
 LIBCUBESCRIPT_EXPORT any_value state::run(
-    ident &id, std::span<any_value> args
+    ident &id, span_type<any_value> args
 ) {
     any_value ret{};
     std::size_t nargs = args.size();

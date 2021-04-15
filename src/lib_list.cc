@@ -34,7 +34,7 @@ struct arg_val<std::string_view> {
 
 template<typename T, typename F>
 static inline void list_find(
-    state &cs, std::span<any_value> args, any_value &res, F cmp
+    state &cs, span_type<any_value> args, any_value &res, F cmp
 ) {
     integer_type n = 0, skip = args[2].get_integer();
     T val = arg_val<T>::get(args[1], cs);
@@ -56,7 +56,7 @@ notfound:
 
 template<typename T, typename F>
 static inline void list_assoc(
-    state &cs, std::span<any_value> args, any_value &res, F cmp
+    state &cs, span_type<any_value> args, any_value &res, F cmp
 ) {
     T val = arg_val<T>::get(args[1], cs);
     for (list_parser p{cs, args[0].get_string(cs)}; p.parse();) {
@@ -117,7 +117,7 @@ int list_includes(
 
 template<bool PushList, bool Swap, typename F>
 static inline void list_merge(
-    state &cs, std::span<any_value> args, any_value &res, F cmp
+    state &cs, span_type<any_value> args, any_value &res, F cmp
 ) {
     std::string_view list = args[0].get_string(cs);
     std::string_view elems = args[1].get_string(cs);

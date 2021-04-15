@@ -28,7 +28,7 @@ using alloc_func   = void *(*)(void *, void *, size_t, size_t);
 
 using hook_func    = internal::callable<void, state &>;
 using command_func = internal::callable<
-    void, state &, std::span<any_value>, any_value &
+    void, state &, span_type<any_value>, any_value &
 >;
 
 enum class loop_state {
@@ -93,13 +93,13 @@ struct LIBCUBESCRIPT_EXPORT state {
     alias *get_alias(std::string_view name);
     bool have_ident(std::string_view name);
 
-    std::span<ident *> get_idents();
-    std::span<ident const *> get_idents() const;
+    span_type<ident *> get_idents();
+    span_type<ident const *> get_idents() const;
 
     any_value run(bcode_ref const &code);
     any_value run(std::string_view code);
     any_value run(std::string_view code, std::string_view source);
-    any_value run(ident &id, std::span<any_value> args);
+    any_value run(ident &id, span_type<any_value> args);
 
     loop_state run_loop(bcode_ref const &code, any_value &ret);
     loop_state run_loop(bcode_ref const &code);

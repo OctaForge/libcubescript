@@ -18,6 +18,12 @@
 
 #include <type_traits>
 
+#if __has_include(<span>)
+#  include <span>
+#else
+#  error "This implementation does not provide an std::span<T>."
+#endif
+
 namespace cubescript {
     /** @brief The integer type used.
      *
@@ -44,6 +50,19 @@ namespace cubescript {
      * @see ROUND_FLOAT_FORMAT
      */
     using float_type = float;
+
+#if __has_include(<span>) || defined(LIBCS_GENERATING_DOC)
+    /** @brief The span type used.
+     *
+     * By default, this is `std::span`. You will almost never want to override
+     * this, but an alternative implementation can be supplied if your standard
+     * library does not support it.
+     */
+    template<typename T>
+    using span_type = std::span<T>;
+#else
+    using span_type = void;
+#endif
 
     /** @brief The integer format used.
      *

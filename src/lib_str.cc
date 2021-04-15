@@ -11,7 +11,7 @@ namespace cubescript {
 
 template<typename F>
 static inline void str_cmp_by(
-    state &cs, std::span<any_value> args, any_value &res, F cfunc
+    state &cs, span_type<any_value> args, any_value &res, F cfunc
 ) {
     bool val;
     if (args.size() >= 2) {

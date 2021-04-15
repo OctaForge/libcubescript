@@ -126,7 +126,7 @@ struct command_impl: ident_impl, command {
         string_ref name, string_ref args, int numargs, command_func func
     );
 
-    void call(thread_state &ts, std::span<any_value> args, any_value &ret);
+    void call(thread_state &ts, span_type<any_value> args, any_value &ret);
 
     string_ref p_cargs;
     command_func p_cb_cftv;
