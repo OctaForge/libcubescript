@@ -114,7 +114,10 @@ The C++20 support does not have to be complete. These are the baselines
 * Clang 10 (with libstdc++ or libc++)
 * Microsoft Visual C++ 2019
 
-Older versions of either of these are known not to work.
+Older compilers generally do not work out of box (but for example, GCC 9
+may work if you provide an `std::span` implementation; see the docs for
+how, but keep in mind that the resulting library will have incompatible
+ABI with newer standard library versions that do provide it).
 
 You will need [Meson](https://mesonbuild.com/) to build the project. Most
 Unix-like systems have it in their package management, on Windows there is

@@ -137,7 +137,7 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <Windows.h>
+#include <windows.h>
 #include <io.h>
 #ifndef STDIN_FILENO
 #define STDIN_FILENO (_fileno(stdin))
