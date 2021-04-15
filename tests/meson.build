@@ -16,6 +16,8 @@ test_runner = executable('runner',
 
 penv = environment()
 penv.append('PATH', join_paths(build_root, 'src'))
+# when running tests for crossbuilds in wine, this is used instead
+penv.append('WINEPATH', join_paths(build_root, 'src'))
 
 foreach tcase: lang_tests
     test(tcase[0],

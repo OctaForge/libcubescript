@@ -139,6 +139,9 @@ cd build
 args=""
 if [ -n "${cross}" ]; then
     if [ "${meson_system}" = "windows" ]; then
+        # avoid having to look the dlls for these up
+        export CXXFLAGS+=" -static-libgcc -static-libstdc++"
+        # quiet wine exe wrapper
         cat << EOF > meson-exewrapper
 #!/bin/sh
 export WINEDEBUG=-all
