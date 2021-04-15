@@ -62,14 +62,11 @@ if [ "$(uname -s)" != "Linux" ]; then
     exit 0
 fi
 
-sudo apt-get install gcc-10 g++-10 || exit 1
-
-current_triplet=`gcc-10 -dumpmachine`
-
-if [ -z "$current_triplet" ]; then
-    echo "ERROR: Native compiler not present!"
-    exit 1
+if [ "${CC/gcc}" != "${CC}" ]; then
+    sudo apt-get install ${CC} ${CC/gcc/g++} || exit 1
 fi
+
+current_triplet=`gcc -dumpmachine`
 
 if [ "$expected_triplet" = "$current_triplet" ]; then
     exit 0
@@ -80,11 +77,30 @@ echo ">> Installing toolchain..."
 if [ "$expected_triplet" = "x86_64-w64-mingw32" ]; then
     gcc_suffix="mingw-w64"
     extra_packages="wine"
+    need_span=yes
 else
     gcc_suffix="${expected_triplet}"
     extra_packages="qemu-user"
 fi
 
-sudo apt-get install gcc-10-${gcc_suffix} g++-10-${gcc_suffix} ${extra_packages} || exit 1
+sudo apt-get install ${CC}-${gcc_suffix} ${CC/gcc/g++}-${gcc_suffix} ${extra_packages} || exit 1
+
+# gcc9 too old to provide its own span...
+if [ -n "$need_span" ]; then
+    wget -O include/cubescript/span.hpp \
+        https://raw.githubusercontent.com/tcbrindle/span/master/include/tcb/span.hpp
+
+    # custom config
+    cat << EOF > include/cubescript/cubescript_conf_user.hh
+#include "span.hpp"
+
+namespace cubescript {
+    template<typename T>
+    using span_type = tcb::span<T>;
+}
+
+#define LIBCUBESCRIPT_CONF_USER_SPAN
+EOF
+fi
 
 exit $?

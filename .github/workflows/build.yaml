@@ -35,8 +35,7 @@ jobs:
           - { target: mips-linux-gnu, cc: gcc-10, buildtype: debugoptimized }
           - { target: m68k-linux-gnu, cc: gcc-10, buildtype: debug }
           # x86_64 windows cross, release mode
-          # there is no gcc10 mingw64 crosscompiler yet and gcc9 is too old
-          #- { target: x86_64-w64-mingw32, cc: gcc-10, buildtype: release }
+          - { target: x86_64-w64-mingw32, cc: gcc, buildtype: release }
 
     steps:
       - name: Checkout
