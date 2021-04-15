@@ -44,10 +44,10 @@ jobs:
           persist-credentials: false
 
       - name: Prepare environment
-        run: sh ./.ci/install-env
+        run: bash ./.ci/install-env
 
       - name: Build and test cubescript
-        run: sh ./.ci/build-cs
+        run: bash ./.ci/build-cs
 
   windows:
     name: Windows
@@ -80,7 +80,7 @@ jobs:
           persist-credentials: false
 
       - name: Prepare environment
-        run: sh ./.ci/install-env
+        run: bash ./.ci/install-env
 
       - name: Build and test cubescript
-        run: sh ./.ci/build-cs
+        run: bash ./.ci/build-cs
