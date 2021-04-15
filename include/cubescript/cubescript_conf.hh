@@ -2,13 +2,10 @@
  *
  * @brief Library configuration.
  *
- * This is the one file you are allowed to touch as a user - it contains
- * settings that are used when building the library, notably the integer
- * and floating point types used and their formats (used for conversions).
- *
- * Usually you will not want to touch this, but occasionally you might want
- * to, e.g. to make a build of the library that uses double precision floats
- * or larger integers.
+ * While you can technically modify this directly, it is better if you use
+ * a custom file `cubescript_conf_user.hh` in the same location. Most of the
+ * time you will not want to override anything, but should you need to change
+ * the integer, float or span types for a specific purpose, this allows you to.
  *
  * @copyright See COPYING.md in the project tree for further information.
  */
@@ -18,13 +15,18 @@
 
 #include <type_traits>
 
+#if __has_include("cubescript_conf_user.hh")
+#  include "cubescript_conf_user.hh"
+#endif
+
 #if __has_include(<span>)
 #  include <span>
-#else
+#elif !defined(LIBCUBESCRIPT_CONF_USER_SPAN)
 #  error "This implementation does not provide an std::span<T>."
 #endif
 
 namespace cubescript {
+#if !defined(LIBCUBESCRIPT_CONF_USER_INTEGER)
     /** @brief The integer type used.
      *
      * While Cubescript is a stringly typed language, it uses integers and
@@ -35,35 +37,50 @@ namespace cubescript {
      * 32-bit signed integer on most platforms. Keep in mind that is is
      * necessary for this type to be a signed integer type.
      *
+     * Define `LIBCUBESCRIPT_CONF_USER_INTEGER` in your custom conf file
+     * to disable the builtin.
+     *
      * @see float_type
      * @see INTEGER_FORMAT
      */
     using integer_type = int;
+#endif
 
+#if !defined(LIBCUBESCRIPT_CONF_USER_FLOAT)
     /** @brief The floating point type used.
      *
      * By default, this is `float`, which is on most platforms an IEEE754
      * binary32 data type.
+     *
+     * Define `LIBCUBESCRIPT_CONF_USER_FLOAT` in your custom conf file
+     * to disable the builtin.
      *
      * @see integer_type
      * @see FLOAT_FORMAT
      * @see ROUND_FLOAT_FORMAT
      */
     using float_type = float;
+#endif
 
+#if !defined(LIBCUBESCRIPT_CONF_USER_SPAN)
 #if __has_include(<span>) || defined(LIBCS_GENERATING_DOC)
     /** @brief The span type used.
      *
      * By default, this is `std::span`. You will almost never want to override
      * this, but an alternative implementation can be supplied if your standard
      * library does not support it.
+     *
+     * Define `LIBCUBESCRIPT_CONF_USER_SPAN` in your custom conf file to
+     * disable the builtin.
      */
     template<typename T>
     using span_type = std::span<T>;
 #else
     using span_type = void;
 #endif
+#endif
 
+#if !defined(LIBCUBESCRIPT_CONF_USER_INTEGER)
     /** @brief The integer format used.
      *
      * This is a formatting specifier as in `printf`, corresponding to the
@@ -74,11 +91,16 @@ namespace cubescript {
      * There are no special restrictions imposed on the floating point type
      * other than that it actually has to be floating point.
      *
+     * Define `LIBCUBESCRIPT_CONF_USER_INTEGER` in your custom conf file
+     * to disable the builtin.
+     *
      * @see integer_type
      * @see FLOAT_FORMAT
      */
     constexpr auto const INTEGER_FORMAT = "%d";
+#endif
 
+#if !defined(LIBCUBESCRIPT_CONF_USER_FLOAT)
     /** @brief The float format used.
      *
      * This is a formatting specifier as in `printf`, corresponding to the
@@ -87,6 +109,9 @@ namespace cubescript {
      *
      * When the floating point value is equivalent to its integer value (i.e.
      * it has no decimal point), ROUND_FLOAT_FORMAT is used.
+     *
+     * Define `LIBCUBESCRIPT_CONF_USER_FLOAT` in your custom conf file
+     * to disable the builtin.
      *
      * @see float_type
      * @see ROUND_FLOAT_FORMAT
@@ -104,6 +129,7 @@ namespace cubescript {
      * @see FLOAT_FORMAT
      */
     constexpr auto const ROUND_FLOAT_FORMAT = "%.1f";
+#endif
 } /* namespace cubescript */
 
 /* conf verification */

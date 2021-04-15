@@ -12,6 +12,8 @@ current_triplet=`$CC -dumpmachine`
 if [ "$CC" = "clang" ]; then
     export CXX="clang++"
     export CXXFLAGS="-stdlib=libc++"
+elif [ "$CC" = "gcc" ]; then
+    export CXX="g++"
 else
     export CXX="g++-10"
 fi

@@ -12,7 +12,6 @@
 #define LIBCUBESCRIPT_CUBESCRIPT_STATE_HH
 
 #include <cstddef>
-#include <span>
 #include <utility>
 #include <string_view>
 
