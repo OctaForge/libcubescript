@@ -19,10 +19,8 @@
 #  include "cubescript_conf_user.hh"
 #endif
 
-#if __has_include(<span>)
+#if !defined(LIBCUBESCRIPT_CONF_USER_SPAN)
 #  include <span>
-#elif !defined(LIBCUBESCRIPT_CONF_USER_SPAN)
-#  error "This implementation does not provide an std::span<T>."
 #endif
 
 namespace cubescript {

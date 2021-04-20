@@ -351,6 +351,7 @@ LIBCUBESCRIPT_EXPORT void global_var::save(state &cs) {
         }
         if (!(p_impl->p_flags & IDENT_FLAG_OVERRIDDEN)) {
             static_cast<var_impl *>(p_impl)->save_val();
+            p_impl->p_flags |= IDENT_FLAG_OVERRIDDEN;
         }
     } else {
         p_impl->p_flags &= IDENT_FLAG_OVERRIDDEN;
