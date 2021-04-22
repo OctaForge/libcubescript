@@ -61,7 +61,6 @@ namespace cubescript {
 #endif
 
 #if !defined(LIBCUBESCRIPT_CONF_USER_SPAN)
-#if __has_include(<span>) || defined(LIBCS_GENERATING_DOC)
     /** @brief The span type used.
      *
      * By default, this is `std::span`. You will almost never want to override
@@ -73,9 +72,6 @@ namespace cubescript {
      */
     template<typename T>
     using span_type = std::span<T>;
-#else
-    using span_type = void;
-#endif
 #endif
 
 #if !defined(LIBCUBESCRIPT_CONF_USER_INTEGER)
