@@ -46,6 +46,11 @@ struct command;
  *
  * You can also check the actual type with it (cubescript::ident_type) and
  * decide to cast it to its appropriate specific type, or use the helpers.
+ *
+ * An ident always has a valid name. A valid name is pretty much any
+ * valid Cubescript word (see cubescript::parse_word()) which does not
+ * begin with a number (a digit, a `+` or `-` followed by a digit or a
+ * period followed by a digit, or a period followed by a digit).
  */
 struct LIBCUBESCRIPT_EXPORT ident {
     /** @brief Get the cubescript::ident_type of this ident. */
