@@ -157,7 +157,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
 
     new_cmd_quiet(gcs, "pushif", "rte", [](auto &cs, auto args, auto &res) {
         alias_local st{cs, args[0]};
-        if (st.get_alias()->is_arg()) {
+        if (st.get_alias().is_arg()) {
             throw error{cs, "cannot push an argument"};
         }
         if (args[1].get_bool()) {
@@ -317,7 +317,7 @@ end:
 
     new_cmd_quiet(gcs, "push", "rte", [](auto &cs, auto args, auto &res) {
         alias_local st{cs, args[0]};
-        if (st.get_alias()->is_arg()) {
+        if (st.get_alias().is_arg()) {
             throw error{cs, "cannot push an argument"};
         }
         st.set(args[1]);

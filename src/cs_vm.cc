@@ -154,7 +154,7 @@ void exec_command(
                     if (rep) {
                         break;
                     }
-                    args[i].set_ident(ts.istate->id_dummy);
+                    args[i].set_ident(*ts.istate->id_dummy);
                     fakeargs++;
                 } else {
                     args[i].force_ident(*ts.pstate);
@@ -162,7 +162,7 @@ void exec_command(
                 break;
             case '$':
                 i += 1;
-                args[i].set_ident(self);
+                args[i].set_ident(*self);
                 break;
             case 'N':
                 i += 1;
@@ -734,7 +734,7 @@ std::uint32_t *vm_exec(
                     ts.get_astack(a).push(ts.idstack.emplace_back());
                     ts.callstack->usedargs[a->get_index()] = true;
                 }
-                args.emplace_back().set_ident(a);
+                args.emplace_back().set_ident(*a);
                 continue;
             }
             case BC_INST_IDENT_U: {
@@ -750,7 +750,7 @@ std::uint32_t *vm_exec(
                     ts.get_astack(a).push(ts.idstack.emplace_back());
                     ts.callstack->usedargs[id->get_index()] = true;
                 }
-                arg.set_ident(id);
+                arg.set_ident(*id);
                 continue;
             }
 

@@ -86,17 +86,11 @@ struct LIBCUBESCRIPT_EXPORT alias_local {
     /** @brief Local handlers are not move assignable */
     alias_local &operator=(alias_local &&v) = delete;
 
-    /** @brief Get the contained alias
-     *
-     * @return the alias or `nullptr` if none set
-     */
-    alias *get_alias() noexcept { return p_alias; }
+    /** @brief Get the contained alias */
+    alias &get_alias() noexcept { return *p_alias; }
 
-    /** @brief Get the contained alias
-     *
-     * @return the alias or `nullptr` if none set
-     */
-    alias const *get_alias() const noexcept { return p_alias; }
+    /** @brief Get the contained alias */
+    alias const &get_alias() const noexcept { return *p_alias; }
 
     /** @brief Set the contained alias's value
      *

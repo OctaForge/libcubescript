@@ -165,10 +165,10 @@ void any_value::set_code(bcode_ref const &val) {
     csv_get<bcode *>(&p_stor) = p;
 }
 
-void any_value::set_ident(ident *val) {
+void any_value::set_ident(ident &val) {
     csv_cleanup(p_type, &p_stor);
     p_type = value_type::IDENT;
-    csv_get<ident *>(&p_stor) = val;
+    csv_get<ident *>(&p_stor) = &val;
 }
 
 void any_value::force_none() {
@@ -270,7 +270,7 @@ ident &any_value::force_ident(state &cs) {
     auto &id = state_p{cs}.ts().istate->new_ident(
         cs, get_string(cs), IDENT_FLAG_UNKNOWN
     );
-    set_ident(&id);
+    set_ident(id);
     return id;
 }
 

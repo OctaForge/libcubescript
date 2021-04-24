@@ -88,7 +88,7 @@ void var_changed(thread_state &ts, ident *id) {
     }
     auto *cimp = static_cast<command_impl *>(cid);
     any_value val{};
-    val.set_ident(id);
+    val.set_ident(*id);
     cimp->call(ts, span_type<any_value>{&val, 1}, val);
 }
 

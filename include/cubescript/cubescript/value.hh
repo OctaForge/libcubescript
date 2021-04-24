@@ -339,7 +339,7 @@ struct LIBCUBESCRIPT_EXPORT any_value {
      * performed, so after main thread destruction this may become
      * dangling (and unsafe to use).
      */
-    void set_ident(ident *val);
+    void set_ident(ident &val);
 
     /** @brief Get the value as a string reference.
      *
