@@ -220,6 +220,13 @@ struct LIBCUBESCRIPT_EXPORT string_ref {
      */
     bool operator==(string_ref const &s) const;
 
+    /** @brief Check if the string does not equal another.
+     *
+     * This is effectively a `data() != s.data()` address comparison, and
+     * therefore always has constant time complexity.
+     */
+    bool operator!=(string_ref const &s) const;
+
 private:
     string_ref(char const *p);
 
@@ -374,9 +381,9 @@ struct LIBCUBESCRIPT_EXPORT any_value {
 
     /** @brief Get the value as an ident.
      *
-     * If the contained value is not an ident, `nullptr` is returned.
+     * If the contained value is not an ident, a dummy is returned.
      */
-    ident *get_ident() const;
+    ident &get_ident(state &cs) const;
 
     /** @brief Get the value as representable inside the language.
      *

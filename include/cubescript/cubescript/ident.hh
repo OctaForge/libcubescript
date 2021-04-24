@@ -68,6 +68,12 @@ struct LIBCUBESCRIPT_EXPORT ident {
      */
     int get_index() const;
 
+    /** @brief Check if the idents are the same. */
+    bool operator==(ident &other) const;
+
+    /** @brief Check if the idents are not the same. */
+    bool operator!=(ident &other) const;
+
     /** @brief Check if the ident is a cubescript::alias.
      *
      * Effectively like `get_type() == ident_type::ALIAS`.

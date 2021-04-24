@@ -170,6 +170,14 @@ LIBCUBESCRIPT_EXPORT int ident::get_index() const {
     return p_impl->p_index;
 }
 
+LIBCUBESCRIPT_EXPORT bool ident::operator==(ident &other) const {
+    return this == &other;
+}
+
+LIBCUBESCRIPT_EXPORT bool ident::operator!=(ident &other) const {
+    return this != &other;
+}
+
 LIBCUBESCRIPT_EXPORT bool ident::is_alias() const {
     return get_type() == ident_type::ALIAS;
 }
@@ -463,18 +471,27 @@ LIBCUBESCRIPT_EXPORT int command::get_num_args() const {
 
 /* external API for alias stack management */
 
-LIBCUBESCRIPT_EXPORT alias_local::alias_local(state &cs, ident *a) {
-    if (!a || !a->is_alias()) {
-        p_alias = nullptr;
-        return;
+LIBCUBESCRIPT_EXPORT alias_local::alias_local(state &cs, ident &a) {
+    if (!a.is_alias()) {
+        throw error{cs, "ident '%s' is not an alias", a.get_name().data()};
     }
     auto &ts = state_p{cs}.ts();
-    p_alias = static_cast<alias *>(a);
+    p_alias = static_cast<alias *>(&a);
     auto &ast = ts.get_astack(p_alias);
     ast.push(ts.idstack.emplace_back());
     p_sp = &ast;
     ast.flags &= ~IDENT_FLAG_UNKNOWN;
 }
+
+LIBCUBESCRIPT_EXPORT alias_local::alias_local(state &cs, std::string_view name):
+    alias_local{cs, cs.new_ident(name)}
+{}
+
+LIBCUBESCRIPT_EXPORT alias_local::alias_local(state &cs, any_value const &v):
+    alias_local{cs, (
+        v.get_type() == value_type::IDENT
+    ) ? v.get_ident(cs) : cs.new_ident(v.get_string(cs))}
+{}
 
 LIBCUBESCRIPT_EXPORT alias_local::~alias_local() {
     if (p_alias) {
@@ -488,10 +505,6 @@ LIBCUBESCRIPT_EXPORT bool alias_local::set(any_value val) {
     }
     static_cast<alias_stack *>(p_sp)->node->val_s = std::move(val);
     return true;
-}
-
-LIBCUBESCRIPT_EXPORT alias_local::operator bool() const noexcept {
-    return !!p_alias;
 }
 
 } /* namespace cubescript */

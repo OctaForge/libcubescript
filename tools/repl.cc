@@ -325,7 +325,7 @@ int main(int argc, char **argv) {
      * to be set, but you may also not be using standard i/o and so on
      */
     gcs.new_command("//ivar", "$iiiN", [](auto &css, auto args, auto &) {
-        auto *iv = args[0].get_ident()->get_ivar();
+        auto *iv = args[0].get_ident(css).get_ivar();
         auto nargs = args[4].get_integer();
         if (nargs <= 1) {
             auto val = iv->get_value();
@@ -355,9 +355,10 @@ int main(int argc, char **argv) {
         }
     });
 
-    gcs.new_command("//var_changed", "$", [](auto &, auto args, auto &) {
+    gcs.new_command("//var_changed", "$", [](auto &css, auto args, auto &) {
         std::printf(
-            "changed var trigger: %s\n", args[0].get_ident()->get_name().data()
+            "changed var trigger: %s\n",
+            args[0].get_ident(css).get_name().data()
         );
     });
 

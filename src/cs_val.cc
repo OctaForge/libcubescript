@@ -311,11 +311,11 @@ bcode_ref any_value::get_code() const {
     return bcode_p::make_ref(csv_get<bcode *>(&p_stor));
 }
 
-ident *any_value::get_ident() const {
+ident &any_value::get_ident(state &cs) const {
     if (get_type() != value_type::IDENT) {
-        return nullptr;
+        return *state_p{cs}.ts().istate->id_dummy;
     }
-    return csv_get<ident *>(&p_stor);
+    return *csv_get<ident *>(&p_stor);
 }
 
 string_ref any_value::get_string(state &cs) const {

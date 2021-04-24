@@ -15,20 +15,19 @@ static inline void do_loop(
     if (n <= 0) {
         return;
     }
-    if (alias_local st{cs, &id}; st) {
-        any_value idv{};
-        for (integer_type i = 0; i < n; ++i) {
-            idv.set_integer(offset + i * step);
-            st.set(idv);
-            if (cond && !cs.run(cond).get_bool()) {
+    alias_local st{cs, id};
+    any_value idv{};
+    for (integer_type i = 0; i < n; ++i) {
+        idv.set_integer(offset + i * step);
+        st.set(idv);
+        if (cond && !cs.run(cond).get_bool()) {
+            break;
+        }
+        switch (cs.run_loop(body)) {
+            case loop_state::BREAK:
+                return;
+            default: /* continue and normal */
                 break;
-            }
-            switch (cs.run_loop(body)) {
-                case loop_state::BREAK:
-                    return;
-                default: /* continue and normal */
-                    break;
-            }
         }
     }
 }
@@ -40,29 +39,28 @@ static inline void do_loop_conc(
     if (n <= 0) {
         return;
     }
-    if (alias_local st{cs, &id}; st) {
-        charbuf s{cs};
-        any_value idv{};
-        for (integer_type i = 0; i < n; ++i) {
-            idv.set_integer(offset + i * step);
-            st.set(idv);
-            any_value v{};
-            switch (cs.run_loop(body, v)) {
-                case loop_state::BREAK:
-                    goto end;
-                case loop_state::CONTINUE:
-                    continue;
-                default:
-                    break;
-            }
-            if (space && i) {
-                s.push_back(' ');
-            }
-            s.append(v.get_string(cs));
+    alias_local st{cs, id};
+    charbuf s{cs};
+    any_value idv{};
+    for (integer_type i = 0; i < n; ++i) {
+        idv.set_integer(offset + i * step);
+        st.set(idv);
+        any_value v{};
+        switch (cs.run_loop(body, v)) {
+            case loop_state::BREAK:
+                goto end;
+            case loop_state::CONTINUE:
+                continue;
+            default:
+                break;
         }
-end:
-        res.set_string(s.str(), cs);
+        if (space && i) {
+            s.push_back(' ');
+        }
+        s.append(v.get_string(cs));
     }
+end:
+    res.set_string(s.str(), cs);
 }
 
 LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
@@ -71,8 +69,8 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
     });
 
     new_cmd_quiet(gcs, "pcall", "err", [](auto &cs, auto args, auto &ret) {
-        alias *cret = args[1].get_ident()->get_alias();
-        alias *css = args[2].get_ident()->get_alias();
+        alias *cret = args[1].get_ident(cs).get_alias();
+        alias *css = args[2].get_ident(cs).get_alias();
         if (!cret || !css) {
             ret.set_integer(0);
             return;
@@ -158,41 +156,40 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
     });
 
     new_cmd_quiet(gcs, "pushif", "rte", [](auto &cs, auto args, auto &res) {
-        if (alias_local st{cs, args[0].get_ident()}; st) {
-            if (st.get_alias()->is_arg()) {
-                return;
-            }
-            if (args[1].get_bool()) {
-                st.set(args[1]);
-                res = cs.run(args[2].get_code());
-            }
+        alias_local st{cs, args[0]};
+        if (st.get_alias()->is_arg()) {
+            throw error{cs, "cannot push an argument"};
+        }
+        if (args[1].get_bool()) {
+            st.set(args[1]);
+            res = cs.run(args[2].get_code());
         }
     });
 
     new_cmd_quiet(gcs, "loop", "rie", [](auto &cs, auto args, auto &) {
         do_loop(
-            cs, *args[0].get_ident(), 0, args[1].get_integer(), 1, bcode_ref{},
-            args[2].get_code()
+            cs, args[0].get_ident(cs), 0, args[1].get_integer(), 1,
+            bcode_ref{}, args[2].get_code()
         );
     });
 
     new_cmd_quiet(gcs, "loop+", "riie", [](auto &cs, auto args, auto &) {
         do_loop(
-            cs, *args[0].get_ident(), args[1].get_integer(),
+            cs, args[0].get_ident(cs), args[1].get_integer(),
             args[2].get_integer(), 1, bcode_ref{}, args[3].get_code()
         );
     });
 
     new_cmd_quiet(gcs, "loop*", "riie", [](auto &cs, auto args, auto &) {
         do_loop(
-            cs, *args[0].get_ident(), 0, args[1].get_integer(),
+            cs, args[0].get_ident(cs), 0, args[1].get_integer(),
             args[2].get_integer(), bcode_ref{}, args[3].get_code()
         );
     });
 
     new_cmd_quiet(gcs, "loop+*", "riiie", [](auto &cs, auto args, auto &) {
         do_loop(
-            cs, *args[0].get_ident(), args[1].get_integer(),
+            cs, args[0].get_ident(cs), args[1].get_integer(),
             args[3].get_integer(), args[2].get_integer(),
             bcode_ref{}, args[4].get_code()
         );
@@ -200,21 +197,21 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
 
     new_cmd_quiet(gcs, "loopwhile", "riee", [](auto &cs, auto args, auto &) {
         do_loop(
-            cs, *args[0].get_ident(), 0, args[1].get_integer(), 1,
+            cs, args[0].get_ident(cs), 0, args[1].get_integer(), 1,
             args[2].get_code(), args[3].get_code()
         );
     });
 
     new_cmd_quiet(gcs, "loopwhile+", "riiee", [](auto &cs, auto args, auto &) {
         do_loop(
-            cs, *args[0].get_ident(), args[1].get_integer(),
+            cs, args[0].get_ident(cs), args[1].get_integer(),
             args[2].get_integer(), 1, args[3].get_code(), args[4].get_code()
         );
     });
 
     new_cmd_quiet(gcs, "loopwhile*", "riiee", [](auto &cs, auto args, auto &) {
         do_loop(
-            cs, *args[0].get_ident(), 0, args[2].get_integer(),
+            cs, args[0].get_ident(cs), 0, args[2].get_integer(),
             args[1].get_integer(), args[3].get_code(), args[4].get_code()
         );
     });
@@ -223,7 +220,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         auto &cs, auto args, auto &
     ) {
         do_loop(
-            cs, *args[0].get_ident(), args[1].get_integer(),
+            cs, args[0].get_ident(cs), args[1].get_integer(),
             args[3].get_integer(), args[2].get_integer(), args[4].get_code(),
             args[5].get_code()
         );
@@ -248,7 +245,7 @@ end:
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
-            cs, res, *args[0].get_ident(), 0, args[1].get_integer(), 1,
+            cs, res, args[0].get_ident(cs), 0, args[1].get_integer(), 1,
             args[2].get_code(), true
         );
     });
@@ -257,7 +254,7 @@ end:
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
-            cs, res, *args[0].get_ident(), args[1].get_integer(),
+            cs, res, args[0].get_ident(cs), args[1].get_integer(),
             args[2].get_integer(), 1, args[3].get_code(), true
         );
     });
@@ -266,7 +263,7 @@ end:
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
-            cs, res, *args[0].get_ident(), 0, args[2].get_integer(),
+            cs, res, args[0].get_ident(cs), 0, args[2].get_integer(),
             args[1].get_integer(), args[3].get_code(), true
         );
     });
@@ -275,7 +272,7 @@ end:
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
-            cs, res, *args[0].get_ident(), args[1].get_integer(),
+            cs, res, args[0].get_ident(cs), args[1].get_integer(),
             args[3].get_integer(), args[2].get_integer(),
             args[4].get_code(), true
         );
@@ -285,7 +282,7 @@ end:
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
-            cs, res, *args[0].get_ident(), 0, args[1].get_integer(), 1,
+            cs, res, args[0].get_ident(cs), 0, args[1].get_integer(), 1,
             args[2].get_code(), false
         );
     });
@@ -294,7 +291,7 @@ end:
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
-            cs, res, *args[0].get_ident(), args[1].get_integer(),
+            cs, res, args[0].get_ident(cs), args[1].get_integer(),
             args[2].get_integer(), 1, args[3].get_code(), false
         );
     });
@@ -303,7 +300,7 @@ end:
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
-            cs, res, *args[0].get_ident(), 0, args[2].get_integer(),
+            cs, res, args[0].get_ident(cs), 0, args[2].get_integer(),
             args[1].get_integer(), args[3].get_code(), false
         );
     });
@@ -312,20 +309,19 @@ end:
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
-            cs, res, *args[0].get_ident(), args[1].get_integer(),
+            cs, res, args[0].get_ident(cs), args[1].get_integer(),
             args[3].get_integer(), args[2].get_integer(),
             args[4].get_code(), false
         );
     });
 
     new_cmd_quiet(gcs, "push", "rte", [](auto &cs, auto args, auto &res) {
-        if (alias_local st{cs, args[0].get_ident()}; st) {
-            if (st.get_alias()->is_arg()) {
-                return;
-            }
-            st.set(args[1]);
-            res = cs.run(args[2].get_code());
+        alias_local st{cs, args[0]};
+        if (st.get_alias()->is_arg()) {
+            throw error{cs, "cannot push an argument"};
         }
+        st.set(args[1]);
+        res = cs.run(args[2].get_code());
     });
 
     new_cmd_quiet(gcs, "resetvar", "s", [](auto &cs, auto args, auto &) {

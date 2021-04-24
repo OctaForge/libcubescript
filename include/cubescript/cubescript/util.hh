@@ -36,20 +36,18 @@ namespace cubescript {
  * Therefore, what you can do is something like this:
  *
  * ```
- * if (alias_local s{my_thread, &my_thread.new_ident("test")}; s) {
+ * {
+ *     alias_local s{my_thread, "test"};
  *     // branch taken when the alias was successfully pushed
  *     // setting the alias will only be visible within this scope
  *     s.set(some_value); // a convenient setter
  *     my_thread.run(...);
- * } else {
- *     // you can handle an error here
  * }
  * ```
  *
- * The `else` branch can happen one case; either the given ident is `nullptr`
- * (which will never happen here) or it's not a cubescript::alias (which can
- * happen if an ident of such name already exists and is not an alias). If
- * it fails, obviously no push/pop happens.
+ * If the provided input is not an alias, a cubescript::error will be thrown.
+ * Often you don't have to catch it (since this is primarily intended for use
+ * within commands, the error will propagate outside your command).
  *
  * Since the goal is to interact tightly with RAII and ensure consistency at
  * all times, it is not possible to copy or move this object. That means you
@@ -58,7 +56,20 @@ namespace cubescript {
  */
 struct LIBCUBESCRIPT_EXPORT alias_local {
     /** @brief Construct the local handler */
-    alias_local(state &cs, ident *a);
+    alias_local(state &cs, ident &a);
+
+    /** @brief Construct the local handler
+     *
+     * The ident will be retrieved using state::new_ident().
+     */
+    alias_local(state &cs, std::string_view name);
+
+    /** @brief Construct the local handler
+     *
+     * The ident will be retrieved from the value. If the contained value
+     * is not an ident, it will be treated as a name.
+     */
+    alias_local(state &cs, any_value const &val);
 
     /** @brief Destroy the local handler */
     ~alias_local();
@@ -92,9 +103,6 @@ struct LIBCUBESCRIPT_EXPORT alias_local {
      * @return `true` if the alias is valid, `false` otherwise
      */
     bool set(any_value val);
-
-    /** @brief Get if there is an alias associated with this handler */
-    explicit operator bool() const noexcept;
 
 private:
     alias *p_alias;

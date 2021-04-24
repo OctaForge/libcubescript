@@ -9,18 +9,18 @@
 
 namespace cubescript {
 
-static inline void push_alias(thread_state &ts, ident *id, ident_stack &st) {
-    if (id->is_alias() && !static_cast<alias *>(id)->is_arg()) {
-        auto *aimp = static_cast<alias_impl *>(id);
+static inline void push_alias(thread_state &ts, ident &id, ident_stack &st) {
+    if (id.is_alias() && !static_cast<alias &>(id).is_arg()) {
+        auto *aimp = static_cast<alias_impl *>(&id);
         auto ast = ts.get_astack(aimp);
         ast.push(st);
         ast.flags &= ~IDENT_FLAG_UNKNOWN;
     }
 }
 
-static inline void pop_alias(thread_state &ts, ident *id) {
-    if (id->is_alias() && !static_cast<alias *>(id)->is_arg()) {
-        ts.get_astack(static_cast<alias *>(id)).pop();
+static inline void pop_alias(thread_state &ts, ident &id) {
+    if (id.is_alias() && !static_cast<alias &>(id).is_arg()) {
+        ts.get_astack(static_cast<alias *>(&id)).pop();
     }
 }
 
@@ -548,13 +548,13 @@ std::uint32_t *vm_exec(
                 std::size_t idstsz = ts.idstack.size();
                 for (std::size_t i = 0; i < numlocals; ++i) {
                     push_alias(
-                        ts, args[offset + i].get_ident(),
+                        ts, args[offset + i].get_ident(cs),
                         ts.idstack.emplace_back()
                     );
                 }
                 auto cleanup = [&]() {
                     for (std::size_t i = offset; i < args.size(); ++i) {
-                        pop_alias(ts, args[i].get_ident());
+                        pop_alias(ts, args[i].get_ident(cs));
                     }
                     ts.idstack.resize(idstsz);
                 };
@@ -1111,13 +1111,13 @@ noid:
                         std::size_t idstsz = ts.idstack.size();
                         for (size_t j = 0; j < size_t(callargs); ++j) {
                             push_alias(
-                                ts, &args[offset + j].force_ident(cs),
+                                ts, args[offset + j].force_ident(cs),
                                 ts.idstack.emplace_back()
                             );
                         }
                         auto cleanup = [&]() {
                             for (size_t j = 0; j < size_t(callargs); ++j) {
-                                pop_alias(ts, args[offset + j].get_ident());
+                                pop_alias(ts, args[offset + j].get_ident(cs));
                             }
                             ts.idstack.resize(idstsz);
                         };

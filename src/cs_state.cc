@@ -124,7 +124,7 @@ state::state(alloc_func func, void *data) {
     statep->cmd_ivar = &new_command("//ivar_builtin", "$iN", [](
         auto &cs, auto args, auto &
     ) {
-        auto *iv = args[0].get_ident()->get_ivar();
+        auto *iv = args[0].get_ident(cs).get_ivar();
         if (args[2].get_integer() <= 1) {
             std::printf("%s = ", iv->get_name().data());
             std::printf(INTEGER_FORMAT, iv->get_value());
@@ -137,7 +137,7 @@ state::state(alloc_func func, void *data) {
     statep->cmd_fvar = &new_command("//fvar_builtin", "$fN", [](
         auto &cs, auto args, auto &
     ) {
-        auto *fv = args[0].get_ident()->get_fvar();
+        auto *fv = args[0].get_ident(cs).get_fvar();
         if (args[2].get_integer() <= 1) {
             auto val = fv->get_value();
             std::printf("%s = ", fv->get_name().data());
@@ -155,7 +155,7 @@ state::state(alloc_func func, void *data) {
     statep->cmd_svar = &new_command("//svar_builtin", "$sN", [](
         auto &cs, auto args, auto &
     ) {
-        auto *sv = args[0].get_ident()->get_svar();
+        auto *sv = args[0].get_ident(cs).get_svar();
         if (args[2].get_integer() <= 1) {
             auto val = sv->get_value();
             if (val.view().find('"') == std::string_view::npos) {

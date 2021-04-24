@@ -158,4 +158,8 @@ LIBCUBESCRIPT_EXPORT bool string_ref::operator==(string_ref const &s) const {
     return p_str == s.p_str;
 }
 
+LIBCUBESCRIPT_EXPORT bool string_ref::operator!=(string_ref const &s) const {
+    return p_str != s.p_str;
+}
+
 } /* namespace cubescript */
