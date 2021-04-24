@@ -349,6 +349,89 @@ protected:
     command() = default;
 };
 
+/** @brief A safe alias handler for commands
+ *
+ * In general, when dealing with aliases in commands, you do not want to
+ * set them directly, since this would set the alias globally. Instead, you
+ * can use this to make aliases local to the command.
+ *
+ * Internally, each Cubescript thread has a mapping for alias state within
+ * the thread. This mapping is stack based - which means you can push an
+ * alias, and then anything affecting the value of the alias in that thread
+ * will only be visible until the stack is popped. This structure provides
+ * a safe means of handling the alias stack; constructing it will push the
+ * alias, destroying it will pop it.
+ *
+ * Therefore, what you can do is something like this:
+ *
+ * ```
+ * {
+ *     alias_local s{my_thread, "test"};
+ *     // branch taken when the alias was successfully pushed
+ *     // setting the alias will only be visible within this scope
+ *     s.set(some_value); // a convenient setter
+ *     my_thread.run(...);
+ * }
+ * ```
+ *
+ * If the provided input is not an alias, a cubescript::error will be thrown.
+ * Often you don't have to catch it (since this is primarily intended for use
+ * within commands, the error will propagate outside your command).
+ *
+ * Since the goal is to interact tightly with RAII and ensure consistency at
+ * all times, it is not possible to copy or move this object. That means you
+ * should also not be storing it; it should be used purely as a scope based
+ * alias stack manager.
+ */
+struct LIBCUBESCRIPT_EXPORT alias_local {
+    /** @brief Construct the local handler */
+    alias_local(state &cs, ident &a);
+
+    /** @brief Construct the local handler
+     *
+     * The ident will be retrieved using state::new_ident().
+     */
+    alias_local(state &cs, std::string_view name);
+
+    /** @brief Construct the local handler
+     *
+     * The ident will be retrieved from the value. If the contained value
+     * is not an ident, it will be treated as a name.
+     */
+    alias_local(state &cs, any_value const &val);
+
+    /** @brief Destroy the local handler */
+    ~alias_local();
+
+    /** @brief Local handlers are not copyable */
+    alias_local(alias_local const &) = delete;
+
+    /** @brief Local handlers are not movable */
+    alias_local(alias_local &&) = delete;
+
+    /** @brief Local handlers are not copy assignable */
+    alias_local &operator=(alias_local const &) = delete;
+
+    /** @brief Local handlers are not move assignable */
+    alias_local &operator=(alias_local &&v) = delete;
+
+    /** @brief Get the contained alias */
+    alias &get_alias() noexcept { return *p_alias; }
+
+    /** @brief Get the contained alias */
+    alias const &get_alias() const noexcept { return *p_alias; }
+
+    /** @brief Set the contained alias's value
+     *
+     * @return `true` if the alias is valid, `false` otherwise
+     */
+    bool set(any_value val);
+
+private:
+    alias *p_alias;
+    void *p_sp;
+};
+
 } /* namespace cubescript */
 
 #endif /* LIBCUBESCRIPT_CUBESCRIPT_IDENT_HH */
