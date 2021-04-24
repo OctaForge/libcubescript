@@ -124,23 +124,23 @@ state::state(alloc_func func, void *data) {
     statep->cmd_ivar = &new_command("//ivar_builtin", "$iN", [](
         auto &cs, auto args, auto &
     ) {
-        auto *iv = args[0].get_ident(cs).get_ivar();
+        auto &iv = static_cast<integer_var &>(args[0].get_ident(cs));
         if (args[2].get_integer() <= 1) {
-            std::printf("%s = ", iv->get_name().data());
-            std::printf(INTEGER_FORMAT, iv->get_value());
+            std::printf("%s = ", iv.get_name().data());
+            std::printf(INTEGER_FORMAT, iv.get_value());
             std::printf("\n");
         } else {
-            iv->set_value(cs, args[1].get_integer());
+            iv.set_value(cs, args[1].get_integer());
         }
     });
 
     statep->cmd_fvar = &new_command("//fvar_builtin", "$fN", [](
         auto &cs, auto args, auto &
     ) {
-        auto *fv = args[0].get_ident(cs).get_fvar();
+        auto &fv = static_cast<float_var &>(args[0].get_ident(cs));
         if (args[2].get_integer() <= 1) {
-            auto val = fv->get_value();
-            std::printf("%s = ", fv->get_name().data());
+            auto val = fv.get_value();
+            std::printf("%s = ", fv.get_name().data());
             if (std::floor(val) == val) {
                 std::printf(ROUND_FLOAT_FORMAT, val);
             } else {
@@ -148,23 +148,23 @@ state::state(alloc_func func, void *data) {
             }
             std::printf("\n");
         } else {
-            fv->set_value(cs, args[1].get_float());
+            fv.set_value(cs, args[1].get_float());
         }
     });
 
     statep->cmd_svar = &new_command("//svar_builtin", "$sN", [](
         auto &cs, auto args, auto &
     ) {
-        auto *sv = args[0].get_ident(cs).get_svar();
+        auto &sv = static_cast<string_var &>(args[0].get_ident(cs));
         if (args[2].get_integer() <= 1) {
-            auto val = sv->get_value();
+            auto val = sv.get_value();
             if (val.view().find('"') == std::string_view::npos) {
-                std::printf("%s = \"%s\"\n", sv->get_name().data(), val.data());
+                std::printf("%s = \"%s\"\n", sv.get_name().data(), val.data());
             } else {
-                std::printf("%s = [%s]\n", sv->get_name().data(), val.data());
+                std::printf("%s = [%s]\n", sv.get_name().data(), val.data());
             }
         } else {
-            sv->set_value(cs, args[1].get_string(cs));
+            sv.set_value(cs, args[1].get_string(cs));
         }
     });
 
@@ -483,9 +483,10 @@ LIBCUBESCRIPT_EXPORT void state::reset_var(std::string_view name) {
     if (!id) {
         throw error{*this, "variable '%s' does not exist", name.data()};
     }
-    auto *var = id->get_var();
-    if (var && var->is_read_only()) {
-        throw error{*this, "variable '%s' is read only", name.data()};
+    if (id->is_var()) {
+        if (static_cast<global_var &>(*id).is_read_only()) {
+            throw error{*this, "variable '%s' is read only", name.data()};
+        }
     }
     clear_override(*id);
 }

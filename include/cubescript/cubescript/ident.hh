@@ -31,13 +31,6 @@ enum class ident_type {
     SPECIAL   /**< @brief Other (internal unexposed type). */
 };
 
-struct global_var;
-struct integer_var;
-struct float_var;
-struct string_var;
-struct alias;
-struct command;
-
 /** @brief The ident structure.
  *
  * Every object within the Cubescript language is represented with an ident.
@@ -80,25 +73,11 @@ struct LIBCUBESCRIPT_EXPORT ident {
      */
     bool is_alias() const;
 
-    /** @brief Try to convert this to cubescript::alias.
-     *
-     * @return A pointer to the alias if it is one, or `nullptr`.
-     */
-    alias *get_alias();
-    alias const *get_alias() const;
-
     /** @brief Check if the ident is a cubescript::command.
      *
      * Effectively like `get_type() == ident_type::COMMAND`.
      */
     bool is_command() const;
-
-    /** @brief Try to convert this to cubescript::command.
-     *
-     * @return A pointer to the command if it is one, or `nullptr`.
-     */
-    command *get_command();
-    command const *get_command() const;
 
     /** @brief Check if the ident is a special ident.
      *
@@ -113,35 +92,11 @@ struct LIBCUBESCRIPT_EXPORT ident {
      */
     bool is_var() const;
 
-    /** @brief Try to convert this to cubescript::global_var.
-     *
-     * @return A pointer to the var if it is one, or `nullptr`.
-     */
-    global_var *get_var();
-
-    /** @brief Try to convert this to cubescript::global_var.
-     *
-     * @return A pointer to the var if it is one, or `nullptr`.
-     */
-    global_var const *get_var() const;
-
     /** @brief Check if the ident is a cubescript::integer_var.
      *
      * Effectively like `get_type() == ident_type::IVAR`.
      */
     bool is_ivar() const;
-
-    /** @brief Try to convert this to cubescript::integer_var.
-     *
-     * @return A pointer to the var if it is one, or `nullptr`.
-     */
-    integer_var *get_ivar();
-
-    /** @brief Try to convert this to cubescript::integer_var.
-     *
-     * @return A pointer to the var if it is one, or `nullptr`.
-     */
-    integer_var const *get_ivar() const;
 
     /** @brief Check if the ident is a cubescript::float_var.
      *
@@ -149,35 +104,11 @@ struct LIBCUBESCRIPT_EXPORT ident {
      */
     bool is_fvar() const;
 
-    /** @brief Try to convert this to cubescript::float_var.
-     *
-     * @return A pointer to the var if it is one, or `nullptr`.
-     */
-    float_var *get_fvar();
-
-    /** @brief Try to convert this to cubescript::float_var.
-     *
-     * @return A pointer to the var if it is one, or `nullptr`.
-     */
-    float_var const *get_fvar() const;
-
     /** @brief Check if the ident is a cubescript::string_var.
      *
      * Effectively like `get_type() == ident_type::SVAR`.
      */
     bool is_svar() const;
-
-    /** @brief Try to convert this to cubescript::string_var.
-     *
-     * @return A pointer to the var if it is one, or `nullptr`.
-     */
-    string_var *get_svar();
-
-    /** @brief Try to convert this to cubescript::string_var.
-     *
-     * @return A pointer to the var if it is one, or `nullptr`.
-     */
-    string_var const *get_svar() const;
 
     /** @brief Get if the ident is overridden.
      *

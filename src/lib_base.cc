@@ -69,11 +69,13 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
     });
 
     new_cmd_quiet(gcs, "pcall", "err", [](auto &cs, auto args, auto &ret) {
-        alias *cret = args[1].get_ident(cs).get_alias();
-        alias *css = args[2].get_ident(cs).get_alias();
-        if (!cret || !css) {
-            ret.set_integer(0);
-            return;
+        auto &cret = args[1].get_ident(cs);
+        auto &css = args[2].get_ident(cs);
+        if (!cret.is_alias()) {
+            throw error{cs, "'%s' is not an alias", cret.get_name().data()};
+        }
+        if (!css.is_alias()) {
+            throw error{cs, "'%s' is not an alias", css.get_name().data()};
         }
         any_value result{}, tback{};
         bool rc = true;
@@ -90,8 +92,10 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         }
         ret.set_integer(rc);
         auto &ts = state_p{cs}.ts();
-        ts.get_astack(cret).set_alias(cret, ts, result);
-        ts.get_astack(css).set_alias(css, ts, tback);
+        auto *reta = static_cast<alias *>(&cret);
+        auto *ssa = static_cast<alias *>(&css);
+        ts.get_astack(reta).set_alias(reta, ts, result);
+        ts.get_astack(ssa).set_alias(ssa, ts, tback);
     });
 
     new_cmd_quiet(gcs, "?", "ttt", [](auto &, auto args, auto &res) {

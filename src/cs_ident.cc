@@ -182,36 +182,8 @@ LIBCUBESCRIPT_EXPORT bool ident::is_alias() const {
     return get_type() == ident_type::ALIAS;
 }
 
-LIBCUBESCRIPT_EXPORT alias *ident::get_alias() {
-    if (!is_alias()) {
-        return nullptr;
-    }
-    return static_cast<alias *>(this);
-}
-
-LIBCUBESCRIPT_EXPORT alias const *ident::get_alias() const {
-    if (!is_alias()) {
-        return nullptr;
-    }
-    return static_cast<alias const *>(this);
-}
-
 LIBCUBESCRIPT_EXPORT bool ident::is_command() const {
     return get_type() == ident_type::COMMAND;
-}
-
-LIBCUBESCRIPT_EXPORT command *ident::get_command() {
-    if (!is_command()) {
-        return nullptr;
-    }
-    return static_cast<command_impl *>(this);
-}
-
-LIBCUBESCRIPT_EXPORT command const *ident::get_command() const {
-    if (!is_command()) {
-        return nullptr;
-    }
-    return static_cast<command_impl const *>(this);
 }
 
 LIBCUBESCRIPT_EXPORT bool ident::is_special() const {
@@ -230,72 +202,16 @@ LIBCUBESCRIPT_EXPORT bool ident::is_var() const {
     return false;
 }
 
-LIBCUBESCRIPT_EXPORT global_var *ident::get_var() {
-    if (!is_var()) {
-        return nullptr;
-    }
-    return static_cast<global_var *>(this);
-}
-
-LIBCUBESCRIPT_EXPORT global_var const *ident::get_var() const {
-    if (!is_var()) {
-        return nullptr;
-    }
-    return static_cast<global_var const *>(this);
-}
-
 LIBCUBESCRIPT_EXPORT bool ident::is_ivar() const {
     return get_type() == ident_type::IVAR;
-}
-
-LIBCUBESCRIPT_EXPORT integer_var *ident::get_ivar() {
-    if (!is_ivar()) {
-        return nullptr;
-    }
-    return static_cast<integer_var *>(this);
-}
-
-LIBCUBESCRIPT_EXPORT integer_var const *ident::get_ivar() const {
-    if (!is_ivar()) {
-        return nullptr;
-    }
-    return static_cast<integer_var const *>(this);
 }
 
 LIBCUBESCRIPT_EXPORT bool ident::is_fvar() const {
     return get_type() == ident_type::FVAR;
 }
 
-LIBCUBESCRIPT_EXPORT float_var *ident::get_fvar() {
-    if (!is_fvar()) {
-        return nullptr;
-    }
-    return static_cast<float_var *>(this);
-}
-
-LIBCUBESCRIPT_EXPORT float_var const *ident::get_fvar() const {
-    if (!is_fvar()) {
-        return nullptr;
-    }
-    return static_cast<float_var const *>(this);
-}
-
 LIBCUBESCRIPT_EXPORT bool ident::is_svar() const {
     return get_type() == ident_type::SVAR;
-}
-
-LIBCUBESCRIPT_EXPORT string_var *ident::get_svar() {
-    if (!is_svar()) {
-        return nullptr;
-    }
-    return static_cast<string_var *>(this);
-}
-
-LIBCUBESCRIPT_EXPORT string_var const *ident::get_svar() const {
-    if (!is_svar()) {
-        return nullptr;
-    }
-    return static_cast<string_var const *>(this);
 }
 
 LIBCUBESCRIPT_EXPORT bool ident::is_overridden(state &cs) const {

@@ -159,7 +159,9 @@ inline cs::command *get_hint_cmd(cs::state &cs, std::string_view buf) {
     }
     if (!buf.empty()) {
         auto cmd = cs.get_ident(buf);
-        return cmd ? cmd->get_command() : nullptr;
+        if (cmd && cmd->is_command()) {
+            return static_cast<cs::command *>(cmd);
+        }
     }
     return nullptr;
 }
@@ -325,30 +327,30 @@ int main(int argc, char **argv) {
      * to be set, but you may also not be using standard i/o and so on
      */
     gcs.new_command("//ivar", "$iiiN", [](auto &css, auto args, auto &) {
-        auto *iv = args[0].get_ident(css).get_ivar();
+        auto &iv = static_cast<cs::integer_var &>(args[0].get_ident(css));
         auto nargs = args[4].get_integer();
         if (nargs <= 1) {
-            auto val = iv->get_value();
+            auto val = iv.get_value();
             if ((val >= 0) && (val < 0xFFFFFF)) {
                 std::printf(
                     "%s = %d (0x%.6X: %d, %d, %d)\n",
-                    iv->get_name().data(), val, val,
+                    iv.get_name().data(), val, val,
                     (val >> 16) & 0xFF, (val >> 8) & 0xFF, val & 0xFF
                 );
             } else {
-                std::printf("%s = %d\n", iv->get_name().data(), val);
+                std::printf("%s = %d\n", iv.get_name().data(), val);
             }
             return;
         }
         if (nargs == 2) {
-            iv->set_value(css, args[1].get_integer());
+            iv.set_value(css, args[1].get_integer());
         } else if (nargs == 3) {
-            iv->set_value(
+            iv.set_value(
                 css, (args[1].get_integer() << 8) |
                 (args[2].get_integer() << 16)
             );
         } else {
-            iv->set_value(
+            iv.set_value(
                 css, args[1].get_integer() | (args[2].get_integer() << 8) |
                 (args[3].get_integer() << 16)
             );
