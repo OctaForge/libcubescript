@@ -481,26 +481,32 @@ lookup_id:
     );
     switch (id.get_type()) {
         case ident_type::IVAR:
+            if (ltype == VAL_POP) {
+                return;
+            }
+            gs.gen_lookup_ivar(id, ltype);
             switch (ltype) {
                 case VAL_CODE:
                 case VAL_IDENT:
-                    gs.gen_lookup_ivar(id, ltype);
+                    lookup_done(gs, ltype);
                     break;
                 default:
-                    return;
+                    break;
             }
-            lookup_done(gs, ltype);
             return;
         case ident_type::FVAR:
+            if (ltype == VAL_POP) {
+                return;
+            }
+            gs.gen_lookup_fvar(id, ltype);
             switch (ltype) {
                 case VAL_CODE:
                 case VAL_IDENT:
-                    gs.gen_lookup_fvar(id, ltype);
+                    lookup_done(gs, ltype);
                     break;
                 default:
-                    return;
+                    break;
             }
-            lookup_done(gs, ltype);
             return;
         case ident_type::SVAR:
             switch (ltype) {
