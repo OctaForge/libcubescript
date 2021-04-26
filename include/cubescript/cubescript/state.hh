@@ -326,9 +326,6 @@ struct LIBCUBESCRIPT_EXPORT state {
         );
     }
 
-    /** @brief Check if a cubescript::ident of the given name exists */
-    bool have_ident(std::string_view name);
-
     /** @brief Get a span of all idents */
     span_type<ident *> get_idents();
 
