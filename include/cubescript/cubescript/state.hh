@@ -13,6 +13,8 @@
 
 #include <cstddef>
 #include <utility>
+#include <optional>
+#include <functional>
 #include <string_view>
 
 #include "callable.hh"
@@ -223,6 +225,11 @@ struct LIBCUBESCRIPT_EXPORT state {
      */
     ident &new_ident(std::string_view n);
 
+    /** @brief Get a specific cubescript::ident */
+    std::optional<std::reference_wrapper<ident>> get_ident(
+        std::string_view name
+    );
+
     /** @brief Reset a variable or alias
      *
      * This is like clear_override() except it works by name and performs
@@ -318,12 +325,6 @@ struct LIBCUBESCRIPT_EXPORT state {
             command_func{std::forward<F>(f), callable_alloc, this}
         );
     }
-
-    /** @brief Get a specific cubescript::ident (or `nullptr`) */
-    ident *get_ident(std::string_view name);
-
-    /** @brief Get a specific cubescript::alias (or `nullptr`) */
-    alias *get_alias(std::string_view name);
 
     /** @brief Check if a cubescript::ident of the given name exists */
     bool have_ident(std::string_view name);

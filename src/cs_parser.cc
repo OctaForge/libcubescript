@@ -1494,7 +1494,7 @@ void parser_state::parse_block(int ltype, int term) {
         }
         idname.push_back('\0');
         auto idstr = idname.str_term();
-        ident *id = ts.pstate->get_ident(idstr);
+        auto id = ts.pstate->get_ident(idstr);
         if (!id) {
             /* no such ident exists but the name is valid, which means
              * it's a syntactically ok call, make it the VM's problem
@@ -1527,7 +1527,7 @@ void parser_state::parse_block(int ltype, int term) {
             continue;
         }
         /* the ident exists; treat like a call according to its type */
-        more = parse_call_id(*id, ltype);
+        more = parse_call_id(id->get(), ltype);
         if (!finish_statement(*this, more, term)) {
             return;
         }

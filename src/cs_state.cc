@@ -315,20 +315,14 @@ LIBCUBESCRIPT_EXPORT void *state::alloc(void *ptr, size_t os, size_t ns) {
     return p_tstate->istate->alloc(ptr, os, ns);
 }
 
-LIBCUBESCRIPT_EXPORT ident *state::get_ident(std::string_view name) {
-    return p_tstate->istate->get_ident(name);
-}
-
-LIBCUBESCRIPT_EXPORT alias *state::get_alias(std::string_view name) {
-    auto id = get_ident(name);
-    if (!id || !id->is_alias()) {
-        return nullptr;
+LIBCUBESCRIPT_EXPORT std::optional<
+    std::reference_wrapper<ident>
+> state::get_ident(std::string_view name) {
+    auto *id = p_tstate->istate->get_ident(name);
+    if (!id) {
+        return std::nullopt;
     }
-    return static_cast<alias *>(id);
-}
-
-LIBCUBESCRIPT_EXPORT bool state::have_ident(std::string_view name) {
-    return p_tstate->istate->idents.find(name) != p_tstate->istate->idents.end();
+    return *id;
 }
 
 LIBCUBESCRIPT_EXPORT span_type<ident *> state::get_idents() {
@@ -479,44 +473,44 @@ LIBCUBESCRIPT_EXPORT ident &state::new_ident(std::string_view n) {
 }
 
 LIBCUBESCRIPT_EXPORT void state::reset_var(std::string_view name) {
-    ident *id = get_ident(name);
+    auto id = get_ident(name);
     if (!id) {
         throw error{*this, "variable '%s' does not exist", name.data()};
     }
-    if (id->is_var()) {
-        if (static_cast<global_var &>(*id).is_read_only()) {
+    if (id->get().is_var()) {
+        if (static_cast<global_var &>(id->get()).is_read_only()) {
             throw error{*this, "variable '%s' is read only", name.data()};
         }
     }
-    clear_override(*id);
+    clear_override(id->get());
 }
 
 LIBCUBESCRIPT_EXPORT void state::touch_var(std::string_view name) {
-    ident *id = get_ident(name);
-    if (id && id->is_var()) {
-        var_changed(*p_tstate, id);
+    auto id = get_ident(name);
+    if (id && id->get().is_var()) {
+        var_changed(*p_tstate, &id->get());
     }
 }
 
 LIBCUBESCRIPT_EXPORT void state::set_alias(
     std::string_view name, any_value v
 ) {
-    ident *id = get_ident(name);
+    auto id = get_ident(name);
     if (id) {
-        switch (id->get_type()) {
+        switch (id->get().get_type()) {
             case ident_type::ALIAS: {
-                static_cast<alias *>(id)->set_value(*this, std::move(v));
+                static_cast<alias &>(id->get()).set_value(*this, std::move(v));
                 return;
             }
             case ident_type::IVAR:
             case ident_type::FVAR:
             case ident_type::SVAR:
-                run(*id, span_type<any_value>{&v, 1});
+                run(id->get(), span_type<any_value>{&v, 1});
                 break;
             default:
                 throw error{
                     *this, "cannot redefine builtin %s with an alias",
-                    id->get_name().data()
+                    id->get().get_name().data()
                 };
         }
     } else if (!is_valid_name(name)) {

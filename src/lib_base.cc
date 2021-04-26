@@ -337,14 +337,18 @@ end:
     });
 
     new_cmd_quiet(gcs, "identexists", "s", [](auto &cs, auto args, auto &res) {
-        res.set_integer(cs.have_ident(args[0].get_string(cs)));
+        res.set_integer(cs.get_ident(args[0].get_string(cs)) != std::nullopt);
     });
 
     new_cmd_quiet(gcs, "getalias", "s", [](auto &cs, auto args, auto &res) {
-        auto *id = cs.get_alias(args[0].get_string(cs));
-        if (id) {
-            res = id->get_value(cs);
+        auto &id = cs.new_ident(args[0].get_string(cs));
+        if (id.get_type() != ident_type::ALIAS) {
+            throw error{cs, "'%s' is not an alias", id.get_name().data()};
         }
+        if (ident_p{id}.impl().p_flags & IDENT_FLAG_UNKNOWN) {
+            return;
+        }
+        res = static_cast<alias &>(id).get_value(cs);
     });
 }
 

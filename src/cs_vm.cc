@@ -315,7 +315,12 @@ static inline int get_lookupu_type(
     if (arg.get_type() != value_type::STRING) {
         return -2; /* default case */
     }
-    id = ts.pstate->get_ident(arg.get_string(*ts.pstate));
+    auto idopt = ts.pstate->get_ident(arg.get_string(*ts.pstate));
+    if (!idopt) {
+        id = nullptr;
+    } else {
+        id = &idopt->get();
+    }
     if (id) {
         switch(id->get_type()) {
             case ident_type::ALIAS: {
@@ -1073,7 +1078,7 @@ litval:
                     continue;
                 }
                 auto idn = idarg.get_string(cs);
-                ident *id = cs.get_ident(idn);
+                auto id = cs.get_ident(idn);
                 if (!id) {
 noid:
                     if (!is_valid_name(idn)) {
@@ -1087,16 +1092,16 @@ noid:
                     };
                 }
                 result.force_none();
-                switch (ident_p{*id}.impl().p_type) {
+                switch (ident_p{id->get()}.impl().p_type) {
                     default:
-                        if (!ident_is_callable(id)) {
+                        if (!ident_is_callable(&id->get())) {
                             args.resize(offset - 1);
                             force_arg(cs, result, op & BC_INST_RET_MASK);
                             continue;
                         }
                     /* fallthrough */
                     case ID_COMMAND: {
-                        auto *cimp = static_cast<command_impl *>(id);
+                        auto *cimp = static_cast<command_impl *>(&id->get());
                         args.resize(offset + std::max(
                             std::size_t(cimp->get_num_args()), callargs
                         ));
@@ -1139,7 +1144,8 @@ noid:
                             std::size_t(cimp->get_num_args()), callargs
                         ));
                         exec_command(
-                            ts, cimp, id, &args[offset], result, callargs
+                            ts, cimp, &id->get(), &args[offset],
+                            result, callargs
                         );
                         force_arg(cs, result, op & BC_INST_RET_MASK);
                         args.resize(offset - 1);
@@ -1154,7 +1160,8 @@ noid:
                             std::size_t(cimp->get_num_args()), callargs
                         ));
                         exec_command(
-                            ts, cimp, id, &args[offset], result, callargs
+                            ts, cimp, &id->get(), &args[offset],
+                            result, callargs
                         );
                         force_arg(cs, result, op & BC_INST_RET_MASK);
                         args.resize(offset - 1);
@@ -1169,14 +1176,15 @@ noid:
                             std::size_t(cimp->get_num_args()), callargs
                         ));
                         exec_command(
-                            ts, cimp, id, &args[offset], result, callargs
+                            ts, cimp, &id->get(), &args[offset],
+                            result, callargs
                         );
                         force_arg(cs, result, op & BC_INST_RET_MASK);
                         args.resize(offset - 1);
                         continue;
                     }
                     case ID_ALIAS: {
-                        alias *a = static_cast<alias *>(id);
+                        alias *a = static_cast<alias *>(&id->get());
                         if (a->is_arg() && !ident_is_used_arg(a, ts)) {
                             args.resize(offset - 1);
                             force_arg(cs, result, op & BC_INST_RET_MASK);
