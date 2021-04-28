@@ -535,48 +535,13 @@ lookup_id:
             auto fmt = static_cast<command_impl &>(id).get_args();
             for (char c: fmt) {
                 switch (c) {
-                    case 's':
-                        gs.gen_val_string(std::string_view{});
-                        numargs++;
-                        break;
-                    case 'i':
-                        gs.gen_val_integer();
-                        numargs++;
-                        break;
-                    case 'b':
-                        gs.gen_val_integer(
-                            std::numeric_limits<integer_type>::min()
-                        );
-                        numargs++;
-                        break;
-                    case 'f':
-                        gs.gen_val_float();
-                        numargs++;
-                        break;
-                    case 'F':
-                        gs.gen_dup(VAL_FLOAT);
-                        numargs++;
-                        break;
-                    case 'E':
-                    case 't':
-                        gs.gen_val_null();
-                        numargs++;
-                        break;
-                    case 'e':
-                        gs.gen_block();
-                        numargs++;
-                        break;
-                    case 'r':
-                        gs.gen_val_ident();
-                        numargs++;
-                        break;
                     case '$':
                         gs.gen_val_ident(id);
-                        numargs++;
+                        ++numargs;
                         break;
                     case 'N':
                         gs.gen_val_integer(-1);
-                        numargs++;
+                        ++numargs;
                         break;
                     case 'C':
                         comtype = BC_INST_COM_C;
@@ -588,6 +553,10 @@ lookup_id:
                     case '2':
                     case '3':
                     case '4':
+                        break;
+                    default:
+                        gs.gen_val_null();
+                        ++numargs;
                         break;
                 }
             }
@@ -946,77 +915,44 @@ static bool parse_cmd_arg(parser_state &ps, char s, bool more, bool rep) {
             if (more) {
                 more = ps.parse_arg(VAL_STRING);
             }
-            if (!more && !rep) {
-                ps.gs.gen_val_string();
-            }
-            return more;
+            break;
         case 'i': /* integer */
             if (more) {
                 more = ps.parse_arg(VAL_INT);
             }
-            if (!more && !rep) {
-                ps.gs.gen_val_integer();
-            }
-            return more;
-        case 'b': /* integer, INT_MIN default */
-            if (more) {
-                more = ps.parse_arg(VAL_INT);
-            }
-            if (!more && !rep) {
-                ps.gs.gen_val_integer(std::numeric_limits<integer_type>::min());
-            }
-            return more;
+            break;
         case 'f': /* float */
             if (more) {
                 more = ps.parse_arg(VAL_FLOAT);
             }
-            if (!more && !rep) {
-                ps.gs.gen_val_float();
-            }
-            return more;
-        case 'F': /* float, prev-argument default */
-            if (more) {
-                more = ps.parse_arg(VAL_FLOAT);
-            }
-            if (!more && !rep) {
-                ps.gs.gen_dup(VAL_FLOAT);
-            }
-            return more;
-        case 't': /* any arg */
+            break;
+        case 'a': /* any arg */
             if (more) {
                 more = ps.parse_arg(VAL_ANY);
             }
-            if (!more && !rep) {
-                ps.gs.gen_val_null();
-            }
-            return more;
-        case 'E': /* condition */
+            break;
+        case 'c': /* condition */
             if (more) {
                 more = ps.parse_arg(VAL_COND);
             }
-            if (!more && !rep) {
-                ps.gs.gen_val_null();
-            }
-            return more;
-        case 'e': /* code */
+            break;
+        case 'b': /* bytecode */
             if (more) {
                 more = ps.parse_arg(VAL_CODE);
             }
-            if (!more && !rep) {
-                ps.gs.gen_block();
-            }
-            return more;
+            break;
         case 'r': /* ident */
             if (more) {
                 more = ps.parse_arg(VAL_IDENT);
             }
-            if (!more && !rep) {
-                ps.gs.gen_val_ident();
-            }
-            return more;
+            break;
         default:
             return more;
     }
+    if (!more && !rep) {
+        ps.gs.gen_val_null();
+    }
+    return more;
 }
 
 bool parser_state::parse_call_command(

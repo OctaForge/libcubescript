@@ -51,112 +51,56 @@ void exec_command(
     int i = -1, fakeargs = 0, numargs = int(nargs);
     bool rep = false;
     auto fmt = id->get_args();
+    auto set_fake = [&i, &fakeargs, &rep, args, numargs]() {
+        if (++i >= numargs) {
+            if (rep) {
+                return false;
+            }
+            args[i].set_none();
+            ++fakeargs;
+            return false;
+        }
+        return true;
+    };
     for (auto it = fmt.begin(); it != fmt.end(); ++it) {
         switch (*it) {
             case 'i':
-                if (++i >= numargs) {
-                    if (rep) {
-                        break;
-                    }
-                    args[i].set_integer(0);
-                    fakeargs++;
-                } else {
-                    args[i].force_integer();
-                }
-                break;
-            case 'b':
-                if (++i >= numargs) {
-                    if (rep) {
-                        break;
-                    }
-                    args[i].set_integer(
-                        std::numeric_limits<integer_type>::min()
-                    );
-                    fakeargs++;
-                } else {
+                if (set_fake()) {
                     args[i].force_integer();
                 }
                 break;
             case 'f':
-                if (++i >= numargs) {
-                    if (rep) {
-                        break;
-                    }
-                    args[i].set_float(0.0f);
-                    fakeargs++;
-                } else {
-                    args[i].force_float();
-                }
-                break;
-            case 'F':
-                if (++i >= numargs) {
-                    if (rep) {
-                        break;
-                    }
-                    args[i].set_float(args[i - 1].get_float());
-                    fakeargs++;
-                } else {
+                if (set_fake()) {
                     args[i].force_float();
                 }
                 break;
             case 's':
-                if (++i >= numargs) {
-                    if (rep) {
-                        break;
-                    }
-                    args[i].set_string("", *ts.pstate);
-                    fakeargs++;
-                } else {
+                if (set_fake()) {
                     args[i].force_string(*ts.pstate);
                 }
                 break;
-            case 'T':
-            case 't':
-                if (++i >= numargs) {
-                    if (rep) {
-                        break;
-                    }
-                    args[i].set_none();
-                    fakeargs++;
-                }
+            case 'a':
+                set_fake();
                 break;
-            case 'E':
-                if (++i >= numargs) {
-                    if (rep) {
-                        break;
-                    }
-                    args[i].set_none();
-                    fakeargs++;
-                } else if (args[i].get_type() == value_type::STRING) {
-                    auto str = args[i].get_string(*ts.pstate);
-                    if (str.empty()) {
-                        args[i].set_integer(0);
-                    } else {
-                        args[i].force_code(*ts.pstate);
+            case 'c':
+                if (set_fake()) {
+                    if (args[i].get_type() == value_type::STRING) {
+                        auto str = args[i].get_string(*ts.pstate);
+                        if (str.empty()) {
+                            args[i].set_integer(0);
+                        } else {
+                            args[i].force_code(*ts.pstate);
+                        }
                     }
                 }
                 break;
-            case 'e':
-                if (++i >= numargs) {
-                    if (rep) {
-                        break;
-                    }
-                    args[i].set_code(bcode_p::make_ref(
-                        bcode_get_empty(ts.istate->empty, VAL_NULL)
-                    ));
-                    fakeargs++;
-                } else {
+            case 'b':
+                if (set_fake()) {
                     args[i].force_code(*ts.pstate);
                 }
                 break;
             case 'r':
-                if (++i >= numargs) {
-                    if (rep) {
-                        break;
-                    }
-                    args[i].set_ident(*ts.istate->id_dummy);
-                    fakeargs++;
-                } else {
+                if (set_fake()) {
                     args[i].force_ident(*ts.pstate);
                 }
                 break;

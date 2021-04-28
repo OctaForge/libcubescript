@@ -54,21 +54,17 @@ inline std::string_view get_arg_type(char arg) {
     switch (arg) {
         case 'i':
             return "int";
-        case 'b':
-            return "int_min";
         case 'f':
             return "float";
-        case 'F':
-            return "float_prev";
-        case 't':
+        case 'a':
             return "any";
-        case 'E':
+        case 'c':
             return "cond";
         case 'N':
             return "numargs";
         case 's':
             return "str";
-        case 'e':
+        case 'b':
             return "block";
         case 'r':
             return "ident";

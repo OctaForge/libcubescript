@@ -172,34 +172,34 @@ state::state(alloc_func func, void *data) {
 
     /* builtins */
 
-    p = &new_command("do", "e", [](auto &cs, auto args, auto &res) {
+    p = &new_command("do", "b", [](auto &cs, auto args, auto &res) {
         res = cs.run(args[0].get_code());
     });
     static_cast<command_impl *>(p)->p_type = ID_DO;
 
-    p = &new_command("doargs", "e", [](auto &cs, auto args, auto &res) {
+    p = &new_command("doargs", "b", [](auto &cs, auto args, auto &res) {
         call_with_args(*cs.p_tstate, [&cs, &res, &args]() {
             res = cs.run(args[0].get_code());
         });
     });
     static_cast<command_impl *>(p)->p_type = ID_DOARGS;
 
-    p = &new_command("if", "tee", [](auto &cs, auto args, auto &res) {
+    p = &new_command("if", "abb", [](auto &cs, auto args, auto &res) {
         res = cs.run((args[0].get_bool() ? args[1] : args[2]).get_code());
     });
     static_cast<command_impl *>(p)->p_type = ID_IF;
 
-    p = &new_command("result", "t", [](auto &, auto args, auto &res) {
+    p = &new_command("result", "a", [](auto &, auto args, auto &res) {
         res = std::move(args[0]);
     });
     static_cast<command_impl *>(p)->p_type = ID_RESULT;
 
-    p = &new_command("!", "t", [](auto &, auto args, auto &res) {
+    p = &new_command("!", "a", [](auto &, auto args, auto &res) {
         res.set_integer(!args[0].get_bool());
     });
     static_cast<command_impl *>(p)->p_type = ID_NOT;
 
-    p = &new_command("&&", "E1V", [](auto &cs, auto args, auto &res) {
+    p = &new_command("&&", "c1V", [](auto &cs, auto args, auto &res) {
         if (args.empty()) {
             res.set_integer(1);
         } else {
@@ -218,7 +218,7 @@ state::state(alloc_func func, void *data) {
     });
     static_cast<command_impl *>(p)->p_type = ID_AND;
 
-    p = &new_command("||", "E1V", [](auto &cs, auto args, auto &res) {
+    p = &new_command("||", "c1V", [](auto &cs, auto args, auto &res) {
         if (args.empty()) {
             res.set_integer(0);
         } else {
@@ -596,14 +596,12 @@ LIBCUBESCRIPT_EXPORT command &state::new_command(
     for (auto fmt = args.begin(); fmt != args.end(); ++fmt) {
         switch (*fmt) {
             case 'i':
-            case 'b':
             case 'f':
-            case 'F':
-            case 't':
-            case 'E':
+            case 'a':
+            case 'c':
             case 'N':
             case 's':
-            case 'e':
+            case 'b':
             case 'r':
             case '$':
                 ++nargs;

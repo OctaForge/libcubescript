@@ -295,16 +295,25 @@ struct LIBCUBESCRIPT_EXPORT state {
      * simple types are recognized:
      *
      * * `s` - a string
-     * * `i` - an integer, default value 0
-     * * `b` - an integer, default value `limits<integer_type>::min`
-     * * `f` - a float, default value 0
-     * * `F` - a float, default value is the preceeding value
-     * * `t` - any (passed as is)
-     * * `e` - bytecode
-     * * `E` - condition (see below)
+     * * `i` - an integer
+     * * `f` - a float
+     * * `a` - any (passed as is)
+     * * `b` - bytecode/block
+     * * `c` - condition (see below)
      * * `r` - ident
      * * `N` - number of real arguments passed up until now
      * * `$` - self ident (the command, except for special hooks)
+     *
+     * For condition types, the type of the value is generally kept as is,
+     * except for non-empty strings, which are compiled as bytecode. Therefore,
+     * to check condition types, you first try to get their bytecode; if it is
+     * valid, you run it and use its result, otherwise use the value as is,
+     * and then evaluate it as a boolean.
+     *
+     * When an argument is not provided by the caller, it is assigned to none
+     * type. Using the appropriate getters on the value structure will get
+     * you fallback defaults (e.g. 0 for integer and so on) but you can still
+     * check the type explicitly for whether it was actually provided.
      *
      * Commands also support variadics. Variadic commands have their type
      * list suffixed with `V` or `C`. A `V` variadic is a traditional variadic
