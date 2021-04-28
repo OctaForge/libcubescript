@@ -230,22 +230,61 @@ struct LIBCUBESCRIPT_EXPORT state {
         std::string_view name
     );
 
-    /** @brief Reset a variable or alias
+    /** @brief Assign a value to a name
+     *
+     * This will set something of the given name to the given value. The
+     * something may be a variable or an alias.
+     *
+     * If no ident of such name exists, a new alias will be created and
+     * set.
+     *
+     * @throw cubescript::error if `name` is a builtin ident (a registered
+     * command or similar) or if it is invalid
+     *
+     * @see lookup_value()
+     * @see reset_value()
+     * @see touch_value()
+     */
+    void assign_value(std::string_view name, any_value v);
+
+    /** @brief Lookup a value by name
+     *
+     * This will lookup an ident of the given name and return its value.
+     * The ident may be a variable or an alias.
+     *
+     * @throw cubescript::error if `name` does not exist or belongs to an
+     * ident that doesn't support lookups
+     *
+     * @see assign_value()
+     * @see reset_value()
+     * @see touch_value()
+     */
+    any_value lookup_value(std::string_view name);
+
+    /** @brief Reset a value by name
      *
      * This is like clear_override() except it works by name and performs
      * extra checks.
      *
      * @throw cubescript::error if non-existent or read only
+     *
+     * @see assign_value()
+     * @see lookup_value()
+     * @see touch_value()
      */
-    void reset_var(std::string_view name);
+    void reset_value(std::string_view name);
 
-    /** @brief Touch a variable
+    /** @brief Touch a value by name
      *
      * If an ident with the given name exists and is a global variable,
      * a changed hook will be triggered with it, acting like if a new
      * value was set, but without actually setting it.
+     *
+     * @see assign_value()
+     * @see lookup_value()
+     * @see reset_value()
      */
-    void touch_var(std::string_view name);
+    void touch_value(std::string_view name);
 
     /** @brief Register a command
      *
@@ -448,19 +487,6 @@ struct LIBCUBESCRIPT_EXPORT state {
      * @return the old value
      */
     std::size_t set_max_run_depth(std::size_t v);
-
-    /** @brief Set a variable
-     *
-     * This will set something of the given name to the given value. The
-     * something may be a variable or an alias.
-     *
-     * If no ident of such name exists, a new alias will be created and
-     * set.
-     *
-     * @throw cubescript::error if `name` is a builtin ident (a registered
-     * command or similar) or if it is invalid
-     */
-    void set_alias(std::string_view name, any_value v);
 
 private:
     friend struct state_p;

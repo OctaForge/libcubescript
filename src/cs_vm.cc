@@ -308,61 +308,6 @@ static inline alias *get_lookup_id(
     return static_cast<alias *>(id);
 }
 
-static inline int get_lookupu_type(
-    thread_state &ts, any_value &arg, ident *&id, std::uint32_t op,
-    alias_stack *&ast
-) {
-    if (arg.get_type() != value_type::STRING) {
-        return -2; /* default case */
-    }
-    auto idopt = ts.pstate->get_ident(arg.get_string(*ts.pstate));
-    if (!idopt) {
-        id = nullptr;
-    } else {
-        id = &idopt->get();
-    }
-    if (id) {
-        switch(id->get_type()) {
-            case ident_type::ALIAS: {
-                auto *a = static_cast<alias_impl *>(id);
-                ast = &ts.get_astack(static_cast<alias *>(id));
-                if (ast->flags & IDENT_FLAG_UNKNOWN) {
-                    break;
-                }
-                if (a->is_arg() && !ident_is_used_arg(id, ts)) {
-                    return ID_UNKNOWN;
-                }
-                return ID_ALIAS;
-            }
-            case ident_type::SVAR:
-                return ID_SVAR;
-            case ident_type::IVAR:
-                return ID_IVAR;
-            case ident_type::FVAR:
-                return ID_FVAR;
-            case ident_type::COMMAND: {
-                /* make sure value stack gets restored */
-                stack_guard s{ts};
-                auto *cimpl = static_cast<command_impl *>(id);
-                auto &args = ts.vmstack;
-                auto osz = args.size();
-                /* pad with as many empty values as we need */
-                args.resize(osz + cimpl->get_num_args());
-                arg.set_none();
-                exec_command(ts, cimpl, cimpl, &args[osz], arg, 0, true);
-                force_arg(*ts.pstate, arg, op & BC_INST_RET_MASK);
-                return -2; /* ignore */
-            }
-            default:
-                return ID_UNKNOWN;
-        }
-    }
-    throw error{
-        *ts.pstate, "unknown alias lookup: %s",
-        arg.get_string(*ts.pstate).data()
-    };
-}
-
 std::uint32_t *vm_exec(
     thread_state &ts, std::uint32_t *code, any_value &result
 ) {
@@ -759,39 +704,13 @@ std::uint32_t *vm_exec(
                 continue;
             }
 
-            case BC_INST_LOOKUP_U | BC_RET_STRING: {
-                ident *id = nullptr;
-                alias_stack *ast;
-                any_value &arg = args.back();
-                switch (get_lookupu_type(ts, arg, id, op, ast)) {
-                    case ID_ALIAS:
-                        arg = ast->node->val_s;
-                        arg.force_string(cs);
-                        continue;
-                    case ID_SVAR:
-                        arg.set_string(
-                            static_cast<string_var *>(id)->get_value()
-                        );
-                        continue;
-                    case ID_IVAR:
-                        arg.set_integer(
-                            static_cast<integer_var *>(id)->get_value()
-                         );
-                        arg.force_string(cs);
-                        continue;
-                    case ID_FVAR:
-                        arg.set_float(
-                            static_cast<float_var *>(id)->get_value()
-                        );
-                        arg.force_string(cs);
-                        continue;
-                    case ID_UNKNOWN:
-                        arg.set_string("", cs);
-                        continue;
-                    default:
-                        continue;
-                }
-            }
+            case BC_INST_LOOKUP_U | BC_RET_STRING:
+            case BC_INST_LOOKUP_U | BC_RET_INT:
+            case BC_INST_LOOKUP_U | BC_RET_FLOAT:
+            case BC_INST_LOOKUP_U | BC_RET_NULL:
+                args.back() = cs.lookup_value(args.back().get_string(cs));
+                force_arg(cs, args.back(), op & BC_INST_RET_MASK);
+                continue;
 
             case BC_INST_LOOKUP | BC_RET_STRING: {
                 alias_stack *ast;
@@ -806,36 +725,6 @@ std::uint32_t *vm_exec(
                 continue;
             }
 
-            case BC_INST_LOOKUP_U | BC_RET_INT: {
-                ident *id = nullptr;
-                alias_stack *ast;
-                any_value &arg = args.back();
-                switch (get_lookupu_type(ts, arg, id, op, ast)) {
-                    case ID_ALIAS:
-                        arg.set_integer(ast->node->val_s.get_integer());
-                        continue;
-                    case ID_SVAR:
-                        arg.set_integer(parse_int(
-                            static_cast<string_var *>(id)->get_value()
-                        ));
-                        continue;
-                    case ID_IVAR:
-                        arg.set_integer(
-                            static_cast<integer_var *>(id)->get_value()
-                        );
-                        continue;
-                    case ID_FVAR:
-                        arg.set_integer(integer_type(
-                            static_cast<float_var *>(id)->get_value()
-                        ));
-                        continue;
-                    case ID_UNKNOWN:
-                        arg.set_integer(0);
-                        continue;
-                    default:
-                        continue;
-                }
-            }
             case BC_INST_LOOKUP | BC_RET_INT: {
                 alias_stack *ast;
                 alias *a = get_lookup_id(ts, op, ast);
@@ -848,36 +737,7 @@ std::uint32_t *vm_exec(
                 }
                 continue;
             }
-            case BC_INST_LOOKUP_U | BC_RET_FLOAT: {
-                ident *id = nullptr;
-                alias_stack *ast;
-                any_value &arg = args.back();
-                switch (get_lookupu_type(ts, arg, id, op, ast)) {
-                    case ID_ALIAS:
-                        arg.set_float(ast->node->val_s.get_float());
-                        continue;
-                    case ID_SVAR:
-                        arg.set_float(parse_float(
-                            static_cast<string_var *>(id)->get_value()
-                        ));
-                        continue;
-                    case ID_IVAR:
-                        arg.set_float(float_type(
-                            static_cast<integer_var *>(id)->get_value()
-                        ));
-                        continue;
-                    case ID_FVAR:
-                        arg.set_float(
-                            static_cast<float_var *>(id)->get_value()
-                        );
-                        continue;
-                    case ID_UNKNOWN:
-                        arg.set_float(float_type(0));
-                        continue;
-                    default:
-                        continue;
-                }
-            }
+
             case BC_INST_LOOKUP | BC_RET_FLOAT: {
                 alias_stack *ast;
                 alias *a = get_lookup_id(ts, op, ast);
@@ -889,36 +749,6 @@ std::uint32_t *vm_exec(
                     );
                 }
                 continue;
-            }
-            case BC_INST_LOOKUP_U | BC_RET_NULL: {
-                ident *id = nullptr;
-                alias_stack *ast;
-                any_value &arg = args.back();
-                switch (get_lookupu_type(ts, arg, id, op, ast)) {
-                    case ID_ALIAS:
-                        arg = ast->node->val_s.get_plain();
-                        continue;
-                    case ID_SVAR:
-                        arg.set_string(
-                            static_cast<string_var *>(id)->get_value()
-                        );
-                        continue;
-                    case ID_IVAR:
-                        arg.set_integer(
-                            static_cast<integer_var *>(id)->get_value()
-                        );
-                        continue;
-                    case ID_FVAR:
-                        arg.set_float(
-                            static_cast<float_var *>(id)->get_value()
-                        );
-                        continue;
-                    case ID_UNKNOWN:
-                        arg.set_none();
-                        continue;
-                    default:
-                        continue;
-                }
             }
             case BC_INST_LOOKUP | BC_RET_NULL: {
                 alias_stack *ast;
@@ -1032,7 +862,7 @@ std::uint32_t *vm_exec(
             case BC_INST_ALIAS_U: {
                 auto v = std::move(args.back());
                 args.pop_back();
-                cs.set_alias(args.back().get_string(cs), std::move(v));
+                cs.assign_value(args.back().get_string(cs), std::move(v));
                 args.pop_back();
                 continue;
             }

@@ -472,27 +472,7 @@ LIBCUBESCRIPT_EXPORT ident &state::new_ident(std::string_view n) {
     return p_tstate->istate->new_ident(*this, n, IDENT_FLAG_UNKNOWN);
 }
 
-LIBCUBESCRIPT_EXPORT void state::reset_var(std::string_view name) {
-    auto id = get_ident(name);
-    if (!id) {
-        throw error{*this, "variable '%s' does not exist", name.data()};
-    }
-    if (id->get().is_var()) {
-        if (static_cast<global_var &>(id->get()).is_read_only()) {
-            throw error{*this, "variable '%s' is read only", name.data()};
-        }
-    }
-    clear_override(id->get());
-}
-
-LIBCUBESCRIPT_EXPORT void state::touch_var(std::string_view name) {
-    auto id = get_ident(name);
-    if (id && id->get().is_var()) {
-        var_changed(*p_tstate, &id->get());
-    }
-}
-
-LIBCUBESCRIPT_EXPORT void state::set_alias(
+LIBCUBESCRIPT_EXPORT void state::assign_value(
     std::string_view name, any_value v
 ) {
     auto id = get_ident(name);
@@ -521,6 +501,85 @@ LIBCUBESCRIPT_EXPORT void state::set_alias(
             p_tstate->ident_flags
         );
         p_tstate->istate->add_ident(a, a);
+    }
+}
+
+LIBCUBESCRIPT_EXPORT any_value state::lookup_value(std::string_view name) {
+    ident *id = nullptr;
+    auto idopt = get_ident(name);
+    if (!idopt) {
+        id = nullptr;
+    } else {
+        id = &idopt->get();
+    }
+    alias_stack *ast;
+    if (id) {
+        switch(id->get_type()) {
+            case ident_type::ALIAS: {
+                auto *a = static_cast<alias_impl *>(id);
+                ast = &p_tstate->get_astack(static_cast<alias *>(id));
+                if (ast->flags & IDENT_FLAG_UNKNOWN) {
+                    break;
+                }
+                if (a->is_arg() && !ident_is_used_arg(id, *p_tstate)) {
+                    return any_value{};
+                }
+                return ast->node->val_s.get_plain();
+            }
+            case ident_type::SVAR: {
+                any_value val{};
+                val.set_string(static_cast<string_var *>(id)->get_value());
+                return val;
+            }
+            case ident_type::IVAR: {
+                any_value val{};
+                val.set_integer(static_cast<integer_var *>(id)->get_value());
+                return val;
+            }
+            case ident_type::FVAR: {
+                any_value val{};
+                val.set_float(static_cast<float_var *>(id)->get_value());
+                return val;
+            }
+            case ident_type::COMMAND: {
+                any_value val{};
+                /* make sure value stack gets restored */
+                stack_guard s{*p_tstate};
+                auto *cimpl = static_cast<command_impl *>(id);
+                auto &args = p_tstate->vmstack;
+                auto osz = args.size();
+                /* pad with as many empty values as we need */
+                args.resize(osz + cimpl->get_num_args());
+                exec_command(
+                    *p_tstate, cimpl, cimpl, &args[osz], val, 0, true
+                );
+                args.resize(osz);
+                return val;
+            }
+            default:
+                return any_value{};
+        }
+    }
+    throw error{*this, "unknown alias lookup: %s", name.data()};
+}
+
+LIBCUBESCRIPT_EXPORT void state::reset_value(std::string_view name) {
+    auto id = get_ident(name);
+    if (!id) {
+        throw error{*this, "variable '%s' does not exist", name.data()};
+    }
+    if (id->get().is_var()) {
+        if (static_cast<global_var &>(id->get()).is_read_only()) {
+            throw error{*this, "variable '%s' is read only", name.data()};
+        }
+    }
+    clear_override(id->get());
+}
+
+LIBCUBESCRIPT_EXPORT void state::touch_value(std::string_view name) {
+    auto id = get_ident(name);
+    if (id && id->get().is_var()) {
+        var_changed(*p_tstate, &id->get());
     }
 }
 

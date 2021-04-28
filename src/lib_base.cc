@@ -329,11 +329,11 @@ end:
     });
 
     new_cmd_quiet(gcs, "resetvar", "s", [](auto &cs, auto args, auto &) {
-        cs.reset_var(args[0].get_string(cs));
+        cs.reset_value(args[0].get_string(cs));
     });
 
     new_cmd_quiet(gcs, "alias", "st", [](auto &cs, auto args, auto &) {
-        cs.set_alias(args[0].get_string(cs), args[1]);
+        cs.assign_value(args[0].get_string(cs), args[1]);
     });
 
     new_cmd_quiet(gcs, "identexists", "s", [](auto &cs, auto args, auto &res) {
