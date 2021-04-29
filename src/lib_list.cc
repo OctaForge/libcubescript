@@ -172,7 +172,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         res.set_string(p.get_item());
     });
 
-    new_cmd_quiet(gcs, "sublist", "siiN", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "sublist", "sii#", [](auto &cs, auto args, auto &res) {
         integer_type skip   = args[1].get_integer(),
               count   = args[2].get_integer(),
               numargs = args[3].get_integer();

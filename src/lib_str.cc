@@ -152,7 +152,7 @@ LIBCUBESCRIPT_EXPORT void std_init_string(state &cs) {
         throw internal_error{"format error"};
     });
 
-    new_cmd_quiet(cs, "substr", "siiN", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "substr", "sii#", [](auto &ccs, auto args, auto &res) {
         std::string_view s = args[0].get_string(ccs);
         auto start = args[1].get_integer(), count = args[2].get_integer();
         auto numargs = args[3].get_integer();

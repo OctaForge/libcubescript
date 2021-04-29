@@ -539,7 +539,7 @@ lookup_id:
                         gs.gen_val_ident(id);
                         ++numargs;
                         break;
-                    case 'N':
+                    case '#':
                         gs.gen_val_integer(-1);
                         ++numargs;
                         break;
@@ -990,7 +990,7 @@ bool parser_state::parse_call_command(
                 gs.gen_val_ident(self);
                 ++numargs;
                 break;
-            case 'N': /* number of arguments */
+            case '#': /* number of arguments */
                 gs.gen_val_integer(numargs - fakeargs);
                 ++numargs;
                 break;
@@ -1271,7 +1271,7 @@ static bool parse_assign_var(
                 ps.gs.gen_val_ident(var);
                 ++nargs;
                 break;
-            case 'N':
+            case '#':
                 ps.gs.gen_val_integer(nargs);
                 ++nargs;
                 break;

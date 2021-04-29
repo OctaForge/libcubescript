@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
     });
 
     /* takes a string so we can print it */
-    gcs.new_command("assert", "ssN", [](auto &s, auto args, auto &ret) {
+    gcs.new_command("assert", "ss#", [](auto &s, auto args, auto &ret) {
         auto val = args[0];
         val.force_code(s);
         if (!s.run(val.get_code()).get_bool()) {

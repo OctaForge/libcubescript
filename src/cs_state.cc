@@ -121,7 +121,7 @@ state::state(alloc_func func, void *data) {
 
     /* default handlers for variables */
 
-    statep->cmd_ivar = &new_command("//ivar_builtin", "$iN", [](
+    statep->cmd_ivar = &new_command("//ivar_builtin", "$i#", [](
         auto &cs, auto args, auto &
     ) {
         auto &iv = static_cast<integer_var &>(args[0].get_ident(cs));
@@ -134,7 +134,7 @@ state::state(alloc_func func, void *data) {
         }
     });
 
-    statep->cmd_fvar = &new_command("//fvar_builtin", "$fN", [](
+    statep->cmd_fvar = &new_command("//fvar_builtin", "$f#", [](
         auto &cs, auto args, auto &
     ) {
         auto &fv = static_cast<float_var &>(args[0].get_ident(cs));
@@ -152,7 +152,7 @@ state::state(alloc_func func, void *data) {
         }
     });
 
-    statep->cmd_svar = &new_command("//svar_builtin", "$sN", [](
+    statep->cmd_svar = &new_command("//svar_builtin", "$s#", [](
         auto &cs, auto args, auto &
     ) {
         auto &sv = static_cast<string_var &>(args[0].get_ident(cs));
@@ -599,7 +599,7 @@ LIBCUBESCRIPT_EXPORT command &state::new_command(
             case 'f':
             case 'a':
             case 'c':
-            case 'N':
+            case '#':
             case 's':
             case 'b':
             case 'r':

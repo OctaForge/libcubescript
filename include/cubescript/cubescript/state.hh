@@ -301,7 +301,7 @@ struct LIBCUBESCRIPT_EXPORT state {
      * * `b` - bytecode/block
      * * `c` - condition (see below)
      * * `r` - ident
-     * * `N` - number of real arguments passed up until now
+     * * `#` - number of real arguments passed up until now
      * * `$` - self ident (the command, except for special hooks)
      *
      * For condition types, the type of the value is generally kept as is,
@@ -342,13 +342,13 @@ struct LIBCUBESCRIPT_EXPORT state {
      * printing or setting them using syntax `varname optional_vals` or using
      * `varname = value`. Their type signature must always start with `$`
      * and can be followed by any user types, generally you will also want
-     * to terminate the list with `N` to find out whether any values were
+     * to terminate the list with `#` to find out whether any values were
      * passed.
      *
      * This way you can have custom handlers for printing as well as custom
      * syntaxes for setting (e.g. your custom integer var handler may want to
      * take up to 4 values to allow setting of RGBA color channels). When no
-     * arguments are passed (checked using `N`) you will want to print the
+     * arguments are passed (checked using `#`) you will want to print the
      * value using a format you want. When using the `=` assignment syntax,
      * one value is passed.
      *

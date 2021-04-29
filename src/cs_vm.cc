@@ -108,7 +108,7 @@ void exec_command(
                 i += 1;
                 args[i].set_ident(*self);
                 break;
-            case 'N':
+            case '#':
                 i += 1;
                 args[i].set_integer(integer_type(lookup ? -1 : i - fakeargs));
                 break;

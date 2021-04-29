@@ -322,7 +322,7 @@ int main(int argc, char **argv) {
      * work equivalently - in this case we want to allow multiple values
      * to be set, but you may also not be using standard i/o and so on
      */
-    gcs.new_command("//ivar", "$iiiN", [](auto &css, auto args, auto &) {
+    gcs.new_command("//ivar", "$iii#", [](auto &css, auto args, auto &) {
         auto &iv = static_cast<cs::integer_var &>(args[0].get_ident(css));
         auto nargs = args[4].get_integer();
         if (nargs <= 1) {
