@@ -99,7 +99,7 @@ void exec_command(
                     args[i].force_code(*ts.pstate);
                 }
                 break;
-            case 'r':
+            case 'v':
                 if (set_fake()) {
                     args[i].force_ident(*ts.pstate);
                 }

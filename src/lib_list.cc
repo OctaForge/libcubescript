@@ -204,7 +204,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         res.set_string(make_str_view(list, qend), cs);
     });
 
-    new_cmd_quiet(gcs, "listfind", "rsb", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "listfind", "vsb", [](auto &cs, auto args, auto &res) {
         alias_local st{cs, args[0]};
         any_value idv{};
         auto body = args[2].get_code();
@@ -221,7 +221,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         res.set_integer(-1);
     });
 
-    new_cmd_quiet(gcs, "listassoc", "rsb", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "listassoc", "vsb", [](auto &cs, auto args, auto &res) {
         alias_local st{cs, args[0]};
         any_value idv{};
         auto body = args[2].get_code();
@@ -286,7 +286,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         );
     });
 
-    new_cmd_quiet(gcs, "looplist", "rsb", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "looplist", "vsb", [](auto &cs, auto args, auto &) {
         alias_local st{cs, args[0]};
         any_value idv{};
         auto body = args[2].get_code();
@@ -303,7 +303,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         }
     });
 
-    new_cmd_quiet(gcs, "looplist2", "rrsb", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "looplist2", "vvsb", [](auto &cs, auto args, auto &) {
         alias_local st1{cs, args[0]};
         alias_local st2{cs, args[1]};
         any_value idv{};
@@ -327,7 +327,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         }
     });
 
-    new_cmd_quiet(gcs, "looplist3", "rrrsb", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "looplist3", "vvvsb", [](auto &cs, auto args, auto &) {
         alias_local st1{cs, args[0]};
         alias_local st2{cs, args[1]};
         alias_local st3{cs, args[2]};
@@ -358,7 +358,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         }
     });
 
-    new_cmd_quiet(gcs, "looplistconcat", "rsb", [](
+    new_cmd_quiet(gcs, "looplistconcat", "vsb", [](
         auto &cs, auto args, auto &res
     ) {
         loop_list_conc(
@@ -367,7 +367,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         );
     });
 
-    new_cmd_quiet(gcs, "looplistconcatword", "rsb", [](
+    new_cmd_quiet(gcs, "looplistconcatword", "vsb", [](
         auto &cs, auto args, auto &res
     ) {
         loop_list_conc(
@@ -376,7 +376,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         );
     });
 
-    new_cmd_quiet(gcs, "listfilter", "rsb", [](
+    new_cmd_quiet(gcs, "listfilter", "vsb", [](
         auto &cs, auto args, auto &res
     ) {
         alias_local st{cs, args[0]};
@@ -397,7 +397,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         res.set_string(r.str(), cs);
     });
 
-    new_cmd_quiet(gcs, "listcount", "rsb", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "listcount", "vsb", [](auto &cs, auto args, auto &res) {
         alias_local st{cs, args[0]};
         any_value idv{};
         auto body = args[2].get_code();
@@ -608,7 +608,7 @@ static void list_sort(
 }
 
 static void init_lib_list_sort(state &gcs) {
-    new_cmd_quiet(gcs, "sortlist", "srrbb", [](
+    new_cmd_quiet(gcs, "sortlist", "svvbb", [](
         auto &cs, auto args, auto &res
     ) {
         list_sort(
@@ -616,7 +616,7 @@ static void init_lib_list_sort(state &gcs) {
             args[2].get_ident(cs), args[3].get_code(), args[4].get_code()
         );
     });
-    new_cmd_quiet(gcs, "uniquelist", "srrb", [](
+    new_cmd_quiet(gcs, "uniquelist", "svvb", [](
         auto &cs, auto args, auto &res
      ) {
         list_sort(

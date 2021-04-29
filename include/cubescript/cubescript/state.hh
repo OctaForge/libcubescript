@@ -300,7 +300,7 @@ struct LIBCUBESCRIPT_EXPORT state {
      * * `a` - any (passed as is)
      * * `b` - bytecode/block
      * * `c` - condition (see below)
-     * * `r` - ident
+     * * `v` - ident (variable/alias/any kind)
      * * `#` - number of real arguments passed up until now
      * * `$` - self ident (the command, except for special hooks)
      *

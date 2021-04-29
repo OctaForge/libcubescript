@@ -938,7 +938,7 @@ static bool parse_cmd_arg(parser_state &ps, char s, bool more, bool rep) {
                 more = ps.parse_arg(VAL_CODE);
             }
             break;
-        case 'r': /* ident */
+        case 'v': /* variable/alias/other ident */
             if (more) {
                 more = ps.parse_arg(VAL_IDENT);
             }

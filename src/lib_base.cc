@@ -68,7 +68,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         throw error{cs, args[0].get_string(cs)};
     });
 
-    new_cmd_quiet(gcs, "pcall", "brr", [](auto &cs, auto args, auto &ret) {
+    new_cmd_quiet(gcs, "pcall", "bvv", [](auto &cs, auto args, auto &ret) {
         auto &cret = args[1].get_ident(cs);
         auto &css = args[2].get_ident(cs);
         if (!cret.is_alias()) {
@@ -159,7 +159,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         }
     });
 
-    new_cmd_quiet(gcs, "pushif", "rab", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "pushif", "vab", [](auto &cs, auto args, auto &res) {
         alias_local st{cs, args[0]};
         if (st.get_alias().is_arg()) {
             throw error{cs, "cannot push an argument"};
@@ -170,28 +170,28 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         }
     });
 
-    new_cmd_quiet(gcs, "loop", "rab", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "loop", "vab", [](auto &cs, auto args, auto &) {
         do_loop(
             cs, args[0].get_ident(cs), 0, args[1].get_integer(), 1,
             bcode_ref{}, args[2].get_code()
         );
     });
 
-    new_cmd_quiet(gcs, "loop+", "riib", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "loop+", "viib", [](auto &cs, auto args, auto &) {
         do_loop(
             cs, args[0].get_ident(cs), args[1].get_integer(),
             args[2].get_integer(), 1, bcode_ref{}, args[3].get_code()
         );
     });
 
-    new_cmd_quiet(gcs, "loop*", "riib", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "loop*", "viib", [](auto &cs, auto args, auto &) {
         do_loop(
             cs, args[0].get_ident(cs), 0, args[1].get_integer(),
             args[2].get_integer(), bcode_ref{}, args[3].get_code()
         );
     });
 
-    new_cmd_quiet(gcs, "loop+*", "riiib", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "loop+*", "viiib", [](auto &cs, auto args, auto &) {
         do_loop(
             cs, args[0].get_ident(cs), args[1].get_integer(),
             args[3].get_integer(), args[2].get_integer(),
@@ -199,28 +199,28 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         );
     });
 
-    new_cmd_quiet(gcs, "loopwhile", "ribb", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "loopwhile", "vibb", [](auto &cs, auto args, auto &) {
         do_loop(
             cs, args[0].get_ident(cs), 0, args[1].get_integer(), 1,
             args[2].get_code(), args[3].get_code()
         );
     });
 
-    new_cmd_quiet(gcs, "loopwhile+", "riibb", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "loopwhile+", "viibb", [](auto &cs, auto args, auto &) {
         do_loop(
             cs, args[0].get_ident(cs), args[1].get_integer(),
             args[2].get_integer(), 1, args[3].get_code(), args[4].get_code()
         );
     });
 
-    new_cmd_quiet(gcs, "loopwhile*", "riibb", [](auto &cs, auto args, auto &) {
+    new_cmd_quiet(gcs, "loopwhile*", "viibb", [](auto &cs, auto args, auto &) {
         do_loop(
             cs, args[0].get_ident(cs), 0, args[2].get_integer(),
             args[1].get_integer(), args[3].get_code(), args[4].get_code()
         );
     });
 
-    new_cmd_quiet(gcs, "loopwhile+*", "riiibb", [](
+    new_cmd_quiet(gcs, "loopwhile+*", "viiibb", [](
         auto &cs, auto args, auto &
     ) {
         do_loop(
@@ -245,7 +245,7 @@ end:
         return;
     });
 
-    new_cmd_quiet(gcs, "loopconcat", "rib", [](
+    new_cmd_quiet(gcs, "loopconcat", "vib", [](
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
@@ -254,7 +254,7 @@ end:
         );
     });
 
-    new_cmd_quiet(gcs, "loopconcat+", "riib", [](
+    new_cmd_quiet(gcs, "loopconcat+", "viib", [](
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
@@ -263,7 +263,7 @@ end:
         );
     });
 
-    new_cmd_quiet(gcs, "loopconcat*", "riib", [](
+    new_cmd_quiet(gcs, "loopconcat*", "viib", [](
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
@@ -272,7 +272,7 @@ end:
         );
     });
 
-    new_cmd_quiet(gcs, "loopconcat+*", "riiib", [](
+    new_cmd_quiet(gcs, "loopconcat+*", "viiib", [](
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
@@ -282,7 +282,7 @@ end:
         );
     });
 
-    new_cmd_quiet(gcs, "loopconcatword", "rib", [](
+    new_cmd_quiet(gcs, "loopconcatword", "vib", [](
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
@@ -291,7 +291,7 @@ end:
         );
     });
 
-    new_cmd_quiet(gcs, "loopconcatword+", "riib", [](
+    new_cmd_quiet(gcs, "loopconcatword+", "viib", [](
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
@@ -300,7 +300,7 @@ end:
         );
     });
 
-    new_cmd_quiet(gcs, "loopconcatword*", "riib", [](
+    new_cmd_quiet(gcs, "loopconcatword*", "viib", [](
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
@@ -309,7 +309,7 @@ end:
         );
     });
 
-    new_cmd_quiet(gcs, "loopconcatword+*", "riiib", [](
+    new_cmd_quiet(gcs, "loopconcatword+*", "viiib", [](
         auto &cs, auto args, auto &res
     ) {
         do_loop_conc(
@@ -319,7 +319,7 @@ end:
         );
     });
 
-    new_cmd_quiet(gcs, "push", "rab", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "push", "vab", [](auto &cs, auto args, auto &res) {
         alias_local st{cs, args[0]};
         if (st.get_alias().is_arg()) {
             throw error{cs, "cannot push an argument"};

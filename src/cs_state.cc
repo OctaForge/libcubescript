@@ -602,7 +602,7 @@ LIBCUBESCRIPT_EXPORT command &state::new_command(
             case '#':
             case 's':
             case 'b':
-            case 'r':
+            case 'v':
             case '$':
                 ++nargs;
                 break;
