@@ -173,10 +173,6 @@ enum {
      * instruction, arguments are popped off the stack and passed as is
      */
     BC_INST_COM_V,
-    /* call builtin command with index D and arg count following the
-     * instruction, arguments are popped off the stack and concatenated
-     */
-    BC_INST_COM_C,
 
     /* opcode mask */
     BC_INST_OP_MASK = 0x3F,

@@ -112,17 +112,6 @@ void exec_command(
                 i += 1;
                 args[i].set_integer(integer_type(lookup ? -1 : i - fakeargs));
                 break;
-            case 'C': {
-                i = std::max(i + 1, numargs);
-                any_value tv{};
-                tv.set_string(concat_values(
-                    *ts.pstate, span_type<any_value>{args, std::size_t(i)}, " "
-                ));
-                static_cast<command_impl *>(id)->call(
-                    ts, span_type<any_value>(&tv, &tv + 1), res
-                );
-                return;
-            }
             case 'V':
                 i = std::max(i + 1, numargs);
                 static_cast<command_impl *>(id)->call(
@@ -1006,27 +995,6 @@ noid:
                 id->call(
                     ts, span_type<any_value>{&args[offset], callargs}, result
                 );
-                force_arg(cs, result, op & BC_INST_RET_MASK);
-                args.resize(offset);
-                continue;
-            }
-            case BC_INST_COM_C | BC_RET_NULL:
-            case BC_INST_COM_C | BC_RET_STRING:
-            case BC_INST_COM_C | BC_RET_FLOAT:
-            case BC_INST_COM_C | BC_RET_INT: {
-                command_impl *id = static_cast<command_impl *>(
-                    ts.istate->identmap[op >> 8]
-                );
-                std::size_t callargs = *code++;
-                std::size_t offset = args.size() - callargs;
-                result.force_none();
-                {
-                    any_value tv{};
-                    tv.set_string(concat_values(cs, span_type<any_value>{
-                        &args[offset], callargs
-                    }, " "));
-                    id->call(ts, span_type<any_value>{&tv, 1}, result);
-                }
                 force_arg(cs, result, op & BC_INST_RET_MASK);
                 args.resize(offset);
                 continue;

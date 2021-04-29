@@ -543,9 +543,6 @@ lookup_id:
                         gs.gen_val_integer(-1);
                         ++numargs;
                         break;
-                    case 'C':
-                        comtype = BC_INST_COM_C;
-                        break;
                     case 'V':
                         comtype = BC_INST_COM_V;
                         break;
@@ -994,9 +991,8 @@ bool parser_state::parse_call_command(
                 gs.gen_val_integer(numargs - fakeargs);
                 ++numargs;
                 break;
-            case 'C': /* concatenated string */
             case 'V': /* varargs */
-                comtype = (*it == 'C') ? BC_INST_COM_C : BC_INST_COM_V;
+                comtype = BC_INST_COM_V;
                 if (more) {
                     for (;;) {
                         more = parse_arg(VAL_ANY);
@@ -1275,9 +1271,8 @@ static bool parse_assign_var(
                 ps.gs.gen_val_integer(nargs);
                 ++nargs;
                 break;
-            case 'C':
             case 'V':
-                comtype = (*it == 'C') ? BC_INST_COM_C : BC_INST_COM_V;
+                comtype = BC_INST_COM_V;
                 if (more && !got) {
                     more = ps.parse_arg(VAL_ANY);
                     if (more) {

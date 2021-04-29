@@ -621,7 +621,7 @@ LIBCUBESCRIPT_EXPORT command &state::new_command(
                         *this, "malformed argument list"
                     };
                 }
-                if ((fmt[1] != 'C') && (fmt[1] != 'V')) {
+                if (fmt[1] != 'V') {
                     throw error{
                         *this, "repetition without variadic arguments"
                     };
@@ -629,7 +629,6 @@ LIBCUBESCRIPT_EXPORT command &state::new_command(
                 nargs -= nrep;
                 break;
             }
-            case 'C':
             case 'V':
                 if ((fmt + 1) != args.end()) {
                     throw error{

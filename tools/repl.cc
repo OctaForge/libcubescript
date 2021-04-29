@@ -371,8 +371,8 @@ int main(int argc, char **argv) {
         }
     });
 
-    gcs.new_command("echo", "C", [](auto &css, auto args, auto &) {
-        std::printf("%s\n", std::string_view{args[0].get_string(css)}.data());
+    gcs.new_command("echo", "V", [](auto &css, auto args, auto &) {
+        std::printf("%s\n", cs::concat_values(css, args, " ").data());
     });
 
     int firstarg = 0;

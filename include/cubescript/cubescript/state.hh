@@ -316,17 +316,14 @@ struct LIBCUBESCRIPT_EXPORT state {
      * check the type explicitly for whether it was actually provided.
      *
      * Commands also support variadics. Variadic commands have their type
-     * list suffixed with `V` or `C`. A `V` variadic is a traditional variadic
-     * function, while `C` will concatenate all inputs into a single big
-     * string.
+     * list suffixed with `V`.
      *
-     * If either `C` or `V` is used alone, the inputs are any arbitrary
-     * values. However, they can also be used with repetition. Repetition
-     * works for example like `if2V`. The `2` is the number of types to
-     * repeat; it must be at most the number of simple types preceeding
-     * it. It must be followed by `V` or `C`. This specific example means
-     * that the variadic arguments are a sequence of integer, float, integer,
-     * float, integer, float and so on.
+     * If `V` is used alone, the inputs are any arbitrary values. However,
+     * they can also be used with repetition. Repetition works for example
+     * like `if2V`. The `2` is the number of types to repeat; it must be at
+     * most the number of simple types preceeding it. It must be followed by
+     * `V`. This specific example means that the variadic arguments are a
+     * sequence of integer, float, integer, float, integer, float and so on.
      *
      * The resulting command stores the number of arguments it takes. The
      * variadic part is not a part of it (neither is the part subject to

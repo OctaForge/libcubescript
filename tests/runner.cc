@@ -50,8 +50,8 @@ int main(int argc, char **argv) {
     cs::state gcs;
     cs::std_init_all(gcs);
 
-    gcs.new_command("echo", "C", [](auto &s, auto args, auto &) {
-        std::printf("%s\n", args[0].get_string(s).view().data());
+    gcs.new_command("echo", "V", [](auto &s, auto args, auto &) {
+        std::printf("%s\n", cs::concat_values(s, args, " ").data());
     });
 
     gcs.new_command("skip_test", "", [](auto &, auto, auto &) {
