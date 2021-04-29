@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
     cs::state gcs;
     cs::std_init_all(gcs);
 
-    gcs.new_command("echo", "V", [](auto &s, auto args, auto &) {
+    gcs.new_command("echo", "...", [](auto &s, auto args, auto &) {
         std::printf("%s\n", cs::concat_values(s, args, " ").data());
     });
 

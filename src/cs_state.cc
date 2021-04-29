@@ -199,7 +199,7 @@ state::state(alloc_func func, void *data) {
     });
     static_cast<command_impl *>(p)->p_type = ID_NOT;
 
-    p = &new_command("&&", "c1V", [](auto &cs, auto args, auto &res) {
+    p = &new_command("&&", "c1...", [](auto &cs, auto args, auto &res) {
         if (args.empty()) {
             res.set_integer(1);
         } else {
@@ -218,7 +218,7 @@ state::state(alloc_func func, void *data) {
     });
     static_cast<command_impl *>(p)->p_type = ID_AND;
 
-    p = &new_command("||", "c1V", [](auto &cs, auto args, auto &res) {
+    p = &new_command("||", "c1...", [](auto &cs, auto args, auto &res) {
         if (args.empty()) {
             res.set_integer(0);
         } else {
@@ -616,12 +616,12 @@ LIBCUBESCRIPT_EXPORT command &state::new_command(
                         *this, "not enough arguments to repeat"
                     };
                 }
-                if ((args.end() - fmt) != 2) {
+                if ((args.end() - fmt) != 4) {
                     throw error{
                         *this, "malformed argument list"
                     };
                 }
-                if (fmt[1] != 'V') {
+                if (fmt[1] != '.') {
                     throw error{
                         *this, "repetition without variadic arguments"
                     };
@@ -629,12 +629,16 @@ LIBCUBESCRIPT_EXPORT command &state::new_command(
                 nargs -= nrep;
                 break;
             }
-            case 'V':
-                if ((fmt + 1) != args.end()) {
+            case '.':
+                if (
+                    ((fmt + 3) != args.end()) ||
+                    std::memcmp(&fmt[0], "...", 3)
+                ) {
                     throw error{
                         *this, "unterminated variadic argument list"
                     };
                 }
+                fmt += 2;
                 break;
             default:
                 throw error{

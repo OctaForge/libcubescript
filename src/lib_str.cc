@@ -91,15 +91,15 @@ LIBCUBESCRIPT_EXPORT void std_init_string(state &cs) {
         res.set_string(s.str(), ccs);
     });
 
-    new_cmd_quiet(cs, "concat", "V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "concat", "...", [](auto &ccs, auto args, auto &res) {
         res.set_string(concat_values(ccs, args, " "));
     });
 
-    new_cmd_quiet(cs, "concatword", "V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "concatword", "...", [](auto &ccs, auto args, auto &res) {
         res.set_string(concat_values(ccs, args));
     });
 
-    new_cmd_quiet(cs, "format", "V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "format", "...", [](auto &ccs, auto args, auto &res) {
         if (args.empty()) {
             return;
         }
@@ -166,25 +166,25 @@ LIBCUBESCRIPT_EXPORT void std_init_string(state &cs) {
         }, ccs);
     });
 
-    new_cmd_quiet(cs, "strcmp", "s1V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "strcmp", "s1...", [](auto &ccs, auto args, auto &res) {
         str_cmp_by(ccs, args, res, std::equal_to<std::string_view>());
     });
-    new_cmd_quiet(cs, "=s", "s1V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "=s", "s1...", [](auto &ccs, auto args, auto &res) {
         str_cmp_by(ccs, args, res, std::equal_to<std::string_view>());
     });
-    new_cmd_quiet(cs, "!=s", "s1V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "!=s", "s1...", [](auto &ccs, auto args, auto &res) {
         str_cmp_by(ccs, args, res, std::not_equal_to<std::string_view>());
     });
-    new_cmd_quiet(cs, "<s", "s1V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "<s", "s1...", [](auto &ccs, auto args, auto &res) {
         str_cmp_by(ccs, args, res, std::less<std::string_view>());
     });
-    new_cmd_quiet(cs, ">s", "s1V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, ">s", "s1...", [](auto &ccs, auto args, auto &res) {
         str_cmp_by(ccs, args, res, std::greater<std::string_view>());
     });
-    new_cmd_quiet(cs, "<=s", "s1V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, "<=s", "s1...", [](auto &ccs, auto args, auto &res) {
         str_cmp_by(ccs, args, res, std::less_equal<std::string_view>());
     });
-    new_cmd_quiet(cs, ">=s", "s1V", [](auto &ccs, auto args, auto &res) {
+    new_cmd_quiet(cs, ">=s", "s1...", [](auto &ccs, auto args, auto &res) {
         str_cmp_by(ccs, args, res, std::greater_equal<std::string_view>());
     });
 

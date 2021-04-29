@@ -112,7 +112,7 @@ void exec_command(
                 i += 1;
                 args[i].set_integer(integer_type(lookup ? -1 : i - fakeargs));
                 break;
-            case 'V':
+            case '.':
                 i = std::max(i + 1, numargs);
                 static_cast<command_impl *>(id)->call(
                     ts, span_type<any_value>{args, std::size_t(i)}, res

@@ -116,28 +116,28 @@ LIBCUBESCRIPT_EXPORT void std_init_math(state &cs) {
         res.set_float(std::exp(args[0].get_float()));
     });
 
-    new_cmd_quiet(cs, "min", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "min", "i1...", [](auto &, auto args, auto &res) {
         integer_type v = (!args.empty() ? args[0].get_integer() : 0);
         for (size_t i = 1; i < args.size(); ++i) {
             v = std::min(v, args[i].get_integer());
         }
         res.set_integer(v);
     });
-    new_cmd_quiet(cs, "max", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "max", "i1...", [](auto &, auto args, auto &res) {
         integer_type v = (!args.empty() ? args[0].get_integer() : 0);
         for (size_t i = 1; i < args.size(); ++i) {
             v = std::max(v, args[i].get_integer());
         }
         res.set_integer(v);
     });
-    new_cmd_quiet(cs, "minf", "f1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "minf", "f1...", [](auto &, auto args, auto &res) {
         float_type v = (!args.empty() ? args[0].get_float() : 0);
         for (size_t i = 1; i < args.size(); ++i) {
             v = std::min(v, args[i].get_float());
         }
         res.set_float(v);
     });
-    new_cmd_quiet(cs, "maxf", "f1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "maxf", "f1...", [](auto &, auto args, auto &res) {
         float_type v = (!args.empty() ? args[0].get_float() : 0);
         for (size_t i = 1; i < args.size(); ++i) {
             v = std::max(v, args[i].get_float());
@@ -171,43 +171,43 @@ LIBCUBESCRIPT_EXPORT void std_init_math(state &cs) {
         res.set_float(r);
     });
 
-    new_cmd_quiet(cs, "+", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "+", "i1...", [](auto &, auto args, auto &res) {
         math_op<integer_type>(args, res, 0, std::plus<integer_type>(), math_noop<integer_type>());
     });
-    new_cmd_quiet(cs, "*", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "*", "i1...", [](auto &, auto args, auto &res) {
         math_op<integer_type>(
             args, res, 1, std::multiplies<integer_type>(), math_noop<integer_type>()
         );
     });
-    new_cmd_quiet(cs, "-", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "-", "i1...", [](auto &, auto args, auto &res) {
         math_op<integer_type>(
             args, res, 0, std::minus<integer_type>(), std::negate<integer_type>()
         );
     });
 
-    new_cmd_quiet(cs, "^", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "^", "i1...", [](auto &, auto args, auto &res) {
         math_op<integer_type>(
             args, res, 0, std::bit_xor<integer_type>(), [](integer_type val) { return ~val; }
         );
     });
-    new_cmd_quiet(cs, "~", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "~", "i1...", [](auto &, auto args, auto &res) {
         math_op<integer_type>(
             args, res, 0, std::bit_xor<integer_type>(), [](integer_type val) { return ~val; }
         );
     });
-    new_cmd_quiet(cs, "&", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "&", "i1...", [](auto &, auto args, auto &res) {
         math_op<integer_type>(
             args, res, 0, std::bit_and<integer_type>(), math_noop<integer_type>()
         );
     });
-    new_cmd_quiet(cs, "|", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "|", "i1...", [](auto &, auto args, auto &res) {
         math_op<integer_type>(
             args, res, 0, std::bit_or<integer_type>(), math_noop<integer_type>()
         );
     });
 
     /* special combined cases */
-    new_cmd_quiet(cs, "^~", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "^~", "i1...", [](auto &, auto args, auto &res) {
         integer_type val;
         if (args.size() >= 2) {
             val = args[0].get_integer() ^ ~args[1].get_integer();
@@ -219,7 +219,7 @@ LIBCUBESCRIPT_EXPORT void std_init_math(state &cs) {
         }
         res.set_integer(val);
     });
-    new_cmd_quiet(cs, "&~", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "&~", "i1...", [](auto &, auto args, auto &res) {
         integer_type val;
         if (args.size() >= 2) {
             val = args[0].get_integer() & ~args[1].get_integer();
@@ -231,7 +231,7 @@ LIBCUBESCRIPT_EXPORT void std_init_math(state &cs) {
         }
         res.set_integer(val);
     });
-    new_cmd_quiet(cs, "|~", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "|~", "i1...", [](auto &, auto args, auto &res) {
         integer_type val;
         if (args.size() >= 2) {
             val = args[0].get_integer() | ~args[1].get_integer();
@@ -244,7 +244,7 @@ LIBCUBESCRIPT_EXPORT void std_init_math(state &cs) {
         res.set_integer(val);
     });
 
-    new_cmd_quiet(cs, "<<", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "<<", "i1...", [](auto &, auto args, auto &res) {
         math_op<integer_type>(
             args, res, 0, [](integer_type val1, integer_type val2) {
                 return (val2 < integer_type(sizeof(integer_type) * CHAR_BIT))
@@ -253,7 +253,7 @@ LIBCUBESCRIPT_EXPORT void std_init_math(state &cs) {
             }, math_noop<integer_type>()
         );
     });
-    new_cmd_quiet(cs, ">>", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, ">>", "i1...", [](auto &, auto args, auto &res) {
         math_op<integer_type>(
             args, res, 0, [](integer_type val1, integer_type val2) {
                 return val1 >> std::clamp(
@@ -263,23 +263,23 @@ LIBCUBESCRIPT_EXPORT void std_init_math(state &cs) {
         );
     });
 
-    new_cmd_quiet(cs, "+f", "f1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "+f", "f1...", [](auto &, auto args, auto &res) {
         math_op<float_type>(
             args, res, 0, std::plus<float_type>(), math_noop<float_type>()
         );
     });
-    new_cmd_quiet(cs, "*f", "f1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "*f", "f1...", [](auto &, auto args, auto &res) {
         math_op<float_type>(
             args, res, 1, std::multiplies<float_type>(), math_noop<float_type>()
         );
     });
-    new_cmd_quiet(cs, "-f", "f1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "-f", "f1...", [](auto &, auto args, auto &res) {
         math_op<float_type>(
             args, res, 0, std::minus<float_type>(), std::negate<float_type>()
         );
     });
 
-    new_cmd_quiet(cs, "div", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "div", "i1...", [](auto &, auto args, auto &res) {
         math_op<integer_type>(
             args, res, 0, [](integer_type val1, integer_type val2) {
                 if (val2) {
@@ -289,7 +289,7 @@ LIBCUBESCRIPT_EXPORT void std_init_math(state &cs) {
             }, math_noop<integer_type>()
         );
     });
-    new_cmd_quiet(cs, "mod", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "mod", "i1...", [](auto &, auto args, auto &res) {
         math_op<integer_type>(
             args, res, 0, [](integer_type val1, integer_type val2) {
                 if (val2) {
@@ -299,7 +299,7 @@ LIBCUBESCRIPT_EXPORT void std_init_math(state &cs) {
             }, math_noop<integer_type>()
         );
     });
-    new_cmd_quiet(cs, "divf", "f1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "divf", "f1...", [](auto &, auto args, auto &res) {
         math_op<float_type>(
             args, res, 0, [](float_type val1, float_type val2) {
                 if (val2) {
@@ -309,7 +309,7 @@ LIBCUBESCRIPT_EXPORT void std_init_math(state &cs) {
             }, math_noop<float_type>()
         );
     });
-    new_cmd_quiet(cs, "modf", "f1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "modf", "f1...", [](auto &, auto args, auto &res) {
         math_op<float_type>(
             args, res, 0, [](float_type val1, float_type val2) {
                 if (val2) {
@@ -320,7 +320,7 @@ LIBCUBESCRIPT_EXPORT void std_init_math(state &cs) {
         );
     });
 
-    new_cmd_quiet(cs, "pow", "f1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "pow", "f1...", [](auto &, auto args, auto &res) {
         math_op<float_type>(
             args, res, 0, [](float_type val1, float_type val2) {
                 return float_type(pow(val1, val2));
@@ -328,41 +328,41 @@ LIBCUBESCRIPT_EXPORT void std_init_math(state &cs) {
         );
     });
 
-    new_cmd_quiet(cs, "=", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "=", "i1...", [](auto &, auto args, auto &res) {
         cmp_op<integer_type>(args, res, std::equal_to<integer_type>());
     });
-    new_cmd_quiet(cs, "!=", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "!=", "i1...", [](auto &, auto args, auto &res) {
         cmp_op<integer_type>(args, res, std::not_equal_to<integer_type>());
     });
-    new_cmd_quiet(cs, "<", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "<", "i1...", [](auto &, auto args, auto &res) {
         cmp_op<integer_type>(args, res, std::less<integer_type>());
     });
-    new_cmd_quiet(cs, ">", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, ">", "i1...", [](auto &, auto args, auto &res) {
         cmp_op<integer_type>(args, res, std::greater<integer_type>());
     });
-    new_cmd_quiet(cs, "<=", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "<=", "i1...", [](auto &, auto args, auto &res) {
         cmp_op<integer_type>(args, res, std::less_equal<integer_type>());
     });
-    new_cmd_quiet(cs, ">=", "i1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, ">=", "i1...", [](auto &, auto args, auto &res) {
         cmp_op<integer_type>(args, res, std::greater_equal<integer_type>());
     });
 
-    new_cmd_quiet(cs, "=f", "f1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "=f", "f1...", [](auto &, auto args, auto &res) {
         cmp_op<float_type>(args, res, std::equal_to<float_type>());
     });
-    new_cmd_quiet(cs, "!=f", "f1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "!=f", "f1...", [](auto &, auto args, auto &res) {
         cmp_op<float_type>(args, res, std::not_equal_to<float_type>());
     });
-    new_cmd_quiet(cs, "<f", "f1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "<f", "f1...", [](auto &, auto args, auto &res) {
         cmp_op<float_type>(args, res, std::less<float_type>());
     });
-    new_cmd_quiet(cs, ">f", "f1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, ">f", "f1...", [](auto &, auto args, auto &res) {
         cmp_op<float_type>(args, res, std::greater<float_type>());
     });
-    new_cmd_quiet(cs, "<=f", "f1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, "<=f", "f1...", [](auto &, auto args, auto &res) {
         cmp_op<float_type>(args, res, std::less_equal<float_type>());
     });
-    new_cmd_quiet(cs, ">=f", "f1V", [](auto &, auto args, auto &res) {
+    new_cmd_quiet(cs, ">=f", "f1...", [](auto &, auto args, auto &res) {
         cmp_op<float_type>(args, res, std::greater_equal<float_type>());
     });
 }

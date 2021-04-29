@@ -106,7 +106,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         }
     });
 
-    new_cmd_quiet(gcs, "cond", "bb2V", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "cond", "bb2...", [](auto &cs, auto args, auto &res) {
         for (size_t i = 0; i < args.size(); i += 2) {
             if ((i + 1) < args.size()) {
                 if (cs.run(args[i].get_code()).get_bool()) {
@@ -120,7 +120,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         }
     });
 
-    new_cmd_quiet(gcs, "case", "iab2V", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "case", "iab2...", [](auto &cs, auto args, auto &res) {
         integer_type val = args[0].get_integer();
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
@@ -133,7 +133,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         }
     });
 
-    new_cmd_quiet(gcs, "casef", "fab2V", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "casef", "fab2...", [](auto &cs, auto args, auto &res) {
         float_type val = args[0].get_float();
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
@@ -146,7 +146,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         }
     });
 
-    new_cmd_quiet(gcs, "cases", "sab2V", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "cases", "sab2...", [](auto &cs, auto args, auto &res) {
         string_ref val = args[0].get_string(cs);
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (

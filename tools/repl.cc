@@ -75,20 +75,18 @@ inline std::string_view get_arg_type(char arg) {
 }
 
 inline void fill_cmd_args(std::string &writer, std::string_view args) {
-    char variadic = '\0';
+    bool variadic = false;
     int nrep = 0;
-    if (!args.empty() && ((args.back() == 'V') || (args.back() == 'C'))) {
-        variadic = args.back();
-        args.remove_suffix(1);
+    if ((args.size() >= 3) && (args.substr(args.size() - 3) == "...")) {
+        variadic = true;
+        args.remove_suffix(3);
         if (!args.empty() && isdigit(args.back())) {
             nrep = args.back() - '0';
             args.remove_suffix(1);
         }
     }
     if (args.empty()) {
-        if (variadic == 'C') {
-            writer += "concat(...)";
-        } else if (variadic == 'V') {
+        if (variadic) {
             writer += "...";
         }
         return;
@@ -107,9 +105,6 @@ inline void fill_cmd_args(std::string &writer, std::string_view args) {
         if (norep > 0) {
             writer += ", ";
         }
-        if (variadic == 'C') {
-            writer += "concat(";
-        }
         if (!args.empty()) {
             if (args.size() > 1) {
                 writer += '{';
@@ -125,9 +120,6 @@ inline void fill_cmd_args(std::string &writer, std::string_view args) {
             }
         }
         writer += "...";
-        if (variadic == 'C') {
-            writer += ")";
-        }
     }
 }
 
@@ -371,7 +363,7 @@ int main(int argc, char **argv) {
         }
     });
 
-    gcs.new_command("echo", "V", [](auto &css, auto args, auto &) {
+    gcs.new_command("echo", "...", [](auto &css, auto args, auto &) {
         std::printf("%s\n", cs::concat_values(css, args, " ").data());
     });
 

@@ -147,7 +147,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         );
     });
 
-    new_cmd_quiet(gcs, "at", "si1V", [](auto &cs, auto args, auto &res) {
+    new_cmd_quiet(gcs, "at", "si1...", [](auto &cs, auto args, auto &res) {
         if (args.empty()) {
             return;
         }
