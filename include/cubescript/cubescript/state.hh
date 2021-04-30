@@ -73,7 +73,7 @@ using command_func = internal::callable<
 
 /** @brief The loop state
  *
- * This is returned by state::run_loop().
+ * This is returned by state::call_loop().
  */
 enum class loop_state {
     NORMAL = 0, /**< @brief The iteration ended normally. */
@@ -381,13 +381,13 @@ struct LIBCUBESCRIPT_EXPORT state {
      *
      * @return the return value
      */
-    any_value run(bcode_ref const &code);
+    any_value call(bcode_ref const &code);
 
     /** @brief Execute the given string as code
      *
      * @return the return value
      */
-    any_value run(std::string_view code);
+    any_value call(std::string_view code);
 
     /** @brief Execute the given string as code
      *
@@ -399,7 +399,7 @@ struct LIBCUBESCRIPT_EXPORT state {
      *
      * @return the return value
      */
-    any_value run(std::string_view code, std::string_view source);
+    any_value call(std::string_view code, std::string_view source);
 
     /** @brief Execute the given ident
      *
@@ -411,7 +411,7 @@ struct LIBCUBESCRIPT_EXPORT state {
      *
      * @return the return value
      */
-    any_value run(ident &id, span_type<any_value> args);
+    any_value call(ident &id, span_type<any_value> args);
 
     /** @brief Execute a loop body
      *
@@ -423,13 +423,13 @@ struct LIBCUBESCRIPT_EXPORT state {
      *
      * Some loops may evaluate to values, while others may not.
      */
-    loop_state run_loop(bcode_ref const &code, any_value &ret);
+    loop_state call_loop(bcode_ref const &code, any_value &ret);
 
     /** @brief Execute a loop body
      *
      * This version ignores the return value of the body.
      */
-    loop_state run_loop(bcode_ref const &code);
+    loop_state call_loop(bcode_ref const &code);
 
     /** @brief Get if the thread is in override mode
      *
@@ -475,16 +475,16 @@ struct LIBCUBESCRIPT_EXPORT state {
      */
     bool set_persist_mode(bool v);
 
-    /** @brief Get the maximum run depth of the VM
+    /** @brief Get the maximum call depth of the VM
      *
      * If zero, it is unlimited, otherwise it specifies how much the VM is
      * allowed to recurse. By default, it is zero.
      *
-     * @see set_max_run_depth()
+     * @see set_max_call_depth()
      */
-    std::size_t get_max_run_depth() const;
+    std::size_t get_max_call_depth() const;
 
-    /** @brief Set the maximum run depth ov the VM
+    /** @brief Set the maximum call depth ov the VM
      *
      * If zero, it is unlimited (this is the default). You can limit how much
      * the VM is allowed to recurse if you have specific constraints to adhere
@@ -492,7 +492,7 @@ struct LIBCUBESCRIPT_EXPORT state {
      *
      * @return the old value
      */
-    std::size_t set_max_run_depth(std::size_t v);
+    std::size_t set_max_call_depth(std::size_t v);
 
 private:
     friend struct state_p;

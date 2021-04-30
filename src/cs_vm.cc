@@ -210,14 +210,14 @@ bool exec_alias(
     return true;
 }
 
-run_depth_guard::run_depth_guard(thread_state &ts): tsp(&ts) {
-    if (ts.max_run_depth && (ts.run_depth >= ts.max_run_depth)) {
+call_depth_guard::call_depth_guard(thread_state &ts): tsp(&ts) {
+    if (ts.max_call_depth && (ts.call_depth >= ts.max_call_depth)) {
         throw error{*ts.pstate, "exceeded recursion limit"};
     }
-    ++ts.run_depth;
+    ++ts.call_depth;
 }
 
-run_depth_guard::~run_depth_guard() { --tsp->run_depth; }
+call_depth_guard::~call_depth_guard() { --tsp->call_depth; }
 
 static inline alias *get_lookup_id(
     thread_state &ts, std::uint32_t op, alias_stack *&ast
@@ -246,7 +246,7 @@ std::uint32_t *vm_exec(
 ) {
     result.set_none();
     auto &cs = *ts.pstate;
-    run_depth_guard level{ts}; /* incr and decr on scope exit */
+    call_depth_guard level{ts}; /* incr and decr on scope exit */
     stack_guard guard{ts}; /* resize back to original */
     auto &args = ts.vmstack;
     auto &chook = cs.get_call_hook();
@@ -458,7 +458,7 @@ std::uint32_t *vm_exec(
                 call_with_args(ts, [&]() {
                     auto v = std::move(args.back());
                     args.pop_back();
-                    result = cs.run(v.get_code());
+                    result = cs.call(v.get_code());
                     force_arg(cs, result, op & BC_INST_RET_MASK);
                 });
                 continue;
@@ -469,7 +469,7 @@ std::uint32_t *vm_exec(
             case BC_INST_DO | BC_RET_FLOAT: {
                 auto v = std::move(args.back());
                 args.pop_back();
-                result = cs.run(v.get_code());
+                result = cs.call(v.get_code());
                 force_arg(cs, result, op & BC_INST_RET_MASK);
                 continue;
             }
@@ -500,7 +500,7 @@ std::uint32_t *vm_exec(
                 auto v = std::move(args.back());
                 args.pop_back();
                 if (v.get_type() == value_type::CODE) {
-                    result = cs.run(v.get_code());
+                    result = cs.call(v.get_code());
                 } else {
                     result = std::move(v);
                 }
@@ -514,7 +514,7 @@ std::uint32_t *vm_exec(
                 auto v = std::move(args.back());
                 args.pop_back();
                 if (v.get_type() == value_type::CODE) {
-                    result = cs.run(v.get_code());
+                    result = cs.call(v.get_code());
                 } else {
                     result = std::move(v);
                 }

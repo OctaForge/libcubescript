@@ -87,7 +87,7 @@ static void loop_list_conc(
             r.push_back(' ');
         }
         any_value v{};
-        switch (cs.run_loop(body, v)) {
+        switch (cs.call_loop(body, v)) {
             case loop_state::BREAK:
                 goto end;
             case loop_state::CONTINUE:
@@ -213,7 +213,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
             ++n;
             idv.set_string(p.get_raw_item(), cs);
             st.set(std::move(idv));
-            if (cs.run(body).get_bool()) {
+            if (cs.call(body).get_bool()) {
                 res.set_integer(integer_type(n));
                 return;
             }
@@ -230,7 +230,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
             ++n;
             idv.set_string(p.get_raw_item(), cs);
             st.set(std::move(idv));
-            if (cs.run(body).get_bool()) {
+            if (cs.call(body).get_bool()) {
                 if (p.parse()) {
                     res.set_string(p.get_item());
                 }
@@ -294,7 +294,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         for (list_parser p{cs, args[1].get_string(cs)}; p.parse(); ++n) {
             idv.set_string(p.get_item());
             st.set(std::move(idv));
-            switch (cs.run_loop(body)) {
+            switch (cs.call_loop(body)) {
                 case loop_state::BREAK:
                     return;
                 default: /* continue and normal */
@@ -318,7 +318,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
                 idv.set_string("", cs);
             }
             st2.set(std::move(idv));
-            switch (cs.run_loop(body)) {
+            switch (cs.call_loop(body)) {
                 case loop_state::BREAK:
                     return;
                 default: /* continue and normal */
@@ -349,7 +349,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
                 idv.set_string("", cs);
             }
             st3.set(std::move(idv));
-            switch (cs.run_loop(body)) {
+            switch (cs.call_loop(body)) {
                 case loop_state::BREAK:
                     return;
                 default: /* continue and normal */
@@ -387,7 +387,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         for (list_parser p{cs, args[1].get_string(cs)}; p.parse(); ++n) {
             idv.set_string(p.get_raw_item(), cs);
             st.set(std::move(idv));
-            if (cs.run(body).get_bool()) {
+            if (cs.call(body).get_bool()) {
                 if (r.size()) {
                     r.push_back(' ');
                 }
@@ -405,7 +405,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         for (list_parser p{cs, args[1].get_string(cs)}; p.parse(); ++n) {
             idv.set_string(p.get_raw_item(), cs);
             st.set(std::move(idv));
-            if (cs.run(body).get_bool()) {
+            if (cs.call(body).get_bool()) {
                 r++;
             }
         }
@@ -525,7 +525,7 @@ struct ListSortFun {
         xst.set(std::move(v));
         v.set_string(yval.str, cs);
         yst.set(std::move(v));
-        return cs.run(*body).get_bool();
+        return cs.call(*body).get_bool();
     }
 };
 

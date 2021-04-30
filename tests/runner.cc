@@ -15,7 +15,7 @@ namespace cs = cubescript;
 
 struct skip_test {};
 
-static bool do_run_file(cs::state &cs, char const *fname) {
+static bool do_exec_file(cs::state &cs, char const *fname) {
     FILE *f = std::fopen(fname, "rb");
     if (!f) {
         return false;
@@ -38,7 +38,7 @@ static bool do_run_file(cs::state &cs, char const *fname) {
 
     buf[len] = '\0';
 
-    cs.run(std::string_view{buf.get(), std::size_t(len)}, fname);
+    cs.call(std::string_view{buf.get(), std::size_t(len)}, fname);
     return true;
 }
 
@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
     gcs.new_command("assert", "ss#", [](auto &s, auto args, auto &ret) {
         auto val = args[0];
         val.force_code(s);
-        if (!s.run(val.get_code()).get_bool()) {
+        if (!s.call(val.get_code()).get_bool()) {
             if (args[2].get_integer() > 1) {
                 throw cs::error{
                     s, "assertion failed: [%s] (%s)",
@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
     });
 
     try {
-        do_run_file(gcs, argv[1]);
+        do_exec_file(gcs, argv[1]);
     } catch (skip_test) {
         return 77;
     } catch (cs::error const &e) {

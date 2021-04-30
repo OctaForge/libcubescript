@@ -15,12 +15,12 @@ struct break_exception {
 struct continue_exception {
 };
 
-struct run_depth_guard {
-    run_depth_guard() = delete;
-    run_depth_guard(thread_state &ts);
-    run_depth_guard(run_depth_guard const &) = delete;
-    run_depth_guard(run_depth_guard &&) = delete;
-    ~run_depth_guard();
+struct call_depth_guard {
+    call_depth_guard() = delete;
+    call_depth_guard(thread_state &ts);
+    call_depth_guard(call_depth_guard const &) = delete;
+    call_depth_guard(call_depth_guard &&) = delete;
+    ~call_depth_guard();
 
     thread_state *tsp;
 };

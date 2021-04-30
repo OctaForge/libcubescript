@@ -173,19 +173,19 @@ state::state(alloc_func func, void *data) {
     /* builtins */
 
     p = &new_command("do", "b", [](auto &cs, auto args, auto &res) {
-        res = cs.run(args[0].get_code());
+        res = cs.call(args[0].get_code());
     });
     static_cast<command_impl *>(p)->p_type = ID_DO;
 
     p = &new_command("doargs", "b", [](auto &cs, auto args, auto &res) {
         call_with_args(*cs.p_tstate, [&cs, &res, &args]() {
-            res = cs.run(args[0].get_code());
+            res = cs.call(args[0].get_code());
         });
     });
     static_cast<command_impl *>(p)->p_type = ID_DOARGS;
 
     p = &new_command("if", "abb", [](auto &cs, auto args, auto &res) {
-        res = cs.run((args[0].get_bool() ? args[1] : args[2]).get_code());
+        res = cs.call((args[0].get_bool() ? args[1] : args[2]).get_code());
     });
     static_cast<command_impl *>(p)->p_type = ID_IF;
 
@@ -206,7 +206,7 @@ state::state(alloc_func func, void *data) {
             for (size_t i = 0; i < args.size(); ++i) {
                 auto code = args[i].get_code();
                 if (code) {
-                    res = cs.run(code);
+                    res = cs.call(code);
                 } else {
                     res = std::move(args[i]);
                 }
@@ -225,7 +225,7 @@ state::state(alloc_func func, void *data) {
             for (size_t i = 0; i < args.size(); ++i) {
                 auto code = args[i].get_code();
                 if (code) {
-                    res = cs.run(code);
+                    res = cs.call(code);
                 } else {
                     res = std::move(args[i]);
                 }
@@ -485,7 +485,7 @@ LIBCUBESCRIPT_EXPORT void state::assign_value(
             case ident_type::IVAR:
             case ident_type::FVAR:
             case ident_type::SVAR:
-                run(id->get(), span_type<any_value>{&v, 1});
+                call(id->get(), span_type<any_value>{&v, 1});
                 break;
             default:
                 throw error{
@@ -693,13 +693,13 @@ do_add:
     return *cmd;
 }
 
-LIBCUBESCRIPT_EXPORT any_value state::run(bcode_ref const &code) {
+LIBCUBESCRIPT_EXPORT any_value state::call(bcode_ref const &code) {
     any_value ret{};
     vm_exec(*p_tstate, bcode_p{code}.get()->get_raw(), ret);
     return ret;
 }
 
-static any_value do_run(
+static any_value do_call(
     thread_state &ts, std::string_view file, std::string_view code
 ) {
     any_value ret{};
@@ -710,22 +710,22 @@ static any_value do_run(
     return ret;
 }
 
-LIBCUBESCRIPT_EXPORT any_value state::run(std::string_view code) {
-    return do_run(*p_tstate, std::string_view{}, code);
+LIBCUBESCRIPT_EXPORT any_value state::call(std::string_view code) {
+    return do_call(*p_tstate, std::string_view{}, code);
 }
 
-LIBCUBESCRIPT_EXPORT any_value state::run(
+LIBCUBESCRIPT_EXPORT any_value state::call(
     std::string_view code, std::string_view source
 ) {
-    return do_run(*p_tstate, source, code);
+    return do_call(*p_tstate, source, code);
 }
 
-LIBCUBESCRIPT_EXPORT any_value state::run(
+LIBCUBESCRIPT_EXPORT any_value state::call(
     ident &id, span_type<any_value> args
 ) {
     any_value ret{};
     std::size_t nargs = args.size();
-    run_depth_guard level{*p_tstate}; /* incr and decr on scope exit */
+    call_depth_guard level{*p_tstate}; /* incr and decr on scope exit */
     switch (id.get_type()) {
         default:
             if (!ident_is_callable(&id)) {
@@ -819,12 +819,12 @@ LIBCUBESCRIPT_EXPORT any_value state::run(
     return ret;
 }
 
-LIBCUBESCRIPT_EXPORT loop_state state::run_loop(
+LIBCUBESCRIPT_EXPORT loop_state state::call_loop(
     bcode_ref const &code, any_value &ret
 ) {
     ++p_tstate->loop_level;
     try {
-        ret = run(code);
+        ret = call(code);
     } catch (break_exception) {
         --p_tstate->loop_level;
         return loop_state::BREAK;
@@ -838,9 +838,9 @@ LIBCUBESCRIPT_EXPORT loop_state state::run_loop(
     return loop_state::NORMAL;
 }
 
-LIBCUBESCRIPT_EXPORT loop_state state::run_loop(bcode_ref const &code) {
+LIBCUBESCRIPT_EXPORT loop_state state::call_loop(bcode_ref const &code) {
     any_value ret{};
-    return run_loop(code, ret);
+    return call_loop(code, ret);
 }
 
 LIBCUBESCRIPT_EXPORT bool state::get_override_mode() const {
@@ -871,13 +871,13 @@ LIBCUBESCRIPT_EXPORT bool state::set_persist_mode(bool v) {
     return was;
 }
 
-LIBCUBESCRIPT_EXPORT std::size_t state::get_max_run_depth() const {
-    return p_tstate->max_run_depth;
+LIBCUBESCRIPT_EXPORT std::size_t state::get_max_call_depth() const {
+    return p_tstate->max_call_depth;
 }
 
-LIBCUBESCRIPT_EXPORT std::size_t state::set_max_run_depth(std::size_t v) {
-    auto old = p_tstate->max_run_depth;
-    p_tstate->max_run_depth = v;
+LIBCUBESCRIPT_EXPORT std::size_t state::set_max_call_depth(std::size_t v) {
+    auto old = p_tstate->max_call_depth;
+    p_tstate->max_call_depth = v;
     return old;
 }
 

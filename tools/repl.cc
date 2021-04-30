@@ -164,7 +164,7 @@ void print_usage(std::string_view progname, bool err) {
         err ? stderr : stdout,
         "Usage: %s [options] [file]\n"
         "Options:\n"
-        "  -e str  run string \"str\"\n"
+        "  -e str  call string \"str\"\n"
         "  -i      enter interactive mode after the above\n"
         "  -v      show version information\n"
         "  -h      show this message\n"
@@ -189,7 +189,7 @@ static void do_sigint(int n) {
     });
 }
 
-static bool do_run_file(
+static bool do_exec_file(
     cs::state &cs, std::string_view fname, cs::any_value &ret
 ) {
     FILE *f = std::fopen(fname.data(), "rb");
@@ -214,7 +214,7 @@ static bool do_run_file(
 
     buf[len] = '\0';
 
-    ret = cs.run(std::string_view{buf.get(), std::size_t(len)}, fname);
+    ret = cs.call(std::string_view{buf.get(), std::size_t(len)}, fname);
     return true;
 }
 
@@ -224,11 +224,11 @@ static bool do_call(cs::state &cs, std::string_view line, bool file = false) {
     signal(SIGINT, do_sigint);
     try {
         if (file) {
-            if (!do_run_file(cs, line, ret)) {
+            if (!do_exec_file(cs, line, ret)) {
                 std::fprintf(stderr, "cannot read file: %s\n", line.data());
             }
         } else {
-            ret = cs.run(line);
+            ret = cs.call(line);
         }
     } catch (cs::error const &e) {
         signal(SIGINT, SIG_DFL);
@@ -355,10 +355,10 @@ int main(int argc, char **argv) {
     gcs.new_command("exec", "s", [](auto &css, auto args, auto &) {
         auto file = args[0].get_string(css);
         cs::any_value val{};
-        bool ret = do_run_file(css, file, val);
+        bool ret = do_exec_file(css, file, val);
         if (!ret) {
             throw cs::error(
-                css, "could not run file \"%s\"", file.data()
+                css, "could not execute file \"%s\"", file.data()
             );
         }
     });

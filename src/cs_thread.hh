@@ -35,10 +35,10 @@ struct thread_state {
     bool owner = false;
     /* thread ident flags */
     int ident_flags = 0;
-    /* run depth limit */
-    std::size_t max_run_depth = 0;
-    /* current run depth */
-    std::size_t run_depth = 0;
+    /* call depth limit */
+    std::size_t max_call_depth = 0;
+    /* current call depth */
+    std::size_t call_depth = 0;
     /* loop nesting level */
     std::size_t loop_level = 0;
     /* debug info */
