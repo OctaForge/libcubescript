@@ -20,15 +20,6 @@ namespace cubescript {
 
 struct state;
 
-/** @brief An internal Cubescript error.
- *
- * This is an error that is never expected; it is thrown
- * when some API call fails due to most likely a bug.
- */
-struct internal_error: std::runtime_error {
-    using std::runtime_error::runtime_error;
-};
-
 /** @brief Represents the simplified call stack at a point in time.
  *
  * This is a simplified call stack; it is generally carried by errors
@@ -156,7 +147,7 @@ struct LIBCUBESCRIPT_EXPORT error {
             buf = request_buf(cs, sz, sp);
             int written = std::snprintf(buf, sz, msg.data(), args...);
             if (written <= 0) {
-                throw internal_error{"format error"};
+                throw error{cs, "malformed format string"};
             } else if (std::size_t(written) <= sz) {
                 break;
             }

@@ -1,3 +1,4 @@
+#include <cassert>
 #include <cubescript/cubescript.hh>
 
 #include "cs_strman.hh"
@@ -70,10 +71,14 @@ void string_pool::unref(char const *ptr) {
          */
         auto sr = std::string_view{ptr, ss->length};
         auto it = counts.find(sr);
+        /* this should *never* happen unless we have a bug */
+#ifndef NDEBUG
+        assert(it != counts.end());
+#else
         if (it == counts.end()) {
-            /* internal error: this should *never* happen */
-            throw internal_error{"no refcount"};
+            abort();
         }
+#endif
         /* we're freeing the key */
         counts.erase(it);
         /* dealloc */

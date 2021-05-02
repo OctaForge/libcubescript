@@ -1,5 +1,6 @@
 #include <cubescript/cubescript.hh>
 
+#include <cstdlib>
 #include <algorithm>
 
 #include "cs_thread.hh"
@@ -69,7 +70,7 @@ LIBCUBESCRIPT_EXPORT char *error::request_buf(
                 nsz = std::snprintf(cb.data(), sz, "%zu: ", *ts.current_line);
             }
             if (nsz <= 0) {
-                throw internal_error{"format error"};
+                abort(); /* should be unreachable */
             } else if (std::size_t(nsz) < sz) {
                 sz = std::size_t(nsz);
                 break;

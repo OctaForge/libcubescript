@@ -5,6 +5,7 @@
 #include "cs_strman.hh"
 
 #include <cmath>
+#include <cstdlib>
 #include <iterator>
 
 namespace cubescript {
@@ -22,7 +23,7 @@ static std::string_view intstr(integer_type v, charbuf &buf) {
         }
     }
     if (n <= 0) {
-        throw internal_error{"format error"};
+        abort(); /* unreachable, provided a well-formed format string */
     }
     return std::string_view{buf.data(), std::size_t(n)};
 }
@@ -50,7 +51,7 @@ static std::string_view floatstr(float_type v, charbuf &buf) {
         }
     }
     if (n <= 0) {
-        throw internal_error{"format error"};
+        abort(); /* unreachable, provided a well-formed format string */
     }
     return std::string_view{buf.data(), std::size_t(n)};
 }

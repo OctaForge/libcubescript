@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <functional>
 #include <iterator>
 
@@ -148,8 +149,8 @@ LIBCUBESCRIPT_EXPORT void std_init_string(state &cs) {
             res.set_string(static_cast<char const *>(buf), ccs);
             return;
         }
-        /* should pretty much be unreachable */
-        throw internal_error{"format error"};
+        /* should be unreachable */
+        abort();
     });
 
     new_cmd_quiet(cs, "substr", "sii#", [](auto &ccs, auto args, auto &res) {
