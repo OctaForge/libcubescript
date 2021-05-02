@@ -173,19 +173,19 @@ state::state(alloc_func func, void *data) {
     /* builtins */
 
     p = &new_command("do", "b", [](auto &cs, auto args, auto &res) {
-        res = cs.call(args[0].get_code());
+        res = args[0].get_code().call(cs);
     });
     static_cast<command_impl *>(p)->p_type = ID_DO;
 
     p = &new_command("doargs", "b", [](auto &cs, auto args, auto &res) {
         call_with_args(*cs.p_tstate, [&cs, &res, &args]() {
-            res = cs.call(args[0].get_code());
+            res = args[0].get_code().call(cs);
         });
     });
     static_cast<command_impl *>(p)->p_type = ID_DOARGS;
 
     p = &new_command("if", "abb", [](auto &cs, auto args, auto &res) {
-        res = cs.call((args[0].get_bool() ? args[1] : args[2]).get_code());
+        res = (args[0].get_bool() ? args[1] : args[2]).get_code().call(cs);
     });
     static_cast<command_impl *>(p)->p_type = ID_IF;
 
@@ -206,7 +206,7 @@ state::state(alloc_func func, void *data) {
             for (size_t i = 0; i < args.size(); ++i) {
                 auto code = args[i].get_code();
                 if (code) {
-                    res = cs.call(code);
+                    res = code.call(cs);
                 } else {
                     res = std::move(args[i]);
                 }
@@ -225,7 +225,7 @@ state::state(alloc_func func, void *data) {
             for (size_t i = 0; i < args.size(); ++i) {
                 auto code = args[i].get_code();
                 if (code) {
-                    res = cs.call(code);
+                    res = code.call(cs);
                 } else {
                     res = std::move(args[i]);
                 }
@@ -485,7 +485,7 @@ LIBCUBESCRIPT_EXPORT void state::assign_value(
             case ident_type::IVAR:
             case ident_type::FVAR:
             case ident_type::SVAR:
-                call(id->get(), span_type<any_value>{&v, 1});
+                id->get().call(span_type<any_value>{&v, 1}, *this);
                 break;
             default:
                 throw error{
@@ -693,154 +693,12 @@ do_add:
     return *cmd;
 }
 
-LIBCUBESCRIPT_EXPORT any_value state::call(bcode_ref const &code) {
-    any_value ret{};
-    vm_exec(*p_tstate, bcode_p{code}.get()->get_raw(), ret);
-    return ret;
-}
-
-static any_value do_call(
-    thread_state &ts, std::string_view file, std::string_view code
+LIBCUBESCRIPT_EXPORT bcode_ref state::compile(
+    std::string_view v, std::string_view source
 ) {
-    any_value ret{};
-    gen_state gs{ts};
-    gs.gen_main(code, file);
-    auto cref = gs.steal_ref();
-    vm_exec(ts, bcode_p{cref}.get()->get_raw(), ret);
-    return ret;
-}
-
-LIBCUBESCRIPT_EXPORT any_value state::call(std::string_view code) {
-    return do_call(*p_tstate, std::string_view{}, code);
-}
-
-LIBCUBESCRIPT_EXPORT any_value state::call(
-    std::string_view code, std::string_view source
-) {
-    return do_call(*p_tstate, source, code);
-}
-
-LIBCUBESCRIPT_EXPORT any_value state::call(
-    ident &id, span_type<any_value> args
-) {
-    any_value ret{};
-    std::size_t nargs = args.size();
-    call_depth_guard level{*p_tstate}; /* incr and decr on scope exit */
-    switch (id.get_type()) {
-        default:
-            if (!ident_is_callable(&id)) {
-                break;
-            }
-        /* fallthrough */
-        case ident_type::COMMAND: {
-            auto &cimpl = static_cast<command_impl &>(id);
-            if (nargs < std::size_t(cimpl.get_num_args())) {
-                stack_guard s{*p_tstate}; /* restore after call */
-                auto &targs = p_tstate->vmstack;
-                auto osz = targs.size();
-                targs.resize(osz + cimpl.get_num_args());
-                for (std::size_t i = 0; i < nargs; ++i) {
-                    targs[osz + i] = args[i];
-                }
-                exec_command(
-                    *p_tstate, &cimpl, &id, &targs[osz], ret, nargs, false
-                );
-            } else {
-                exec_command(
-                    *p_tstate, &cimpl, &id, &args[0], ret, nargs, false
-                );
-            }
-            nargs = 0;
-            break;
-        }
-        case ident_type::IVAR: {
-            auto *hid = p_tstate->istate->cmd_ivar;
-            auto *cimp = static_cast<command_impl *>(hid);
-            auto &targs = p_tstate->vmstack;
-            auto osz = targs.size();
-            auto anargs = std::size_t(cimp->get_num_args());
-            targs.resize(
-                osz + std::max(args.size(), anargs + 1)
-            );
-            for (std::size_t i = 0; i < nargs; ++i) {
-                targs[osz + i + 1] = args[i];
-            }
-            exec_command(
-                *p_tstate, cimp, &id, &targs[osz], ret, nargs + 1, false
-            );
-            break;
-        }
-        case ident_type::FVAR: {
-            auto *hid = p_tstate->istate->cmd_fvar;
-            auto *cimp = static_cast<command_impl *>(hid);
-            auto &targs = p_tstate->vmstack;
-            auto osz = targs.size();
-            auto anargs = std::size_t(cimp->get_num_args());
-            targs.resize(
-                osz + std::max(args.size(), anargs + 1)
-            );
-            for (std::size_t i = 0; i < nargs; ++i) {
-                targs[osz + i + 1] = args[i];
-            }
-            exec_command(
-                *p_tstate, cimp, &id, &targs[osz], ret, nargs + 1, false
-            );
-            break;
-        }
-        case ident_type::SVAR: {
-            auto *hid = p_tstate->istate->cmd_svar;
-            auto *cimp = static_cast<command_impl *>(hid);
-            auto &targs = p_tstate->vmstack;
-            auto osz = targs.size();
-            auto anargs = std::size_t(cimp->get_num_args());
-            targs.resize(
-                osz + std::max(args.size(), anargs + 1)
-            );
-            for (std::size_t i = 0; i < nargs; ++i) {
-                targs[osz + i + 1] = args[i];
-            }
-            exec_command(
-                *p_tstate, cimp, &id, &targs[osz], ret, nargs + 1, false
-            );
-            break;
-        }
-        case ident_type::ALIAS: {
-            alias &a = static_cast<alias &>(id);
-            if (a.is_arg() && !ident_is_used_arg(&a, *p_tstate)) {
-                break;
-            }
-            exec_alias(
-                *p_tstate, &a, &args[0], ret, nargs, nargs, 0, 0,
-                BC_RET_NULL, true
-            );
-            break;
-        }
-    }
-    return ret;
-}
-
-LIBCUBESCRIPT_EXPORT loop_state state::call_loop(
-    bcode_ref const &code, any_value &ret
-) {
-    ++p_tstate->loop_level;
-    try {
-        ret = call(code);
-    } catch (break_exception) {
-        --p_tstate->loop_level;
-        return loop_state::BREAK;
-    } catch (continue_exception) {
-        --p_tstate->loop_level;
-        return loop_state::CONTINUE;
-    } catch (...) {
-        --p_tstate->loop_level;
-        throw;
-    }
-    return loop_state::NORMAL;
-}
-
-LIBCUBESCRIPT_EXPORT loop_state state::call_loop(bcode_ref const &code) {
-    any_value ret{};
-    return call_loop(code, ret);
+    gen_state gs{*p_tstate};
+    gs.gen_main(v, source);
+    return gs.steal_ref();
 }
 
 LIBCUBESCRIPT_EXPORT bool state::get_override_mode() const {

@@ -20,10 +20,10 @@ static inline void do_loop(
     for (integer_type i = 0; i < n; ++i) {
         idv.set_integer(offset + i * step);
         st.set(idv);
-        if (cond && !cs.call(cond).get_bool()) {
+        if (cond && !cond.call(cs).get_bool()) {
             break;
         }
-        switch (cs.call_loop(body)) {
+        switch (body.call_loop(cs)) {
             case loop_state::BREAK:
                 return;
             default: /* continue and normal */
@@ -46,7 +46,7 @@ static inline void do_loop_conc(
         idv.set_integer(offset + i * step);
         st.set(idv);
         any_value v{};
-        switch (cs.call_loop(body, v)) {
+        switch (body.call_loop(cs, v)) {
             case loop_state::BREAK:
                 goto end;
             case loop_state::CONTINUE:
@@ -80,7 +80,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         any_value result{}, tback{};
         bool rc = true;
         try {
-            result = cs.call(args[0].get_code());
+            result = args[0].get_code().call(cs);
         } catch (error const &e) {
             result.set_string(e.what(), cs);
             if (e.get_stack().get()) {
@@ -109,12 +109,12 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
     new_cmd_quiet(gcs, "cond", "bb2...", [](auto &cs, auto args, auto &res) {
         for (size_t i = 0; i < args.size(); i += 2) {
             if ((i + 1) < args.size()) {
-                if (cs.call(args[i].get_code()).get_bool()) {
-                    res = cs.call(args[i + 1].get_code());
+                if (args[i].get_code().call(cs).get_bool()) {
+                    res = args[i + 1].get_code().call(cs);
                     break;
                 }
             } else {
-                res = cs.call(args[i].get_code());
+                res = args[i].get_code().call(cs);
                 break;
             }
         }
@@ -127,7 +127,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
                 (args[i].get_type() == value_type::NONE) ||
                 (args[i].get_integer() == val)
             ) {
-                res = cs.call(args[i + 1].get_code());
+                res = args[i + 1].get_code().call(cs);
                 return;
             }
         }
@@ -140,7 +140,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
                 (args[i].get_type() == value_type::NONE) ||
                 (args[i].get_float() == val)
             ) {
-                res = cs.call(args[i + 1].get_code());
+                res = args[i + 1].get_code().call(cs);
                 return;
             }
         }
@@ -153,7 +153,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
                 (args[i].get_type() == value_type::NONE) ||
                 (args[i].get_string(cs) == val)
             ) {
-                res = cs.call(args[i + 1].get_code());
+                res = args[i + 1].get_code().call(cs);
                 return;
             }
         }
@@ -166,7 +166,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         }
         if (args[1].get_bool()) {
             st.set(args[1]);
-            res = cs.call(args[2].get_code());
+            res = args[2].get_code().call(cs);
         }
     });
 
@@ -233,8 +233,8 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
     new_cmd_quiet(gcs, "while", "bb", [](auto &cs, auto args, auto &) {
         auto cond = args[0].get_code();
         auto body = args[1].get_code();
-        while (cs.call(cond).get_bool()) {
-            switch (cs.call_loop(body)) {
+        while (cond.call(cs).get_bool()) {
+            switch (body.call_loop(cs)) {
                 case loop_state::BREAK:
                     goto end;
                 default: /* continue and normal */
@@ -325,7 +325,7 @@ end:
             throw error{cs, "cannot push an argument"};
         }
         st.set(args[1]);
-        res = cs.call(args[2].get_code());
+        res = args[2].get_code().call(cs);
     });
 
     new_cmd_quiet(gcs, "resetvar", "s", [](auto &cs, auto args, auto &) {

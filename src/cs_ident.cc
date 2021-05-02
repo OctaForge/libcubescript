@@ -2,6 +2,7 @@
 
 #include "cs_bcode.hh"
 #include "cs_thread.hh"
+#include "cs_vm.hh"
 
 namespace cubescript {
 
@@ -106,7 +107,7 @@ void svar_impl::save_val() {
 
 void command_impl::call(
     thread_state &ts, span_type<any_value> args, any_value &ret
-) {
+) const {
     auto idstsz = ts.idstack.size();
     try {
         p_cb_cftv(*ts.pstate, args, ret);
@@ -117,7 +118,7 @@ void command_impl::call(
     ts.idstack.resize(idstsz);
 }
 
-bool ident_is_used_arg(ident *id, thread_state &ts) {
+bool ident_is_used_arg(ident const *id, thread_state &ts) {
     if (!ts.callstack) {
         return true;
     }
@@ -154,6 +155,8 @@ void alias_stack::set_alias(alias *a, thread_state &ts, any_value &v) {
 }
 
 /* public interface */
+
+LIBCUBESCRIPT_EXPORT ident::~ident() {}
 
 LIBCUBESCRIPT_EXPORT ident_type ident::get_type() const {
     if (p_impl->p_type > ID_ALIAS) {
@@ -246,6 +249,10 @@ LIBCUBESCRIPT_EXPORT bool ident::is_persistent(state &cs) const {
     return false;
 }
 
+LIBCUBESCRIPT_EXPORT any_value ident::call(span_type<any_value>, state &cs) {
+    throw error{cs, "this ident type is not callable"};
+}
+
 LIBCUBESCRIPT_EXPORT bool global_var::is_read_only() const {
     return (p_impl->p_flags & IDENT_FLAG_READONLY);
 }
@@ -282,6 +289,12 @@ LIBCUBESCRIPT_EXPORT void global_var::save(state &cs) {
     }
 }
 
+LIBCUBESCRIPT_EXPORT any_value global_var::call(
+    span_type<any_value> args, state &cs
+) {
+    return ident::call(args, cs);
+}
+
 LIBCUBESCRIPT_EXPORT integer_type integer_var::get_value() const {
     return static_cast<ivar_impl const *>(this)->p_storage;
 }
@@ -306,6 +319,32 @@ LIBCUBESCRIPT_EXPORT void integer_var::set_value(
 
 LIBCUBESCRIPT_EXPORT void integer_var::set_raw_value(integer_type val) {
     static_cast<ivar_impl *>(this)->p_storage = val;
+}
+
+inline any_value call_var(
+    ident &id, command *hid, span_type<any_value> &args, state &cs
+) {
+    any_value ret{};
+    auto &ts = state_p{cs}.ts();
+    auto *cimp = static_cast<command_impl *>(hid);
+    auto &targs = ts.vmstack;
+    auto osz = targs.size();
+    auto anargs = std::size_t(cimp->get_num_args());
+    auto nargs = args.size();
+    targs.resize(
+        osz + std::max(args.size(), anargs + 1)
+    );
+    for (std::size_t i = 0; i < nargs; ++i) {
+        targs[osz + i + 1] = args[i];
+    }
+    exec_command(ts, cimp, &id, &targs[osz], ret, nargs + 1, false);
+    return ret;
+}
+
+LIBCUBESCRIPT_EXPORT any_value integer_var::call(
+    span_type<any_value> args, state &cs
+) {
+    return call_var(*this, state_p{cs}.ts().istate->cmd_ivar, args, cs);
 }
 
 LIBCUBESCRIPT_EXPORT float_type float_var::get_value() const {
@@ -334,6 +373,12 @@ LIBCUBESCRIPT_EXPORT void float_var::set_raw_value(float_type val) {
     static_cast<fvar_impl *>(this)->p_storage = val;
 }
 
+LIBCUBESCRIPT_EXPORT any_value float_var::call(
+    span_type<any_value> args, state &cs
+) {
+    return call_var(*this, state_p{cs}.ts().istate->cmd_fvar, args, cs);
+}
+
 LIBCUBESCRIPT_EXPORT string_ref string_var::get_value() const {
     return static_cast<svar_impl const *>(this)->p_storage;
 }
@@ -360,6 +405,12 @@ LIBCUBESCRIPT_EXPORT void string_var::set_raw_value(string_ref val) {
     static_cast<svar_impl *>(this)->p_storage = val;
 }
 
+LIBCUBESCRIPT_EXPORT any_value string_var::call(
+    span_type<any_value> args, state &cs
+) {
+    return call_var(*this, state_p{cs}.ts().istate->cmd_svar, args, cs);
+}
+
 LIBCUBESCRIPT_EXPORT any_value alias::get_value(state &cs) const {
     return state_p{cs}.ts().get_astack(this).node->val_s;
 }
@@ -377,12 +428,50 @@ LIBCUBESCRIPT_EXPORT bool alias::is_arg() const {
     return (static_cast<alias_impl const *>(this)->p_flags & IDENT_FLAG_ARG);
 }
 
+LIBCUBESCRIPT_EXPORT any_value alias::call(
+    span_type<any_value> args, state &cs
+) {
+    any_value ret{};
+    auto &ts = state_p{cs}.ts();
+    if (is_arg() && !ident_is_used_arg(this, ts)) {
+        return ret;
+    }
+    auto nargs = args.size();
+    exec_alias(ts, this, &args[0], ret, nargs, nargs, 0, 0, BC_RET_NULL, true);
+    return ret;
+}
+
 LIBCUBESCRIPT_EXPORT std::string_view command::get_args() const {
     return static_cast<command_impl const *>(this)->p_cargs;
 }
 
 LIBCUBESCRIPT_EXPORT int command::get_num_args() const {
     return static_cast<command_impl const *>(this)->p_numargs;
+}
+
+LIBCUBESCRIPT_EXPORT any_value command::call(
+    span_type<any_value> args, state &cs
+) {
+    any_value ret{};
+    auto &cimpl = static_cast<command_impl &>(*this);
+    if (!cimpl.p_cb_cftv) {
+        return ret;
+    }
+    auto nargs = args.size();
+    auto &ts = state_p{cs}.ts();
+    if (nargs < std::size_t(cimpl.get_num_args())) {
+        stack_guard s{ts}; /* restore after call */
+        auto &targs = ts.vmstack;
+        auto osz = targs.size();
+        targs.resize(osz + cimpl.get_num_args());
+        for (std::size_t i = 0; i < nargs; ++i) {
+            targs[osz + i] = args[i];
+        }
+        exec_command(ts, &cimpl, this, &targs[osz], ret, nargs, false);
+    } else {
+        exec_command(ts, &cimpl, this, &args[0], ret, nargs, false);
+    }
+    return ret;
 }
 
 /* external API for alias stack management */

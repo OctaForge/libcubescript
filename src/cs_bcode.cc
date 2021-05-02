@@ -1,5 +1,6 @@
 #include "cs_bcode.hh"
 #include "cs_state.hh"
+#include "cs_vm.hh"
 
 namespace cubescript {
 
@@ -43,6 +44,37 @@ LIBCUBESCRIPT_EXPORT bool bcode_ref::empty() const {
 
 LIBCUBESCRIPT_EXPORT bcode_ref::operator bool() const {
     return p_code != nullptr;
+}
+
+LIBCUBESCRIPT_EXPORT any_value bcode_ref::call(state &cs) const {
+    any_value ret{};
+    vm_exec(state_p{cs}.ts(), p_code->get_raw(), ret);
+    return ret;
+}
+
+LIBCUBESCRIPT_EXPORT loop_state bcode_ref::call_loop(
+    state &cs, any_value &ret
+) const {
+    auto &ts = state_p{cs}.ts();
+    ++ts.loop_level;
+    try {
+        ret = call(cs);
+    } catch (break_exception) {
+        --ts.loop_level;
+        return loop_state::BREAK;
+    } catch (continue_exception) {
+        --ts.loop_level;
+        return loop_state::CONTINUE;
+    } catch (...) {
+        --ts.loop_level;
+        throw;
+    }
+    return loop_state::NORMAL;
+}
+
+LIBCUBESCRIPT_EXPORT loop_state bcode_ref::call_loop(state &cs) const {
+    any_value ret{};
+    return call_loop(cs, ret);
 }
 
 /* private funcs */

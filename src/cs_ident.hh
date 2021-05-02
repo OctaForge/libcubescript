@@ -44,7 +44,7 @@ struct alias_stack {
 };
 
 struct ident_link {
-    ident *id;
+    ident const *id;
     ident_link *next;
     std::bitset<MAX_ARGUMENTS> usedargs;
 };
@@ -126,14 +126,16 @@ struct command_impl: ident_impl, command {
         string_ref name, string_ref args, int numargs, command_func func
     );
 
-    void call(thread_state &ts, span_type<any_value> args, any_value &ret);
+    void call(
+        thread_state &ts, span_type<any_value> args, any_value &ret
+    ) const;
 
     string_ref p_cargs;
     command_func p_cb_cftv;
     int p_numargs;
 };
 
-bool ident_is_used_arg(ident *id, thread_state &ts);
+bool ident_is_used_arg(ident const *id, thread_state &ts);
 
 struct ident_p {
     ident_p(ident &id): ip{&id} {}

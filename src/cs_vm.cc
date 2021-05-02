@@ -114,9 +114,7 @@ void exec_command(
                 break;
             case '.':
                 i = std::max(i + 1, numargs);
-                static_cast<command_impl *>(id)->call(
-                    ts, span_type<any_value>{args, std::size_t(i)}, res
-                );
+                id->call(ts, span_type<any_value>{args, std::size_t(i)}, res);
                 return;
             case '1':
             case '2':
@@ -130,9 +128,7 @@ void exec_command(
         }
     }
     ++i;
-    static_cast<command_impl *>(id)->call(
-        ts, span_type<any_value>{args, std::size_t(i)}, res
-    );
+    id->call(ts, span_type<any_value>{args, std::size_t(i)}, res);
     res.force_plain();
 }
 
@@ -458,7 +454,7 @@ std::uint32_t *vm_exec(
                 call_with_args(ts, [&]() {
                     auto v = std::move(args.back());
                     args.pop_back();
-                    result = cs.call(v.get_code());
+                    result = v.get_code().call(cs);
                     force_arg(cs, result, op & BC_INST_RET_MASK);
                 });
                 continue;
@@ -469,7 +465,7 @@ std::uint32_t *vm_exec(
             case BC_INST_DO | BC_RET_FLOAT: {
                 auto v = std::move(args.back());
                 args.pop_back();
-                result = cs.call(v.get_code());
+                result = v.get_code().call(cs);
                 force_arg(cs, result, op & BC_INST_RET_MASK);
                 continue;
             }
@@ -500,7 +496,7 @@ std::uint32_t *vm_exec(
                 auto v = std::move(args.back());
                 args.pop_back();
                 if (v.get_type() == value_type::CODE) {
-                    result = cs.call(v.get_code());
+                    result = v.get_code().call(cs);
                 } else {
                     result = std::move(v);
                 }
@@ -514,7 +510,7 @@ std::uint32_t *vm_exec(
                 auto v = std::move(args.back());
                 args.pop_back();
                 if (v.get_type() == value_type::CODE) {
-                    result = cs.call(v.get_code());
+                    result = v.get_code().call(cs);
                 } else {
                     result = std::move(v);
                 }

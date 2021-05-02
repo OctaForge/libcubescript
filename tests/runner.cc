@@ -38,7 +38,7 @@ static bool do_exec_file(cs::state &cs, char const *fname) {
 
     buf[len] = '\0';
 
-    cs.call(std::string_view{buf.get(), std::size_t(len)}, fname);
+    cs.compile(std::string_view{buf.get(), std::size_t(len)}, fname).call(cs);
     return true;
 }
 
@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
     gcs.new_command("assert", "ss#", [](auto &s, auto args, auto &ret) {
         auto val = args[0];
         val.force_code(s);
-        if (!s.call(val.get_code()).get_bool()) {
+        if (!val.get_code().call(s).get_bool()) {
             if (args[2].get_integer() > 1) {
                 throw cs::error{
                     s, "assertion failed: [%s] (%s)",

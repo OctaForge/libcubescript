@@ -71,16 +71,6 @@ using command_func = internal::callable<
     void, state &, span_type<any_value>, any_value &
 >;
 
-/** @brief The loop state
- *
- * This is returned by state::call_loop().
- */
-enum class loop_state {
-    NORMAL = 0, /**< @brief The iteration ended normally. */
-    BREAK,      /**< @brief The iteration was broken out of. */
-    CONTINUE    /**< @brief The iteration ended early. */
-};
-
 /** @brief The Cubescript thread
  *
  * Represents a Cubescript thread, either the main thread or a side thread
@@ -377,59 +367,17 @@ struct LIBCUBESCRIPT_EXPORT state {
     /** @brief Get a span of all idents */
     span_type<ident const *> get_idents() const;
 
-    /** @brief Execute the given bytecode reference
+    /** @brief Compile a string.
      *
-     * @return the return value
+     * This compiles the given string, optionally using `source` as a filename
+     * for debug information (useful when implementing file I/O functions).
+     *
+     * @return a bytecode reference
+     * @throw cubescript::error on compilation failure
      */
-    any_value call(bcode_ref const &code);
-
-    /** @brief Execute the given string as code
-     *
-     * @return the return value
-     */
-    any_value call(std::string_view code);
-
-    /** @brief Execute the given string as code
-     *
-     * This variant takes a file name to be included in debug information.
-     * While the library provides no way to deal with file I/O, this is a
-     * support function to make implementing these better.
-     *
-     * @param source a source file name
-     *
-     * @return the return value
-     */
-    any_value call(std::string_view code, std::string_view source);
-
-    /** @brief Execute the given ident
-     *
-     * If a command, it will simply be executed with the given arguments,
-     * ensuring that missing ones are filled in and types are set properly.
-     * If a builtin variable, the appropriate handler will be called. If
-     * an alias, the value of it will be compiled and executed. Any other
-     * ident type will simply do nothing.
-     *
-     * @return the return value
-     */
-    any_value call(ident &id, span_type<any_value> args);
-
-    /** @brief Execute a loop body
-     *
-     * This exists to implement custom loop commands. A loop command will
-     * consist of your desired loop and will take a body as an argument
-     * (with bytecode type); this body will be run using this API. The
-     * return value can be used to check if the loop was broken out of
-     * or continued, and take steps accordingly.
-     *
-     * Some loops may evaluate to values, while others may not.
-     */
-    loop_state call_loop(bcode_ref const &code, any_value &ret);
-
-    /** @brief Execute a loop body
-     *
-     * This version ignores the return value of the body.
-     */
-    loop_state call_loop(bcode_ref const &code);
+    bcode_ref compile(
+        std::string_view v, std::string_view source = std::string_view{}
+    );
 
     /** @brief Get if the thread is in override mode
      *

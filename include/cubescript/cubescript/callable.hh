@@ -31,7 +31,7 @@ private:
         base() {}
         virtual ~base() {}
         virtual void move_to(base *) = 0;
-        virtual R operator()(A &&...args) = 0;
+        virtual R operator()(A &&...args) const = 0;
     };
 
     template<typename F>
@@ -42,9 +42,9 @@ private:
             ::new (p) store{std::move(p_stor)};
         }
 
-        virtual R operator()(A &&...args) {
+        virtual R operator()(A &&...args) const {
             return std::invoke(*std::launder(
-                reinterpret_cast<F *>(&p_stor)
+                reinterpret_cast<F const *>(&p_stor)
             ), std::forward<A>(args)...);
         }
 
@@ -184,25 +184,25 @@ public:
             f.p_func = as_base(&f.p_stor);
         } else if (small_storage()) {
             /* copy allocator address/size */
-            memcpy(&tmp_stor, &f.p_stor, sizeof(tmp_stor));
+            std::memcpy(&tmp_stor, &f.p_stor, sizeof(tmp_stor));
             p_func->move_to(as_base(&f.p_stor));
             p_func->~base();
             p_func = f.p_func;
             f.p_func = as_base(&f.p_stor);
-            memcpy(&p_stor, &tmp_stor, sizeof(tmp_stor));
+            std::memcpy(&p_stor, &tmp_stor, sizeof(tmp_stor));
         } else if (f.small_storage()) {
             /* copy allocator address/size */
-            memcpy(&tmp_stor, &p_stor, sizeof(tmp_stor));
+            std::memcpy(&tmp_stor, &p_stor, sizeof(tmp_stor));
             f.p_func->move_to(as_base(&p_stor));
             f.p_func->~base();
             f.p_func = p_func;
             p_func = as_base(&p_stor);
-            memcpy(&f.p_stor, &tmp_stor, sizeof(tmp_stor));
+            std::memcpy(&f.p_stor, &tmp_stor, sizeof(tmp_stor));
         } else {
             /* copy allocator address/size */
-            memcpy(&tmp_stor, &p_stor, sizeof(tmp_stor));
-            memcpy(&p_stor, &f.p_stor, sizeof(tmp_stor));
-            memcpy(&f.p_stor, &tmp_stor, sizeof(tmp_stor));
+            std::memcpy(&tmp_stor, &p_stor, sizeof(tmp_stor));
+            std::memcpy(&p_stor, &f.p_stor, sizeof(tmp_stor));
+            std::memcpy(&f.p_stor, &tmp_stor, sizeof(tmp_stor));
             std::swap(p_func, f.p_func);
         }
     }
@@ -211,7 +211,7 @@ public:
         return !!p_func;
     }
 
-    R operator()(A ...args) {
+    R operator()(A ...args) const {
         return (*p_func)(std::forward<A>(args)...);
     }
 };

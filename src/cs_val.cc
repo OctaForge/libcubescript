@@ -246,7 +246,7 @@ std::string_view any_value::force_string(state &cs) {
     return str_managed_view(csv_get<char const *>(&p_stor));
 }
 
-bcode_ref any_value::force_code(state &cs) {
+bcode_ref any_value::force_code(state &cs, std::string_view source) {
     switch (get_type()) {
         case value_type::CODE:
             return bcode_p::make_ref(csv_get<bcode *>(&p_stor));
@@ -254,7 +254,7 @@ bcode_ref any_value::force_code(state &cs) {
             break;
     }
     gen_state gs{state_p{cs}.ts()};
-    gs.gen_main(get_string(cs));
+    gs.gen_main(get_string(cs), source);
     auto bc = gs.steal_ref();
     set_code(bc);
     return bc;

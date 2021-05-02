@@ -132,10 +132,26 @@ struct LIBCUBESCRIPT_EXPORT ident {
      */
     bool is_persistent(state &cs) const;
 
+    /** @brief Call the ident.
+     *
+     * The default implementation just throws a cubescript::error, since it
+     * is not callable. It can be overridden as needed.
+     *
+     * If a command, it will simply be executed with the given arguments,
+     * ensuring that missing ones are filled in and types are set properly.
+     * If a builtin variable, the appropriate handler will be called. If
+     * an alias, the value of it will be compiled and executed. Any other
+     * ident type will simply do nothing.
+     *
+     * @return the return value
+     */
+    virtual any_value call(span_type<any_value> args, state &cs);
+
 protected:
     friend struct ident_p;
 
     ident() = default;
+    virtual ~ident();
 
     struct ident_impl *p_impl{};
 };
@@ -195,6 +211,16 @@ struct LIBCUBESCRIPT_EXPORT global_var: ident {
      */
     void save(state &cs);
 
+    /** @brief Call the variable.
+     *
+     * While variables are not callable by themselves, this acts like
+     * if calling the variable in the language. By default, that means
+     * doing it with zero arguments retrieves its value, while passing
+     * arguments will set its value. The actual semantics depend on how
+     * the handler is set up for each variable type.
+     */
+    any_value call(span_type<any_value> args, state &cs);
+
 protected:
     global_var() = default;
 };
@@ -228,6 +254,9 @@ struct LIBCUBESCRIPT_EXPORT integer_var: global_var {
      * not invoke any triggers either, nor it will save the the value.
      */
     void set_raw_value(integer_type val);
+
+    /** @brief Call override for integer vars. */
+    any_value call(span_type<any_value> args, state &cs);
 
 protected:
     integer_var() = default;
@@ -263,6 +292,9 @@ struct LIBCUBESCRIPT_EXPORT float_var: global_var {
      */
     void set_raw_value(float_type val);
 
+    /** @brief Call override for float vars. */
+    any_value call(span_type<any_value> args, state &cs);
+
 protected:
     float_var() = default;
 };
@@ -297,6 +329,9 @@ struct LIBCUBESCRIPT_EXPORT string_var: global_var {
      */
     void set_raw_value(string_ref val);
 
+    /** @brief Call override for string vars. */
+    any_value call(span_type<any_value> args, state &cs);
+
 protected:
     string_var() = default;
 };
@@ -324,6 +359,12 @@ struct LIBCUBESCRIPT_EXPORT alias: ident {
     /** @brief Set the value of the alias for the given thread. */
     void set_value(state &cs, any_value v);
 
+    /** @brief Call an alias.
+     *
+     * The alias will be called like if it was called in the language.
+     */
+    any_value call(span_type<any_value> args, state &cs);
+
 protected:
     alias() = default;
 };
@@ -344,6 +385,12 @@ struct LIBCUBESCRIPT_EXPORT command: ident {
      * no `C`, no `V`; everything else counts as one argument).
      */
     int get_num_args() const;
+
+    /** @brief Call a command.
+     *
+     * The command will be called like if it was called in the language.
+     */
+    any_value call(span_type<any_value> args, state &cs);
 
 protected:
     command() = default;

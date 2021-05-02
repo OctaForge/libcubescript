@@ -20,6 +20,17 @@
 namespace cubescript {
 
 struct ident;
+struct any_value;
+
+/** @brief The loop state
+ *
+ * This is returned by state::call_loop().
+ */
+enum class loop_state {
+    NORMAL = 0, /**< @brief The iteration ended normally. */
+    BREAK,      /**< @brief The iteration was broken out of. */
+    CONTINUE    /**< @brief The iteration ended early. */
+};
 
 /** @brief Bytecode reference.
  *
@@ -99,6 +110,30 @@ struct LIBCUBESCRIPT_EXPORT bcode_ref {
      * to use bcode_ref::empty() instead.
      */
     explicit operator bool() const;
+
+    /** @brief Execute the bytecode
+     *
+     * @return the return value
+     */
+    any_value call(state &cs) const;
+
+    /** @brief Execute the bytecode as a loop body
+     *
+     * This exists to implement custom loop commands. A loop command will
+     * consist of your desired loop and will take a body as an argument
+     * (with bytecode type); this body will be run using this API. The
+     * return value can be used to check if the loop was broken out of
+     * or continued, and take steps accordingly.
+     *
+     * Some loops may evaluate to values, while others may not.
+     */
+    loop_state call_loop(state &cs, any_value &ret) const;
+
+    /** @brief Execute the byctecode as a loop body
+     *
+     * This version ignores the return value of the body.
+     */
+    loop_state call_loop(state &cs) const;
 
 private:
     friend struct bcode_p;
@@ -447,11 +482,13 @@ struct LIBCUBESCRIPT_EXPORT any_value {
      *
      * If the contained value is already bytecode, nothing happens. Otherwise
      * the value is converted to a string (like get_string()) and this string
-     * is compiled as bytecode.
+     * is compiled as bytecode (as if using state::compile())
      *
      * @return A bytecode reference.
      */
-    bcode_ref force_code(state &cs);
+    bcode_ref force_code(
+        state &cs, std::string_view source = std::string_view{}
+    );
 
     /** @brief Force the type to value_type::IDENT.
      *
