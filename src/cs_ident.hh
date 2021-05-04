@@ -81,7 +81,7 @@ struct var_impl: ident_impl {
     void changed(thread_state &ts);
 };
 
-void var_changed(thread_state &ts, ident *id);
+void var_changed(thread_state &ts, ident *id, any_value &oldval);
 
 struct ivar_impl: var_impl, integer_var {
     ivar_impl(string_ref n, integer_type v, int flags);

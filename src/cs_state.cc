@@ -350,27 +350,33 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
             return;
         }
         case ident_type::IVAR: {
+            any_value oldv;
             ivar_impl &iv = static_cast<ivar_impl &>(id);
+            oldv.set_integer(iv.get_value());
             iv.set_raw_value(iv.p_override);
-            var_changed(*p_tstate, &id);
+            var_changed(*p_tstate, &id, oldv);
             static_cast<ivar_impl *>(
                 static_cast<integer_var *>(&iv)
             )->p_flags &= ~IDENT_FLAG_OVERRIDDEN;
             return;
         }
         case ident_type::FVAR: {
+            any_value oldv;
             fvar_impl &fv = static_cast<fvar_impl &>(id);
+            oldv.set_float(fv.get_value());
             fv.set_raw_value(fv.p_override);
-            var_changed(*p_tstate, &id);
+            var_changed(*p_tstate, &id, oldv);
             static_cast<fvar_impl *>(
                 static_cast<float_var *>(&fv)
             )->p_flags &= ~IDENT_FLAG_OVERRIDDEN;
             return;
         }
         case ident_type::SVAR: {
+            any_value oldv;
             svar_impl &sv = static_cast<svar_impl &>(id);
+            oldv.set_string(sv.get_value());
             sv.set_raw_value(sv.p_override);
-            var_changed(*p_tstate, &id);
+            var_changed(*p_tstate, &id, oldv);
             static_cast<svar_impl *>(
                 static_cast<string_var *>(&sv)
             )->p_flags &= ~IDENT_FLAG_OVERRIDDEN;
@@ -578,9 +584,25 @@ LIBCUBESCRIPT_EXPORT void state::reset_value(std::string_view name) {
 
 LIBCUBESCRIPT_EXPORT void state::touch_value(std::string_view name) {
     auto id = get_ident(name);
-    if (id && id->get().is_var()) {
-        var_changed(*p_tstate, &id->get());
+    if (!id) {
+        return;
     }
+    auto &idr = id->get();
+    any_value v;
+    switch (idr.get_type()) {
+        case ident_type::IVAR:
+            v.set_integer(static_cast<integer_var &>(idr).get_value());
+            break;
+        case ident_type::FVAR:
+            v.set_float(static_cast<float_var &>(idr).get_value());
+            break;
+        case ident_type::SVAR:
+            v.set_string(static_cast<string_var &>(idr).get_value());
+            break;
+        default:
+            return;
+    }
+    var_changed(*p_tstate, &idr, v);
 }
 
 static char const *allowed_builtins[] = {

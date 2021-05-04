@@ -343,8 +343,10 @@ struct LIBCUBESCRIPT_EXPORT state {
      * and `s`) which also print to standard output (`name = value`).
      *
      * For `//var_changed`, there is no default handler. The arg list must be
-     * just `$`. This will be called whenever a value of an integer, float
-     * or string builtin variable changes.
+     * `$aa`. This will be called whenever the value of a builtin variable of
+     * any type changes, and will be passed the variable as its first argument,
+     * the previous value as the second argument and the new value as the third
+     * argument (mainly for convenience).
      *
      * For these builtins, `$` will refer to the variable ident, not to the
      * builtin command.

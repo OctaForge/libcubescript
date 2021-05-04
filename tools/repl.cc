@@ -347,10 +347,12 @@ int main(int argc, char **argv) {
         }
     });
 
-    gcs.new_command("//var_changed", "$", [](auto &css, auto args, auto &) {
+    gcs.new_command("//var_changed", "$aa", [](auto &css, auto args, auto &) {
         std::printf(
-            "changed var trigger: %s\n",
-            args[0].get_ident(css).get_name().data()
+            "changed var trigger: %s (was: '%s', now: '%s')\n",
+            args[0].get_ident(css).get_name().data(),
+            args[1].get_string(css).data(),
+            args[2].get_string(css).data()
         );
     });
 

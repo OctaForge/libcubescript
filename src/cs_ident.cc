@@ -82,15 +82,31 @@ command_impl::command_impl(
     p_cargs{args}, p_cb_cftv{std::move(f)}, p_numargs{nargs}
 {}
 
-void var_changed(thread_state &ts, ident *id) {
+void var_changed(thread_state &ts, ident *id, any_value &oldval) {
     auto *cid = ts.istate->cmd_var_changed;
     if (!cid) {
         return;
     }
     auto *cimp = static_cast<command_impl *>(cid);
-    any_value val{};
-    val.set_ident(*id);
-    cimp->call(ts, span_type<any_value>{&val, 1}, val);
+    any_value val[3] = {};
+    val[0].set_ident(*id);
+    val[1] = std::move(oldval);
+    switch (id->get_type()) {
+        case ident_type::IVAR:
+            val[2].set_integer(static_cast<integer_var *>(id)->get_value());
+            break;
+        case ident_type::FVAR:
+            val[2].set_float(static_cast<float_var *>(id)->get_value());
+            break;
+        case ident_type::SVAR:
+            val[2].set_string(static_cast<string_var *>(id)->get_value());
+            break;
+        default:
+            return;
+    }
+    cimp->call(ts, span_type<any_value>{
+        static_cast<any_value *>(val), 3
+    }, val[0]);
 }
 
 void ivar_impl::save_val() {
@@ -311,9 +327,12 @@ LIBCUBESCRIPT_EXPORT void integer_var::set_value(
         return;
     }
     save(cs);
+    auto oldv = get_value();
     set_raw_value(val);
     if (trigger) {
-        var_changed(state_p{cs}.ts(), this);
+        any_value v;
+        v.set_integer(oldv);
+        var_changed(state_p{cs}.ts(), this, v);
     }
 }
 
@@ -363,9 +382,12 @@ LIBCUBESCRIPT_EXPORT void float_var::set_value(
         return;
     }
     save(cs);
+    auto oldv = get_value();
     set_raw_value(val);
     if (trigger) {
-        var_changed(state_p{cs}.ts(), this);
+        any_value v;
+        v.set_float(oldv);
+        var_changed(state_p{cs}.ts(), this, v);
     }
 }
 
@@ -395,9 +417,12 @@ LIBCUBESCRIPT_EXPORT void string_var::set_value(
         return;
     }
     save(cs);
+    auto oldv = get_value();
     set_raw_value(std::move(val));
     if (trigger) {
-        var_changed(state_p{cs}.ts(), this);
+        any_value v;
+        v.set_string(oldv);
+        var_changed(state_p{cs}.ts(), this, v);
     }
 }
 
