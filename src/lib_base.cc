@@ -72,10 +72,10 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         auto &cret = args[1].get_ident(cs);
         auto &css = args[2].get_ident(cs);
         if (!cret.is_alias()) {
-            throw error{cs, "'%s' is not an alias", cret.get_name().data()};
+            throw error{cs, "'%s' is not an alias", cret.name().data()};
         }
         if (!css.is_alias()) {
-            throw error{cs, "'%s' is not an alias", css.get_name().data()};
+            throw error{cs, "'%s' is not an alias", css.name().data()};
         }
         any_value result{}, tback{};
         bool rc = true;
@@ -83,9 +83,9 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
             result = args[0].get_code().call(cs);
         } catch (error const &e) {
             result.set_string(e.what(), cs);
-            if (e.get_stack().get()) {
+            if (e.stack().get()) {
                 charbuf buf{cs};
-                print_stack(std::back_inserter(buf), e.get_stack());
+                print_stack(std::back_inserter(buf), e.stack());
                 tback.set_string(buf.str(), cs);
             }
             rc = false;
@@ -124,7 +124,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         integer_type val = args[0].get_integer();
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
-                (args[i].get_type() == value_type::NONE) ||
+                (args[i].type() == value_type::NONE) ||
                 (args[i].get_integer() == val)
             ) {
                 res = args[i + 1].get_code().call(cs);
@@ -137,7 +137,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         float_type val = args[0].get_float();
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
-                (args[i].get_type() == value_type::NONE) ||
+                (args[i].type() == value_type::NONE) ||
                 (args[i].get_float() == val)
             ) {
                 res = args[i + 1].get_code().call(cs);
@@ -150,7 +150,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         string_ref val = args[0].get_string(cs);
         for (size_t i = 1; (i + 1) < args.size(); i += 2) {
             if (
-                (args[i].get_type() == value_type::NONE) ||
+                (args[i].type() == value_type::NONE) ||
                 (args[i].get_string(cs) == val)
             ) {
                 res = args[i + 1].get_code().call(cs);
@@ -342,13 +342,13 @@ end:
 
     new_cmd_quiet(gcs, "getalias", "s", [](auto &cs, auto args, auto &res) {
         auto &id = cs.new_ident(args[0].get_string(cs));
-        if (id.get_type() != ident_type::ALIAS) {
-            throw error{cs, "'%s' is not an alias", id.get_name().data()};
+        if (id.type() != ident_type::ALIAS) {
+            throw error{cs, "'%s' is not an alias", id.name().data()};
         }
         if (ident_p{id}.impl().p_flags & IDENT_FLAG_UNKNOWN) {
             return;
         }
-        res = static_cast<alias &>(id).get_value(cs);
+        res = static_cast<alias &>(id).value(cs);
     });
 }
 

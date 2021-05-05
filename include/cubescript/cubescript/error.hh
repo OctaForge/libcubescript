@@ -114,12 +114,12 @@ struct LIBCUBESCRIPT_EXPORT error {
     }
 
     /** @brief Get a reference to the call stack state. */
-    stack_state &get_stack() {
+    stack_state &stack() {
         return p_stack;
     }
 
     /** @brief Get a reference to the call stack state. */
-    stack_state const &get_stack() const {
+    stack_state const &stack() const {
         return p_stack;
     }
 

@@ -27,17 +27,17 @@ static inline void pop_alias(thread_state &ts, ident &id) {
 static inline void force_arg(state &cs, any_value &v, int type) {
     switch (type) {
         case BC_RET_STRING:
-            if (v.get_type() != value_type::STRING) {
+            if (v.type() != value_type::STRING) {
                 v.force_string(cs);
             }
             break;
         case BC_RET_INT:
-            if (v.get_type() != value_type::INTEGER) {
+            if (v.type() != value_type::INTEGER) {
                 v.force_integer();
             }
             break;
         case BC_RET_FLOAT:
-            if (v.get_type() != value_type::FLOAT) {
+            if (v.type() != value_type::FLOAT) {
                 v.force_float();
             }
             break;
@@ -50,7 +50,7 @@ void exec_command(
 ) {
     int i = -1, fakeargs = 0, numargs = int(nargs);
     bool rep = false;
-    auto fmt = id->get_args();
+    auto fmt = id->args();
     auto set_fake = [&i, &fakeargs, &rep, args, numargs]() {
         if (++i >= numargs) {
             if (rep) {
@@ -84,7 +84,7 @@ void exec_command(
                 break;
             case 'c':
                 if (set_fake()) {
-                    if (args[i].get_type() == value_type::STRING) {
+                    if (args[i].type() == value_type::STRING) {
                         auto str = args[i].get_string(*ts.pstate);
                         if (str.empty()) {
                             args[i].set_integer(0);
@@ -139,12 +139,12 @@ bool exec_alias(
 ) {
     auto &aast = ts.get_astack(a);
     if (ncheck) {
-        if (aast.node->val_s.get_type() == value_type::NONE) {
+        if (aast.node->val_s.type() == value_type::NONE) {
             return false;
         }
     } else if (aast.flags & IDENT_FLAG_UNKNOWN) {
         throw error {
-            *ts.pstate, "unknown command: %s", a->get_name().data()
+            *ts.pstate, "unknown command: %s", a->name().data()
         };
     }
     /* excess arguments get ignored (make error maybe?) */
@@ -161,7 +161,7 @@ bool exec_alias(
         st.val_s = std::move(args[offset + i]);
         uargs[i] = true;
     }
-    auto oldargs = anargs->get_value();
+    auto oldargs = anargs->value();
     auto oldflags = ts.ident_flags;
     ts.ident_flags = aast.flags;
     anargs->set_raw_value(integer_type(callargs));
@@ -197,7 +197,7 @@ bool exec_alias(
         nargs = offset - skip;
     };
     try {
-        vm_exec(ts, bcode_p{coderef}.get()->get_raw(), result);
+        vm_exec(ts, bcode_p{coderef}.get()->raw(), result);
     } catch (...) {
         cleanup();
         throw;
@@ -230,7 +230,7 @@ static inline alias *get_lookup_id(
         ast = &ts.get_astack(static_cast<alias *>(id));
         if (ast->flags & IDENT_FLAG_UNKNOWN) {
             throw error{
-                *ts.pstate, "unknown alias lookup: %s", id->get_name().data()
+                *ts.pstate, "unknown alias lookup: %s", id->name().data()
             };
         }
     }
@@ -245,7 +245,7 @@ std::uint32_t *vm_exec(
     call_depth_guard level{ts}; /* incr and decr on scope exit */
     stack_guard guard{ts}; /* resize back to original */
     auto &args = ts.vmstack;
-    auto &chook = cs.get_call_hook();
+    auto &chook = cs.call_hook();
     if (chook) {
         chook(cs);
     }
@@ -495,7 +495,7 @@ std::uint32_t *vm_exec(
                 std::uint32_t len = op >> 8;
                 auto v = std::move(args.back());
                 args.pop_back();
-                if (v.get_type() == value_type::CODE) {
+                if (v.type() == value_type::CODE) {
                     result = v.get_code().call(cs);
                 } else {
                     result = std::move(v);
@@ -509,7 +509,7 @@ std::uint32_t *vm_exec(
                 std::uint32_t len = op >> 8;
                 auto v = std::move(args.back());
                 args.pop_back();
-                if (v.get_type() == value_type::CODE) {
+                if (v.type() == value_type::CODE) {
                     result = v.get_code().call(cs);
                 } else {
                     result = std::move(v);
@@ -567,7 +567,7 @@ std::uint32_t *vm_exec(
             case BC_INST_COMPILE: {
                 any_value &arg = args.back();
                 gen_state gs{ts};
-                switch (arg.get_type()) {
+                switch (arg.type()) {
                     case value_type::INTEGER:
                         gs.gen_main_integer(arg.get_integer());
                         break;
@@ -587,7 +587,7 @@ std::uint32_t *vm_exec(
 
             case BC_INST_COND: {
                 any_value &arg = args.back();
-                switch (arg.get_type()) {
+                switch (arg.type()) {
                     case value_type::STRING: {
                         std::string_view s = arg.get_string(cs);
                         if (!s.empty()) {
@@ -611,7 +611,7 @@ std::uint32_t *vm_exec(
                 );
                 if (a->is_arg() && !ident_is_used_arg(a, ts)) {
                     ts.get_astack(a).push(ts.idstack.emplace_back());
-                    ts.callstack->usedargs[a->get_index()] = true;
+                    ts.callstack->usedargs[a->index()] = true;
                 }
                 args.emplace_back().set_ident(*a);
                 continue;
@@ -619,7 +619,7 @@ std::uint32_t *vm_exec(
             case BC_INST_IDENT_U: {
                 any_value &arg = args.back();
                 ident *id = ts.istate->id_dummy;
-                if (arg.get_type() == value_type::STRING) {
+                if (arg.type() == value_type::STRING) {
                     id = &ts.istate->new_ident(
                         cs, arg.get_string(cs), IDENT_FLAG_UNKNOWN
                     );
@@ -627,7 +627,7 @@ std::uint32_t *vm_exec(
                 alias *a = static_cast<alias *>(id);
                 if (a->is_arg() && !ident_is_used_arg(id, ts)) {
                     ts.get_astack(a).push(ts.idstack.emplace_back());
-                    ts.callstack->usedargs[id->get_index()] = true;
+                    ts.callstack->usedargs[id->index()] = true;
                 }
                 arg.set_ident(*id);
                 continue;
@@ -714,20 +714,20 @@ std::uint32_t *vm_exec(
             case BC_INST_SVAR | BC_RET_NULL:
                 args.emplace_back().set_string(static_cast<string_var *>(
                     ts.istate->identmap[op >> 8]
-                )->get_value());
+                )->value());
                 continue;
             case BC_INST_SVAR | BC_RET_INT:
                 args.emplace_back().set_integer(parse_int(
                     static_cast<string_var *>(
                         ts.istate->identmap[op >> 8]
-                    )->get_value()
+                    )->value()
                  ));
                 continue;
             case BC_INST_SVAR | BC_RET_FLOAT:
                 args.emplace_back().set_float(parse_float(
                     static_cast<string_var *>(
                         ts.istate->identmap[op >> 8]
-                    )->get_value()
+                    )->value()
                 ));
                 continue;
 
@@ -735,13 +735,13 @@ std::uint32_t *vm_exec(
             case BC_INST_IVAR | BC_RET_NULL:
                 args.emplace_back().set_integer(static_cast<integer_var *>(
                     ts.istate->identmap[op >> 8]
-                )->get_value());
+                )->value());
                 continue;
             case BC_INST_IVAR | BC_RET_STRING: {
                 auto &v = args.emplace_back();
                 v.set_integer(static_cast<integer_var *>(
                     ts.istate->identmap[op >> 8]
-                )->get_value());
+                )->value());
                 v.force_string(cs);
                 continue;
             }
@@ -749,7 +749,7 @@ std::uint32_t *vm_exec(
                 args.emplace_back().set_float(float_type(
                     static_cast<integer_var *>(
                         ts.istate->identmap[op >> 8]
-                    )->get_value()
+                    )->value()
                 ));
                 continue;
 
@@ -757,13 +757,13 @@ std::uint32_t *vm_exec(
             case BC_INST_FVAR | BC_RET_NULL:
                 args.emplace_back().set_float(static_cast<float_var *>(
                     ts.istate->identmap[op >> 8]
-                )->get_value());
+                )->value());
                 continue;
             case BC_INST_FVAR | BC_RET_STRING: {
                 auto &v = args.emplace_back();
                 v.set_float(static_cast<float_var *>(
                     ts.istate->identmap[op >> 8]
-                )->get_value());
+                )->value());
                 v.force_string(cs);
                 continue;
             }
@@ -771,7 +771,7 @@ std::uint32_t *vm_exec(
                 args.emplace_back().set_integer(
                     integer_type(std::floor(static_cast<float_var *>(
                         ts.istate->identmap[op >> 8]
-                    )->get_value()))
+                    )->value()))
                 );
                 continue;
 
@@ -829,7 +829,7 @@ std::uint32_t *vm_exec(
                 std::size_t nnargs = args.size();
                 std::size_t offset = nnargs - callargs;
                 any_value &idarg = args[offset - 1];
-                if (idarg.get_type() != value_type::STRING) {
+                if (idarg.type() != value_type::STRING) {
 litval:
                     result = std::move(idarg);
                     force_arg(cs, result, op & BC_INST_RET_MASK);
@@ -862,7 +862,7 @@ noid:
                     case ID_COMMAND: {
                         auto *cimp = static_cast<command_impl *>(&id->get());
                         args.resize(offset + std::max(
-                            std::size_t(cimp->get_num_args()), callargs
+                            std::size_t(cimp->arg_count()), callargs
                         ));
                         exec_command(
                             ts, cimp, cimp, &args[offset], result, callargs
@@ -900,7 +900,7 @@ noid:
                         /* the $ argument */
                         args.insert(offset, any_value{});
                         args.resize(offset + std::max(
-                            std::size_t(cimp->get_num_args()), callargs
+                            std::size_t(cimp->arg_count()), callargs
                         ));
                         exec_command(
                             ts, cimp, &id->get(), &args[offset],
@@ -916,7 +916,7 @@ noid:
                         /* the $ argument */
                         args.insert(offset, any_value{});
                         args.resize(offset + std::max(
-                            std::size_t(cimp->get_num_args()), callargs
+                            std::size_t(cimp->arg_count()), callargs
                         ));
                         exec_command(
                             ts, cimp, &id->get(), &args[offset],
@@ -932,7 +932,7 @@ noid:
                         /* the $ argument */
                         args.insert(offset, any_value{});
                         args.resize(offset + std::max(
-                            std::size_t(cimp->get_num_args()), callargs
+                            std::size_t(cimp->arg_count()), callargs
                         ));
                         exec_command(
                             ts, cimp, &id->get(), &args[offset],
@@ -968,10 +968,10 @@ noid:
                 command_impl *id = static_cast<command_impl *>(
                     ts.istate->identmap[op >> 8]
                 );
-                std::size_t offset = args.size() - id->get_num_args();
+                std::size_t offset = args.size() - id->arg_count();
                 result.force_none();
                 id->call(ts, span_type<any_value>{
-                    &args[offset], std::size_t(id->get_num_args())
+                    &args[offset], std::size_t(id->arg_count())
                 }, result);
                 force_arg(cs, result, op & BC_INST_RET_MASK);
                 args.resize(offset);

@@ -48,7 +48,7 @@ ident *internal_state::add_ident(ident *id, ident_impl *impl) {
         return nullptr;
     }
     ident_p{*id}.impl(impl);
-    idents[id->get_name()] = id;
+    idents[id->name()] = id;
     impl->p_index = int(identmap.size());
     identmap.push_back(id);
     return identmap.back();
@@ -126,8 +126,8 @@ state::state(alloc_func func, void *data) {
     ) {
         auto &iv = static_cast<integer_var &>(args[0].get_ident(cs));
         if (args[2].get_integer() <= 1) {
-            std::printf("%s = ", iv.get_name().data());
-            std::printf(INTEGER_FORMAT, iv.get_value());
+            std::printf("%s = ", iv.name().data());
+            std::printf(INTEGER_FORMAT, iv.value());
             std::printf("\n");
         } else {
             iv.set_value(cs, args[1].get_integer());
@@ -139,8 +139,8 @@ state::state(alloc_func func, void *data) {
     ) {
         auto &fv = static_cast<float_var &>(args[0].get_ident(cs));
         if (args[2].get_integer() <= 1) {
-            auto val = fv.get_value();
-            std::printf("%s = ", fv.get_name().data());
+            auto val = fv.value();
+            std::printf("%s = ", fv.name().data());
             if (std::floor(val) == val) {
                 std::printf(ROUND_FLOAT_FORMAT, val);
             } else {
@@ -157,11 +157,11 @@ state::state(alloc_func func, void *data) {
     ) {
         auto &sv = static_cast<string_var &>(args[0].get_ident(cs));
         if (args[2].get_integer() <= 1) {
-            auto val = sv.get_value();
+            auto val = sv.value();
             if (val.view().find('"') == std::string_view::npos) {
-                std::printf("%s = \"%s\"\n", sv.get_name().data(), val.data());
+                std::printf("%s = \"%s\"\n", sv.name().data(), val.data());
             } else {
-                std::printf("%s = [%s]\n", sv.get_name().data(), val.data());
+                std::printf("%s = [%s]\n", sv.name().data(), val.data());
             }
         } else {
             sv.set_value(cs, args[1].get_string(cs));
@@ -299,15 +299,15 @@ LIBCUBESCRIPT_EXPORT state state::new_thread() {
     return state{p_tstate->istate};
 }
 
-LIBCUBESCRIPT_EXPORT hook_func state::set_call_hook(hook_func func) {
+LIBCUBESCRIPT_EXPORT hook_func state::call_hook(hook_func func) {
     return p_tstate->set_hook(std::move(func));
 }
 
-LIBCUBESCRIPT_EXPORT hook_func const &state::get_call_hook() const {
+LIBCUBESCRIPT_EXPORT hook_func const &state::call_hook() const {
     return p_tstate->get_hook();
 }
 
-LIBCUBESCRIPT_EXPORT hook_func &state::get_call_hook() {
+LIBCUBESCRIPT_EXPORT hook_func &state::call_hook() {
     return p_tstate->get_hook();
 }
 
@@ -341,7 +341,7 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
     if (!id.is_overridden(*this)) {
         return;
     }
-    switch (id.get_type()) {
+    switch (id.type()) {
         case ident_type::ALIAS: {
             auto &ast = p_tstate->get_astack(static_cast<alias *>(&id));
             ast.node->val_s.set_string("", *this);
@@ -352,7 +352,7 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
         case ident_type::IVAR: {
             any_value oldv;
             ivar_impl &iv = static_cast<ivar_impl &>(id);
-            oldv.set_integer(iv.get_value());
+            oldv.set_integer(iv.value());
             iv.set_raw_value(iv.p_override);
             var_changed(*p_tstate, &id, oldv);
             static_cast<ivar_impl *>(
@@ -363,7 +363,7 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
         case ident_type::FVAR: {
             any_value oldv;
             fvar_impl &fv = static_cast<fvar_impl &>(id);
-            oldv.set_float(fv.get_value());
+            oldv.set_float(fv.value());
             fv.set_raw_value(fv.p_override);
             var_changed(*p_tstate, &id, oldv);
             static_cast<fvar_impl *>(
@@ -374,7 +374,7 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
         case ident_type::SVAR: {
             any_value oldv;
             svar_impl &sv = static_cast<svar_impl &>(id);
-            oldv.set_string(sv.get_value());
+            oldv.set_string(sv.value());
             sv.set_raw_value(sv.p_override);
             var_changed(*p_tstate, &id, oldv);
             static_cast<svar_impl *>(
@@ -483,7 +483,7 @@ LIBCUBESCRIPT_EXPORT void state::assign_value(
 ) {
     auto id = get_ident(name);
     if (id) {
-        switch (id->get().get_type()) {
+        switch (id->get().type()) {
             case ident_type::ALIAS: {
                 static_cast<alias &>(id->get()).set_value(*this, std::move(v));
                 return;
@@ -496,7 +496,7 @@ LIBCUBESCRIPT_EXPORT void state::assign_value(
             default:
                 throw error{
                     *this, "cannot redefine builtin %s with an alias",
-                    id->get().get_name().data()
+                    id->get().name().data()
                 };
         }
     } else if (!is_valid_name(name)) {
@@ -520,7 +520,7 @@ LIBCUBESCRIPT_EXPORT any_value state::lookup_value(std::string_view name) {
     }
     alias_stack *ast;
     if (id) {
-        switch(id->get_type()) {
+        switch(id->type()) {
             case ident_type::ALIAS: {
                 auto *a = static_cast<alias_impl *>(id);
                 ast = &p_tstate->get_astack(static_cast<alias *>(id));
@@ -534,17 +534,17 @@ LIBCUBESCRIPT_EXPORT any_value state::lookup_value(std::string_view name) {
             }
             case ident_type::SVAR: {
                 any_value val{};
-                val.set_string(static_cast<string_var *>(id)->get_value());
+                val.set_string(static_cast<string_var *>(id)->value());
                 return val;
             }
             case ident_type::IVAR: {
                 any_value val{};
-                val.set_integer(static_cast<integer_var *>(id)->get_value());
+                val.set_integer(static_cast<integer_var *>(id)->value());
                 return val;
             }
             case ident_type::FVAR: {
                 any_value val{};
-                val.set_float(static_cast<float_var *>(id)->get_value());
+                val.set_float(static_cast<float_var *>(id)->value());
                 return val;
             }
             case ident_type::COMMAND: {
@@ -555,7 +555,7 @@ LIBCUBESCRIPT_EXPORT any_value state::lookup_value(std::string_view name) {
                 auto &args = p_tstate->vmstack;
                 auto osz = args.size();
                 /* pad with as many empty values as we need */
-                args.resize(osz + cimpl->get_num_args());
+                args.resize(osz + cimpl->arg_count());
                 exec_command(
                     *p_tstate, cimpl, cimpl, &args[osz], val, 0, true
                 );
@@ -589,15 +589,15 @@ LIBCUBESCRIPT_EXPORT void state::touch_value(std::string_view name) {
     }
     auto &idr = id->get();
     any_value v;
-    switch (idr.get_type()) {
+    switch (idr.type()) {
         case ident_type::IVAR:
-            v.set_integer(static_cast<integer_var &>(idr).get_value());
+            v.set_integer(static_cast<integer_var &>(idr).value());
             break;
         case ident_type::FVAR:
-            v.set_float(static_cast<float_var &>(idr).get_value());
+            v.set_float(static_cast<float_var &>(idr).value());
             break;
         case ident_type::SVAR:
-            v.set_string(static_cast<string_var &>(idr).get_value());
+            v.set_string(static_cast<string_var &>(idr).value());
             break;
         default:
             return;
@@ -723,12 +723,12 @@ LIBCUBESCRIPT_EXPORT bcode_ref state::compile(
     return gs.steal_ref();
 }
 
-LIBCUBESCRIPT_EXPORT bool state::get_override_mode() const {
+LIBCUBESCRIPT_EXPORT bool state::override_mode() const {
     return (p_tstate->ident_flags & IDENT_FLAG_OVERRIDDEN);
 }
 
-LIBCUBESCRIPT_EXPORT bool state::set_override_mode(bool v) {
-    bool was = get_override_mode();
+LIBCUBESCRIPT_EXPORT bool state::override_mode(bool v) {
+    bool was = override_mode();
     if (v) {
         p_tstate->ident_flags |= IDENT_FLAG_OVERRIDDEN;
     } else {
@@ -737,12 +737,12 @@ LIBCUBESCRIPT_EXPORT bool state::set_override_mode(bool v) {
     return was;
 }
 
-LIBCUBESCRIPT_EXPORT bool state::get_persist_mode() const {
+LIBCUBESCRIPT_EXPORT bool state::persist_mode() const {
     return (p_tstate->ident_flags & IDENT_FLAG_PERSIST);
 }
 
-LIBCUBESCRIPT_EXPORT bool state::set_persist_mode(bool v) {
-    bool was = get_persist_mode();
+LIBCUBESCRIPT_EXPORT bool state::persist_mode(bool v) {
+    bool was = persist_mode();
     if (v) {
         p_tstate->ident_flags |= IDENT_FLAG_PERSIST;
     } else {
@@ -751,11 +751,11 @@ LIBCUBESCRIPT_EXPORT bool state::set_persist_mode(bool v) {
     return was;
 }
 
-LIBCUBESCRIPT_EXPORT std::size_t state::get_max_call_depth() const {
+LIBCUBESCRIPT_EXPORT std::size_t state::max_call_depth() const {
     return p_tstate->max_call_depth;
 }
 
-LIBCUBESCRIPT_EXPORT std::size_t state::set_max_call_depth(std::size_t v) {
+LIBCUBESCRIPT_EXPORT std::size_t state::max_call_depth(std::size_t v) {
     auto old = p_tstate->max_call_depth;
     p_tstate->max_call_depth = v;
     return old;

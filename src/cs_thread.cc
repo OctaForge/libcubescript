@@ -16,7 +16,7 @@ hook_func thread_state::set_hook(hook_func f) {
 }
 
 alias_stack &thread_state::get_astack(alias const *a) {
-    auto it = astacks.try_emplace(a->get_index());
+    auto it = astacks.try_emplace(a->index());
     if (it.second) {
         auto *imp = const_cast<alias_impl *>(
             static_cast<alias_impl const *>(a)

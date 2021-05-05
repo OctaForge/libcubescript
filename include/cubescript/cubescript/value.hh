@@ -329,7 +329,7 @@ struct LIBCUBESCRIPT_EXPORT any_value {
     any_value &operator=(any_value &&);
 
     /** @brief Get the type of the value. */
-    value_type get_type() const;
+    value_type type() const;
 
     /** @brief Set the value to an integer.
      *

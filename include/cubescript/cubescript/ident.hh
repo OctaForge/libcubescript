@@ -47,10 +47,10 @@ enum class ident_type {
  */
 struct LIBCUBESCRIPT_EXPORT ident {
     /** @brief Get the cubescript::ident_type of this ident. */
-    ident_type get_type() const;
+    ident_type type() const;
 
     /** @brief Get a view to the name of the ident. */
-    std::string_view get_name() const;
+    std::string_view name() const;
 
     /** @brief Get the index of the ident.
      *
@@ -59,7 +59,7 @@ struct LIBCUBESCRIPT_EXPORT ident {
      * with an integer (it is guaranteed that once created, it will stay the
      * same for the whole lifetime of the main thread).
      */
-    int get_index() const;
+    int index() const;
 
     /** @brief Check if the idents are the same. */
     bool operator==(ident &other) const;
@@ -69,44 +69,44 @@ struct LIBCUBESCRIPT_EXPORT ident {
 
     /** @brief Check if the ident is a cubescript::alias.
      *
-     * Effectively like `get_type() == ident_type::ALIAS`.
+     * Effectively like `type() == ident_type::ALIAS`.
      */
     bool is_alias() const;
 
     /** @brief Check if the ident is a cubescript::command.
      *
-     * Effectively like `get_type() == ident_type::COMMAND`.
+     * Effectively like `type() == ident_type::COMMAND`.
      */
     bool is_command() const;
 
     /** @brief Check if the ident is a special ident.
      *
-     * Effectively like `get_type() == ident_type::SPECIAL`.
+     * Effectively like `type() == ident_type::SPECIAL`.
      */
     bool is_special() const;
 
     /** @brief Check if the ident is a cubescript::global_var.
      *
-     * This will return `true` if ident::get_type() returns either
+     * This will return `true` if ident::type() returns either
      * ident_type::IVAR, ident_type::FVAR or ident_type::SVAR.
      */
     bool is_var() const;
 
     /** @brief Check if the ident is a cubescript::integer_var.
      *
-     * Effectively like `get_type() == ident_type::IVAR`.
+     * Effectively like `type() == ident_type::IVAR`.
      */
     bool is_ivar() const;
 
     /** @brief Check if the ident is a cubescript::float_var.
      *
-     * Effectively like `get_type() == ident_type::FVAR`.
+     * Effectively like `type() == ident_type::FVAR`.
      */
     bool is_fvar() const;
 
     /** @brief Check if the ident is a cubescript::string_var.
      *
-     * Effectively like `get_type() == ident_type::SVAR`.
+     * Effectively like `type() == ident_type::SVAR`.
      */
     bool is_svar() const;
 
@@ -192,12 +192,12 @@ struct LIBCUBESCRIPT_EXPORT global_var: ident {
 
     /** @brief Get whether the variable is overridable.
      *
-     * Equivalent to `get_variable_type() == var_type::OVERRIDABLE`.
+     * Equivalent to `variable_type() == var_type::OVERRIDABLE`.
      */
     bool is_overridable() const;
 
     /** @brief Get the cubescript::var_type of the variable. */
-    var_type get_variable_type() const;
+    var_type variable_type() const;
 
     /** @brief Save the variable.
      *
@@ -231,7 +231,7 @@ protected:
  */
 struct LIBCUBESCRIPT_EXPORT integer_var: global_var {
     /** @brief Get the value of the variable. */
-    integer_type get_value() const;
+    integer_type value() const;
 
     /** @brief Set the value of the variable.
      *
@@ -268,7 +268,7 @@ protected:
  */
 struct LIBCUBESCRIPT_EXPORT float_var: global_var {
     /** @brief Get the value of the variable. */
-    float_type get_value() const;
+    float_type value() const;
 
     /** @brief Set the value of the variable.
      *
@@ -305,7 +305,7 @@ protected:
  */
 struct LIBCUBESCRIPT_EXPORT string_var: global_var {
     /** @brief Get the value of the variable. */
-    string_ref get_value() const;
+    string_ref value() const;
 
     /** @brief Set the value of the variable.
      *
@@ -354,7 +354,7 @@ struct LIBCUBESCRIPT_EXPORT alias: ident {
     bool is_arg() const;
 
     /** @brief Get the value of the alias for the given thread. */
-    any_value get_value(state &cs) const;
+    any_value value(state &cs) const;
 
     /** @brief Set the value of the alias for the given thread. */
     void set_value(state &cs, any_value v);
@@ -377,14 +377,14 @@ protected:
  */
 struct LIBCUBESCRIPT_EXPORT command: ident {
     /** @brief Get the argument list. */
-    std::string_view get_args() const;
+    std::string_view args() const;
 
     /** @brief Get the number of arguments the command expects.
      *
      * Only non-variadic arguments count here (i.e. no repeated arguments,
      * no `C`, no `V`; everything else counts as one argument).
      */
-    int get_num_args() const;
+    int arg_count() const;
 
     /** @brief Call a command.
      *

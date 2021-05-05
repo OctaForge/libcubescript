@@ -7,29 +7,29 @@ namespace cubescript {
 /* public API impls */
 
 LIBCUBESCRIPT_EXPORT bcode_ref::bcode_ref(bcode *v): p_code(v) {
-    bcode_addref(v->get_raw());
+    bcode_addref(v->raw());
 }
 LIBCUBESCRIPT_EXPORT bcode_ref::bcode_ref(bcode_ref const &v):
     p_code(v.p_code)
 {
-    bcode_addref(p_code->get_raw());
+    bcode_addref(p_code->raw());
 }
 
 LIBCUBESCRIPT_EXPORT bcode_ref::~bcode_ref() {
-    bcode_unref(p_code->get_raw());
+    bcode_unref(p_code->raw());
 }
 
 LIBCUBESCRIPT_EXPORT bcode_ref &bcode_ref::operator=(
     bcode_ref const &v
 ) {
-    bcode_unref(p_code->get_raw());
+    bcode_unref(p_code->raw());
     p_code = v.p_code;
-    bcode_addref(p_code->get_raw());
+    bcode_addref(p_code->raw());
     return *this;
 }
 
 LIBCUBESCRIPT_EXPORT bcode_ref &bcode_ref::operator=(bcode_ref &&v) {
-    bcode_unref(p_code->get_raw());
+    bcode_unref(p_code->raw());
     p_code = v.p_code;
     v.p_code = nullptr;
     return *this;
@@ -39,7 +39,7 @@ LIBCUBESCRIPT_EXPORT bool bcode_ref::empty() const {
     if (!p_code) {
         return true;
     }
-    return (*p_code->get_raw() & BC_INST_OP_MASK) == BC_INST_EXIT;
+    return (*p_code->raw() & BC_INST_OP_MASK) == BC_INST_EXIT;
 }
 
 LIBCUBESCRIPT_EXPORT bcode_ref::operator bool() const {
@@ -48,7 +48,7 @@ LIBCUBESCRIPT_EXPORT bcode_ref::operator bool() const {
 
 LIBCUBESCRIPT_EXPORT any_value bcode_ref::call(state &cs) const {
     any_value ret{};
-    vm_exec(state_p{cs}.ts(), p_code->get_raw(), ret);
+    vm_exec(state_p{cs}.ts(), p_code->raw(), ret);
     return ret;
 }
 

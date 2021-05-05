@@ -283,7 +283,7 @@ void gen_state::gen_val_ident() {
 }
 
 void gen_state::gen_val_ident(ident &i) {
-    code.push_back(BC_INST_IDENT | (i.get_index() << 8));
+    code.push_back(BC_INST_IDENT | (i.index() << 8));
 }
 
 void gen_state::gen_val_ident(std::string_view v) {
@@ -330,25 +330,25 @@ void gen_state::gen_val(
 
 void gen_state::gen_lookup_ivar(ident &id, int ltype) {
     code.push_back(
-        BC_INST_IVAR | ret_code(ltype, BC_RET_INT) | (id.get_index() << 8)
+        BC_INST_IVAR | ret_code(ltype, BC_RET_INT) | (id.index() << 8)
     );
 }
 
 void gen_state::gen_lookup_fvar(ident &id, int ltype) {
     code.push_back(
-        BC_INST_FVAR | ret_code(ltype, BC_RET_FLOAT) | (id.get_index() << 8)
+        BC_INST_FVAR | ret_code(ltype, BC_RET_FLOAT) | (id.index() << 8)
     );
 }
 
 void gen_state::gen_lookup_svar(ident &id, int ltype) {
     code.push_back(
-        BC_INST_SVAR | ret_code(ltype, BC_RET_STRING) | (id.get_index() << 8)
+        BC_INST_SVAR | ret_code(ltype, BC_RET_STRING) | (id.index() << 8)
     );
 }
 
 void gen_state::gen_lookup_alias(ident &id, int ltype, int dtype) {
     code.push_back(
-        BC_INST_LOOKUP | ret_code(ltype, ret_code(dtype)) | (id.get_index() << 8)
+        BC_INST_LOOKUP | ret_code(ltype, ret_code(dtype)) | (id.index() << 8)
     );
 }
 
@@ -357,7 +357,7 @@ void gen_state::gen_lookup_ident(int ltype) {
 }
 
 void gen_state::gen_assign_alias(ident &id) {
-    code.push_back(BC_INST_ALIAS | (id.get_index() << 8));
+    code.push_back(BC_INST_ALIAS | (id.index() << 8));
 }
 
 void gen_state::gen_assign() {
@@ -394,14 +394,14 @@ void gen_state::gen_concat(std::size_t concs, bool space, int ltype) {
 void gen_state::gen_command_call(
     ident &id, int comt, int ltype, std::uint32_t nargs
 ) {
-    code.push_back(comt | ret_code(ltype) | (id.get_index() << 8));
+    code.push_back(comt | ret_code(ltype) | (id.index() << 8));
     if (comt != BC_INST_COM) {
         code.push_back(nargs);
     }
 }
 
 void gen_state::gen_alias_call(ident &id, std::uint32_t nargs) {
-    code.push_back(BC_INST_CALL | (id.get_index() << 8));
+    code.push_back(BC_INST_CALL | (id.index() << 8));
     code.push_back(nargs);
 }
 

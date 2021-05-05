@@ -13,11 +13,11 @@ struct internal_state;
 struct bcode {
     std::uint32_t init;
 
-    std::uint32_t *get_raw() {
+    std::uint32_t *raw() {
         return &init;
     }
 
-    std::uint32_t const *get_raw() const {
+    std::uint32_t const *raw() const {
         return &init;
     }
 };

@@ -91,15 +91,15 @@ void var_changed(thread_state &ts, ident *id, any_value &oldval) {
     any_value val[3] = {};
     val[0].set_ident(*id);
     val[1] = std::move(oldval);
-    switch (id->get_type()) {
+    switch (id->type()) {
         case ident_type::IVAR:
-            val[2].set_integer(static_cast<integer_var *>(id)->get_value());
+            val[2].set_integer(static_cast<integer_var *>(id)->value());
             break;
         case ident_type::FVAR:
-            val[2].set_float(static_cast<float_var *>(id)->get_value());
+            val[2].set_float(static_cast<float_var *>(id)->value());
             break;
         case ident_type::SVAR:
-            val[2].set_string(static_cast<string_var *>(id)->get_value());
+            val[2].set_string(static_cast<string_var *>(id)->value());
             break;
         default:
             return;
@@ -138,7 +138,7 @@ bool ident_is_used_arg(ident const *id, thread_state &ts) {
     if (!ts.callstack) {
         return true;
     }
-    return ts.callstack->usedargs[id->get_index()];
+    return ts.callstack->usedargs[id->index()];
 }
 
 void alias_stack::push(ident_stack &st) {
@@ -155,7 +155,7 @@ void alias_stack::set_arg(alias *a, thread_state &ts, any_value &v) {
         node->code = bcode_ref{};
     } else {
         push(ts.idstack.emplace_back());
-        ts.callstack->usedargs[a->get_index()] = true;
+        ts.callstack->usedargs[a->index()] = true;
     }
     node->val_s = std::move(v);
 }
@@ -174,18 +174,18 @@ void alias_stack::set_alias(alias *a, thread_state &ts, any_value &v) {
 
 LIBCUBESCRIPT_EXPORT ident::~ident() {}
 
-LIBCUBESCRIPT_EXPORT ident_type ident::get_type() const {
+LIBCUBESCRIPT_EXPORT ident_type ident::type() const {
     if (p_impl->p_type > ID_ALIAS) {
         return ident_type::SPECIAL;
     }
     return ident_type(p_impl->p_type);
 }
 
-LIBCUBESCRIPT_EXPORT std::string_view ident::get_name() const {
+LIBCUBESCRIPT_EXPORT std::string_view ident::name() const {
     return p_impl->p_name;
 }
 
-LIBCUBESCRIPT_EXPORT int ident::get_index() const {
+LIBCUBESCRIPT_EXPORT int ident::index() const {
     return p_impl->p_index;
 }
 
@@ -198,19 +198,19 @@ LIBCUBESCRIPT_EXPORT bool ident::operator!=(ident &other) const {
 }
 
 LIBCUBESCRIPT_EXPORT bool ident::is_alias() const {
-    return get_type() == ident_type::ALIAS;
+    return type() == ident_type::ALIAS;
 }
 
 LIBCUBESCRIPT_EXPORT bool ident::is_command() const {
-    return get_type() == ident_type::COMMAND;
+    return type() == ident_type::COMMAND;
 }
 
 LIBCUBESCRIPT_EXPORT bool ident::is_special() const {
-    return get_type() == ident_type::SPECIAL;
+    return type() == ident_type::SPECIAL;
 }
 
 LIBCUBESCRIPT_EXPORT bool ident::is_var() const {
-    switch (get_type()) {
+    switch (type()) {
         case ident_type::IVAR:
         case ident_type::FVAR:
         case ident_type::SVAR:
@@ -222,19 +222,19 @@ LIBCUBESCRIPT_EXPORT bool ident::is_var() const {
 }
 
 LIBCUBESCRIPT_EXPORT bool ident::is_ivar() const {
-    return get_type() == ident_type::IVAR;
+    return type() == ident_type::IVAR;
 }
 
 LIBCUBESCRIPT_EXPORT bool ident::is_fvar() const {
-    return get_type() == ident_type::FVAR;
+    return type() == ident_type::FVAR;
 }
 
 LIBCUBESCRIPT_EXPORT bool ident::is_svar() const {
-    return get_type() == ident_type::SVAR;
+    return type() == ident_type::SVAR;
 }
 
 LIBCUBESCRIPT_EXPORT bool ident::is_overridden(state &cs) const {
-    switch (get_type()) {
+    switch (type()) {
         case ident_type::IVAR:
         case ident_type::FVAR:
         case ident_type::SVAR:
@@ -250,7 +250,7 @@ LIBCUBESCRIPT_EXPORT bool ident::is_overridden(state &cs) const {
 }
 
 LIBCUBESCRIPT_EXPORT bool ident::is_persistent(state &cs) const {
-    switch (get_type()) {
+    switch (type()) {
         case ident_type::IVAR:
         case ident_type::FVAR:
         case ident_type::SVAR:
@@ -277,7 +277,7 @@ LIBCUBESCRIPT_EXPORT bool global_var::is_overridable() const {
     return (p_impl->p_flags & IDENT_FLAG_OVERRIDE);
 }
 
-LIBCUBESCRIPT_EXPORT var_type global_var::get_variable_type() const {
+LIBCUBESCRIPT_EXPORT var_type global_var::variable_type() const {
     if (p_impl->p_flags & IDENT_FLAG_OVERRIDE) {
         return var_type::OVERRIDABLE;
     } else if (p_impl->p_flags & IDENT_FLAG_PERSIST) {
@@ -293,7 +293,7 @@ LIBCUBESCRIPT_EXPORT void global_var::save(state &cs) {
         if (p_impl->p_flags & IDENT_FLAG_PERSIST) {
             throw error{
                 cs, "cannot override persistent variable '%s'",
-                get_name().data()
+                name().data()
             };
         }
         if (!(p_impl->p_flags & IDENT_FLAG_OVERRIDDEN)) {
@@ -311,7 +311,7 @@ LIBCUBESCRIPT_EXPORT any_value global_var::call(
     return ident::call(args, cs);
 }
 
-LIBCUBESCRIPT_EXPORT integer_type integer_var::get_value() const {
+LIBCUBESCRIPT_EXPORT integer_type integer_var::value() const {
     return static_cast<ivar_impl const *>(this)->p_storage;
 }
 
@@ -320,14 +320,14 @@ LIBCUBESCRIPT_EXPORT void integer_var::set_value(
 ) {
     if (is_read_only()) {
         throw error{
-            cs, "variable '%s' is read only", get_name().data()
+            cs, "variable '%s' is read only", name().data()
         };
     }
     if (!do_write) {
         return;
     }
     save(cs);
-    auto oldv = get_value();
+    auto oldv = value();
     set_raw_value(val);
     if (trigger) {
         any_value v;
@@ -348,7 +348,7 @@ inline any_value call_var(
     auto *cimp = static_cast<command_impl *>(hid);
     auto &targs = ts.vmstack;
     auto osz = targs.size();
-    auto anargs = std::size_t(cimp->get_num_args());
+    auto anargs = std::size_t(cimp->arg_count());
     auto nargs = args.size();
     targs.resize(
         osz + std::max(args.size(), anargs + 1)
@@ -366,7 +366,7 @@ LIBCUBESCRIPT_EXPORT any_value integer_var::call(
     return call_var(*this, state_p{cs}.ts().istate->cmd_ivar, args, cs);
 }
 
-LIBCUBESCRIPT_EXPORT float_type float_var::get_value() const {
+LIBCUBESCRIPT_EXPORT float_type float_var::value() const {
     return static_cast<fvar_impl const *>(this)->p_storage;
 }
 
@@ -375,14 +375,14 @@ LIBCUBESCRIPT_EXPORT void float_var::set_value(
 ) {
     if (is_read_only()) {
         throw error{
-            cs, "variable '%s' is read only", get_name().data()
+            cs, "variable '%s' is read only", name().data()
         };
     }
     if (!do_write) {
         return;
     }
     save(cs);
-    auto oldv = get_value();
+    auto oldv = value();
     set_raw_value(val);
     if (trigger) {
         any_value v;
@@ -401,7 +401,7 @@ LIBCUBESCRIPT_EXPORT any_value float_var::call(
     return call_var(*this, state_p{cs}.ts().istate->cmd_fvar, args, cs);
 }
 
-LIBCUBESCRIPT_EXPORT string_ref string_var::get_value() const {
+LIBCUBESCRIPT_EXPORT string_ref string_var::value() const {
     return static_cast<svar_impl const *>(this)->p_storage;
 }
 
@@ -410,14 +410,14 @@ LIBCUBESCRIPT_EXPORT void string_var::set_value(
 ) {
     if (is_read_only()) {
         throw error{
-            cs, "variable '%s' is read only", get_name().data()
+            cs, "variable '%s' is read only", name().data()
         };
     }
     if (!do_write) {
         return;
     }
     save(cs);
-    auto oldv = get_value();
+    auto oldv = value();
     set_raw_value(std::move(val));
     if (trigger) {
         any_value v;
@@ -436,7 +436,7 @@ LIBCUBESCRIPT_EXPORT any_value string_var::call(
     return call_var(*this, state_p{cs}.ts().istate->cmd_svar, args, cs);
 }
 
-LIBCUBESCRIPT_EXPORT any_value alias::get_value(state &cs) const {
+LIBCUBESCRIPT_EXPORT any_value alias::value(state &cs) const {
     return state_p{cs}.ts().get_astack(this).node->val_s;
 }
 
@@ -466,11 +466,11 @@ LIBCUBESCRIPT_EXPORT any_value alias::call(
     return ret;
 }
 
-LIBCUBESCRIPT_EXPORT std::string_view command::get_args() const {
+LIBCUBESCRIPT_EXPORT std::string_view command::args() const {
     return static_cast<command_impl const *>(this)->p_cargs;
 }
 
-LIBCUBESCRIPT_EXPORT int command::get_num_args() const {
+LIBCUBESCRIPT_EXPORT int command::arg_count() const {
     return static_cast<command_impl const *>(this)->p_numargs;
 }
 
@@ -484,11 +484,11 @@ LIBCUBESCRIPT_EXPORT any_value command::call(
     }
     auto nargs = args.size();
     auto &ts = state_p{cs}.ts();
-    if (nargs < std::size_t(cimpl.get_num_args())) {
+    if (nargs < std::size_t(cimpl.arg_count())) {
         stack_guard s{ts}; /* restore after call */
         auto &targs = ts.vmstack;
         auto osz = targs.size();
-        targs.resize(osz + cimpl.get_num_args());
+        targs.resize(osz + cimpl.arg_count());
         for (std::size_t i = 0; i < nargs; ++i) {
             targs[osz + i] = args[i];
         }
@@ -503,7 +503,7 @@ LIBCUBESCRIPT_EXPORT any_value command::call(
 
 LIBCUBESCRIPT_EXPORT alias_local::alias_local(state &cs, ident &a) {
     if (!a.is_alias()) {
-        throw error{cs, "ident '%s' is not an alias", a.get_name().data()};
+        throw error{cs, "ident '%s' is not an alias", a.name().data()};
     }
     auto &ts = state_p{cs}.ts();
     p_alias = static_cast<alias *>(&a);
@@ -519,7 +519,7 @@ LIBCUBESCRIPT_EXPORT alias_local::alias_local(state &cs, std::string_view name):
 
 LIBCUBESCRIPT_EXPORT alias_local::alias_local(state &cs, any_value const &v):
     alias_local{cs, (
-        v.get_type() == value_type::IDENT
+        v.type() == value_type::IDENT
     ) ? v.get_ident(cs) : cs.new_ident(v.get_string(cs))}
 {}
 

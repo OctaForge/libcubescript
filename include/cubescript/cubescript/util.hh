@@ -63,7 +63,7 @@ struct LIBCUBESCRIPT_EXPORT list_parser {
      *
      * The already read items will not be contained in the result.
      */
-    std::string_view get_input() const {
+    std::string_view input() const {
         return std::string_view{
             p_input_beg, std::size_t(p_input_end - p_input_beg)
         };
@@ -89,8 +89,8 @@ struct LIBCUBESCRIPT_EXPORT list_parser {
      * If the item was quoted with double quotes, the contents will be run
      * through cubescript::unescape_string() first.
      *
-     * @see get_raw_item()
-     * @see get_quoted_item()
+     * @see raw_item()
+     * @see quoted_item()
      */
     string_ref get_item() const;
 
@@ -100,21 +100,21 @@ struct LIBCUBESCRIPT_EXPORT list_parser {
      * circumstances and represents simply a slice of the original input.
      *
      * @see get_item()
-     * @see get_quoted_item()
+     * @see quoted_item()
      */
-    std::string_view get_raw_item() const {
+    std::string_view raw_item() const {
         return std::string_view{p_ibeg, std::size_t(p_iend - p_ibeg)};
     }
 
     /** @brief Get the currently parsed raw item
      *
-     * Like get_raw_item(), but contains the quotes too, if there were any.
+     * Like raw_item(), but contains the quotes too, if there were any.
      * Likewise, the resulting view is just a slice of the original input.
      *
      * @see get_item()
-     * @see get_raw_item()
+     * @see raw_item()
      */
-    std::string_view get_quoted_item() const {
+    std::string_view quoted_item() const {
         return std::string_view{p_qbeg, std::size_t(p_qend - p_qbeg)};
     }
 
@@ -297,7 +297,7 @@ inline R print_stack(R writer, stack_state const &st) {
     char buf[32] = {0};
     auto nd = st.get();
     while (nd) {
-        auto name = nd->id->get_name();
+        auto name = nd->id->name();
         *writer++ = ' ';
         *writer++ = ' ';
         if ((nd->index == 1) && st.gap()) {

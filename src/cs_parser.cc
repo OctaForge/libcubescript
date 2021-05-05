@@ -479,7 +479,7 @@ lookup_id:
     ident &id = ts.istate->new_ident(
         *ts.pstate, lookup.str_term(), IDENT_FLAG_UNKNOWN
     );
-    switch (id.get_type()) {
+    switch (id.type()) {
         case ident_type::IVAR:
             if (ltype == VAL_POP) {
                 return;
@@ -532,7 +532,7 @@ lookup_id:
             return;
         case ident_type::COMMAND: {
             std::uint32_t comtype = BC_INST_COM, numargs = 0;
-            auto fmt = static_cast<command_impl &>(id).get_args();
+            auto fmt = static_cast<command_impl &>(id).args();
             for (char c: fmt) {
                 switch (c) {
                     case '$':
@@ -603,7 +603,7 @@ lookup_id:
     ident &id = ts.istate->new_ident(
         *ts.pstate, lookup.str_term(), IDENT_FLAG_UNKNOWN
     );
-    switch (id.get_type()) {
+    switch (id.type()) {
         case ident_type::IVAR:
             gs.gen_lookup_ivar(id);
             return true;
@@ -956,7 +956,7 @@ bool parser_state::parse_call_command(
     command_impl *id, ident &self, int rettype
 ) {
     std::uint32_t comtype = BC_INST_COM, numargs = 0, fakeargs = 0;
-    auto fmt = id->get_args();
+    auto fmt = id->args();
     bool more = true, rep = false;
     for (auto it = fmt.begin(); it != fmt.end(); ++it) {
         switch (*it) {
@@ -1258,7 +1258,7 @@ static bool parse_no_id(parser_state &ps, int term) {
 static bool parse_assign_var(
     parser_state &ps, command_impl *id, ident &var, int ltype
 ) {
-    auto fmt = id->get_args();
+    auto fmt = id->args();
     std::uint32_t comtype = BC_INST_COM;
     std::uint32_t nargs = 0;
     bool more = true, got = false, rep = false;
@@ -1337,7 +1337,7 @@ bool parser_state::parse_assign(
                     *ts.pstate, idname.str_term(), IDENT_FLAG_UNKNOWN
                 );
                 /* check what we're assigning */
-                switch (id.get_type()) {
+                switch (id.type()) {
                     case ident_type::ALIAS: {
                         /* alias assignment: parse out any one argument */
                         bool more = parse_arg(VAL_ANY);
@@ -1477,7 +1477,7 @@ LIBCUBESCRIPT_EXPORT bool list_parser::parse() {
     switch (*p_input_beg) {
         case '"': {
             char const *qi = p_input_beg;
-            p_input_beg = parse_string(*p_state, get_input());
+            p_input_beg = parse_string(*p_state, input());
             p_qbeg = qi;
             p_qend = p_input_beg;
             p_ibeg = p_qbeg + 1;
@@ -1502,7 +1502,7 @@ LIBCUBESCRIPT_EXPORT bool list_parser::parse() {
                     case '"':
                         /* the quote is needed in str parsing */
                         --p_input_beg;
-                        p_input_beg = parse_string(*p_state, get_input());
+                        p_input_beg = parse_string(*p_state, input());
                         break;
                     case '/':
                         if (
@@ -1541,7 +1541,7 @@ endblock:
         case ']':
             return false;
         default: {
-            char const *e = parse_word(*p_state, get_input());
+            char const *e = parse_word(*p_state, input());
             p_ibeg = p_qbeg = p_input_beg;
             p_iend = p_qend = e;
             p_input_beg = e;
@@ -1566,10 +1566,10 @@ LIBCUBESCRIPT_EXPORT std::size_t list_parser::count() {
 LIBCUBESCRIPT_EXPORT string_ref list_parser::get_item() const {
     if ((p_qbeg != p_qend) && (*p_qbeg == '"')) {
         charbuf buf{*p_state};
-        unescape_string(std::back_inserter(buf), get_raw_item());
+        unescape_string(std::back_inserter(buf), raw_item());
         return string_ref{*p_state, buf.str()};
     }
-    return string_ref{*p_state, get_raw_item()};
+    return string_ref{*p_state, raw_item()};
 }
 
 LIBCUBESCRIPT_EXPORT void list_parser::skip_until_item() {

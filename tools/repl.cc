@@ -183,8 +183,8 @@ static cs::state *scs = nullptr;
 static void do_sigint(int n) {
     /* in case another SIGINT happens, terminate normally */
     signal(n, SIG_DFL);
-    scs->set_call_hook([](cs::state &css) {
-        css.set_call_hook(nullptr);
+    scs->call_hook([](cs::state &css) {
+        css.call_hook(nullptr);
         throw cs::error{css, "<execution interrupted>"};
     });
 }
@@ -253,16 +253,16 @@ static bool do_call(cs::state &cs, std::string_view line, bool file = false) {
         std::printf(
             "%s%s\n", !is_lnum ? "stdin: " : "stdin:", e.what().data()
         );
-        if (e.get_stack().get()) {
+        if (e.stack().get()) {
             std::string str;
-            cs::print_stack(std::back_inserter(str), e.get_stack());
+            cs::print_stack(std::back_inserter(str), e.stack());
             std::printf("%s\n", str.data());
         }
         return false;
     }
     signal(SIGINT, SIG_DFL);
     scs = nullptr;
-    if (ret.get_type() != cs::value_type::NONE) {
+    if (ret.type() != cs::value_type::NONE) {
         std::printf("%s\n", std::string_view{ret.get_string(cs)}.data());
     }
     return false;
@@ -320,15 +320,15 @@ int main(int argc, char **argv) {
         auto &iv = static_cast<cs::integer_var &>(args[0].get_ident(css));
         auto nargs = args[4].get_integer();
         if (nargs <= 1) {
-            auto val = iv.get_value();
+            auto val = iv.value();
             if ((val >= 0) && (val < 0xFFFFFF)) {
                 std::printf(
                     "%s = %d (0x%.6X: %d, %d, %d)\n",
-                    iv.get_name().data(), val, val,
+                    iv.name().data(), val, val,
                     (val >> 16) & 0xFF, (val >> 8) & 0xFF, val & 0xFF
                 );
             } else {
-                std::printf("%s = %d\n", iv.get_name().data(), val);
+                std::printf("%s = %d\n", iv.name().data(), val);
             }
             return;
         }
@@ -350,7 +350,7 @@ int main(int argc, char **argv) {
     gcs.new_command("//var_changed", "$aa", [](auto &css, auto args, auto &) {
         std::printf(
             "changed var trigger: %s (was: '%s', now: '%s')\n",
-            args[0].get_ident(css).get_name().data(),
+            args[0].get_ident(css).name().data(),
             args[1].get_string(css).data(),
             args[2].get_string(css).data()
         );

@@ -19,7 +19,7 @@ inline void ln_complete(char const *buf, std::vector<std::string> &lc) {
         if (!id->is_command()) {
             continue;
         }
-        std::string_view idname = id->get_name();
+        std::string_view idname = id->name();
         if (idname.size() <= cmd.size()) {
             continue;
         }
@@ -35,7 +35,7 @@ inline std::string ln_hint(char const *buf, int &color, int &bold) {
         return std::string{};
     }
     std::string args = " [";
-    fill_cmd_args(args, cmd->get_args());
+    fill_cmd_args(args, cmd->args());
     args += ']';
     color = 35;
     bold = 1;
@@ -52,7 +52,7 @@ inline void init_lineedit(cs::state &cs, std::string_view) {
 
 inline std::optional<std::string> read_line(cs::state &, cs::string_var &pr) {
     std::string line;
-    auto quit = linenoise::Readline(pr.get_value().data(), line);
+    auto quit = linenoise::Readline(pr.value().data(), line);
     if (quit) {
         /* linenoise traps ctrl-c, detect it and let the user exit */
         if (errno == EAGAIN) {

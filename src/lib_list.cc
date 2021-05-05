@@ -106,7 +106,7 @@ int list_includes(
 ) {
     int offset = 0;
     for (list_parser p{cs, list}; p.parse();) {
-        if (p.get_raw_item() == needle) {
+        if (p.raw_item() == needle) {
             return offset;
         }
         ++offset;
@@ -128,11 +128,11 @@ static inline void list_merge(
         std::swap(list, elems);
     }
     for (list_parser p{cs, list}; p.parse();) {
-        if (cmp(list_includes(cs, elems, p.get_raw_item()), 0)) {
+        if (cmp(list_includes(cs, elems, p.raw_item()), 0)) {
             if (!buf.empty()) {
                 buf.push_back(' ');
             }
-            buf.append(p.get_quoted_item());
+            buf.append(p.quoted_item());
         }
     }
     res.set_string(buf.str(), cs);
@@ -188,18 +188,18 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
             if (offset > 0) {
                 p.skip_until_item();
             }
-            res.set_string(p.get_input(), cs);
+            res.set_string(p.input(), cs);
             return;
         }
 
-        char const *list = p.get_input().data();
+        char const *list = p.input().data();
         if (len > 0 && p.parse()) {
             while (--len > 0 && p.parse());
         } else {
             res.set_string("", cs);
             return;
         }
-        auto quote = p.get_quoted_item();
+        auto quote = p.quoted_item();
         auto *qend = &quote[quote.size()];
         res.set_string(make_str_view(list, qend), cs);
     });
@@ -211,7 +211,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         int n = -1;
         for (list_parser p{cs, args[1].get_string(cs)}; p.parse();) {
             ++n;
-            idv.set_string(p.get_raw_item(), cs);
+            idv.set_string(p.raw_item(), cs);
             st.set(std::move(idv));
             if (body.call(cs).get_bool()) {
                 res.set_integer(integer_type(n));
@@ -228,7 +228,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         int n = -1;
         for (list_parser p{cs, args[1].get_string(cs)}; p.parse();) {
             ++n;
-            idv.set_string(p.get_raw_item(), cs);
+            idv.set_string(p.raw_item(), cs);
             st.set(std::move(idv));
             if (body.call(cs).get_bool()) {
                 if (p.parse()) {
@@ -245,21 +245,21 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
     new_cmd_quiet(gcs, "listfind=", "i", [](auto &cs, auto args, auto &res) {
         list_find<integer_type>(
             cs, args, res, [](list_parser const &p, integer_type val) {
-                return parse_int(p.get_raw_item()) == val;
+                return parse_int(p.raw_item()) == val;
             }
         );
     });
     new_cmd_quiet(gcs, "listfind=f", "f", [](auto &cs, auto args, auto &res) {
         list_find<float_type>(
             cs, args, res, [](list_parser const &p, float_type val) {
-                return parse_float(p.get_raw_item()) == val;
+                return parse_float(p.raw_item()) == val;
             }
         );
     });
     new_cmd_quiet(gcs, "listfind=s", "s", [](auto &cs, auto args, auto &res) {
         list_find<std::string_view>(
             cs, args, res, [](list_parser const &p, std::string_view val) {
-                return p.get_raw_item() == val;
+                return p.raw_item() == val;
             }
         );
     });
@@ -267,21 +267,21 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
     new_cmd_quiet(gcs, "listassoc=", "i", [](auto &cs, auto args, auto &res) {
         list_assoc<integer_type>(
             cs, args, res, [](list_parser const &p, integer_type val) {
-                return parse_int(p.get_raw_item()) == val;
+                return parse_int(p.raw_item()) == val;
             }
         );
     });
     new_cmd_quiet(gcs, "listassoc=f", "f", [](auto &cs, auto args, auto &res) {
         list_assoc<float_type>(
             cs, args, res, [](list_parser const &p, float_type val) {
-                return parse_float(p.get_raw_item()) == val;
+                return parse_float(p.raw_item()) == val;
             }
         );
     });
     new_cmd_quiet(gcs, "listassoc=s", "s", [](auto &cs, auto args, auto &res) {
         list_assoc<std::string_view>(
             cs, args, res, [](list_parser const &p, std::string_view val) {
-                return p.get_raw_item() == val;
+                return p.raw_item() == val;
             }
         );
     });
@@ -385,13 +385,13 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         charbuf r{cs};
         int n = 0;
         for (list_parser p{cs, args[1].get_string(cs)}; p.parse(); ++n) {
-            idv.set_string(p.get_raw_item(), cs);
+            idv.set_string(p.raw_item(), cs);
             st.set(std::move(idv));
             if (body.call(cs).get_bool()) {
                 if (r.size()) {
                     r.push_back(' ');
                 }
-                r.append(p.get_quoted_item());
+                r.append(p.quoted_item());
             }
         }
         res.set_string(r.str(), cs);
@@ -403,7 +403,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         auto body = args[2].get_code();
         int n = 0, r = 0;
         for (list_parser p{cs, args[1].get_string(cs)}; p.parse(); ++n) {
-            idv.set_string(p.get_raw_item(), cs);
+            idv.set_string(p.raw_item(), cs);
             st.set(std::move(idv));
             if (body.call(cs).get_bool()) {
                 r++;
@@ -420,11 +420,11 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         size_t len = p.count();
         size_t n = 0;
         for (p.set_input(s); p.parse(); ++n) {
-            auto qi = p.get_quoted_item();
+            auto qi = p.quoted_item();
             if (!qi.empty() && (qi.front() == '"')) {
-                unescape_string(std::back_inserter(buf), p.get_raw_item());
+                unescape_string(std::back_inserter(buf), p.raw_item());
             } else {
-                buf.append(p.get_raw_item());
+                buf.append(p.raw_item());
             }
             if ((n + 1) < len) {
                 if ((len > 2) || conj.empty()) {
@@ -472,7 +472,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
                 break;
             }
         }
-        std::string_view quote = p.get_quoted_item();
+        std::string_view quote = p.quoted_item();
         char const *qend = !quote.empty() ? &quote[quote.size()] : list;
         charbuf buf{cs};
         if (qend > list) {
@@ -490,8 +490,8 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
             }
         }
         p.skip_until_item();
-        if (!p.get_input().empty()) {
-            switch (p.get_input().front()) {
+        if (!p.input().empty()) {
+            switch (p.input().front()) {
                 case ')':
                 case ']':
                     break;
@@ -499,7 +499,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
                     if (!buf.empty()) {
                         buf.push_back(' ');
                     }
-                    buf.append(p.get_input());
+                    buf.append(p.input());
                     break;
             }
         }
@@ -543,7 +543,7 @@ static void list_sort(
     size_t total = 0;
 
     for (list_parser p{cs, list}; p.parse();) {
-        ListSortItem item = { p.get_raw_item(), p.get_quoted_item() };
+        ListSortItem item = { p.raw_item(), p.quoted_item() };
         items.push_back(item);
         total += item.quote.size();
     }

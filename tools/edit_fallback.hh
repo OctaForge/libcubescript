@@ -10,7 +10,7 @@ inline void init_lineedit(cs::state &, std::string_view) {
 inline std::optional<std::string> read_line(cs::state &, cs::string_var &pr) {
     std::string lbuf;
     char buf[512];
-    printf("%s", pr.get_value().data());
+    printf("%s", pr.value().data());
     std::fflush(stdout);
     while (fgets(buf, sizeof(buf), stdin)) {
         lbuf += static_cast<char const *>(buf);

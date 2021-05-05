@@ -141,17 +141,17 @@ struct LIBCUBESCRIPT_EXPORT state {
      * interrupting execution from the side in an interactive interpreter.
      */
     template<typename F>
-    hook_func set_call_hook(F &&f) {
-        return set_call_hook(
+    hook_func call_hook(F &&f) {
+        return call_hook(
             hook_func{std::forward<F>(f), callable_alloc, this}
         );
     }
 
     /** @brief Get a reference to the call hook */
-    hook_func const &get_call_hook() const;
+    hook_func const &call_hook() const;
 
     /** @brief Get a reference to the call hook */
-    hook_func &get_call_hook();
+    hook_func &call_hook();
 
     /** @brief Clear override state for the given ident
      *
@@ -395,15 +395,12 @@ struct LIBCUBESCRIPT_EXPORT state {
      * Keep in mind that if an alias is pushed, its flags will be cleared once
      * popped.
      *
-     * @see set_override_mode()
+     * @see override_mode()
      */
-    bool get_override_mode() const;
+    bool override_mode() const;
 
-    /** @brief Set the thread's override mode
-     *
-     * @see get_override_mode()
-     */
-    bool set_override_mode(bool v);
+    /** @brief Set the thread's override mode */
+    bool override_mode(bool v);
 
     /** @brief Get if the thread is in persist most
      *
@@ -414,25 +411,18 @@ struct LIBCUBESCRIPT_EXPORT state {
      *
      * Keep in mind that if an alias is pushed, its flags will be cleared once
      * popped.
-     *
-     * @see set_persist_mode()
      */
-    bool get_persist_mode() const;
+    bool persist_mode() const;
 
-    /** @brief Set the thread's persist mode
-     *
-     * @see get_persist_mode()
-     */
-    bool set_persist_mode(bool v);
+    /** @brief Set the thread's persist mode */
+    bool persist_mode(bool v);
 
     /** @brief Get the maximum call depth of the VM
      *
      * If zero, it is unlimited, otherwise it specifies how much the VM is
      * allowed to recurse. By default, it is zero.
-     *
-     * @see set_max_call_depth()
      */
-    std::size_t get_max_call_depth() const;
+    std::size_t max_call_depth() const;
 
     /** @brief Set the maximum call depth ov the VM
      *
@@ -442,14 +432,14 @@ struct LIBCUBESCRIPT_EXPORT state {
      *
      * @return the old value
      */
-    std::size_t set_max_call_depth(std::size_t v);
+    std::size_t max_call_depth(std::size_t v);
 
 private:
     friend struct state_p;
 
     LIBCUBESCRIPT_LOCAL state(void *is);
 
-    hook_func set_call_hook(hook_func func);
+    hook_func call_hook(hook_func func);
 
     command &new_command(
         std::string_view name, std::string_view args, command_func func
