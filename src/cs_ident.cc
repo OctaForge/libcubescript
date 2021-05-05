@@ -11,7 +11,8 @@ ident_impl::ident_impl(ident_type tp, string_ref nm, int fl):
 {}
 
 bool ident_is_callable(ident const *id) {
-    if (!id->is_command() && !id->is_special()) {
+    auto tp = id->type();
+    if ((tp != ident_type::COMMAND) && (tp != ident_type::SPECIAL)) {
         return false;
     }
     return !!static_cast<command_impl const *>(id)->p_cb_cftv;
@@ -197,18 +198,6 @@ LIBCUBESCRIPT_EXPORT bool ident::operator!=(ident &other) const {
     return this != &other;
 }
 
-LIBCUBESCRIPT_EXPORT bool ident::is_alias() const {
-    return type() == ident_type::ALIAS;
-}
-
-LIBCUBESCRIPT_EXPORT bool ident::is_command() const {
-    return type() == ident_type::COMMAND;
-}
-
-LIBCUBESCRIPT_EXPORT bool ident::is_special() const {
-    return type() == ident_type::SPECIAL;
-}
-
 LIBCUBESCRIPT_EXPORT bool ident::is_var() const {
     switch (type()) {
         case ident_type::IVAR:
@@ -219,18 +208,6 @@ LIBCUBESCRIPT_EXPORT bool ident::is_var() const {
             break;
     }
     return false;
-}
-
-LIBCUBESCRIPT_EXPORT bool ident::is_ivar() const {
-    return type() == ident_type::IVAR;
-}
-
-LIBCUBESCRIPT_EXPORT bool ident::is_fvar() const {
-    return type() == ident_type::FVAR;
-}
-
-LIBCUBESCRIPT_EXPORT bool ident::is_svar() const {
-    return type() == ident_type::SVAR;
 }
 
 LIBCUBESCRIPT_EXPORT bool ident::is_overridden(state &cs) const {
@@ -502,7 +479,7 @@ LIBCUBESCRIPT_EXPORT any_value command::call(
 /* external API for alias stack management */
 
 LIBCUBESCRIPT_EXPORT alias_local::alias_local(state &cs, ident &a) {
-    if (!a.is_alias()) {
+    if (a.type() != ident_type::ALIAS) {
         throw error{cs, "ident '%s' is not an alias", a.name().data()};
     }
     auto &ts = state_p{cs}.ts();

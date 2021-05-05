@@ -71,10 +71,10 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
     new_cmd_quiet(gcs, "pcall", "bvv", [](auto &cs, auto args, auto &ret) {
         auto &cret = args[1].get_ident(cs);
         auto &css = args[2].get_ident(cs);
-        if (!cret.is_alias()) {
+        if (cret.type() != ident_type::ALIAS) {
             throw error{cs, "'%s' is not an alias", cret.name().data()};
         }
-        if (!css.is_alias()) {
+        if (css.type() != ident_type::ALIAS) {
             throw error{cs, "'%s' is not an alias", css.name().data()};
         }
         any_value result{}, tback{};

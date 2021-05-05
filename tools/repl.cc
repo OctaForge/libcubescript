@@ -147,7 +147,7 @@ inline cs::command *get_hint_cmd(cs::state &cs, std::string_view buf) {
     }
     if (!buf.empty()) {
         auto cmd = cs.get_ident(buf);
-        if (cmd && cmd->get().is_command()) {
+        if (cmd && (cmd->get().type() == cs::ident_type::COMMAND)) {
             return static_cast<cs::command *>(&cmd->get());
         }
     }

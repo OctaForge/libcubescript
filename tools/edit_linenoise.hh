@@ -16,7 +16,7 @@ static cs::state *ln_cs = nullptr;
 inline void ln_complete(char const *buf, std::vector<std::string> &lc) {
     std::string_view cmd = get_complete_cmd(buf);
     for (auto id: ln_cs->get_idents()) {
-        if (!id->is_command()) {
+        if (id->type() != cs::ident_type::COMMAND) {
             continue;
         }
         std::string_view idname = id->name();

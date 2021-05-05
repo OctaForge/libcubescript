@@ -67,48 +67,12 @@ struct LIBCUBESCRIPT_EXPORT ident {
     /** @brief Check if the idents are not the same. */
     bool operator!=(ident &other) const;
 
-    /** @brief Check if the ident is a cubescript::alias.
-     *
-     * Effectively like `type() == ident_type::ALIAS`.
-     */
-    bool is_alias() const;
-
-    /** @brief Check if the ident is a cubescript::command.
-     *
-     * Effectively like `type() == ident_type::COMMAND`.
-     */
-    bool is_command() const;
-
-    /** @brief Check if the ident is a special ident.
-     *
-     * Effectively like `type() == ident_type::SPECIAL`.
-     */
-    bool is_special() const;
-
     /** @brief Check if the ident is a cubescript::global_var.
      *
      * This will return `true` if ident::type() returns either
      * ident_type::IVAR, ident_type::FVAR or ident_type::SVAR.
      */
     bool is_var() const;
-
-    /** @brief Check if the ident is a cubescript::integer_var.
-     *
-     * Effectively like `type() == ident_type::IVAR`.
-     */
-    bool is_ivar() const;
-
-    /** @brief Check if the ident is a cubescript::float_var.
-     *
-     * Effectively like `type() == ident_type::FVAR`.
-     */
-    bool is_fvar() const;
-
-    /** @brief Check if the ident is a cubescript::string_var.
-     *
-     * Effectively like `type() == ident_type::SVAR`.
-     */
-    bool is_svar() const;
 
     /** @brief Get if the ident is overridden.
      *

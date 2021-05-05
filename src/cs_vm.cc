@@ -10,7 +10,10 @@
 namespace cubescript {
 
 static inline void push_alias(thread_state &ts, ident &id, ident_stack &st) {
-    if (id.is_alias() && !static_cast<alias &>(id).is_arg()) {
+    if (id.type() != ident_type::ALIAS) {
+        return;
+    }
+    if (!static_cast<alias &>(id).is_arg()) {
         auto *aimp = static_cast<alias_impl *>(&id);
         auto ast = ts.get_astack(aimp);
         ast.push(st);
@@ -19,7 +22,10 @@ static inline void push_alias(thread_state &ts, ident &id, ident_stack &st) {
 }
 
 static inline void pop_alias(thread_state &ts, ident &id) {
-    if (id.is_alias() && !static_cast<alias &>(id).is_arg()) {
+    if (id.type() != ident_type::ALIAS) {
+        return;
+    }
+    if (!static_cast<alias &>(id).is_arg()) {
         ts.get_astack(static_cast<alias *>(&id)).pop();
     }
 }
