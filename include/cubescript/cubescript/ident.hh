@@ -139,10 +139,13 @@ enum class var_type {
     OVERRIDABLE  /**< @brief Overridable variable. */
 };
 
-/** @brief A global variable.
+/** @brief A builtin variable.
  *
- * This represents one of cubescript::integer_var, cubescript::float_var or
- * cubescript::string_var as a single interface, with shared operations.
+ * This represents a strictly typed variable (integer, float or string,
+ * depending on the value it is created with) that is not subject to
+ * usual rules like aliases (e.g. scoping). It can have additional
+ * inherent properties such as being read-only or peresistent, and
+ * can be monitored via a trigger callback.
  */
 struct LIBCUBESCRIPT_EXPORT builtin_var: ident {
     /** @brief Get whether the variable is read only.
@@ -212,33 +215,6 @@ struct LIBCUBESCRIPT_EXPORT builtin_var: ident {
 
 protected:
     builtin_var() = default;
-};
-
-/** @brief An integer variable.
- *
- * A specialization of cubescript::builtin_var for integer values.
- */
-struct LIBCUBESCRIPT_EXPORT integer_var: builtin_var {
-protected:
-    integer_var() = default;
-};
-
-/** @brief A float variable.
- *
- * A specialization of cubescript::builtin_var for float values.
- */
-struct LIBCUBESCRIPT_EXPORT float_var: builtin_var {
-protected:
-    float_var() = default;
-};
-
-/** @brief A string variable.
- *
- * A specialization of cubescript::builtin_var for string values.
- */
-struct LIBCUBESCRIPT_EXPORT string_var: builtin_var {
-protected:
-    string_var() = default;
 };
 
 /** @brief An alias.

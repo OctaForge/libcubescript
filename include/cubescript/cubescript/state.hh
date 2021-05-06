@@ -175,7 +175,7 @@ struct LIBCUBESCRIPT_EXPORT state {
      * @param v the default value
      * @throw cubescript::error in case of redefinition or invalid name
      */
-    integer_var &new_var(
+    builtin_var &new_var(
         std::string_view n, integer_type v, bool read_only = false,
         var_type vtp = var_type::DEFAULT
     );
@@ -186,7 +186,7 @@ struct LIBCUBESCRIPT_EXPORT state {
      * @param v the default value
      * @throw cubescript::error in case of redefinition or invalid name
      */
-    float_var &new_var(
+    builtin_var &new_var(
         std::string_view n, float_type v, bool read_only = false,
         var_type vtp = var_type::DEFAULT
     );
@@ -197,7 +197,7 @@ struct LIBCUBESCRIPT_EXPORT state {
      * @param v the default value
      * @throw cubescript::error in case of redefinition or invalid name
      */
-    string_var &new_var(
+    builtin_var &new_var(
         std::string_view n, std::string_view v, bool read_only = false,
         var_type vtp = var_type::DEFAULT
     );

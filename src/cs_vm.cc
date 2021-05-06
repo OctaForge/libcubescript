@@ -155,7 +155,7 @@ bool exec_alias(
     }
     /* excess arguments get ignored (make error maybe?) */
     callargs = std::min(callargs, MAX_ARGUMENTS);
-    integer_var *anargs = ts.istate->ivar_numargs;
+    builtin_var *anargs = ts.istate->ivar_numargs;
     argset uargs{};
     std::size_t noff = ts.idstack.size();
     for(std::size_t i = 0; i < callargs; i++) {

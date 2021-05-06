@@ -73,7 +73,7 @@ struct ident_impl {
 
 bool ident_is_callable(ident const *id);
 
-struct var_impl: ident_impl {
+struct var_impl: ident_impl, builtin_var {
     var_impl(ident_type tp, string_ref name, int flags);
 
     void save_val();
@@ -85,18 +85,6 @@ struct var_impl: ident_impl {
 };
 
 void var_changed(thread_state &ts, ident *id, any_value &oldval);
-
-struct ivar_impl: var_impl, integer_var {
-    ivar_impl(string_ref n, integer_type v, int flags);
-};
-
-struct fvar_impl: var_impl, float_var {
-    fvar_impl(string_ref n, float_type v, int flags);
-};
-
-struct svar_impl: var_impl, string_var {
-    svar_impl(string_ref n, string_ref v, int flags);
-};
 
 struct alias_impl: ident_impl, alias {
     alias_impl(state &cs, string_ref n, string_ref a, int flags);

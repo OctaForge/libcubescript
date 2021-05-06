@@ -55,8 +55,8 @@ struct internal_state {
 
     ident *id_dummy;
 
-    integer_var *ivar_numargs;
-    integer_var *ivar_dbgalias;
+    builtin_var *ivar_numargs;
+    builtin_var *ivar_dbgalias;
 
     command *cmd_ivar;
     command *cmd_fvar;

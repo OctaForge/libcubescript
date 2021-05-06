@@ -50,7 +50,7 @@ inline void init_lineedit(cs::state &cs, std::string_view) {
     linenoise::SetHintsCallback(ln_hint);
 }
 
-inline std::optional<std::string> read_line(cs::state &s, cs::string_var &pr) {
+inline std::optional<std::string> read_line(cs::state &s, cs::builtin_var &pr) {
     std::string line;
     auto quit = linenoise::Readline(pr.value().get_string(s).data(), line);
     if (quit) {

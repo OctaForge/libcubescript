@@ -22,24 +22,6 @@ var_impl::var_impl(ident_type tp, string_ref name, int fl):
     ident_impl{tp, name, fl}
 {}
 
-ivar_impl::ivar_impl(string_ref name, integer_type v, int fl):
-    var_impl{ident_type::IVAR, name, fl}
-{
-    p_storage.set_integer(v);
-}
-
-fvar_impl::fvar_impl(string_ref name, float_type v, int fl):
-    var_impl{ident_type::FVAR, name, fl}
-{
-    p_storage.set_float(v);
-}
-
-svar_impl::svar_impl(string_ref name, string_ref v, int fl):
-    var_impl{ident_type::SVAR, name, fl}
-{
-    p_storage.set_string(v);
-}
-
 alias_impl::alias_impl(
     state &, string_ref name, string_ref a, int fl
 ):

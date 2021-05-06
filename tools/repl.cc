@@ -317,7 +317,7 @@ int main(int argc, char **argv) {
      * to be set, but you may also not be using standard i/o and so on
      */
     gcs.new_command("//ivar", "$iii#", [](auto &css, auto args, auto &) {
-        auto &iv = static_cast<cs::integer_var &>(args[0].get_ident(css));
+        auto &iv = static_cast<cs::builtin_var &>(args[0].get_ident(css));
         auto nargs = args[4].get_integer();
         if (nargs <= 1) {
             auto val = iv.value().get_integer();
