@@ -84,10 +84,6 @@ void var_changed(thread_state &ts, builtin_var &id, any_value &oldval) {
     }, val[0]);
 }
 
-void var_impl::save_val() {
-    p_override = std::move(p_storage);
-}
-
 command *var_impl::get_setter(thread_state &ts) const {
     switch (p_storage.type()) {
         case value_type::INTEGER:
@@ -239,7 +235,8 @@ LIBCUBESCRIPT_EXPORT void builtin_var::save(state &cs) {
             };
         }
         if (!(p_impl->p_flags & IDENT_FLAG_OVERRIDDEN)) {
-            static_cast<var_impl *>(p_impl)->save_val();
+            auto *imp = static_cast<var_impl *>(p_impl);
+            imp->p_override = std::move(imp->p_storage);
             p_impl->p_flags |= IDENT_FLAG_OVERRIDDEN;
         }
     } else {

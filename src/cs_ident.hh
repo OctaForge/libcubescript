@@ -76,8 +76,6 @@ bool ident_is_callable(ident const *id);
 struct var_impl: ident_impl, builtin_var {
     var_impl(string_ref name, int flags);
 
-    void save_val();
-
     command *get_setter(thread_state &ts) const;
 
     any_value p_storage{};
