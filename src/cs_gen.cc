@@ -328,21 +328,9 @@ void gen_state::gen_val(
     }
 }
 
-void gen_state::gen_lookup_ivar(ident &id, int ltype) {
+void gen_state::gen_lookup_var(ident &id, int ltype) {
     code.push_back(
-        BC_INST_IVAR | ret_code(ltype, BC_RET_INT) | (id.index() << 8)
-    );
-}
-
-void gen_state::gen_lookup_fvar(ident &id, int ltype) {
-    code.push_back(
-        BC_INST_FVAR | ret_code(ltype, BC_RET_FLOAT) | (id.index() << 8)
-    );
-}
-
-void gen_state::gen_lookup_svar(ident &id, int ltype) {
-    code.push_back(
-        BC_INST_SVAR | ret_code(ltype, BC_RET_STRING) | (id.index() << 8)
+        BC_INST_VAR | ret_code(ltype) | (id.index() << 8)
     );
 }
 

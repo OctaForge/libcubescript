@@ -716,31 +716,11 @@ std::uint32_t *vm_exec(
                 continue;
             }
 
-            case BC_INST_SVAR | BC_RET_STRING:
-            case BC_INST_SVAR | BC_RET_NULL:
-            case BC_INST_SVAR | BC_RET_INT:
-            case BC_INST_SVAR | BC_RET_FLOAT:
-                args.emplace_back() = static_cast<string_var *>(
-                    ts.istate->identmap[op >> 8]
-                )->value();
-                force_arg(cs, args.back(), op & BC_INST_RET_MASK);
-                continue;
-
-            case BC_INST_IVAR | BC_RET_INT:
-            case BC_INST_IVAR | BC_RET_NULL:
-            case BC_INST_IVAR | BC_RET_STRING:
-            case BC_INST_IVAR | BC_RET_FLOAT:
-                args.emplace_back() = static_cast<integer_var *>(
-                    ts.istate->identmap[op >> 8]
-                )->value();
-                force_arg(cs, args.back(), op & BC_INST_RET_MASK);
-                continue;
-
-            case BC_INST_FVAR | BC_RET_FLOAT:
-            case BC_INST_FVAR | BC_RET_NULL:
-            case BC_INST_FVAR | BC_RET_STRING:
-            case BC_INST_FVAR | BC_RET_INT:
-                args.emplace_back() = static_cast<float_var *>(
+            case BC_INST_VAR | BC_RET_NULL:
+            case BC_INST_VAR | BC_RET_INT:
+            case BC_INST_VAR | BC_RET_FLOAT:
+            case BC_INST_VAR | BC_RET_STRING:
+                args.emplace_back() = static_cast<global_var *>(
                     ts.istate->identmap[op >> 8]
                 )->value();
                 force_arg(cs, args.back(), op & BC_INST_RET_MASK);

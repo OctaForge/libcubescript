@@ -481,24 +481,11 @@ lookup_id:
     );
     switch (id.type()) {
         case ident_type::IVAR:
-            if (ltype == VAL_POP) {
-                return;
-            }
-            gs.gen_lookup_ivar(id, ltype);
-            switch (ltype) {
-                case VAL_CODE:
-                case VAL_IDENT:
-                    lookup_done(gs, ltype);
-                    break;
-                default:
-                    break;
-            }
-            return;
         case ident_type::FVAR:
             if (ltype == VAL_POP) {
                 return;
             }
-            gs.gen_lookup_fvar(id, ltype);
+            gs.gen_lookup_var(id, ltype);
             switch (ltype) {
                 case VAL_CODE:
                 case VAL_IDENT:
@@ -513,7 +500,7 @@ lookup_id:
                 case VAL_POP:
                     return;
                 default:
-                    gs.gen_lookup_svar(id, ltype);
+                    gs.gen_lookup_var(id, ltype);
                     break;
             }
             lookup_done(gs, ltype);
@@ -605,13 +592,9 @@ lookup_id:
     );
     switch (id.type()) {
         case ident_type::IVAR:
-            gs.gen_lookup_ivar(id);
-            return true;
         case ident_type::FVAR:
-            gs.gen_lookup_fvar(id);
-            return true;
         case ident_type::SVAR:
-            gs.gen_lookup_svar(id);
+            gs.gen_lookup_var(id);
             return true;
         case ident_type::ALIAS:
             gs.gen_lookup_alias(id);

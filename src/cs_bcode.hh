@@ -142,14 +142,8 @@ enum {
     BC_INST_CONC,
     /* like above but without delimiter */
     BC_INST_CONC_W,
-    /* push the value of svar with index D on the stack according to M */
-    BC_INST_SVAR,
-    /* push the value of ivar with index D on the stack according to M */
-    BC_INST_IVAR,
-    /* push the value of fvar with index D on the stack according to M */
-    BC_INST_FVAR,
-    /* pop a value off the stack and set vvar with index D to it */
-    BC_INST_FVAR1,
+    /* push the value of var with index D on the stack according to M */
+    BC_INST_VAR,
     /* pop a value off the stack and set alias with index D to it */
     BC_INST_ALIAS,
     /* pop 2 values off the stack; top is value to set, below is alias name */
