@@ -18,23 +18,27 @@ bool ident_is_callable(ident const *id) {
     return !!static_cast<command_impl const *>(id)->p_cb_cftv;
 }
 
-var_impl::var_impl(
-    ident_type tp, string_ref name, int fl
-):
+var_impl::var_impl(ident_type tp, string_ref name, int fl):
     ident_impl{tp, name, fl}
 {}
 
 ivar_impl::ivar_impl(string_ref name, integer_type v, int fl):
-    var_impl{ident_type::IVAR, name, fl}, p_storage{v}, p_override{v}
-{}
+    var_impl{ident_type::IVAR, name, fl}
+{
+    p_storage.set_integer(v);
+}
 
 fvar_impl::fvar_impl(string_ref name, float_type v, int fl):
-    var_impl{ident_type::FVAR, name, fl}, p_storage{v}, p_override{v}
-{}
+    var_impl{ident_type::FVAR, name, fl}
+{
+    p_storage.set_float(v);
+}
 
 svar_impl::svar_impl(string_ref name, string_ref v, int fl):
-    var_impl{ident_type::SVAR, name, fl}, p_storage{v}, p_override{v}
-{}
+    var_impl{ident_type::SVAR, name, fl}
+{
+    p_storage.set_string(v);
+}
 
 alias_impl::alias_impl(
     state &, string_ref name, string_ref a, int fl
@@ -94,13 +98,9 @@ void var_changed(thread_state &ts, ident *id, any_value &oldval) {
     val[1] = std::move(oldval);
     switch (id->type()) {
         case ident_type::IVAR:
-            val[2].set_integer(static_cast<integer_var *>(id)->value());
-            break;
         case ident_type::FVAR:
-            val[2].set_float(static_cast<float_var *>(id)->value());
-            break;
         case ident_type::SVAR:
-            val[2].set_string(static_cast<string_var *>(id)->value());
+            val[2] = static_cast<global_var *>(id)->value();
             break;
         default:
             return;
@@ -110,15 +110,7 @@ void var_changed(thread_state &ts, ident *id, any_value &oldval) {
     }, val[0]);
 }
 
-void ivar_impl::save_val() {
-    p_override = p_storage;
-}
-
-void fvar_impl::save_val() {
-    p_override = p_storage;
-}
-
-void svar_impl::save_val() {
+void var_impl::save_val() {
     p_override = std::move(p_storage);
 }
 
@@ -288,8 +280,8 @@ LIBCUBESCRIPT_EXPORT any_value global_var::call(
     return ident::call(args, cs);
 }
 
-LIBCUBESCRIPT_EXPORT integer_type integer_var::value() const {
-    return static_cast<ivar_impl const *>(this)->p_storage;
+LIBCUBESCRIPT_EXPORT any_value global_var::value() const {
+    return static_cast<var_impl const *>(p_impl)->p_storage;
 }
 
 LIBCUBESCRIPT_EXPORT void integer_var::set_value(
@@ -307,14 +299,12 @@ LIBCUBESCRIPT_EXPORT void integer_var::set_value(
     auto oldv = value();
     set_raw_value(val);
     if (trigger) {
-        any_value v;
-        v.set_integer(oldv);
-        var_changed(state_p{cs}.ts(), this, v);
+        var_changed(state_p{cs}.ts(), this, oldv);
     }
 }
 
 LIBCUBESCRIPT_EXPORT void integer_var::set_raw_value(integer_type val) {
-    static_cast<ivar_impl *>(this)->p_storage = val;
+    static_cast<ivar_impl *>(this)->p_storage.set_integer(val);
 }
 
 inline any_value call_var(
@@ -343,10 +333,6 @@ LIBCUBESCRIPT_EXPORT any_value integer_var::call(
     return call_var(*this, state_p{cs}.ts().istate->cmd_ivar, args, cs);
 }
 
-LIBCUBESCRIPT_EXPORT float_type float_var::value() const {
-    return static_cast<fvar_impl const *>(this)->p_storage;
-}
-
 LIBCUBESCRIPT_EXPORT void float_var::set_value(
     state &cs, float_type val, bool do_write, bool trigger
 ) {
@@ -362,24 +348,18 @@ LIBCUBESCRIPT_EXPORT void float_var::set_value(
     auto oldv = value();
     set_raw_value(val);
     if (trigger) {
-        any_value v;
-        v.set_float(oldv);
-        var_changed(state_p{cs}.ts(), this, v);
+        var_changed(state_p{cs}.ts(), this, oldv);
     }
 }
 
 LIBCUBESCRIPT_EXPORT void float_var::set_raw_value(float_type val) {
-    static_cast<fvar_impl *>(this)->p_storage = val;
+    static_cast<fvar_impl *>(this)->p_storage.set_float(val);
 }
 
 LIBCUBESCRIPT_EXPORT any_value float_var::call(
     span_type<any_value> args, state &cs
 ) {
     return call_var(*this, state_p{cs}.ts().istate->cmd_fvar, args, cs);
-}
-
-LIBCUBESCRIPT_EXPORT string_ref string_var::value() const {
-    return static_cast<svar_impl const *>(this)->p_storage;
 }
 
 LIBCUBESCRIPT_EXPORT void string_var::set_value(
@@ -397,14 +377,12 @@ LIBCUBESCRIPT_EXPORT void string_var::set_value(
     auto oldv = value();
     set_raw_value(std::move(val));
     if (trigger) {
-        any_value v;
-        v.set_string(oldv);
-        var_changed(state_p{cs}.ts(), this, v);
+        var_changed(state_p{cs}.ts(), this, oldv);
     }
 }
 
 LIBCUBESCRIPT_EXPORT void string_var::set_raw_value(string_ref val) {
-    static_cast<svar_impl *>(this)->p_storage = val;
+    static_cast<svar_impl *>(this)->p_storage.set_string(std::move(val));
 }
 
 LIBCUBESCRIPT_EXPORT any_value string_var::call(

@@ -87,7 +87,7 @@ LIBCUBESCRIPT_EXPORT stack_state error::save_stack(state &cs) {
     auto &ts = state_p{cs}.ts();
     integer_var *dalias = ts.istate->ivar_dbgalias;
     auto dval = std::clamp(
-        dalias->value(), integer_type(0), integer_type(1000)
+        dalias->value().get_integer(), integer_type(0), integer_type(1000)
     );
     if (!dval) {
         return stack_state{cs, nullptr, !!ts.callstack};

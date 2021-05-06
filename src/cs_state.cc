@@ -127,7 +127,7 @@ state::state(alloc_func func, void *data) {
         auto &iv = static_cast<integer_var &>(args[0].get_ident(cs));
         if (args[2].get_integer() <= 1) {
             std::printf("%s = ", iv.name().data());
-            std::printf(INTEGER_FORMAT, iv.value());
+            std::printf(INTEGER_FORMAT, iv.value().get_integer());
             std::printf("\n");
         } else {
             iv.set_value(cs, args[1].get_integer());
@@ -139,7 +139,7 @@ state::state(alloc_func func, void *data) {
     ) {
         auto &fv = static_cast<float_var &>(args[0].get_ident(cs));
         if (args[2].get_integer() <= 1) {
-            auto val = fv.value();
+            auto val = fv.value().get_float();
             std::printf("%s = ", fv.name().data());
             if (std::floor(val) == val) {
                 std::printf(ROUND_FLOAT_FORMAT, val);
@@ -157,7 +157,7 @@ state::state(alloc_func func, void *data) {
     ) {
         auto &sv = static_cast<string_var &>(args[0].get_ident(cs));
         if (args[2].get_integer() <= 1) {
-            auto val = sv.value();
+            auto val = sv.value().get_string(cs);
             if (val.view().find('"') == std::string_view::npos) {
                 std::printf("%s = \"%s\"\n", sv.name().data(), val.data());
             } else {
@@ -350,10 +350,9 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
             return;
         }
         case ident_type::IVAR: {
-            any_value oldv;
             ivar_impl &iv = static_cast<ivar_impl &>(id);
-            oldv.set_integer(iv.value());
-            iv.set_raw_value(iv.p_override);
+            any_value oldv = iv.value();
+            iv.p_storage = std::move(iv.p_override);
             var_changed(*p_tstate, &id, oldv);
             static_cast<ivar_impl *>(
                 static_cast<integer_var *>(&iv)
@@ -361,10 +360,9 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
             return;
         }
         case ident_type::FVAR: {
-            any_value oldv;
             fvar_impl &fv = static_cast<fvar_impl &>(id);
-            oldv.set_float(fv.value());
-            fv.set_raw_value(fv.p_override);
+            any_value oldv = fv.value();
+            fv.p_storage = std::move(fv.p_override);
             var_changed(*p_tstate, &id, oldv);
             static_cast<fvar_impl *>(
                 static_cast<float_var *>(&fv)
@@ -372,10 +370,9 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
             return;
         }
         case ident_type::SVAR: {
-            any_value oldv;
             svar_impl &sv = static_cast<svar_impl &>(id);
-            oldv.set_string(sv.value());
-            sv.set_raw_value(sv.p_override);
+            any_value oldv = sv.value();
+            sv.p_storage = std::move(sv.p_override);
             var_changed(*p_tstate, &id, oldv);
             static_cast<svar_impl *>(
                 static_cast<string_var *>(&sv)
@@ -532,21 +529,10 @@ LIBCUBESCRIPT_EXPORT any_value state::lookup_value(std::string_view name) {
                 }
                 return ast->node->val_s.get_plain();
             }
-            case ident_type::SVAR: {
-                any_value val{};
-                val.set_string(static_cast<string_var *>(id)->value());
-                return val;
-            }
-            case ident_type::IVAR: {
-                any_value val{};
-                val.set_integer(static_cast<integer_var *>(id)->value());
-                return val;
-            }
-            case ident_type::FVAR: {
-                any_value val{};
-                val.set_float(static_cast<float_var *>(id)->value());
-                return val;
-            }
+            case ident_type::SVAR:
+            case ident_type::IVAR:
+            case ident_type::FVAR:
+                return static_cast<global_var *>(id)->value();
             case ident_type::COMMAND: {
                 any_value val{};
                 /* make sure value stack gets restored */
@@ -591,13 +577,9 @@ LIBCUBESCRIPT_EXPORT void state::touch_value(std::string_view name) {
     any_value v;
     switch (idr.type()) {
         case ident_type::IVAR:
-            v.set_integer(static_cast<integer_var &>(idr).value());
-            break;
         case ident_type::FVAR:
-            v.set_float(static_cast<float_var &>(idr).value());
-            break;
         case ident_type::SVAR:
-            v.set_string(static_cast<string_var &>(idr).value());
+            v = static_cast<global_var &>(idr).value();
             break;
         default:
             return;

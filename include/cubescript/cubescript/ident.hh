@@ -185,6 +185,9 @@ struct LIBCUBESCRIPT_EXPORT global_var: ident {
      */
     any_value call(span_type<any_value> args, state &cs);
 
+    /** @brief Get the value of the variable. */
+    any_value value() const;
+
 protected:
     global_var() = default;
 };
@@ -194,9 +197,6 @@ protected:
  * A specialization of cubescript::global_var for integer values.
  */
 struct LIBCUBESCRIPT_EXPORT integer_var: global_var {
-    /** @brief Get the value of the variable. */
-    integer_type value() const;
-
     /** @brief Set the value of the variable.
      *
      * If read only, an error is raised. If `do_write` is `false`, nothing
@@ -231,9 +231,6 @@ protected:
  * A specialization of cubescript::global_var for float values.
  */
 struct LIBCUBESCRIPT_EXPORT float_var: global_var {
-    /** @brief Get the value of the variable. */
-    float_type value() const;
-
     /** @brief Set the value of the variable.
      *
      * If read only, an error is raised. If `do_write` is `false`, nothing
@@ -268,9 +265,6 @@ protected:
  * A specialization of cubescript::global_var for string values.
  */
 struct LIBCUBESCRIPT_EXPORT string_var: global_var {
-    /** @brief Get the value of the variable. */
-    string_ref value() const;
-
     /** @brief Set the value of the variable.
      *
      * If read only, an error is raised. If `do_write` is `false`, nothing

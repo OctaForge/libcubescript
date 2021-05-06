@@ -320,7 +320,7 @@ int main(int argc, char **argv) {
         auto &iv = static_cast<cs::integer_var &>(args[0].get_ident(css));
         auto nargs = args[4].get_integer();
         if (nargs <= 1) {
-            auto val = iv.value();
+            auto val = iv.value().get_integer();
             if ((val >= 0) && (val < 0xFFFFFF)) {
                 std::printf(
                     "%s = %d (0x%.6X: %d, %d, %d)\n",

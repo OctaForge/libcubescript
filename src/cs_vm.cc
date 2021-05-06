@@ -167,7 +167,7 @@ bool exec_alias(
         st.val_s = std::move(args[offset + i]);
         uargs[i] = true;
     }
-    auto oldargs = anargs->value();
+    auto oldargs = anargs->value().get_integer();
     auto oldflags = ts.ident_flags;
     ts.ident_flags = aast.flags;
     anargs->set_raw_value(integer_type(callargs));
@@ -718,67 +718,32 @@ std::uint32_t *vm_exec(
 
             case BC_INST_SVAR | BC_RET_STRING:
             case BC_INST_SVAR | BC_RET_NULL:
-                args.emplace_back().set_string(static_cast<string_var *>(
-                    ts.istate->identmap[op >> 8]
-                )->value());
-                continue;
             case BC_INST_SVAR | BC_RET_INT:
-                args.emplace_back().set_integer(parse_int(
-                    static_cast<string_var *>(
-                        ts.istate->identmap[op >> 8]
-                    )->value()
-                 ));
-                continue;
             case BC_INST_SVAR | BC_RET_FLOAT:
-                args.emplace_back().set_float(parse_float(
-                    static_cast<string_var *>(
-                        ts.istate->identmap[op >> 8]
-                    )->value()
-                ));
+                args.emplace_back() = static_cast<string_var *>(
+                    ts.istate->identmap[op >> 8]
+                )->value();
+                force_arg(cs, args.back(), op & BC_INST_RET_MASK);
                 continue;
 
             case BC_INST_IVAR | BC_RET_INT:
             case BC_INST_IVAR | BC_RET_NULL:
-                args.emplace_back().set_integer(static_cast<integer_var *>(
-                    ts.istate->identmap[op >> 8]
-                )->value());
-                continue;
-            case BC_INST_IVAR | BC_RET_STRING: {
-                auto &v = args.emplace_back();
-                v.set_integer(static_cast<integer_var *>(
-                    ts.istate->identmap[op >> 8]
-                )->value());
-                v.force_string(cs);
-                continue;
-            }
+            case BC_INST_IVAR | BC_RET_STRING:
             case BC_INST_IVAR | BC_RET_FLOAT:
-                args.emplace_back().set_float(float_type(
-                    static_cast<integer_var *>(
-                        ts.istate->identmap[op >> 8]
-                    )->value()
-                ));
+                args.emplace_back() = static_cast<integer_var *>(
+                    ts.istate->identmap[op >> 8]
+                )->value();
+                force_arg(cs, args.back(), op & BC_INST_RET_MASK);
                 continue;
 
             case BC_INST_FVAR | BC_RET_FLOAT:
             case BC_INST_FVAR | BC_RET_NULL:
-                args.emplace_back().set_float(static_cast<float_var *>(
-                    ts.istate->identmap[op >> 8]
-                )->value());
-                continue;
-            case BC_INST_FVAR | BC_RET_STRING: {
-                auto &v = args.emplace_back();
-                v.set_float(static_cast<float_var *>(
-                    ts.istate->identmap[op >> 8]
-                )->value());
-                v.force_string(cs);
-                continue;
-            }
+            case BC_INST_FVAR | BC_RET_STRING:
             case BC_INST_FVAR | BC_RET_INT:
-                args.emplace_back().set_integer(
-                    integer_type(std::floor(static_cast<float_var *>(
-                        ts.istate->identmap[op >> 8]
-                    )->value()))
-                );
+                args.emplace_back() = static_cast<float_var *>(
+                    ts.istate->identmap[op >> 8]
+                )->value();
+                force_arg(cs, args.back(), op & BC_INST_RET_MASK);
                 continue;
 
             case BC_INST_ALIAS: {
