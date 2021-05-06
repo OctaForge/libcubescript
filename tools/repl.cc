@@ -336,11 +336,9 @@ int main(int argc, char **argv) {
         if (nargs == 2) {
             nv = args[1];
         } else if (nargs == 3) {
-            nv.set_integer(
-                (args[1].get_integer() << 8) | (args[2].get_integer() << 16)
-            );
+            nv = (args[1].get_integer() << 8) | (args[2].get_integer() << 16);
         } else {
-            nv.set_integer(
+            nv = (
                 args[1].get_integer() | (args[2].get_integer() << 8) |
                 (args[3].get_integer() << 16)
             );

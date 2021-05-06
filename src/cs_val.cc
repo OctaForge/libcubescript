@@ -83,6 +83,44 @@ any_value::any_value():
     p_stor{}, p_type{value_type::NONE}
 {}
 
+any_value::any_value(integer_type val):
+    p_stor{}, p_type{value_type::INTEGER}
+{
+    csv_get<integer_type>(&p_stor) = val;
+}
+
+any_value::any_value(float_type val):
+    p_stor{}, p_type{value_type::FLOAT}
+{
+    csv_get<float_type>(&p_stor) = val;
+}
+
+any_value::any_value(std::string_view val, state &cs):
+    p_stor{}, p_type{value_type::STRING}
+{
+    csv_get<char const *>(&p_stor) = state_p{cs}.ts().istate->strman->add(val);
+}
+
+any_value::any_value(string_ref const &val):
+    p_stor{}, p_type{value_type::STRING}
+{
+    csv_get<char const *>(&p_stor) = str_managed_ref(val.p_str);
+}
+
+any_value::any_value(bcode_ref const &val):
+    p_stor{}, p_type{value_type::CODE}
+{
+    bcode *p = bcode_p{val}.get();
+    bcode_addref(p->raw());
+    csv_get<bcode *>(&p_stor) = p;
+}
+
+any_value::any_value(ident &val):
+    p_stor{}, p_type{value_type::IDENT}
+{
+    csv_get<ident *>(&p_stor) = &val;
+}
+
 any_value::~any_value() {
     csv_cleanup(p_type, &p_stor);
 }
@@ -122,6 +160,31 @@ any_value &any_value::operator=(any_value const &v) {
 any_value &any_value::operator=(any_value &&v) {
     *this = v;
     v.set_none();
+    return *this;
+}
+
+any_value &any_value::operator=(integer_type val) {
+    set_integer(val);
+    return *this;
+}
+
+any_value &any_value::operator=(float_type val) {
+    set_float(val);
+    return *this;
+}
+
+any_value &any_value::operator=(string_ref const &val) {
+    set_string(val);
+    return *this;
+}
+
+any_value &any_value::operator=(bcode_ref const &val) {
+    set_code(val);
+    return *this;
+}
+
+any_value &any_value::operator=(ident &val) {
+    set_ident(val);
     return *this;
 }
 

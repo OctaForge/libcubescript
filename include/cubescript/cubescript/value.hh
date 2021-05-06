@@ -303,6 +303,24 @@ struct LIBCUBESCRIPT_EXPORT any_value {
     /** @brief Construct a value_type::NONE value. */
     any_value();
 
+    /** @brief Construct a value_type::INTEGER value. */
+    any_value(integer_type val);
+
+    /** @brief Construct a value_type::FLOAT value. */
+    any_value(float_type val);
+
+    /** @brief Construct a value_type::STRING value. */
+    any_value(std::string_view val, state &cs);
+
+    /** @brief Construct a value_type::STRING value. */
+    any_value(string_ref const &val);
+
+    /** @brief Construct a value_type::CODE value. */
+    any_value(bcode_ref const &val);
+
+    /** @brief Construct a value_type::IDENT value. */
+    any_value(ident &val);
+
     /** @brief Destroy the value.
      *
      * If holding a reference counted value, the refcount will be decreased
@@ -327,6 +345,21 @@ struct LIBCUBESCRIPT_EXPORT any_value {
      * The other value becomes a value_type::NULL value.
      */
     any_value &operator=(any_value &&);
+
+    /** @brief Assign an integer to the value. */
+    any_value &operator=(integer_type val);
+
+    /** @brief Assign a float to the value. */
+    any_value &operator=(float_type val);
+
+    /** @brief Assign a string reference to the value. */
+    any_value &operator=(string_ref const &val);
+
+    /** @brief Assign a bytecode reference to the value. */
+    any_value &operator=(bcode_ref const &val);
+
+    /** @brief Assign an ident to the value. */
+    any_value &operator=(ident &val);
 
     /** @brief Get the type of the value. */
     value_type type() const;
