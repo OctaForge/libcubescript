@@ -532,7 +532,7 @@ LIBCUBESCRIPT_EXPORT any_value state::lookup_value(std::string_view name) {
             case ident_type::SVAR:
             case ident_type::IVAR:
             case ident_type::FVAR:
-                return static_cast<global_var *>(id)->value();
+                return static_cast<builtin_var *>(id)->value();
             case ident_type::COMMAND: {
                 any_value val{};
                 /* make sure value stack gets restored */
@@ -561,7 +561,7 @@ LIBCUBESCRIPT_EXPORT void state::reset_value(std::string_view name) {
         throw error{*this, "variable '%s' does not exist", name.data()};
     }
     if (id->get().is_var()) {
-        if (static_cast<global_var &>(id->get()).is_read_only()) {
+        if (static_cast<builtin_var &>(id->get()).is_read_only()) {
             throw error{*this, "variable '%s' is read only", name.data()};
         }
     }
@@ -579,7 +579,7 @@ LIBCUBESCRIPT_EXPORT void state::touch_value(std::string_view name) {
         case ident_type::IVAR:
         case ident_type::FVAR:
         case ident_type::SVAR:
-            v = static_cast<global_var &>(idr).value();
+            v = static_cast<builtin_var &>(idr).value();
             break;
         default:
             return;

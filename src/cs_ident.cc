@@ -100,7 +100,7 @@ void var_changed(thread_state &ts, ident *id, any_value &oldval) {
         case ident_type::IVAR:
         case ident_type::FVAR:
         case ident_type::SVAR:
-            val[2] = static_cast<global_var *>(id)->value();
+            val[2] = static_cast<builtin_var *>(id)->value();
             break;
         default:
             return;
@@ -238,15 +238,15 @@ LIBCUBESCRIPT_EXPORT any_value ident::call(span_type<any_value>, state &cs) {
     throw error{cs, "this ident type is not callable"};
 }
 
-LIBCUBESCRIPT_EXPORT bool global_var::is_read_only() const {
+LIBCUBESCRIPT_EXPORT bool builtin_var::is_read_only() const {
     return (p_impl->p_flags & IDENT_FLAG_READONLY);
 }
 
-LIBCUBESCRIPT_EXPORT bool global_var::is_overridable() const {
+LIBCUBESCRIPT_EXPORT bool builtin_var::is_overridable() const {
     return (p_impl->p_flags & IDENT_FLAG_OVERRIDE);
 }
 
-LIBCUBESCRIPT_EXPORT var_type global_var::variable_type() const {
+LIBCUBESCRIPT_EXPORT var_type builtin_var::variable_type() const {
     if (p_impl->p_flags & IDENT_FLAG_OVERRIDE) {
         return var_type::OVERRIDABLE;
     } else if (p_impl->p_flags & IDENT_FLAG_PERSIST) {
@@ -256,7 +256,7 @@ LIBCUBESCRIPT_EXPORT var_type global_var::variable_type() const {
     }
 }
 
-LIBCUBESCRIPT_EXPORT void global_var::save(state &cs) {
+LIBCUBESCRIPT_EXPORT void builtin_var::save(state &cs) {
     auto &ts = state_p{cs}.ts();
     if ((ts.ident_flags & IDENT_FLAG_OVERRIDDEN) || is_overridable()) {
         if (p_impl->p_flags & IDENT_FLAG_PERSIST) {
@@ -274,13 +274,13 @@ LIBCUBESCRIPT_EXPORT void global_var::save(state &cs) {
     }
 }
 
-LIBCUBESCRIPT_EXPORT any_value global_var::call(
+LIBCUBESCRIPT_EXPORT any_value builtin_var::call(
     span_type<any_value> args, state &cs
 ) {
     return ident::call(args, cs);
 }
 
-LIBCUBESCRIPT_EXPORT any_value global_var::value() const {
+LIBCUBESCRIPT_EXPORT any_value builtin_var::value() const {
     return static_cast<var_impl const *>(p_impl)->p_storage;
 }
 

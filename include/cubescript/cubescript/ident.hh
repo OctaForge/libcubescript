@@ -67,7 +67,7 @@ struct LIBCUBESCRIPT_EXPORT ident {
     /** @brief Check if the idents are not the same. */
     bool operator!=(ident &other) const;
 
-    /** @brief Check if the ident is a cubescript::global_var.
+    /** @brief Check if the ident is a cubescript::builtin_var.
      *
      * This will return `true` if ident::type() returns either
      * ident_type::IVAR, ident_type::FVAR or ident_type::SVAR.
@@ -120,7 +120,7 @@ protected:
     struct ident_impl *p_impl{};
 };
 
-/** @brief An additional cubescript::global_var type.
+/** @brief An additional cubescript::builtin_var type.
  *
  * Global vars can have no additional type, or they can be persistent, or
  * they can be overridable. Persistent variables are meant to be saved and
@@ -144,7 +144,7 @@ enum class var_type {
  * This represents one of cubescript::integer_var, cubescript::float_var or
  * cubescript::string_var as a single interface, with shared operations.
  */
-struct LIBCUBESCRIPT_EXPORT global_var: ident {
+struct LIBCUBESCRIPT_EXPORT builtin_var: ident {
     /** @brief Get whether the variable is read only.
      *
      * Variables can be set as read only during their creation (but not
@@ -189,20 +189,20 @@ struct LIBCUBESCRIPT_EXPORT global_var: ident {
     any_value value() const;
 
 protected:
-    global_var() = default;
+    builtin_var() = default;
 };
 
 /** @brief An integer variable.
  *
- * A specialization of cubescript::global_var for integer values.
+ * A specialization of cubescript::builtin_var for integer values.
  */
-struct LIBCUBESCRIPT_EXPORT integer_var: global_var {
+struct LIBCUBESCRIPT_EXPORT integer_var: builtin_var {
     /** @brief Set the value of the variable.
      *
      * If read only, an error is raised. If `do_write` is `false`, nothing
      * will be performed other than the read-only checking. If `trigger` is
      * `false`, a potential variable change trigger command will not be
-     * invoked. The value is saved with global_var::save(), assuming
+     * invoked. The value is saved with builtin_var::save(), assuming
      * `do_write` is `true`. After that, integer_var::set_raw_value()
      * is invoked, and then the trigger.
      *
@@ -228,15 +228,15 @@ protected:
 
 /** @brief A float variable.
  *
- * A specialization of cubescript::global_var for float values.
+ * A specialization of cubescript::builtin_var for float values.
  */
-struct LIBCUBESCRIPT_EXPORT float_var: global_var {
+struct LIBCUBESCRIPT_EXPORT float_var: builtin_var {
     /** @brief Set the value of the variable.
      *
      * If read only, an error is raised. If `do_write` is `false`, nothing
      * will be performed other than the read-only checking. If `trigger` is
      * `false`, a potential variable change trigger command will not be
-     * invoked. The value is saved with global_var::save(), assuming
+     * invoked. The value is saved with builtin_var::save(), assuming
      * `do_write` is `true`. After that, integer_var::set_raw_value()
      * is invoked, and then the trigger.
      *
@@ -262,15 +262,15 @@ protected:
 
 /** @brief A string variable.
  *
- * A specialization of cubescript::global_var for string values.
+ * A specialization of cubescript::builtin_var for string values.
  */
-struct LIBCUBESCRIPT_EXPORT string_var: global_var {
+struct LIBCUBESCRIPT_EXPORT string_var: builtin_var {
     /** @brief Set the value of the variable.
      *
      * If read only, an error is raised. If `do_write` is `false`, nothing
      * will be performed other than the read-only checking. If `trigger` is
      * `false`, a potential variable change trigger command will not be
-     * invoked. The value is saved with global_var::save(), assuming
+     * invoked. The value is saved with builtin_var::save(), assuming
      * `do_write` is `true`. After that, integer_var::set_raw_value()
      * is invoked, and then the trigger.
      *

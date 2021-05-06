@@ -720,7 +720,7 @@ std::uint32_t *vm_exec(
             case BC_INST_VAR | BC_RET_INT:
             case BC_INST_VAR | BC_RET_FLOAT:
             case BC_INST_VAR | BC_RET_STRING:
-                args.emplace_back() = static_cast<global_var *>(
+                args.emplace_back() = static_cast<builtin_var *>(
                     ts.istate->identmap[op >> 8]
                 )->value();
                 force_arg(cs, args.back(), op & BC_INST_RET_MASK);
