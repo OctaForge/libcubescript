@@ -333,8 +333,8 @@ LIBCUBESCRIPT_EXPORT void builtin_var::set_raw_value(
     static_cast<var_impl *>(p_impl)->p_storage = std::move(val);
 }
 
-LIBCUBESCRIPT_EXPORT void integer_var::set_value(
-    state &cs, integer_type val, bool do_write, bool trigger
+LIBCUBESCRIPT_EXPORT void builtin_var::set_value(
+    state &cs, any_value val, bool do_write, bool trigger
 ) {
     if (is_read_only()) {
         throw error{
@@ -346,51 +346,7 @@ LIBCUBESCRIPT_EXPORT void integer_var::set_value(
     }
     save(cs);
     auto oldv = value();
-    any_value nv;
-    nv.set_integer(val);
-    set_raw_value(cs, std::move(nv));
-    if (trigger) {
-        var_changed(state_p{cs}.ts(), this, oldv);
-    }
-}
-
-LIBCUBESCRIPT_EXPORT void float_var::set_value(
-    state &cs, float_type val, bool do_write, bool trigger
-) {
-    if (is_read_only()) {
-        throw error{
-            cs, "variable '%s' is read only", name().data()
-        };
-    }
-    if (!do_write) {
-        return;
-    }
-    save(cs);
-    auto oldv = value();
-    any_value nv;
-    nv.set_float(val);
-    set_raw_value(cs, std::move(nv));
-    if (trigger) {
-        var_changed(state_p{cs}.ts(), this, oldv);
-    }
-}
-
-LIBCUBESCRIPT_EXPORT void string_var::set_value(
-    state &cs, string_ref val, bool do_write, bool trigger
-) {
-    if (is_read_only()) {
-        throw error{
-            cs, "variable '%s' is read only", name().data()
-        };
-    }
-    if (!do_write) {
-        return;
-    }
-    save(cs);
-    auto oldv = value();
-    any_value nv;
-    nv.set_string(std::move(val));
-    set_raw_value(cs, std::move(nv));
+    set_raw_value(cs, std::move(val));
     if (trigger) {
         var_changed(state_p{cs}.ts(), this, oldv);
     }

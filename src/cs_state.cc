@@ -130,7 +130,7 @@ state::state(alloc_func func, void *data) {
             std::printf(INTEGER_FORMAT, iv.value().get_integer());
             std::printf("\n");
         } else {
-            iv.set_value(cs, args[1].get_integer());
+            iv.set_value(cs, args[1]);
         }
     });
 
@@ -148,7 +148,7 @@ state::state(alloc_func func, void *data) {
             }
             std::printf("\n");
         } else {
-            fv.set_value(cs, args[1].get_float());
+            fv.set_value(cs, args[1]);
         }
     });
 
@@ -164,7 +164,7 @@ state::state(alloc_func func, void *data) {
                 std::printf("%s = [%s]\n", sv.name().data(), val.data());
             }
         } else {
-            sv.set_value(cs, args[1].get_string(cs));
+            sv.set_value(cs, args[1]);
         }
     });
 

@@ -196,6 +196,20 @@ struct LIBCUBESCRIPT_EXPORT builtin_var: ident {
      */
     void set_raw_value(state &cs, any_value val);
 
+    /** @brief Set the value of the variable.
+     *
+     * If read only, an error is raised. If `do_write` is `false`, nothing
+     * will be performed other than the read-only checking. If `trigger` is
+     * `false`, a potential variable change trigger command will not be
+     * invoked. The value is saved with save(), assuming `do_write` is `true`.
+     * After that, set_raw_value() is invoked, and then the trigger.
+     *
+     * @throw cubescript::error if read only or if the changed trigger throws.
+     */
+    void set_value(
+        state &cs, any_value val, bool do_write = true, bool trigger = true
+    );
+
 protected:
     builtin_var() = default;
 };
@@ -205,21 +219,6 @@ protected:
  * A specialization of cubescript::builtin_var for integer values.
  */
 struct LIBCUBESCRIPT_EXPORT integer_var: builtin_var {
-    /** @brief Set the value of the variable.
-     *
-     * If read only, an error is raised. If `do_write` is `false`, nothing
-     * will be performed other than the read-only checking. If `trigger` is
-     * `false`, a potential variable change trigger command will not be
-     * invoked. The value is saved with builtin_var::save(), assuming
-     * `do_write` is `true`. After that, builtin_var::set_raw_value()
-     * is invoked, and then the trigger.
-     *
-     * @throw cubescript::error if read only or if the changed trigger throws.
-     */
-    void set_value(
-        state &cs, integer_type val, bool do_write = true, bool trigger = true
-    );
-
 protected:
     integer_var() = default;
 };
@@ -229,21 +228,6 @@ protected:
  * A specialization of cubescript::builtin_var for float values.
  */
 struct LIBCUBESCRIPT_EXPORT float_var: builtin_var {
-    /** @brief Set the value of the variable.
-     *
-     * If read only, an error is raised. If `do_write` is `false`, nothing
-     * will be performed other than the read-only checking. If `trigger` is
-     * `false`, a potential variable change trigger command will not be
-     * invoked. The value is saved with builtin_var::save(), assuming
-     * `do_write` is `true`. After that, builtin_var::set_raw_value()
-     * is invoked, and then the trigger.
-     *
-     * @throw cubescript::error if read only or if the changed trigger throws.
-     */
-    void set_value(
-        state &cs, float_type val, bool do_write = true, bool trigger = true
-    );
-
 protected:
     float_var() = default;
 };
@@ -253,21 +237,6 @@ protected:
  * A specialization of cubescript::builtin_var for string values.
  */
 struct LIBCUBESCRIPT_EXPORT string_var: builtin_var {
-    /** @brief Set the value of the variable.
-     *
-     * If read only, an error is raised. If `do_write` is `false`, nothing
-     * will be performed other than the read-only checking. If `trigger` is
-     * `false`, a potential variable change trigger command will not be
-     * invoked. The value is saved with builtin_var::save(), assuming
-     * `do_write` is `true`. After that, builtin_var::set_raw_value()
-     * is invoked, and then the trigger.
-     *
-     * @throw cubescript::error if read only or if the changed trigger throws.
-     */
-    void set_value(
-        state &cs, string_ref val, bool do_write = true, bool trigger = true
-    );
-
 protected:
     string_var() = default;
 };

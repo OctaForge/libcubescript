@@ -332,19 +332,20 @@ int main(int argc, char **argv) {
             }
             return;
         }
+        cs::any_value nv;
         if (nargs == 2) {
-            iv.set_value(css, args[1].get_integer());
+            nv = args[1];
         } else if (nargs == 3) {
-            iv.set_value(
-                css, (args[1].get_integer() << 8) |
-                (args[2].get_integer() << 16)
+            nv.set_integer(
+                (args[1].get_integer() << 8) | (args[2].get_integer() << 16)
             );
         } else {
-            iv.set_value(
-                css, args[1].get_integer() | (args[2].get_integer() << 8) |
+            nv.set_integer(
+                args[1].get_integer() | (args[2].get_integer() << 8) |
                 (args[3].get_integer() << 16)
             );
         }
+        iv.set_value(css, nv);
     });
 
     gcs.new_command("//var_changed", "$aa", [](auto &css, auto args, auto &) {
