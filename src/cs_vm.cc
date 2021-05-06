@@ -167,10 +167,12 @@ bool exec_alias(
         st.val_s = std::move(args[offset + i]);
         uargs[i] = true;
     }
-    auto oldargs = anargs->value().get_integer();
+    auto oldargs = anargs->value();
     auto oldflags = ts.ident_flags;
     ts.ident_flags = aast.flags;
-    anargs->set_raw_value(integer_type(callargs));
+    any_value cv;
+    cv.set_integer(callargs);
+    anargs->set_raw_value(*ts.pstate, std::move(cv));
     ident_link aliaslink = {a, ts.callstack, uargs};
     ts.callstack = &aliaslink;
     if (!aast.node->code) {
@@ -199,7 +201,7 @@ bool exec_alias(
         }
         ts.idstack.resize(noff);
         force_arg(*ts.pstate, result, op & BC_INST_RET_MASK);
-        anargs->set_raw_value(integer_type(oldargs));
+        anargs->set_raw_value(*ts.pstate, std::move(oldargs));
         nargs = offset - skip;
     };
     try {

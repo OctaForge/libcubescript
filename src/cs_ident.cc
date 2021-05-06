@@ -284,6 +284,26 @@ LIBCUBESCRIPT_EXPORT any_value builtin_var::value() const {
     return static_cast<var_impl const *>(p_impl)->p_storage;
 }
 
+LIBCUBESCRIPT_EXPORT void builtin_var::set_raw_value(
+    state &cs, any_value val
+) {
+    switch (static_cast<var_impl *>(p_impl)->p_storage.type()) {
+        case value_type::INTEGER:
+            val.force_integer();
+            break;
+        case value_type::FLOAT:
+            val.force_float();
+            break;
+        case value_type::STRING:
+            val.force_string(cs);
+            break;
+        default:
+            abort(); /* unreachable unless we have a bug */
+            break;
+    }
+    static_cast<var_impl *>(p_impl)->p_storage = std::move(val);
+}
+
 LIBCUBESCRIPT_EXPORT void integer_var::set_value(
     state &cs, integer_type val, bool do_write, bool trigger
 ) {
@@ -297,14 +317,12 @@ LIBCUBESCRIPT_EXPORT void integer_var::set_value(
     }
     save(cs);
     auto oldv = value();
-    set_raw_value(val);
+    any_value nv;
+    nv.set_integer(val);
+    set_raw_value(cs, std::move(nv));
     if (trigger) {
         var_changed(state_p{cs}.ts(), this, oldv);
     }
-}
-
-LIBCUBESCRIPT_EXPORT void integer_var::set_raw_value(integer_type val) {
-    static_cast<ivar_impl *>(this)->p_storage.set_integer(val);
 }
 
 inline any_value call_var(
@@ -346,14 +364,12 @@ LIBCUBESCRIPT_EXPORT void float_var::set_value(
     }
     save(cs);
     auto oldv = value();
-    set_raw_value(val);
+    any_value nv;
+    nv.set_float(val);
+    set_raw_value(cs, std::move(nv));
     if (trigger) {
         var_changed(state_p{cs}.ts(), this, oldv);
     }
-}
-
-LIBCUBESCRIPT_EXPORT void float_var::set_raw_value(float_type val) {
-    static_cast<fvar_impl *>(this)->p_storage.set_float(val);
 }
 
 LIBCUBESCRIPT_EXPORT any_value float_var::call(
@@ -375,14 +391,12 @@ LIBCUBESCRIPT_EXPORT void string_var::set_value(
     }
     save(cs);
     auto oldv = value();
-    set_raw_value(std::move(val));
+    any_value nv;
+    nv.set_string(std::move(val));
+    set_raw_value(cs, std::move(nv));
     if (trigger) {
         var_changed(state_p{cs}.ts(), this, oldv);
     }
-}
-
-LIBCUBESCRIPT_EXPORT void string_var::set_raw_value(string_ref val) {
-    static_cast<svar_impl *>(this)->p_storage.set_string(std::move(val));
 }
 
 LIBCUBESCRIPT_EXPORT any_value string_var::call(

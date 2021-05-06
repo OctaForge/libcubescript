@@ -188,6 +188,14 @@ struct LIBCUBESCRIPT_EXPORT builtin_var: ident {
     /** @brief Get the value of the variable. */
     any_value value() const;
 
+    /** @brief Set the value of the variable in a raw manner.
+     *
+     * This will always set the value and ignore any kinds of checks. It will
+     * not invoke any triggers either, nor it will save the the value. However,
+     * it will make sure to preserve the type (integer, float or string).
+     */
+    void set_raw_value(state &cs, any_value val);
+
 protected:
     builtin_var() = default;
 };
@@ -203,7 +211,7 @@ struct LIBCUBESCRIPT_EXPORT integer_var: builtin_var {
      * will be performed other than the read-only checking. If `trigger` is
      * `false`, a potential variable change trigger command will not be
      * invoked. The value is saved with builtin_var::save(), assuming
-     * `do_write` is `true`. After that, integer_var::set_raw_value()
+     * `do_write` is `true`. After that, builtin_var::set_raw_value()
      * is invoked, and then the trigger.
      *
      * @throw cubescript::error if read only or if the changed trigger throws.
@@ -211,13 +219,6 @@ struct LIBCUBESCRIPT_EXPORT integer_var: builtin_var {
     void set_value(
         state &cs, integer_type val, bool do_write = true, bool trigger = true
     );
-
-    /** @brief Set the value of the variable in a raw manner.
-     *
-     * This will always set the value and ignore any kinds of checks. It will
-     * not invoke any triggers either, nor it will save the the value.
-     */
-    void set_raw_value(integer_type val);
 
     /** @brief Call override for integer vars. */
     any_value call(span_type<any_value> args, state &cs);
@@ -237,7 +238,7 @@ struct LIBCUBESCRIPT_EXPORT float_var: builtin_var {
      * will be performed other than the read-only checking. If `trigger` is
      * `false`, a potential variable change trigger command will not be
      * invoked. The value is saved with builtin_var::save(), assuming
-     * `do_write` is `true`. After that, integer_var::set_raw_value()
+     * `do_write` is `true`. After that, builtin_var::set_raw_value()
      * is invoked, and then the trigger.
      *
      * @throw cubescript::error if read only or if the changed trigger throws.
@@ -245,13 +246,6 @@ struct LIBCUBESCRIPT_EXPORT float_var: builtin_var {
     void set_value(
         state &cs, float_type val, bool do_write = true, bool trigger = true
     );
-
-    /** @brief Set the value of the variable in a raw manner.
-     *
-     * This will always set the value and ignore any kinds of checks. It will
-     * not invoke any triggers either, nor it will save the the value.
-     */
-    void set_raw_value(float_type val);
 
     /** @brief Call override for float vars. */
     any_value call(span_type<any_value> args, state &cs);
@@ -271,7 +265,7 @@ struct LIBCUBESCRIPT_EXPORT string_var: builtin_var {
      * will be performed other than the read-only checking. If `trigger` is
      * `false`, a potential variable change trigger command will not be
      * invoked. The value is saved with builtin_var::save(), assuming
-     * `do_write` is `true`. After that, integer_var::set_raw_value()
+     * `do_write` is `true`. After that, builtin_var::set_raw_value()
      * is invoked, and then the trigger.
      *
      * @throw cubescript::error if read only or if the changed trigger throws.
@@ -279,13 +273,6 @@ struct LIBCUBESCRIPT_EXPORT string_var: builtin_var {
     void set_value(
         state &cs, string_ref val, bool do_write = true, bool trigger = true
     );
-
-    /** @brief Set the value of the variable in a raw manner.
-     *
-     * This will always set the value and ignore any kinds of checks. It will
-     * not invoke any triggers either, nor it will save the the value.
-     */
-    void set_raw_value(string_ref val);
 
     /** @brief Call override for string vars. */
     any_value call(span_type<any_value> args, state &cs);
