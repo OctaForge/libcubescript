@@ -220,9 +220,6 @@ struct LIBCUBESCRIPT_EXPORT integer_var: builtin_var {
         state &cs, integer_type val, bool do_write = true, bool trigger = true
     );
 
-    /** @brief Call override for integer vars. */
-    any_value call(span_type<any_value> args, state &cs);
-
 protected:
     integer_var() = default;
 };
@@ -247,9 +244,6 @@ struct LIBCUBESCRIPT_EXPORT float_var: builtin_var {
         state &cs, float_type val, bool do_write = true, bool trigger = true
     );
 
-    /** @brief Call override for float vars. */
-    any_value call(span_type<any_value> args, state &cs);
-
 protected:
     float_var() = default;
 };
@@ -273,9 +267,6 @@ struct LIBCUBESCRIPT_EXPORT string_var: builtin_var {
     void set_value(
         state &cs, string_ref val, bool do_write = true, bool trigger = true
     );
-
-    /** @brief Call override for string vars. */
-    any_value call(span_type<any_value> args, state &cs);
 
 protected:
     string_var() = default;

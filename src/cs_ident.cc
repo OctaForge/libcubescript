@@ -277,7 +277,36 @@ LIBCUBESCRIPT_EXPORT void builtin_var::save(state &cs) {
 LIBCUBESCRIPT_EXPORT any_value builtin_var::call(
     span_type<any_value> args, state &cs
 ) {
-    return ident::call(args, cs);
+    command *hid;
+    switch (static_cast<var_impl *>(p_impl)->p_storage.type()) {
+        case value_type::INTEGER:
+            hid = state_p{cs}.ts().istate->cmd_ivar;
+            break;
+        case value_type::FLOAT:
+            hid = state_p{cs}.ts().istate->cmd_fvar;
+            break;
+        case value_type::STRING:
+            hid = state_p{cs}.ts().istate->cmd_svar;
+            break;
+        default:
+            abort(); /* unreachable unless we have a bug */
+            break;
+    }
+    any_value ret{};
+    auto &ts = state_p{cs}.ts();
+    auto *cimp = static_cast<command_impl *>(hid);
+    auto &targs = ts.vmstack;
+    auto osz = targs.size();
+    auto anargs = std::size_t(cimp->arg_count());
+    auto nargs = args.size();
+    targs.resize(
+        osz + std::max(args.size(), anargs + 1)
+    );
+    for (std::size_t i = 0; i < nargs; ++i) {
+        targs[osz + i + 1] = args[i];
+    }
+    exec_command(ts, cimp, this, &targs[osz], ret, nargs + 1, false);
+    return ret;
 }
 
 LIBCUBESCRIPT_EXPORT any_value builtin_var::value() const {
@@ -325,32 +354,6 @@ LIBCUBESCRIPT_EXPORT void integer_var::set_value(
     }
 }
 
-inline any_value call_var(
-    ident &id, command *hid, span_type<any_value> &args, state &cs
-) {
-    any_value ret{};
-    auto &ts = state_p{cs}.ts();
-    auto *cimp = static_cast<command_impl *>(hid);
-    auto &targs = ts.vmstack;
-    auto osz = targs.size();
-    auto anargs = std::size_t(cimp->arg_count());
-    auto nargs = args.size();
-    targs.resize(
-        osz + std::max(args.size(), anargs + 1)
-    );
-    for (std::size_t i = 0; i < nargs; ++i) {
-        targs[osz + i + 1] = args[i];
-    }
-    exec_command(ts, cimp, &id, &targs[osz], ret, nargs + 1, false);
-    return ret;
-}
-
-LIBCUBESCRIPT_EXPORT any_value integer_var::call(
-    span_type<any_value> args, state &cs
-) {
-    return call_var(*this, state_p{cs}.ts().istate->cmd_ivar, args, cs);
-}
-
 LIBCUBESCRIPT_EXPORT void float_var::set_value(
     state &cs, float_type val, bool do_write, bool trigger
 ) {
@@ -372,12 +375,6 @@ LIBCUBESCRIPT_EXPORT void float_var::set_value(
     }
 }
 
-LIBCUBESCRIPT_EXPORT any_value float_var::call(
-    span_type<any_value> args, state &cs
-) {
-    return call_var(*this, state_p{cs}.ts().istate->cmd_fvar, args, cs);
-}
-
 LIBCUBESCRIPT_EXPORT void string_var::set_value(
     state &cs, string_ref val, bool do_write, bool trigger
 ) {
@@ -397,12 +394,6 @@ LIBCUBESCRIPT_EXPORT void string_var::set_value(
     if (trigger) {
         var_changed(state_p{cs}.ts(), this, oldv);
     }
-}
-
-LIBCUBESCRIPT_EXPORT any_value string_var::call(
-    span_type<any_value> args, state &cs
-) {
-    return call_var(*this, state_p{cs}.ts().istate->cmd_svar, args, cs);
 }
 
 LIBCUBESCRIPT_EXPORT any_value alias::value(state &cs) const {
