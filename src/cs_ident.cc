@@ -18,8 +18,8 @@ bool ident_is_callable(ident const *id) {
     return !!static_cast<command_impl const *>(id)->p_cb_cftv;
 }
 
-var_impl::var_impl(ident_type tp, string_ref name, int fl):
-    ident_impl{tp, name, fl}
+var_impl::var_impl(string_ref name, int fl):
+    ident_impl{ident_type::VAR, name, fl}
 {}
 
 alias_impl::alias_impl(
@@ -69,24 +69,16 @@ command_impl::command_impl(
     p_cargs{args}, p_cb_cftv{std::move(f)}, p_numargs{nargs}
 {}
 
-void var_changed(thread_state &ts, ident *id, any_value &oldval) {
+void var_changed(thread_state &ts, builtin_var &id, any_value &oldval) {
     auto *cid = ts.istate->cmd_var_changed;
     if (!cid) {
         return;
     }
     auto *cimp = static_cast<command_impl *>(cid);
     any_value val[3] = {};
-    val[0].set_ident(*id);
+    val[0].set_ident(id);
     val[1] = std::move(oldval);
-    switch (id->type()) {
-        case ident_type::IVAR:
-        case ident_type::FVAR:
-        case ident_type::SVAR:
-            val[2] = static_cast<builtin_var *>(id)->value();
-            break;
-        default:
-            return;
-    }
+    val[2] = id.value();
     cimp->call(ts, span_type<any_value>{
         static_cast<any_value *>(val), 3
     }, val[0]);
@@ -94,6 +86,21 @@ void var_changed(thread_state &ts, ident *id, any_value &oldval) {
 
 void var_impl::save_val() {
     p_override = std::move(p_storage);
+}
+
+command *var_impl::get_setter(thread_state &ts) const {
+    switch (p_storage.type()) {
+        case value_type::INTEGER:
+            return ts.istate->cmd_ivar;
+        case value_type::FLOAT:
+            return ts.istate->cmd_fvar;
+        case value_type::STRING:
+            return ts.istate->cmd_svar;
+        default:
+            break;
+    }
+    abort();
+    return nullptr; /* not reached */
 }
 
 void command_impl::call(
@@ -172,23 +179,9 @@ LIBCUBESCRIPT_EXPORT bool ident::operator!=(ident &other) const {
     return this != &other;
 }
 
-LIBCUBESCRIPT_EXPORT bool ident::is_var() const {
-    switch (type()) {
-        case ident_type::IVAR:
-        case ident_type::FVAR:
-        case ident_type::SVAR:
-            return true;
-        default:
-            break;
-    }
-    return false;
-}
-
 LIBCUBESCRIPT_EXPORT bool ident::is_overridden(state &cs) const {
     switch (type()) {
-        case ident_type::IVAR:
-        case ident_type::FVAR:
-        case ident_type::SVAR:
+        case ident_type::VAR:
             return (p_impl->p_flags & IDENT_FLAG_OVERRIDDEN);
         case ident_type::ALIAS:
             return (state_p{cs}.ts().get_astack(
@@ -202,9 +195,7 @@ LIBCUBESCRIPT_EXPORT bool ident::is_overridden(state &cs) const {
 
 LIBCUBESCRIPT_EXPORT bool ident::is_persistent(state &cs) const {
     switch (type()) {
-        case ident_type::IVAR:
-        case ident_type::FVAR:
-        case ident_type::SVAR:
+        case ident_type::VAR:
             return (p_impl->p_flags & IDENT_FLAG_PERSIST);
         case ident_type::ALIAS:
             return (state_p{cs}.ts().get_astack(
@@ -259,21 +250,7 @@ LIBCUBESCRIPT_EXPORT void builtin_var::save(state &cs) {
 LIBCUBESCRIPT_EXPORT any_value builtin_var::call(
     span_type<any_value> args, state &cs
 ) {
-    command *hid;
-    switch (static_cast<var_impl *>(p_impl)->p_storage.type()) {
-        case value_type::INTEGER:
-            hid = state_p{cs}.ts().istate->cmd_ivar;
-            break;
-        case value_type::FLOAT:
-            hid = state_p{cs}.ts().istate->cmd_fvar;
-            break;
-        case value_type::STRING:
-            hid = state_p{cs}.ts().istate->cmd_svar;
-            break;
-        default:
-            abort(); /* unreachable unless we have a bug */
-            break;
-    }
+    command *hid = static_cast<var_impl *>(this)->get_setter(state_p{cs}.ts());
     any_value ret{};
     auto &ts = state_p{cs}.ts();
     auto *cimp = static_cast<command_impl *>(hid);
@@ -330,7 +307,7 @@ LIBCUBESCRIPT_EXPORT void builtin_var::set_value(
     auto oldv = value();
     set_raw_value(cs, std::move(val));
     if (trigger) {
-        var_changed(state_p{cs}.ts(), this, oldv);
+        var_changed(state_p{cs}.ts(), *this, oldv);
     }
 }
 

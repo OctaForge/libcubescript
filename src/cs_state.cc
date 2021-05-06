@@ -349,13 +349,11 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
             ast.flags &= ~IDENT_FLAG_OVERRIDDEN;
             return;
         }
-        case ident_type::IVAR:
-        case ident_type::FVAR:
-        case ident_type::SVAR: {
+        case ident_type::VAR: {
             auto &v = static_cast<var_impl &>(id);
             any_value oldv = v.value();
             v.p_storage = std::move(v.p_override);
-            var_changed(*p_tstate, &id, oldv);
+            var_changed(*p_tstate, v, oldv);
             static_cast<var_impl *>(
                 static_cast<builtin_var *>(&v)
             )->p_flags &= ~IDENT_FLAG_OVERRIDDEN;
@@ -409,7 +407,7 @@ LIBCUBESCRIPT_EXPORT builtin_var &state::new_var(
     std::string_view n, integer_type v, bool read_only, var_type vtp
 ) {
     auto *iv = p_tstate->istate->create<var_impl>(
-        ident_type::IVAR, string_ref{*this, n},var_flags(read_only, vtp)
+        string_ref{*this, n},var_flags(read_only, vtp)
     );
     iv->p_storage.set_integer(v);
     try {
@@ -426,7 +424,7 @@ LIBCUBESCRIPT_EXPORT builtin_var &state::new_var(
     std::string_view n, float_type v, bool read_only, var_type vtp
 ) {
     auto *fv = p_tstate->istate->create<var_impl>(
-        ident_type::FVAR, string_ref{*this, n}, var_flags(read_only, vtp)
+        string_ref{*this, n}, var_flags(read_only, vtp)
     );
     fv->p_storage.set_float(v);
     try {
@@ -443,7 +441,7 @@ LIBCUBESCRIPT_EXPORT builtin_var &state::new_var(
     std::string_view n, std::string_view v, bool read_only, var_type vtp
 ) {
     auto *sv = p_tstate->istate->create<var_impl>(
-        ident_type::SVAR, string_ref{*this, n}, var_flags(read_only, vtp)
+        string_ref{*this, n}, var_flags(read_only, vtp)
     );
     sv->p_storage.set_string(v, *this);
     try {
@@ -470,9 +468,7 @@ LIBCUBESCRIPT_EXPORT void state::assign_value(
                 static_cast<alias &>(id->get()).set_value(*this, std::move(v));
                 return;
             }
-            case ident_type::IVAR:
-            case ident_type::FVAR:
-            case ident_type::SVAR:
+            case ident_type::VAR:
                 id->get().call(span_type<any_value>{&v, 1}, *this);
                 break;
             default:
@@ -514,9 +510,7 @@ LIBCUBESCRIPT_EXPORT any_value state::lookup_value(std::string_view name) {
                 }
                 return ast->node->val_s.get_plain();
             }
-            case ident_type::SVAR:
-            case ident_type::IVAR:
-            case ident_type::FVAR:
+            case ident_type::VAR:
                 return static_cast<builtin_var *>(id)->value();
             case ident_type::COMMAND: {
                 any_value val{};
@@ -545,7 +539,7 @@ LIBCUBESCRIPT_EXPORT void state::reset_value(std::string_view name) {
     if (!id) {
         throw error{*this, "variable '%s' does not exist", name.data()};
     }
-    if (id->get().is_var()) {
+    if (id->get().type() == ident_type::VAR) {
         if (static_cast<builtin_var &>(id->get()).is_read_only()) {
             throw error{*this, "variable '%s' is read only", name.data()};
         }
@@ -559,17 +553,12 @@ LIBCUBESCRIPT_EXPORT void state::touch_value(std::string_view name) {
         return;
     }
     auto &idr = id->get();
-    any_value v;
-    switch (idr.type()) {
-        case ident_type::IVAR:
-        case ident_type::FVAR:
-        case ident_type::SVAR:
-            v = static_cast<builtin_var &>(idr).value();
-            break;
-        default:
-            return;
+    if (idr.type() != ident_type::VAR) {
+        return;
     }
-    var_changed(*p_tstate, &idr, v);
+    auto &v = static_cast<builtin_var &>(idr);
+    auto vv = v.value();
+    var_changed(*p_tstate, v, vv);
 }
 
 static char const *allowed_builtins[] = {

@@ -23,9 +23,7 @@ namespace cubescript {
  * Cubescript has a selection of idents. This represents the type of each.
  */
 enum class ident_type {
-    IVAR = 0, /**< @brief Integer builtin variable. */
-    FVAR,     /**< @brief Float builtin variable. */
-    SVAR,     /**< @brief String builtin variable. */
+    VAR = 0,  /**< @brief Builtin variable. */
     COMMAND,  /**< @brief Builtin command. */
     ALIAS,    /**< @brief User assigned variable. */
     SPECIAL   /**< @brief Other (internal unexposed type). */
@@ -66,13 +64,6 @@ struct LIBCUBESCRIPT_EXPORT ident {
 
     /** @brief Check if the idents are not the same. */
     bool operator!=(ident &other) const;
-
-    /** @brief Check if the ident is a cubescript::builtin_var.
-     *
-     * This will return `true` if ident::type() returns either
-     * ident_type::IVAR, ident_type::FVAR or ident_type::SVAR.
-     */
-    bool is_var() const;
 
     /** @brief Get if the ident is overridden.
      *

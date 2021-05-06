@@ -847,40 +847,10 @@ noid:
                         cleanup();
                         return code;
                     }
-                    case ID_IVAR: {
-                        auto *hid = ts.istate->cmd_ivar;
-                        auto *cimp = static_cast<command_impl *>(hid);
-                        /* the $ argument */
-                        args.insert(offset, any_value{});
-                        args.resize(offset + std::max(
-                            std::size_t(cimp->arg_count()), callargs
-                        ));
-                        exec_command(
-                            ts, cimp, &id->get(), &args[offset],
-                            result, callargs
-                        );
-                        force_arg(cs, result, op & BC_INST_RET_MASK);
-                        args.resize(offset - 1);
-                        continue;
-                    }
-                    case ID_FVAR: {
-                        auto *hid = ts.istate->cmd_fvar;
-                        auto *cimp = static_cast<command_impl *>(hid);
-                        /* the $ argument */
-                        args.insert(offset, any_value{});
-                        args.resize(offset + std::max(
-                            std::size_t(cimp->arg_count()), callargs
-                        ));
-                        exec_command(
-                            ts, cimp, &id->get(), &args[offset],
-                            result, callargs
-                        );
-                        force_arg(cs, result, op & BC_INST_RET_MASK);
-                        args.resize(offset - 1);
-                        continue;
-                    }
-                    case ID_SVAR: {
-                        auto *hid = ts.istate->cmd_svar;
+                    case ID_VAR: {
+                        auto *hid = static_cast<var_impl &>(
+                            id->get()
+                        ).get_setter(ts);
                         auto *cimp = static_cast<command_impl *>(hid);
                         /* the $ argument */
                         args.insert(offset, any_value{});

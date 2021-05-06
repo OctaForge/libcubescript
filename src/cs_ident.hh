@@ -11,7 +11,7 @@ static constexpr std::size_t MAX_ARGUMENTS = 32;
 using argset = std::bitset<MAX_ARGUMENTS>;
 
 enum {
-    ID_UNKNOWN = -1, ID_IVAR, ID_FVAR, ID_SVAR, ID_COMMAND, ID_ALIAS,
+    ID_UNKNOWN = -1, ID_VAR, ID_COMMAND, ID_ALIAS,
     ID_LOCAL, ID_DO, ID_DOARGS, ID_IF, ID_BREAK, ID_CONTINUE, ID_RESULT,
     ID_NOT, ID_AND, ID_OR
 };
@@ -74,17 +74,17 @@ struct ident_impl {
 bool ident_is_callable(ident const *id);
 
 struct var_impl: ident_impl, builtin_var {
-    var_impl(ident_type tp, string_ref name, int flags);
+    var_impl(string_ref name, int flags);
 
     void save_val();
 
-    void changed(thread_state &ts);
+    command *get_setter(thread_state &ts) const;
 
     any_value p_storage{};
     any_value p_override{};
 };
 
-void var_changed(thread_state &ts, ident *id, any_value &oldval);
+void var_changed(thread_state &ts, builtin_var &id, any_value &oldval);
 
 struct alias_impl: ident_impl, alias {
     alias_impl(state &cs, string_ref n, string_ref a, int flags);

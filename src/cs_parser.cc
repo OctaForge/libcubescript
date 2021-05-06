@@ -480,31 +480,18 @@ lookup_id:
         *ts.pstate, lookup.str_term(), IDENT_FLAG_UNKNOWN
     );
     switch (id.type()) {
-        case ident_type::IVAR:
-        case ident_type::FVAR:
+        case ident_type::VAR: {
             if (ltype == VAL_POP) {
                 return;
             }
             gs.gen_lookup_var(id, ltype);
-            switch (ltype) {
-                case VAL_CODE:
-                case VAL_IDENT:
-                    lookup_done(gs, ltype);
-                    break;
-                default:
-                    break;
-            }
-            return;
-        case ident_type::SVAR:
-            switch (ltype) {
-                case VAL_POP:
-                    return;
-                default:
-                    gs.gen_lookup_var(id, ltype);
-                    break;
+            auto vt = static_cast<var_impl &>(id).p_storage.type();
+            if ((vt != value_type::STRING) && (ltype == VAL_COND)) {
+                return;
             }
             lookup_done(gs, ltype);
             return;
+        }
         case ident_type::ALIAS:
             switch (ltype) {
                 case VAL_POP:
@@ -591,9 +578,7 @@ lookup_id:
         *ts.pstate, lookup.str_term(), IDENT_FLAG_UNKNOWN
     );
     switch (id.type()) {
-        case ident_type::IVAR:
-        case ident_type::FVAR:
-        case ident_type::SVAR:
+        case ident_type::VAR:
             gs.gen_lookup_var(id);
             return true;
         case ident_type::ALIAS:
@@ -1202,24 +1187,10 @@ bool parser_state::parse_call_id(ident &id, int ltype) {
         case ID_AND:
         case ID_OR:
             return parse_id_and_or(id, ltype);
-        case ID_IVAR: {
-            auto *hid = ts.istate->cmd_ivar;
-            return parse_call_command(
-                static_cast<command_impl *>(hid), id, ltype
-            );
-        }
-        case ID_FVAR: {
-            auto *hid = ts.istate->cmd_fvar;
-            return parse_call_command(
-                static_cast<command_impl *>(hid), id, ltype
-            );
-        }
-        case ID_SVAR: {
-            auto *hid = ts.istate->cmd_svar;
-            return parse_call_command(
-                static_cast<command_impl *>(hid), id, ltype
-            );
-        }
+        case ID_VAR:
+            return parse_call_command(static_cast<command_impl *>(
+                static_cast<var_impl &>(id).get_setter(ts)
+            ), id, ltype);
         default:
             /* unreachable */
             break;
@@ -1330,22 +1301,10 @@ bool parser_state::parse_assign(
                         gs.gen_assign_alias(id);
                         return finish_statement(*this, more, term);
                     }
-                    case ident_type::IVAR: {
-                        auto *hid = ts.istate->cmd_ivar;
-                        bool more = parse_assign_var(
-                            *this, static_cast<command_impl *>(hid), id, ltype
-                        );
-                        return finish_statement(*this, more, term);
-                    }
-                    case ident_type::FVAR: {
-                        auto *hid = ts.istate->cmd_fvar;
-                        bool more = parse_assign_var(
-                            *this, static_cast<command_impl *>(hid), id, ltype
-                        );
-                        return finish_statement(*this, more, term);
-                    }
-                    case ident_type::SVAR: {
-                        auto *hid = ts.istate->cmd_svar;
+                    case ident_type::VAR: {
+                        command *hid = static_cast<var_impl &>(
+                            id
+                        ).get_setter(ts);
                         bool more = parse_assign_var(
                             *this, static_cast<command_impl *>(hid), id, ltype
                         );
