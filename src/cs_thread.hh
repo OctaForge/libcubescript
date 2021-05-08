@@ -36,7 +36,7 @@ struct thread_state {
     /* thread ident flags */
     int ident_flags = 0;
     /* call depth limit */
-    std::size_t max_call_depth = 0;
+    std::size_t max_call_depth = 1024;
     /* current call depth */
     std::size_t call_depth = 0;
     /* loop nesting level */

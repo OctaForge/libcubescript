@@ -420,13 +420,13 @@ struct LIBCUBESCRIPT_EXPORT state {
     /** @brief Get the maximum call depth of the VM
      *
      * If zero, it is unlimited, otherwise it specifies how much the VM is
-     * allowed to recurse. By default, it is zero.
+     * allowed to recurse. By default, it is 1024.
      */
     std::size_t max_call_depth() const;
 
     /** @brief Set the maximum call depth ov the VM
      *
-     * If zero, it is unlimited (this is the default). You can limit how much
+     * If zero, it is unlimited (the default is 1024). You can limit how much
      * the VM is allowed to recurse if you have specific constraints to adhere
      * to.
      *
