@@ -536,7 +536,13 @@ struct LIBCUBESCRIPT_EXPORT any_value {
     ident &force_ident(state &cs);
 
 private:
-    std::aligned_union_t<1, integer_type, float_type, void *> p_stor;
+    union {
+        integer_type i;
+        float_type f;
+        char const *s;
+        struct bcode *b;
+        ident *v;
+    } p_stor;
     value_type p_type;
 };
 
