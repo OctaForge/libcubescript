@@ -5,6 +5,7 @@
 #include "cs_std.hh"
 #include "cs_ident.hh"
 #include "cs_thread.hh"
+#include "cs_error.hh"
 
 namespace cubescript {
 
@@ -72,10 +73,10 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         auto &cret = args[1].get_ident(cs);
         auto &css = args[2].get_ident(cs);
         if (cret.type() != ident_type::ALIAS) {
-            throw error{cs, "'%s' is not an alias", cret.name().data()};
+            throw error_p::make(cs, "'%s' is not an alias", cret.name().data());
         }
         if (css.type() != ident_type::ALIAS) {
-            throw error{cs, "'%s' is not an alias", css.name().data()};
+            throw error_p::make(cs, "'%s' is not an alias", css.name().data());
         }
         any_value result{}, tback{};
         bool rc = true;
@@ -96,6 +97,25 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         auto *ssa = static_cast<alias *>(&css);
         ts.get_astack(reta).set_alias(reta, ts, result);
         ts.get_astack(ssa).set_alias(ssa, ts, tback);
+    });
+
+    new_cmd_quiet(gcs, "assert", "ss#", [](auto &s, auto args, auto &ret) {
+        auto val = args[0];
+        val.force_code(s);
+        if (!val.get_code().call(s).get_bool()) {
+            if (args[2].get_integer() > 1) {
+                throw error_p::make(
+                    s, "assertion failed: [%s] (%s)",
+                    args[0].get_string(s).data(), args[1].get_string(s).data()
+                );
+            } else {
+                throw error_p::make(
+                    s, "assertion failed: [%s]",
+                    args[0].get_string(s).data()
+                );
+            }
+        }
+        ret = std::move(args[0]);
     });
 
     new_cmd_quiet(gcs, "?", "aaa", [](auto &, auto args, auto &res) {
@@ -343,7 +363,7 @@ end:
     new_cmd_quiet(gcs, "getalias", "s", [](auto &cs, auto args, auto &res) {
         auto &id = cs.new_ident(args[0].get_string(cs));
         if (id.type() != ident_type::ALIAS) {
-            throw error{cs, "'%s' is not an alias", id.name().data()};
+            throw error_p::make(cs, "'%s' is not an alias", id.name().data());
         }
         if (ident_p{id}.impl().p_flags & IDENT_FLAG_UNKNOWN) {
             return;

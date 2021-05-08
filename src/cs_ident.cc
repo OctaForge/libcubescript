@@ -3,6 +3,7 @@
 #include "cs_bcode.hh"
 #include "cs_thread.hh"
 #include "cs_vm.hh"
+#include "cs_error.hh"
 
 namespace cubescript {
 
@@ -229,10 +230,10 @@ LIBCUBESCRIPT_EXPORT void builtin_var::save(state &cs) {
     auto &ts = state_p{cs}.ts();
     if ((ts.ident_flags & IDENT_FLAG_OVERRIDDEN) || is_overridable()) {
         if (p_impl->p_flags & IDENT_FLAG_PERSIST) {
-            throw error{
+            throw error_p::make(
                 cs, "cannot override persistent variable '%s'",
                 name().data()
-            };
+            );
         }
         if (!(p_impl->p_flags & IDENT_FLAG_OVERRIDDEN)) {
             auto *imp = static_cast<var_impl *>(p_impl);
@@ -293,9 +294,9 @@ LIBCUBESCRIPT_EXPORT void builtin_var::set_value(
     state &cs, any_value val, bool do_write, bool trigger
 ) {
     if (is_read_only()) {
-        throw error{
+        throw error_p::make(
             cs, "variable '%s' is read only", name().data()
-        };
+        );
     }
     if (!do_write) {
         return;
@@ -375,7 +376,7 @@ LIBCUBESCRIPT_EXPORT any_value command::call(
 
 LIBCUBESCRIPT_EXPORT alias_local::alias_local(state &cs, ident &a) {
     if (a.type() != ident_type::ALIAS) {
-        throw error{cs, "ident '%s' is not an alias", a.name().data()};
+        throw error_p::make(cs, "ident '%s' is not an alias", a.name().data());
     }
     auto &ts = state_p{cs}.ts();
     p_alias = static_cast<alias *>(&a);

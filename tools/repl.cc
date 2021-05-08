@@ -360,9 +360,11 @@ int main(int argc, char **argv) {
         cs::any_value val{};
         bool ret = do_exec_file(css, file, val);
         if (!ret) {
-            throw cs::error(
-                css, "could not execute file \"%s\"", file.data()
+            char buf[4096];
+            std::snprintf(
+                buf, sizeof(buf), "could not execute file \"%s\"", file.data()
             );
+            throw cs::error(css, buf);
         }
     });
 

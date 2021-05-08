@@ -10,6 +10,7 @@
 #ifndef LIBCUBESCRIPT_CUBESCRIPT_CALLABLE_HH
 #define LIBCUBESCRIPT_CUBESCRIPT_CALLABLE_HH
 
+#include <cstring>
 #include <cstddef>
 #include <utility>
 #include <type_traits>

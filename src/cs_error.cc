@@ -4,6 +4,7 @@
 #include <algorithm>
 
 #include "cs_thread.hh"
+#include "cs_error.hh"
 
 namespace cubescript {
 
@@ -44,46 +45,7 @@ LIBCUBESCRIPT_EXPORT bool stack_state::gap() const {
     return p_gap;
 }
 
-LIBCUBESCRIPT_EXPORT char *error::request_buf(
-    state &cs, std::size_t bufs, char *&sp
-) {
-    auto &ts = state_p{cs}.ts();
-    charbuf &cb = ts.errbuf;
-    cb.clear();
-    std::size_t sz = 0;
-    if (ts.current_line) {
-        /* we can attach line number */
-        sz = ts.source.size() + 32;
-        for (;;) {
-            /* we are using so the buffer tracks the elements and therefore
-             * does not wipe them when we attempt to reserve more capacity
-             */
-            cb.resize(sz);
-            int nsz;
-            if (!ts.source.empty()) {
-                nsz = std::snprintf(
-                    cb.data(), sz, "%.*s:%zu: ",
-                    int(ts.source.size()), ts.source.data(),
-                    *ts.current_line
-                );
-            } else {
-                nsz = std::snprintf(cb.data(), sz, "%zu: ", *ts.current_line);
-            }
-            if (nsz <= 0) {
-                abort(); /* should be unreachable */
-            } else if (std::size_t(nsz) < sz) {
-                sz = std::size_t(nsz);
-                break;
-            }
-            sz = std::size_t(nsz + 1);
-        }
-    }
-    cb.resize(sz + bufs + 1);
-    sp = cb.data();
-    return &cb[sz];
-}
-
-LIBCUBESCRIPT_EXPORT stack_state error::save_stack(state &cs) {
+static stack_state save_stack(state &cs) {
     auto &ts = state_p{cs}.ts();
     builtin_var *dalias = ts.istate->ivar_dbgalias;
     auto dval = std::clamp(
@@ -122,6 +84,24 @@ LIBCUBESCRIPT_EXPORT stack_state error::save_stack(state &cs) {
         }
     }
     return stack_state{cs, ret, total > dval};
+}
+
+LIBCUBESCRIPT_EXPORT error::error(state &cs, std::string_view msg):
+    p_errbeg{}, p_errend{}, p_stack{cs}
+{
+    char *sp;
+    char *buf = state_p{cs}.ts().request_errbuf(msg.size(), sp);
+    std::memcpy(buf, msg.data(), msg.size());
+    buf[msg.size()] = '\0';
+    p_errbeg = sp;
+    p_errend = buf + msg.size();
+    p_stack = save_stack(cs);
+}
+
+LIBCUBESCRIPT_EXPORT error::error(
+    state &cs, char const *errbeg, char const *errend
+): p_errbeg{errbeg}, p_errend{errend}, p_stack{cs} {
+    p_stack = save_stack(cs);
 }
 
 } /* namespace cubescript */

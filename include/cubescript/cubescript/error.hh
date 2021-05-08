@@ -13,8 +13,6 @@
 #include <string_view>
 #include <stdexcept>
 #include <utility>
-#include <cstdlib>
-#include <cstring>
 
 namespace cubescript {
 
@@ -108,6 +106,9 @@ struct LIBCUBESCRIPT_EXPORT error {
         p_stack{std::move(v.p_stack)}
     {}
 
+    /** @brief Construct an error using a string. */
+    error(state &cs, std::string_view msg);
+
     /** @brief Get a view of the error message. */
     std::string_view what() const {
         return std::string_view{p_errbeg, std::size_t(p_errend - p_errbeg)};
@@ -122,45 +123,10 @@ struct LIBCUBESCRIPT_EXPORT error {
     stack_state const &stack() const {
         return p_stack;
     }
-
-    /** @brief Construct an error using an unformatted string. */
-    error(state &cs, std::string_view msg):
-        p_errbeg{}, p_errend{}, p_stack{cs}
-    {
-        char *sp;
-        char *buf = request_buf(cs, msg.size(), sp);
-        std::memcpy(buf, msg.data(), msg.size());
-        buf[msg.size()] = '\0';
-        p_errbeg = sp;
-        p_errend = buf + msg.size();
-        p_stack = save_stack(cs);
-    }
-
-    /** @brief Construct an error using a `printf`-style format string. */
-    template<typename ...A>
-    error(state &cs, std::string_view msg, A const &...args):
-        p_errbeg{}, p_errend{}, p_stack{cs}
-    {
-        std::size_t sz = msg.size() + 64;
-        char *buf, *sp;
-        for (;;) {
-            buf = request_buf(cs, sz, sp);
-            int written = std::snprintf(buf, sz, msg.data(), args...);
-            if (written <= 0) {
-                throw error{cs, "malformed format string"};
-            } else if (std::size_t(written) <= sz) {
-                break;
-            }
-            sz = std::size_t(written);
-        }
-        p_errbeg = sp;
-        p_errend = buf + sz;
-        p_stack = save_stack(cs);
-    }
-
 private:
-    stack_state save_stack(state &cs);
-    char *request_buf(state &cs, std::size_t bufs, char *&sp);
+    friend struct error_p;
+
+    error(state &cs, char const *errbeg, char const *errend);
 
     char const *p_errbeg, *p_errend;
     stack_state p_stack;

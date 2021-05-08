@@ -53,6 +53,8 @@ struct thread_state {
     hook_func const &get_hook() const { return call_hook; }
 
     alias_stack &get_astack(alias const *a);
+
+    char *request_errbuf(std::size_t bufs, char *&sp);
 };
 
 } /* namespace cubescript */

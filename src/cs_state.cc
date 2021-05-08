@@ -8,6 +8,7 @@
 #include "cs_strman.hh"
 #include "cs_vm.hh" // break/continue, call_with_args
 #include "cs_parser.hh"
+#include "cs_error.hh"
 
 namespace cubescript {
 
@@ -58,9 +59,9 @@ ident &internal_state::new_ident(state &cs, std::string_view name, int flags) {
     ident *id = get_ident(name);
     if (!id) {
         if (!is_valid_name(name)) {
-            throw error{
+            throw error_p::make(
                 cs, "'%s' is not a valid identifier name", name.data()
-            };
+            );
         }
         auto *inst = create<alias_impl>(
             cs, string_ref{cs, name}, flags
@@ -392,14 +393,14 @@ static void var_name_check(
     state &cs, ident *id, std::string_view n
 ) {
     if (id) {
-        throw error{
+        throw error_p::make(
             cs, "redefinition of ident '%.*s'", int(n.size()), n.data()
-        };
+        );
     } else if (!is_valid_name(n)) {
-        throw error{
+        throw error_p::make(
             cs, "'%.*s' is not a valid variable name",
             int(n.size()), n.data()
-        };
+        );
     }
 }
 
@@ -472,13 +473,15 @@ LIBCUBESCRIPT_EXPORT void state::assign_value(
                 id->get().call(span_type<any_value>{&v, 1}, *this);
                 break;
             default:
-                throw error{
+                throw error_p::make(
                     *this, "cannot redefine builtin %s with an alias",
                     id->get().name().data()
-                };
+                );
         }
     } else if (!is_valid_name(name)) {
-        throw error{*this, "cannot alias invalid name '%s'", name.data()};
+        throw error_p::make(
+            *this, "cannot alias invalid name '%s'", name.data()
+        );
     } else {
         auto *a = p_tstate->istate->create<alias_impl>(
             *this, string_ref{*this, name}, std::move(v),
@@ -531,17 +534,21 @@ LIBCUBESCRIPT_EXPORT any_value state::lookup_value(std::string_view name) {
                 return any_value{};
         }
     }
-    throw error{*this, "unknown alias lookup: %s", name.data()};
+    throw error_p::make(*this, "unknown alias lookup: %s", name.data());
 }
 
 LIBCUBESCRIPT_EXPORT void state::reset_value(std::string_view name) {
     auto id = get_ident(name);
     if (!id) {
-        throw error{*this, "variable '%s' does not exist", name.data()};
+        throw error_p::make(
+            *this, "variable '%s' does not exist", name.data()
+        );
     }
     if (id->get().type() == ident_type::VAR) {
         if (static_cast<builtin_var &>(id->get()).is_read_only()) {
-            throw error{*this, "variable '%s' is read only", name.data()};
+            throw error_p::make(
+                *this, "variable '%s' is read only", name.data()
+            );
         }
     }
     clear_override(id->get());
@@ -619,9 +626,9 @@ LIBCUBESCRIPT_EXPORT command &state::new_command(
                 fmt += 2;
                 break;
             default:
-                throw error{
+                throw error_p::make(
                     *this, "invalid argument type: %c", *fmt
-                };
+                );
         }
     }
     auto &is = *p_tstate->istate;
@@ -653,18 +660,18 @@ LIBCUBESCRIPT_EXPORT command &state::new_command(
         }
         /* we haven't found one matching the list, so error */
         is.destroy(cmd);
-        throw error{
+        throw error_p::make(
             *this, "forbidden builtin command: %.*s",
             int(name.size()), name.data()
-        };
+        );
     }
 valid:
     if (is.get_ident(name)) {
         is.destroy(cmd);
-        throw error{
+        throw error_p::make(
             *this, "redefinition of ident '%.*s'",
             int(name.size()), name.data()
-        };
+        );
     }
 do_add:
     is.add_ident(cmd, cmd);

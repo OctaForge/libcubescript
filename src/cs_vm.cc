@@ -2,6 +2,7 @@
 #include "cs_vm.hh"
 #include "cs_std.hh"
 #include "cs_parser.hh"
+#include "cs_error.hh"
 
 #include <cstdio>
 #include <cmath>
@@ -149,9 +150,9 @@ bool exec_alias(
             return false;
         }
     } else if (aast.flags & IDENT_FLAG_UNKNOWN) {
-        throw error {
+        throw error_p::make(
             *ts.pstate, "unknown command: %s", a->name().data()
-        };
+        );
     }
     /* excess arguments get ignored (make error maybe?) */
     callargs = std::min(callargs, MAX_ARGUMENTS);
@@ -237,9 +238,9 @@ static inline alias *get_lookup_id(
     } else {
         ast = &ts.get_astack(static_cast<alias *>(id));
         if (ast->flags & IDENT_FLAG_UNKNOWN) {
-            throw error{
+            throw error_p::make(
                 *ts.pstate, "unknown alias lookup: %s", id->name().data()
-            };
+            );
         }
     }
     return static_cast<alias *>(id);
@@ -799,9 +800,9 @@ noid:
                     result.force_none();
                     force_arg(cs, result, op & BC_INST_RET_MASK);
                     std::string_view ids{idn};
-                    throw error{
+                    throw error_p::make(
                         cs, "unknown command: %s", ids.data()
-                    };
+                    );
                 }
                 result.force_none();
                 switch (ident_p{id->get()}.impl().p_type) {

@@ -1,5 +1,7 @@
 #include "cs_thread.hh"
 
+#include <cstdio>
+
 namespace cubescript {
 
 thread_state::thread_state(internal_state *cs):
@@ -25,6 +27,43 @@ alias_stack &thread_state::get_astack(alias const *a) {
         it.first->second.flags = imp->p_flags;
     }
     return it.first->second;
+}
+
+char *thread_state::request_errbuf(std::size_t bufs, char *&sp) {
+    errbuf.clear();
+    std::size_t sz = 0;
+    if (current_line) {
+        /* we can attach line number */
+        sz = source.size() + 32;
+        for (;;) {
+            /* we are using so the buffer tracks the elements and therefore
+             * does not wipe them when we attempt to reserve more capacity
+             */
+            errbuf.resize(sz);
+            int nsz;
+            if (!source.empty()) {
+                nsz = std::snprintf(
+                    errbuf.data(), sz, "%.*s:%zu: ",
+                    int(source.size()), source.data(),
+                    *current_line
+                );
+            } else {
+                nsz = std::snprintf(
+                    errbuf.data(), sz, "%zu: ", *current_line
+                );
+            }
+            if (nsz <= 0) {
+                abort(); /* should be unreachable */
+            } else if (std::size_t(nsz) < sz) {
+                sz = std::size_t(nsz);
+                break;
+            }
+            sz = std::size_t(nsz + 1);
+        }
+    }
+    errbuf.resize(sz + bufs + 1);
+    sp = errbuf.data();
+    return &errbuf[sz];
 }
 
 } /* namespace cubescript */

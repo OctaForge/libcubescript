@@ -6,6 +6,7 @@
 #include <iterator>
 
 #include "cs_parser.hh"
+#include "cs_error.hh"
 
 namespace cubescript {
 
@@ -56,9 +57,9 @@ LIBCUBESCRIPT_EXPORT char const *parse_string(
 end:
     nlines = nl;
     if ((beg == end) || (*beg != '\"')) {
-        throw error{
+        throw error_p::make(
             cs, "unfinished string '%.*s'", int(beg - orig), orig
-        };
+        );
     }
     return ++beg;
 }
@@ -1116,7 +1117,9 @@ static bool finish_statement(parser_state &ps, bool more, int term) {
         /* EOS */
         case '\0':
             if (ps.current() != term) {
-                throw error{*ps.ts.pstate, "missing \"%c\"", char(term)};
+                throw error_p::make(
+                    *ps.ts.pstate, "missing \"%c\"", char(term)
+                );
             }
             return false;
         /* terminating parens/brackets */
@@ -1127,7 +1130,9 @@ static bool finish_statement(parser_state &ps, bool more, int term) {
                 ps.next_char();
                 return false;
             }
-            throw error{*ps.ts.pstate, "unexpected \"%c\"", ps.current()};
+            throw error_p::make(
+                *ps.ts.pstate, "unexpected \"%c\"", ps.current()
+            );
         /* potential comment */
         case '/':
             ps.next_char();

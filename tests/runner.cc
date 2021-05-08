@@ -58,26 +58,6 @@ int main(int argc, char **argv) {
         throw skip_test{};
     });
 
-    /* takes a string so we can print it */
-    gcs.new_command("assert", "ss#", [](auto &s, auto args, auto &ret) {
-        auto val = args[0];
-        val.force_code(s);
-        if (!val.get_code().call(s).get_bool()) {
-            if (args[2].get_integer() > 1) {
-                throw cs::error{
-                    s, "assertion failed: [%s] (%s)",
-                    args[0].get_string(s).data(), args[1].get_string(s).data()
-                };
-            } else {
-                throw cs::error{
-                    s, "assertion failed: [%s]",
-                    args[0].get_string(s).data()
-                };
-            }
-        }
-        ret = std::move(args[0]);
-    });
-
     try {
         do_exec_file(gcs, argv[1]);
     } catch (skip_test) {
