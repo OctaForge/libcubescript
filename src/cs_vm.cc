@@ -172,7 +172,7 @@ bool exec_alias(
     auto oldflags = ts.ident_flags;
     ts.ident_flags = aast.flags;
     any_value cv;
-    cv.set_integer(callargs);
+    cv.set_integer(integer_type(callargs));
     anargs->set_raw_value(*ts.pstate, std::move(cv));
     ident_link aliaslink = {a, ts.callstack, uargs};
     ts.callstack = &aliaslink;

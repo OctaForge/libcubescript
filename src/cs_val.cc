@@ -349,7 +349,7 @@ float_type any_value::get_float() const {
         case value_type::FLOAT:
             return p_stor.f;
         case value_type::INTEGER:
-            return p_stor.i;
+            return float_type(p_stor.i);
         case value_type::STRING:
             return parse_float(str_managed_view(p_stor.s));
         default:
