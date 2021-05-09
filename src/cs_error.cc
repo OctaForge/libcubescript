@@ -9,16 +9,15 @@
 namespace cubescript {
 
 LIBCUBESCRIPT_EXPORT stack_state::stack_state(
-    state &cs, node *nd, bool gap
+    state &cs, node *nd
 ):
-    p_state{cs}, p_node{nd}, p_gap{gap}
+    p_state{cs}, p_node{nd}
 {}
 
 LIBCUBESCRIPT_EXPORT stack_state::stack_state(stack_state &&st):
-    p_state{st.p_state}, p_node{st.p_node}, p_gap{st.p_gap}
+    p_state{st.p_state}, p_node{st.p_node}
 {
     st.p_node = nullptr;
-    st.p_gap = false;
 }
 
 LIBCUBESCRIPT_EXPORT stack_state::~stack_state() {
@@ -31,18 +30,12 @@ LIBCUBESCRIPT_EXPORT stack_state::~stack_state() {
 
 LIBCUBESCRIPT_EXPORT stack_state &stack_state::operator=(stack_state &&st) {
     p_node = st.p_node;
-    p_gap = st.p_gap;
     st.p_node = nullptr;
-    st.p_gap = false;
     return *this;
 }
 
 LIBCUBESCRIPT_EXPORT stack_state::node const *stack_state::get() const {
     return p_node;
-}
-
-LIBCUBESCRIPT_EXPORT bool stack_state::gap() const {
-    return p_gap;
 }
 
 static stack_state save_stack(state &cs) {
@@ -52,14 +45,14 @@ static stack_state save_stack(state &cs) {
         dalias->value().get_integer(), integer_type(0), integer_type(1000)
     );
     if (!dval) {
-        return stack_state{cs, nullptr, !!ts.callstack};
+        return stack_state{cs, nullptr};
     }
     int total = 0, depth = 0;
     for (ident_link *l = ts.callstack; l; l = l->next) {
         total++;
     }
     if (!total) {
-        return stack_state{cs, nullptr, false};
+        return stack_state{cs, nullptr};
     }
     stack_state::node *st = ts.istate->create_array<stack_state::node>(
         std::min(total, dval)
@@ -83,7 +76,7 @@ static stack_state save_stack(state &cs) {
             nd->next = nullptr;
         }
     }
-    return stack_state{cs, ret, total > dval};
+    return stack_state{cs, ret};
 }
 
 LIBCUBESCRIPT_EXPORT error::error(state &cs, std::string_view msg):

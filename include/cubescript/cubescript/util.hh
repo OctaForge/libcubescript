@@ -296,15 +296,17 @@ template<typename R>
 inline R print_stack(R writer, stack_state const &st) {
     char buf[32] = {0};
     auto nd = st.get();
+    std::size_t pindex = 1;
     while (nd) {
         auto name = nd->id->name();
         *writer++ = ' ';
         *writer++ = ' ';
-        if ((nd->index == 1) && st.gap()) {
+        if ((nd->index == 1) && (pindex > 2)) {
             *writer++ = '.';
             *writer++ = '.';
         }
-        snprintf(buf, sizeof(buf), "%d", nd->index);
+        pindex = nd->index;
+        snprintf(buf, sizeof(buf), "%zu", nd->index);
         char const *p = buf;
         std::copy(p, p + strlen(p), writer);
         *writer++ = ')';

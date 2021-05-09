@@ -38,13 +38,13 @@ struct LIBCUBESCRIPT_EXPORT stack_state {
     struct node {
         node const *next; /**< @brief Next level. */
         struct ident const *id; /**< @brief The ident of this level. */
-        int index; /**< @brief The level index. */
+        std::size_t index; /**< @brief The level index. */
     };
 
     stack_state() = delete;
 
     /** @brief Construct the stack state. */
-    stack_state(state &cs, node *nd = nullptr, bool gap = false);
+    stack_state(state &cs, node *nd = nullptr);
 
     stack_state(stack_state const &) = delete;
 
@@ -68,18 +68,9 @@ struct LIBCUBESCRIPT_EXPORT stack_state {
     /** @brief Get the pointer to the topmost (current) level. */
     node const *get() const;
 
-    /** @brief Get whether the stack is incomplete.
-     *
-     * A value of `true` means the call stack has a gap in it, i.e. the
-     * bottommost node has index 1 while the node just above it has index
-     * greater than 2.
-     */
-    bool gap() const;
-
 private:
     state &p_state;
     node *p_node;
-    bool p_gap;
 };
 
 /** @brief Represents a Cubescript error.
