@@ -69,34 +69,42 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
         throw error{cs, args[0].get_string(cs)};
     });
 
-    new_cmd_quiet(gcs, "pcall", "bvv", [](auto &cs, auto args, auto &ret) {
+    new_cmd_quiet(gcs, "pcall", "bvvvb", [](auto &cs, auto args, auto &ret) {
+        auto &ts = state_p{cs}.ts();
         auto &cret = args[1].get_ident(cs);
-        auto &css = args[2].get_ident(cs);
         if (cret.type() != ident_type::ALIAS) {
             throw error_p::make(cs, "'%s' is not an alias", cret.name().data());
         }
-        if (css.type() != ident_type::ALIAS) {
-            throw error_p::make(cs, "'%s' is not an alias", css.name().data());
-        }
-        any_value result{}, tback{};
-        bool rc = true;
+        auto *ra = static_cast<alias *>(&cret);
+        any_value result{};
         try {
             result = args[0].get_code().call(cs);
         } catch (error const &e) {
-            result.set_string(e.what(), cs);
-            if (e.stack()) {
-                charbuf buf{cs};
-                print_stack(std::back_inserter(buf), e.stack());
-                tback.set_string(buf.str(), cs);
+            auto val = any_value{e.what(), cs};
+            auto tb = any_value{};
+            val.set_string(e.what(), cs);
+            ts.get_astack(ra).set_alias(ra, ts, val);
+            if (auto *snd = e.stack(); snd) {
+                auto bc = args[4].get_code();
+                if (!bc.empty()) {
+                    alias_local ist{cs, args[2].get_ident(cs)};
+                    alias_local vst{cs, args[3].get_ident(cs)};
+                    any_value idv{};
+                    while (snd) {
+                        idv.set_integer(integer_type(snd->index));
+                        ist.set(idv);
+                        idv.set_string(snd->id->name().data(), cs);
+                        vst.set(idv);
+                        bc.call(cs);
+                        snd = snd->next;
+                    }
+                }
             }
-            rc = false;
+            ret.set_integer(0);
+            return;
         }
-        ret.set_integer(rc);
-        auto &ts = state_p{cs}.ts();
-        auto *reta = static_cast<alias *>(&cret);
-        auto *ssa = static_cast<alias *>(&css);
-        ts.get_astack(reta).set_alias(reta, ts, result);
-        ts.get_astack(ssa).set_alias(ssa, ts, tback);
+        ret.set_integer(1);
+        ts.get_astack(ra).set_alias(ra, ts, result);
     });
 
     new_cmd_quiet(gcs, "assert", "ss#", [](auto &s, auto args, auto &ret) {
