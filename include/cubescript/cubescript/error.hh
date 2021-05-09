@@ -18,61 +18,6 @@ namespace cubescript {
 
 struct state;
 
-/** @brief Represents the simplified call stack at a point in time.
- *
- * This is a simplified call stack; it is generally carried by errors
- * and can be utilized to print out a stack trace.
- *
- * The actual stack is represented as a linked list of nodes. There can
- * be a gap in the list, if the user has limited the maximum debug depth
- * with the `dbgalias` cubescript variable; the bottommost node will always
- * represent the bottom of the stack, while the nodes above it will be the
- * rest of the stack or a part of the stack starting from the top.
- */
-struct LIBCUBESCRIPT_EXPORT stack_state {
-    /** @brief A node in the call stack.
-     *
-     * The nodes are indexed. The bottommost node has index 1, the topmost
-     * node has index N (where N is the number of levels the call stack has).
-     */
-    struct node {
-        node const *next; /**< @brief Next level. */
-        struct ident const *id; /**< @brief The ident of this level. */
-        std::size_t index; /**< @brief The level index. */
-    };
-
-    stack_state() = delete;
-
-    /** @brief Construct the stack state. */
-    stack_state(state &cs, node *nd = nullptr);
-
-    stack_state(stack_state const &) = delete;
-
-    /** @brief Move the stack state somewhere else.
-     *
-     * Stack states are movable, but not copyable.
-     */
-    stack_state(stack_state &&st);
-
-    /** @brief Destroy the stack state. */
-    ~stack_state();
-
-    stack_state &operator=(stack_state const &) = delete;
-
-    /** @brief Move-assign the stack state somewhere else.
-     *
-     * Stack states are move assignable, but not copy assignable.
-     */
-    stack_state &operator=(stack_state &&);
-
-    /** @brief Get the pointer to the topmost (current) level. */
-    node const *get() const;
-
-private:
-    state &p_state;
-    node *p_node;
-};
-
 /** @brief Represents a Cubescript error.
  *
  * This is a standard error that can be thrown by either the Cubescript APIs
@@ -86,7 +31,21 @@ private:
  * which is reused for each error raised from that thread.
  */
 struct LIBCUBESCRIPT_EXPORT error {
-    friend struct state;
+    /** @brief A node in the call stack.
+     *
+     * The nodes are indexed. The bottommost node has index 1, the topmost
+     * node has index N (where N is the number of levels the call stack has).
+     *
+     * There can be a gap in the stack (i.e. the bottommost node will have
+     * index 1 and the one above it greater than 2). The gap is controlled
+     * by the value of the `dbgalias` cubescript variable at the time of
+     * creation of the error (the stack list will contain at most N nodes).
+     */
+    struct stack_node {
+        stack_node const *next; /**< @brief Next level. */
+        struct ident const *id; /**< @brief The ident of this level. */
+        std::size_t index; /**< @brief The level index. */
+    };
 
     error() = delete;
     error(error const &) = delete;
@@ -94,11 +53,14 @@ struct LIBCUBESCRIPT_EXPORT error {
     /** @brief Errors are move constructible. */
     error(error &&v):
         p_errbeg{v.p_errbeg}, p_errend{v.p_errend},
-        p_stack{std::move(v.p_stack)}
+        p_stack{std::move(v.p_stack)}, p_state{v.p_state}
     {}
 
     /** @brief Construct an error using a string. */
     error(state &cs, std::string_view msg);
+
+    /** @brief Destroy the error. */
+    ~error();
 
     /** @brief Get a view of the error message. */
     std::string_view what() const {
@@ -106,12 +68,12 @@ struct LIBCUBESCRIPT_EXPORT error {
     }
 
     /** @brief Get a reference to the call stack state. */
-    stack_state &stack() {
+    stack_node *stack() {
         return p_stack;
     }
 
     /** @brief Get a reference to the call stack state. */
-    stack_state const &stack() const {
+    stack_node const *stack() const {
         return p_stack;
     }
 private:
@@ -120,7 +82,8 @@ private:
     error(state &cs, char const *errbeg, char const *errend);
 
     char const *p_errbeg, *p_errend;
-    stack_state p_stack;
+    stack_node *p_stack;
+    state *p_state;
 };
 
 } /* namespace cubescript */

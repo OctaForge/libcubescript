@@ -84,7 +84,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
             result = args[0].get_code().call(cs);
         } catch (error const &e) {
             result.set_string(e.what(), cs);
-            if (e.stack().get()) {
+            if (e.stack()) {
                 charbuf buf{cs};
                 print_stack(std::back_inserter(buf), e.stack());
                 tback.set_string(buf.str(), cs);

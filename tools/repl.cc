@@ -253,7 +253,7 @@ static bool do_call(cs::state &cs, std::string_view line, bool file = false) {
         std::printf(
             "%s%s\n", !is_lnum ? "stdin: " : "stdin:", e.what().data()
         );
-        if (e.stack().get()) {
+        if (e.stack()) {
             std::string str;
             cs::print_stack(std::back_inserter(str), e.stack());
             std::printf("%s\n", str.data());

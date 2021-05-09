@@ -8,56 +8,26 @@
 
 namespace cubescript {
 
-LIBCUBESCRIPT_EXPORT stack_state::stack_state(
-    state &cs, node *nd
-):
-    p_state{cs}, p_node{nd}
-{}
-
-LIBCUBESCRIPT_EXPORT stack_state::stack_state(stack_state &&st):
-    p_state{st.p_state}, p_node{st.p_node}
-{
-    st.p_node = nullptr;
-}
-
-LIBCUBESCRIPT_EXPORT stack_state::~stack_state() {
-    size_t len = 0;
-    for (node const *nd = p_node; nd; nd = nd->next) {
-        ++len;
-    }
-    state_p{p_state}.ts().istate->destroy_array(p_node, len);
-}
-
-LIBCUBESCRIPT_EXPORT stack_state &stack_state::operator=(stack_state &&st) {
-    p_node = st.p_node;
-    st.p_node = nullptr;
-    return *this;
-}
-
-LIBCUBESCRIPT_EXPORT stack_state::node const *stack_state::get() const {
-    return p_node;
-}
-
-static stack_state save_stack(state &cs) {
+static typename error::stack_node *save_stack(state &cs) {
     auto &ts = state_p{cs}.ts();
     builtin_var *dalias = ts.istate->ivar_dbgalias;
     auto dval = std::clamp(
         dalias->value().get_integer(), integer_type(0), integer_type(1000)
     );
     if (!dval) {
-        return stack_state{cs, nullptr};
+        return nullptr;
     }
     int total = 0, depth = 0;
     for (ident_link *l = ts.callstack; l; l = l->next) {
         total++;
     }
     if (!total) {
-        return stack_state{cs, nullptr};
+        return nullptr;
     }
-    stack_state::node *st = ts.istate->create_array<stack_state::node>(
+    auto *st = ts.istate->create_array<typename error::stack_node>(
         std::min(total, dval)
     );
-    stack_state::node *ret = st, *nd = st;
+    typename error::stack_node *ret = st, *nd = st;
     ++st;
     for (ident_link *l = ts.callstack; l; l = l->next) {
         ++depth;
@@ -76,11 +46,19 @@ static stack_state save_stack(state &cs) {
             nd->next = nullptr;
         }
     }
-    return stack_state{cs, ret};
+    return ret;
+}
+
+LIBCUBESCRIPT_EXPORT error::~error() {
+    std::size_t slen = 0;
+    for (stack_node const *nd = p_stack; nd; nd = nd->next) {
+        ++slen;
+    }
+    state_p{*p_state}.ts().istate->destroy_array(p_stack, slen);
 }
 
 LIBCUBESCRIPT_EXPORT error::error(state &cs, std::string_view msg):
-    p_errbeg{}, p_errend{}, p_stack{cs}
+    p_errbeg{}, p_errend{}, p_state{&cs}
 {
     char *sp;
     char *buf = state_p{cs}.ts().request_errbuf(msg.size(), sp);
@@ -93,7 +71,7 @@ LIBCUBESCRIPT_EXPORT error::error(state &cs, std::string_view msg):
 
 LIBCUBESCRIPT_EXPORT error::error(
     state &cs, char const *errbeg, char const *errend
-): p_errbeg{errbeg}, p_errend{errend}, p_stack{cs} {
+): p_errbeg{errbeg}, p_errend{errend}, p_state{&cs} {
     p_stack = save_stack(cs);
 }
 

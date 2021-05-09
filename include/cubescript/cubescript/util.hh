@@ -293,9 +293,8 @@ inline R unescape_string(R writer, std::string_view str) {
  * @return `writer` after writing into it
  */
 template<typename R>
-inline R print_stack(R writer, stack_state const &st) {
+inline R print_stack(R writer, typename error::stack_node const *nd) {
     char buf[32] = {0};
-    auto nd = st.get();
     std::size_t pindex = 1;
     while (nd) {
         auto name = nd->id->name();
