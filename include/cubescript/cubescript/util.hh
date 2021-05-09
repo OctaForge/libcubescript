@@ -280,45 +280,6 @@ inline R unescape_string(R writer, std::string_view str) {
     return writer;
 }
 
-/** @brief Print a Cubescript stack
- *
- * This prints out the Cubescript stack as stored in cubescript::error, into
- * the `writer`. Each level is written on its own line. The line starts with
- * two spaces. If there is a gap in the stack and we've reached index 1,
- * the two spaces are followed with two periods. Following that is the index
- * followed by a right parenthesis, a space, and the name of the ident.
- *
- * The last line is not terminated with a newline.
- *
- * @return `writer` after writing into it
- */
-template<typename R>
-inline R print_stack(R writer, typename error::stack_node const *nd) {
-    char buf[32] = {0};
-    std::size_t pindex = 1;
-    while (nd) {
-        auto name = nd->id->name();
-        *writer++ = ' ';
-        *writer++ = ' ';
-        if ((nd->index == 1) && (pindex > 2)) {
-            *writer++ = '.';
-            *writer++ = '.';
-        }
-        pindex = nd->index;
-        snprintf(buf, sizeof(buf), "%zu", nd->index);
-        char const *p = buf;
-        std::copy(p, p + strlen(p), writer);
-        *writer++ = ')';
-        *writer++ = ' ';
-        std::copy(name.begin(), name.end(), writer);
-        nd = nd->next;
-        if (nd) {
-            *writer++ = '\n';
-        }
-    }
-    return writer;
-}
-
 } /* namespace cubescript */
 
 #endif /* LIBCUBESCRIPT_CUBESCRIPT_UTIL_HH */
