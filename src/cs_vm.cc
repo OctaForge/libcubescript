@@ -254,39 +254,27 @@ std::uint32_t *vm_exec(
     }
     for (;;) {
         std::uint32_t op = *code++;
-        switch (op & 0xFF) {
+        switch (op & BC_INST_OP_MASK) {
             case BC_INST_START:
             case BC_INST_OFFSET:
                 continue;
 
-            case BC_INST_NULL | BC_RET_NULL:
-            case BC_INST_NULL | BC_RET_STRING:
-            case BC_INST_NULL | BC_RET_INT:
-            case BC_INST_NULL | BC_RET_FLOAT:
+            case BC_INST_NULL:
                 result.set_none();
                 force_arg(cs, result, op & BC_INST_RET_MASK);
                 continue;
 
-            case BC_INST_FALSE | BC_RET_STRING:
-            case BC_INST_FALSE | BC_RET_NULL:
-            case BC_INST_FALSE | BC_RET_INT:
-            case BC_INST_FALSE | BC_RET_FLOAT:
+            case BC_INST_FALSE:
                 result.set_integer(0);
                 force_arg(cs, result, op & BC_INST_RET_MASK);
                 continue;
 
-            case BC_INST_TRUE | BC_RET_STRING:
-            case BC_INST_TRUE | BC_RET_NULL:
-            case BC_INST_TRUE | BC_RET_INT:
-            case BC_INST_TRUE | BC_RET_FLOAT:
+            case BC_INST_TRUE:
                 result.set_integer(1);
                 force_arg(cs, result, op & BC_INST_RET_MASK);
                 continue;
 
-            case BC_INST_NOT | BC_RET_STRING:
-            case BC_INST_NOT | BC_RET_NULL:
-            case BC_INST_NOT | BC_RET_INT:
-            case BC_INST_NOT | BC_RET_FLOAT:
+            case BC_INST_NOT:
                 result.set_integer(!args.back().get_bool());
                 force_arg(cs, result, op & BC_INST_RET_MASK);
                 args.pop_back();
@@ -302,40 +290,26 @@ std::uint32_t *vm_exec(
                 code = vm_exec(ts, code, result);
                 continue;
 
-            case BC_INST_EXIT | BC_RET_NULL:
-            case BC_INST_EXIT | BC_RET_STRING:
-            case BC_INST_EXIT | BC_RET_INT:
-            case BC_INST_EXIT | BC_RET_FLOAT:
+            case BC_INST_EXIT:
                 force_arg(cs, result, op & BC_INST_RET_MASK);
                 return code;
 
-            case BC_INST_RESULT | BC_RET_NULL:
-            case BC_INST_RESULT | BC_RET_STRING:
-            case BC_INST_RESULT | BC_RET_INT:
-            case BC_INST_RESULT | BC_RET_FLOAT:
+            case BC_INST_RESULT:
                 result = std::move(args.back());
                 args.pop_back();
                 force_arg(cs, result, op & BC_INST_RET_MASK);
                 continue;
 
-            case BC_INST_RESULT_ARG | BC_RET_NULL:
-            case BC_INST_RESULT_ARG | BC_RET_STRING:
-            case BC_INST_RESULT_ARG | BC_RET_INT:
-            case BC_INST_RESULT_ARG | BC_RET_FLOAT:
+            case BC_INST_RESULT_ARG:
                 force_arg(cs, result, op & BC_INST_RET_MASK);
                 args.emplace_back(std::move(result));
                 continue;
 
-            case BC_INST_FORCE | BC_RET_STRING:
-            case BC_INST_FORCE | BC_RET_INT:
-            case BC_INST_FORCE | BC_RET_FLOAT:
+            case BC_INST_FORCE:
                 force_arg(cs, args.back(), op & BC_INST_RET_MASK);
                 continue;
 
-            case BC_INST_DUP | BC_RET_NULL:
-            case BC_INST_DUP | BC_RET_INT:
-            case BC_INST_DUP | BC_RET_FLOAT:
-            case BC_INST_DUP | BC_RET_STRING: {
+            case BC_INST_DUP: {
                 auto &v = args.back();
                 auto &nv = args.emplace_back();
                 nv = v;
@@ -343,49 +317,60 @@ std::uint32_t *vm_exec(
                 continue;
             }
 
-            case BC_INST_VAL | BC_RET_STRING: {
-                std::uint32_t len = op >> 8;
-                args.emplace_back().set_string(std::string_view{
-                    reinterpret_cast<char const *>(code), len
-                }, cs);
-                code += len / sizeof(std::uint32_t) + 1;
-                continue;
-            }
-            case BC_INST_VAL_INT | BC_RET_STRING: {
-                char s[4] = {
-                    char((op >> 8) & 0xFF),
-                    char((op >> 16) & 0xFF),
-                    char((op >> 24) & 0xFF), '\0'
-                };
-                /* gotta cast or r.size() == potentially 3 */
-                args.emplace_back().set_string(
-                    static_cast<char const *>(s), cs
-                );
-                continue;
-            }
-            case BC_INST_VAL | BC_RET_NULL:
-            case BC_INST_VAL_INT | BC_RET_NULL:
+            case BC_INST_VAL:
+                switch (op & BC_INST_RET_MASK) {
+                    case BC_RET_STRING: {
+                        std::uint32_t len = op >> 8;
+                        args.emplace_back().set_string(std::string_view{
+                            reinterpret_cast<char const *>(code), len
+                        }, cs);
+                        code += len / sizeof(std::uint32_t) + 1;
+                        continue;
+                    }
+                    case BC_RET_INT:
+                        args.emplace_back().set_integer(
+                            *reinterpret_cast<integer_type const *>(code)
+                        );
+                        code += bc_store_size<integer_type>;
+                        continue;
+                    case BC_RET_FLOAT:
+                        args.emplace_back().set_float(
+                            *reinterpret_cast<float_type const *>(code)
+                        );
+                        code += bc_store_size<float_type>;
+                        continue;
+                    default:
+                        break;
+                }
                 args.emplace_back().set_none();
                 continue;
-            case BC_INST_VAL | BC_RET_INT:
-                args.emplace_back().set_integer(
-                    *reinterpret_cast<integer_type const *>(code)
-                );
-                code += bc_store_size<integer_type>;
-                continue;
-            case BC_INST_VAL_INT | BC_RET_INT:
-                args.emplace_back().set_integer(integer_type(op) >> 8);
-                continue;
-            case BC_INST_VAL | BC_RET_FLOAT:
-                args.emplace_back().set_float(
-                    *reinterpret_cast<float_type const *>(code)
-                );
-                code += bc_store_size<float_type>;
-                continue;
-            case BC_INST_VAL_INT | BC_RET_FLOAT:
-                args.emplace_back().set_float(
-                    float_type(integer_type(op) >> 8)
-                );
+
+            case BC_INST_VAL_INT:
+                switch (op & BC_INST_RET_MASK) {
+                    case BC_RET_STRING: {
+                        char s[4] = {
+                            char((op >> 8) & 0xFF),
+                            char((op >> 16) & 0xFF),
+                            char((op >> 24) & 0xFF), '\0'
+                        };
+                        /* gotta cast or r.size() == potentially 3 */
+                        args.emplace_back().set_string(
+                            static_cast<char const *>(s), cs
+                        );
+                        continue;
+                    }
+                    case BC_RET_INT:
+                        args.emplace_back().set_integer(integer_type(op) >> 8);
+                        continue;
+                    case BC_RET_FLOAT:
+                        args.emplace_back().set_float(
+                            float_type(integer_type(op) >> 8)
+                        );
+                        continue;
+                    default:
+                        break;
+                }
+                args.emplace_back().set_none();
                 continue;
 
             case BC_INST_LOCAL: {
@@ -414,10 +399,7 @@ std::uint32_t *vm_exec(
                 return code;
             }
 
-            case BC_INST_DO_ARGS | BC_RET_NULL:
-            case BC_INST_DO_ARGS | BC_RET_STRING:
-            case BC_INST_DO_ARGS | BC_RET_INT:
-            case BC_INST_DO_ARGS | BC_RET_FLOAT:
+            case BC_INST_DO_ARGS:
                 call_with_args(ts, [&]() {
                     auto v = std::move(args.back());
                     args.pop_back();
@@ -425,11 +407,8 @@ std::uint32_t *vm_exec(
                     force_arg(cs, result, op & BC_INST_RET_MASK);
                 });
                 continue;
-            /* fallthrough */
-            case BC_INST_DO | BC_RET_NULL:
-            case BC_INST_DO | BC_RET_STRING:
-            case BC_INST_DO | BC_RET_INT:
-            case BC_INST_DO | BC_RET_FLOAT: {
+
+            case BC_INST_DO: {
                 auto v = std::move(args.back());
                 args.pop_back();
                 result = v.get_code().call(cs);
@@ -442,23 +421,18 @@ std::uint32_t *vm_exec(
                 code += len;
                 continue;
             }
-            case BC_INST_JUMP_B | BC_INST_FLAG_TRUE: {
+
+            case BC_INST_JUMP_B: {
                 std::uint32_t len = op >> 8;
-                if (args.back().get_bool()) {
+                /* BC_INST_FLAG_TRUE/FALSE */
+                if (args.back().get_bool() == !!(op & BC_INST_RET_MASK)) {
                     code += len;
                 }
                 args.pop_back();
                 continue;
             }
-            case BC_INST_JUMP_B | BC_INST_FLAG_FALSE: {
-                std::uint32_t len = op >> 8;
-                if (!args.back().get_bool()) {
-                    code += len;
-                }
-                args.pop_back();
-                continue;
-            }
-            case BC_INST_JUMP_RESULT | BC_INST_FLAG_TRUE: {
+
+            case BC_INST_JUMP_RESULT: {
                 std::uint32_t len = op >> 8;
                 auto v = std::move(args.back());
                 args.pop_back();
@@ -467,37 +441,26 @@ std::uint32_t *vm_exec(
                 } else {
                     result = std::move(v);
                 }
-                if (result.get_bool()) {
+                /* BC_INST_FLAG_TRUE/FALSE */
+                if (result.get_bool() == !!(op & BC_INST_RET_MASK)) {
                     code += len;
                 }
                 continue;
             }
-            case BC_INST_JUMP_RESULT | BC_INST_FLAG_FALSE: {
-                std::uint32_t len = op >> 8;
-                auto v = std::move(args.back());
-                args.pop_back();
-                if (v.type() == value_type::CODE) {
-                    result = v.get_code().call(cs);
-                } else {
-                    result = std::move(v);
-                }
-                if (!result.get_bool()) {
-                    code += len;
-                }
-                continue;
-            }
-            case BC_INST_BREAK | BC_INST_FLAG_FALSE:
+
+            case BC_INST_BREAK:
                 if (ts.loop_level) {
-                    throw break_exception();
+                    if (op & BC_INST_RET_MASK) {
+                        throw continue_exception{};
+                    } else {
+                        throw break_exception{};
+                    }
                 } else {
-                    throw error{cs, "no loop to break"};
-                }
-                break;
-            case BC_INST_BREAK | BC_INST_FLAG_TRUE:
-                if (ts.loop_level) {
-                    throw continue_exception();
-                } else {
-                    throw error{cs, "no loop to continue"};
+                    if (op & BC_INST_RET_MASK) {
+                        throw error{cs, "no loop to continue"};
+                    } else {
+                        throw error{cs, "no loop to break"};
+                    }
                 }
                 break;
 
@@ -510,10 +473,7 @@ std::uint32_t *vm_exec(
                 continue;
             }
 
-            case BC_INST_EMPTY | BC_RET_NULL:
-            case BC_INST_EMPTY | BC_RET_STRING:
-            case BC_INST_EMPTY | BC_RET_INT:
-            case BC_INST_EMPTY | BC_RET_FLOAT:
+            case BC_INST_EMPTY:
                 args.emplace_back().set_code(bcode_p::make_ref(
                     bcode_get_empty(ts.istate->empty, op & BC_INST_RET_MASK)
                 ));
@@ -588,18 +548,12 @@ std::uint32_t *vm_exec(
                 continue;
             }
 
-            case BC_INST_LOOKUP_U | BC_RET_STRING:
-            case BC_INST_LOOKUP_U | BC_RET_INT:
-            case BC_INST_LOOKUP_U | BC_RET_FLOAT:
-            case BC_INST_LOOKUP_U | BC_RET_NULL:
+            case BC_INST_LOOKUP_U:
                 args.back() = cs.lookup_value(args.back().get_string(cs));
                 force_arg(cs, args.back(), op & BC_INST_RET_MASK);
                 continue;
 
-            case BC_INST_LOOKUP | BC_RET_STRING:
-            case BC_INST_LOOKUP | BC_RET_INT:
-            case BC_INST_LOOKUP | BC_RET_FLOAT:
-            case BC_INST_LOOKUP | BC_RET_NULL: {
+            case BC_INST_LOOKUP: {
                 alias_stack *ast;
                 auto &v = args.emplace_back();
                 if (get_lookup_id(ts, op, ast)) {
@@ -609,14 +563,8 @@ std::uint32_t *vm_exec(
                 continue;
             }
 
-            case BC_INST_CONC | BC_RET_NULL:
-            case BC_INST_CONC | BC_RET_STRING:
-            case BC_INST_CONC | BC_RET_FLOAT:
-            case BC_INST_CONC | BC_RET_INT:
-            case BC_INST_CONC_W | BC_RET_NULL:
-            case BC_INST_CONC_W | BC_RET_STRING:
-            case BC_INST_CONC_W | BC_RET_FLOAT:
-            case BC_INST_CONC_W | BC_RET_INT: {
+            case BC_INST_CONC:
+            case BC_INST_CONC_W: {
                 std::size_t numconc = op >> 8;
                 auto buf = concat_values(
                     cs, span_type<any_value>{
@@ -629,10 +577,7 @@ std::uint32_t *vm_exec(
                 continue;
             }
 
-            case BC_INST_VAR | BC_RET_NULL:
-            case BC_INST_VAR | BC_RET_INT:
-            case BC_INST_VAR | BC_RET_FLOAT:
-            case BC_INST_VAR | BC_RET_STRING:
+            case BC_INST_VAR:
                 args.emplace_back() = static_cast<builtin_var *>(
                     ts.istate->identmap[op >> 8]
                 )->value();
@@ -660,10 +605,7 @@ std::uint32_t *vm_exec(
                 continue;
             }
 
-            case BC_INST_CALL | BC_RET_NULL:
-            case BC_INST_CALL | BC_RET_STRING:
-            case BC_INST_CALL | BC_RET_FLOAT:
-            case BC_INST_CALL | BC_RET_INT: {
+            case BC_INST_CALL: {
                 result.force_none();
                 ident *id = ts.istate->identmap[op >> 8];
                 std::size_t callargs = *code++;
@@ -685,10 +627,7 @@ std::uint32_t *vm_exec(
                 continue;
             }
 
-            case BC_INST_CALL_U | BC_RET_NULL:
-            case BC_INST_CALL_U | BC_RET_STRING:
-            case BC_INST_CALL_U | BC_RET_FLOAT:
-            case BC_INST_CALL_U | BC_RET_INT: {
+            case BC_INST_CALL_U: {
                 std::size_t callargs = op >> 8;
                 std::size_t nnargs = args.size();
                 std::size_t offset = nnargs - callargs;
@@ -795,10 +734,7 @@ noid:
                 }
             }
 
-            case BC_INST_COM | BC_RET_NULL:
-            case BC_INST_COM | BC_RET_STRING:
-            case BC_INST_COM | BC_RET_FLOAT:
-            case BC_INST_COM | BC_RET_INT: {
+            case BC_INST_COM: {
                 command_impl *id = static_cast<command_impl *>(
                     ts.istate->identmap[op >> 8]
                 );
@@ -812,10 +748,7 @@ noid:
                 continue;
             }
 
-            case BC_INST_COM_V | BC_RET_NULL:
-            case BC_INST_COM_V | BC_RET_STRING:
-            case BC_INST_COM_V | BC_RET_FLOAT:
-            case BC_INST_COM_V | BC_RET_INT: {
+            case BC_INST_COM_V: {
                 command_impl *id = static_cast<command_impl *>(
                     ts.istate->identmap[op >> 8]
                 );
