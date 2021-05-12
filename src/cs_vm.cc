@@ -34,19 +34,13 @@ static inline void pop_alias(thread_state &ts, ident &id) {
 static inline void force_arg(state &cs, any_value &v, int type) {
     switch (type) {
         case BC_RET_STRING:
-            if (v.type() != value_type::STRING) {
-                v.force_string(cs);
-            }
+            v.force_string(cs);
             break;
         case BC_RET_INT:
-            if (v.type() != value_type::INTEGER) {
-                v.force_integer();
-            }
+            v.force_integer();
             break;
         case BC_RET_FLOAT:
-            if (v.type() != value_type::FLOAT) {
-                v.force_float();
-            }
+            v.force_float();
             break;
     }
 }
@@ -266,51 +260,35 @@ std::uint32_t *vm_exec(
                 continue;
 
             case BC_INST_NULL | BC_RET_NULL:
-                result.set_none();
-                continue;
             case BC_INST_NULL | BC_RET_STRING:
-                result.set_string("", cs);
-                continue;
             case BC_INST_NULL | BC_RET_INT:
-                result.set_integer(0);
-                continue;
             case BC_INST_NULL | BC_RET_FLOAT:
-                result.set_float(0.0f);
+                result.set_none();
+                force_arg(cs, result, op & BC_INST_RET_MASK);
                 continue;
 
             case BC_INST_FALSE | BC_RET_STRING:
-                result.set_string("0", cs);
-                continue;
             case BC_INST_FALSE | BC_RET_NULL:
             case BC_INST_FALSE | BC_RET_INT:
-                result.set_integer(0);
-                continue;
             case BC_INST_FALSE | BC_RET_FLOAT:
-                result.set_float(0.0f);
+                result.set_integer(0);
+                force_arg(cs, result, op & BC_INST_RET_MASK);
                 continue;
 
             case BC_INST_TRUE | BC_RET_STRING:
-                result.set_string("1", cs);
-                continue;
             case BC_INST_TRUE | BC_RET_NULL:
             case BC_INST_TRUE | BC_RET_INT:
-                result.set_integer(1);
-                continue;
             case BC_INST_TRUE | BC_RET_FLOAT:
-                result.set_float(1.0f);
+                result.set_integer(1);
+                force_arg(cs, result, op & BC_INST_RET_MASK);
                 continue;
 
             case BC_INST_NOT | BC_RET_STRING:
-                result.set_string(args.back().get_bool() ? "0" : "1", cs);
-                args.pop_back();
-                continue;
             case BC_INST_NOT | BC_RET_NULL:
             case BC_INST_NOT | BC_RET_INT:
-                result.set_integer(!args.back().get_bool());
-                args.pop_back();
-                continue;
             case BC_INST_NOT | BC_RET_FLOAT:
-                result.set_float(float_type(!args.back().get_bool()));
+                result.set_integer(!args.back().get_bool());
+                force_arg(cs, result, op & BC_INST_RET_MASK);
                 args.pop_back();
                 continue;
 
@@ -323,18 +301,15 @@ std::uint32_t *vm_exec(
             case BC_INST_ENTER_RESULT:
                 code = vm_exec(ts, code, result);
                 continue;
+
+            case BC_INST_EXIT | BC_RET_NULL:
             case BC_INST_EXIT | BC_RET_STRING:
             case BC_INST_EXIT | BC_RET_INT:
             case BC_INST_EXIT | BC_RET_FLOAT:
                 force_arg(cs, result, op & BC_INST_RET_MASK);
-            /* fallthrough */
-            case BC_INST_EXIT | BC_RET_NULL:
                 return code;
 
             case BC_INST_RESULT | BC_RET_NULL:
-                result = std::move(args.back());
-                args.pop_back();
-                continue;
             case BC_INST_RESULT | BC_RET_STRING:
             case BC_INST_RESULT | BC_RET_INT:
             case BC_INST_RESULT | BC_RET_FLOAT:
@@ -343,45 +318,28 @@ std::uint32_t *vm_exec(
                 force_arg(cs, result, op & BC_INST_RET_MASK);
                 continue;
 
+            case BC_INST_RESULT_ARG | BC_RET_NULL:
             case BC_INST_RESULT_ARG | BC_RET_STRING:
             case BC_INST_RESULT_ARG | BC_RET_INT:
             case BC_INST_RESULT_ARG | BC_RET_FLOAT:
                 force_arg(cs, result, op & BC_INST_RET_MASK);
-            /* fallthrough */
-            case BC_INST_RESULT_ARG | BC_RET_NULL:
                 args.emplace_back(std::move(result));
                 continue;
 
             case BC_INST_FORCE | BC_RET_STRING:
-                args.back().force_string(cs);
-                continue;
             case BC_INST_FORCE | BC_RET_INT:
-                args.back().force_integer();
-                continue;
             case BC_INST_FORCE | BC_RET_FLOAT:
-                args.back().force_float();
+                force_arg(cs, args.back(), op & BC_INST_RET_MASK);
                 continue;
 
-            case BC_INST_DUP | BC_RET_NULL: {
-                auto &v = args.back();
-                args.emplace_back() = v.get_plain();
-                continue;
-            }
-            case BC_INST_DUP | BC_RET_INT: {
-                auto &v = args.back();
-                args.emplace_back().set_integer(v.get_integer());
-                continue;
-            }
-            case BC_INST_DUP | BC_RET_FLOAT: {
-                auto &v = args.back();
-                args.emplace_back().set_float(v.get_float());
-                continue;
-            }
+            case BC_INST_DUP | BC_RET_NULL:
+            case BC_INST_DUP | BC_RET_INT:
+            case BC_INST_DUP | BC_RET_FLOAT:
             case BC_INST_DUP | BC_RET_STRING: {
                 auto &v = args.back();
                 auto &nv = args.emplace_back();
                 nv = v;
-                nv.force_string(cs);
+                force_arg(cs, nv, op & BC_INST_RET_MASK);
                 continue;
             }
 
