@@ -553,23 +553,11 @@ std::uint32_t *vm_exec(
             }
 
             case BC_INST_EMPTY | BC_RET_NULL:
-                args.emplace_back().set_code(bcode_p::make_ref(
-                    bcode_get_empty(ts.istate->empty, VAL_NULL)
-                ));
-                break;
             case BC_INST_EMPTY | BC_RET_STRING:
-                args.emplace_back().set_code(bcode_p::make_ref(
-                    bcode_get_empty(ts.istate->empty, VAL_STRING)
-                ));
-                break;
             case BC_INST_EMPTY | BC_RET_INT:
-                args.emplace_back().set_code(bcode_p::make_ref(
-                    bcode_get_empty(ts.istate->empty, VAL_INT)
-                ));
-                break;
             case BC_INST_EMPTY | BC_RET_FLOAT:
                 args.emplace_back().set_code(bcode_p::make_ref(
-                    bcode_get_empty(ts.istate->empty, VAL_FLOAT)
+                    bcode_get_empty(ts.istate->empty, op & BC_INST_RET_MASK)
                 ));
                 break;
 
@@ -650,52 +638,16 @@ std::uint32_t *vm_exec(
                 force_arg(cs, args.back(), op & BC_INST_RET_MASK);
                 continue;
 
-            case BC_INST_LOOKUP | BC_RET_STRING: {
-                alias_stack *ast;
-                alias *a = get_lookup_id(ts, op, ast);
-                if (!a) {
-                    args.emplace_back().set_string("", cs);
-                } else {
-                    auto &v = args.emplace_back();
-                    v = ast->node->val_s;
-                    v.force_string(cs);
-                }
-                continue;
-            }
-
-            case BC_INST_LOOKUP | BC_RET_INT: {
-                alias_stack *ast;
-                alias *a = get_lookup_id(ts, op, ast);
-                if (!a) {
-                    args.emplace_back().set_integer(0);
-                } else {
-                    args.emplace_back().set_integer(
-                        ast->node->val_s.get_integer()
-                    );
-                }
-                continue;
-            }
-
-            case BC_INST_LOOKUP | BC_RET_FLOAT: {
-                alias_stack *ast;
-                alias *a = get_lookup_id(ts, op, ast);
-                if (!a) {
-                    args.emplace_back().set_float(float_type(0));
-                } else {
-                    args.emplace_back().set_float(
-                        ast->node->val_s.get_float()
-                    );
-                }
-                continue;
-            }
+            case BC_INST_LOOKUP | BC_RET_STRING:
+            case BC_INST_LOOKUP | BC_RET_INT:
+            case BC_INST_LOOKUP | BC_RET_FLOAT:
             case BC_INST_LOOKUP | BC_RET_NULL: {
                 alias_stack *ast;
-                alias *a = get_lookup_id(ts, op, ast);
-                if (!a) {
-                    args.emplace_back().set_none();
-                } else {
-                    args.emplace_back() = ast->node->val_s.get_plain();
+                auto &v = args.emplace_back();
+                if (get_lookup_id(ts, op, ast)) {
+                    v = ast->node->val_s;
                 }
+                force_arg(cs, args.back(), op & BC_INST_RET_MASK);
                 continue;
             }
 

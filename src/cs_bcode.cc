@@ -173,7 +173,7 @@ void bcode_free_empty(internal_state *cs, empty_block *empty) {
 }
 
 bcode *bcode_get_empty(empty_block *empty, std::size_t val) {
-    return &empty[val].init + 1;
+    return &empty[val >> BC_INST_RET].init + 1;
 }
 
 } /* namespace cubescript */
