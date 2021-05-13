@@ -52,13 +52,15 @@ void exec_command(
     int i = -1, fakeargs = 0, numargs = int(nargs);
     bool rep = false;
     auto fmt = id->args();
-    auto set_fake = [&i, &fakeargs, &rep, args, numargs]() {
-        if (++i >= numargs) {
-            if (rep) {
+    auto set_fake = [](
+        int &idx, int &fargs, bool r, int argn, any_value *argp
+    ) {
+        if (++idx >= argn) {
+            if (r) {
                 return false;
             }
-            args[i].set_none();
-            ++fakeargs;
+            argp[idx].set_none();
+            ++fargs;
             return false;
         }
         return true;
@@ -66,25 +68,25 @@ void exec_command(
     for (auto it = fmt.begin(); it != fmt.end(); ++it) {
         switch (*it) {
             case 'i':
-                if (set_fake()) {
+                if (set_fake(i, fakeargs, rep, numargs, args)) {
                     args[i].force_integer();
                 }
                 break;
             case 'f':
-                if (set_fake()) {
+                if (set_fake(i, fakeargs, rep, numargs, args)) {
                     args[i].force_float();
                 }
                 break;
             case 's':
-                if (set_fake()) {
+                if (set_fake(i, fakeargs, rep, numargs, args)) {
                     args[i].force_string(*ts.pstate);
                 }
                 break;
             case 'a':
-                set_fake();
+                set_fake(i, fakeargs, rep, numargs, args);
                 break;
             case 'c':
-                if (set_fake()) {
+                if (set_fake(i, fakeargs, rep, numargs, args)) {
                     if (args[i].type() == value_type::STRING) {
                         auto str = args[i].get_string(*ts.pstate);
                         if (str.empty()) {
@@ -96,12 +98,12 @@ void exec_command(
                 }
                 break;
             case 'b':
-                if (set_fake()) {
+                if (set_fake(i, fakeargs, rep, numargs, args)) {
                     args[i].force_code(*ts.pstate);
                 }
                 break;
             case 'v':
-                if (set_fake()) {
+                if (set_fake(i, fakeargs, rep, numargs, args)) {
                     args[i].force_ident(*ts.pstate);
                 }
                 break;
@@ -176,36 +178,41 @@ bool exec_alias(
         aast.node->code = gs.steal_ref();
     }
     bcode_ref coderef = aast.node->code;
-    auto cleanup = [&]() {
-        ts.callstack = aliaslink.next;
-        ts.ident_flags = oldflags;
-        auto amask = aliaslink.usedargs;
-        for (std::size_t i = 0; i < callargs; i++) {
-            ts.get_astack(
-                static_cast<alias *>(ts.istate->identmap[i])
+    auto cleanup = [](
+        std::uint32_t inst, auto &tss, auto &alink, std::size_t cargs,
+        std::size_t nids, auto oflags, any_value &ret
+    ) {
+        tss.callstack = alink.next;
+        tss.ident_flags = oflags;
+        auto amask = alink.usedargs;
+        for (std::size_t i = 0; i < cargs; i++) {
+            tss.get_astack(
+                static_cast<alias *>(tss.istate->identmap[i])
             ).pop();
             amask[i] = false;
         }
-        for (; amask.any(); ++callargs) {
-            if (amask[callargs]) {
-                ts.get_astack(
-                    static_cast<alias *>(ts.istate->identmap[callargs])
+        for (; amask.any(); ++cargs) {
+            if (amask[cargs]) {
+                tss.get_astack(
+                    static_cast<alias *>(tss.istate->identmap[cargs])
                 ).pop();
-                amask[callargs] = false;
+                amask[cargs] = false;
             }
         }
-        ts.idstack.resize(noff);
-        force_arg(*ts.pstate, result, op & BC_INST_RET_MASK);
-        anargs->set_raw_value(*ts.pstate, std::move(oldargs));
-        nargs = offset - skip;
+        tss.idstack.resize(nids);
+        force_arg(*tss.pstate, ret, inst & BC_INST_RET_MASK);
     };
     try {
         vm_exec(ts, bcode_p{coderef}.get()->raw(), result);
     } catch (...) {
-        cleanup();
+        cleanup(op, ts, aliaslink, callargs, noff, oldflags, result);
+        anargs->set_raw_value(*ts.pstate, std::move(oldargs));
+        nargs = offset - skip;
         throw;
     }
-    cleanup();
+    cleanup(op, ts, aliaslink, callargs, noff, oldflags, result);
+    anargs->set_raw_value(*ts.pstate, std::move(oldargs));
+    nargs = offset - skip;
     return true;
 }
 
@@ -311,16 +318,15 @@ std::uint32_t *vm_exec(
 
             case BC_INST_DUP: {
                 auto &v = args.back();
-                auto &nv = args.emplace_back();
-                nv = v;
-                force_arg(cs, nv, op & BC_INST_RET_MASK);
+                args.emplace_back() = v;
+                force_arg(cs, args.back(), op & BC_INST_RET_MASK);
                 continue;
             }
 
             case BC_INST_VAL:
                 switch (op & BC_INST_RET_MASK) {
                     case BC_RET_STRING: {
-                        std::uint32_t len = op >> 8;
+                        auto len = op >> 8;
                         args.emplace_back().set_string(std::string_view{
                             reinterpret_cast<char const *>(code), len
                         }, cs);
@@ -354,9 +360,7 @@ std::uint32_t *vm_exec(
                             char((op >> 24) & 0xFF), '\0'
                         };
                         /* gotta cast or r.size() == potentially 3 */
-                        args.emplace_back().set_string(
-                            static_cast<char const *>(s), cs
-                        );
+                        args.emplace_back().set_string(s, cs);
                         continue;
                     }
                     case BC_RET_INT:
@@ -383,29 +387,33 @@ std::uint32_t *vm_exec(
                         ts.idstack.emplace_back()
                     );
                 }
-                auto cleanup = [&]() {
-                    for (std::size_t i = offset; i < args.size(); ++i) {
-                        pop_alias(ts, args[i].get_ident(cs));
+                auto cleanup = [](
+                    auto &css, std::size_t off, std::size_t isz, auto &av
+                ) {
+                    for (std::size_t i = off; i < av.size(); ++i) {
+                        pop_alias(state_p{css}.ts(), av[i].get_ident(css));
                     }
-                    ts.idstack.resize(idstsz);
+                    state_p{css}.ts().idstack.resize(isz);
                 };
                 try {
                     code = vm_exec(ts, code, result);
                 } catch (...) {
-                    cleanup();
+                    cleanup(cs, offset, idstsz, args);
                     throw;
                 }
-                cleanup();
+                cleanup(cs, offset, idstsz, args);
                 return code;
             }
 
             case BC_INST_DO_ARGS:
-                call_with_args(ts, [&]() {
-                    auto v = std::move(args.back());
-                    args.pop_back();
-                    result = v.get_code().call(cs);
-                    force_arg(cs, result, op & BC_INST_RET_MASK);
-                });
+                call_with_args(ts, [](
+                    auto &css, std::uint32_t inst, auto &av, any_value &ret
+                ) {
+                    auto v = std::move(av.back());
+                    av.pop_back();
+                    ret = v.get_code().call(css);
+                    force_arg(css, ret, inst & BC_INST_RET_MASK);
+                }, cs, op, args, result);
                 continue;
 
             case BC_INST_DO: {
@@ -676,25 +684,25 @@ noid:
                     }
                     case ID_LOCAL: {
                         std::size_t idstsz = ts.idstack.size();
-                        for (size_t j = 0; j < size_t(callargs); ++j) {
+                        for (std::size_t j = 0; j < callargs; ++j) {
                             push_alias(
                                 ts, args[offset + j].force_ident(cs),
                                 ts.idstack.emplace_back()
                             );
                         }
-                        auto cleanup = [&]() {
-                            for (size_t j = 0; j < size_t(callargs); ++j) {
-                                pop_alias(ts, args[offset + j].get_ident(cs));
-                            }
-                            ts.idstack.resize(idstsz);
-                        };
                         try {
                             code = vm_exec(ts, code, result);
                         } catch (...) {
-                            cleanup();
+                            for (std::size_t j = 0; j < callargs; ++j) {
+                                pop_alias(ts, args[offset + j].get_ident(cs));
+                            }
+                            ts.idstack.resize(idstsz);
                             throw;
                         }
-                        cleanup();
+                        for (std::size_t j = 0; j < callargs; ++j) {
+                            pop_alias(ts, args[offset + j].get_ident(cs));
+                        }
+                        ts.idstack.resize(idstsz);
                         return code;
                     }
                     case ID_VAR: {

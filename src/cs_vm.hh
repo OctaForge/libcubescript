@@ -7,6 +7,8 @@
 #include "cs_ident.hh"
 #include "cs_thread.hh"
 
+#include <utility>
+
 namespace cubescript {
 
 struct break_exception {
@@ -42,10 +44,10 @@ struct stack_guard {
     stack_guard(stack_guard &&) = delete;
 };
 
-template<typename F>
-static void call_with_args(thread_state &ts, F body) {
+template<typename F, typename ...A>
+static void call_with_args(thread_state &ts, F body, A &&...args) {
     if (!ts.callstack) {
-        body();
+        body(std::forward<A>(args)...);
         return;
     }
     auto mask = ts.callstack->usedargs;
@@ -70,29 +72,32 @@ static void call_with_args(thread_state &ts, F body) {
         aliaslink.usedargs.set();
     }
     ts.callstack = &aliaslink;
-    auto cleanup = [&]() {
-        if (prevstack) {
-            prevstack->usedargs = aliaslink.usedargs;
+    auto cleanup = [](
+        auto &tss, ident_link *pstack, ident_link &alink, std::size_t offn
+    ) {
+        if (pstack) {
+            pstack->usedargs = alink.usedargs;
         }
-        ts.callstack = aliaslink.next;
-        auto mask2 = ts.callstack->usedargs;
+        tss.callstack = alink.next;
+        auto mask2 = tss.callstack->usedargs;
         for (std::size_t i = 0, nredo = 0; mask2.any(); ++i) {
             if (mask2[0]) {
-                ts.get_astack(
-                    static_cast<alias *>(ts.istate->identmap[i])
-                ).node = ts.idstack[noff + nredo++].next;
+                tss.get_astack(
+                    static_cast<alias *>(tss.istate->identmap[i])
+                ).node = tss.idstack[offn + nredo++].next;
             }
             mask2 >>= 1;
         }
-        ts.idstack.resize(noff);
     };
     try {
-        body();
+        body(std::forward<A>(args)...);
     } catch (...) {
-        cleanup();
+        cleanup(ts, prevstack, aliaslink, noff);
+        ts.idstack.resize(noff);
         throw;
     }
-    cleanup();
+    cleanup(ts, prevstack, aliaslink, noff);
+    ts.idstack.resize(noff);
 }
 
 void exec_command(
