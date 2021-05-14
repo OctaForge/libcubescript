@@ -216,6 +216,62 @@ bool exec_alias(
     return true;
 }
 
+any_value exec_code_with_args(thread_state &ts, bcode_ref const &body) {
+    if (!ts.callstack) {
+        return body.call(*ts.pstate);
+    }
+    auto mask = ts.callstack->usedargs;
+    std::size_t noff = ts.idstack.size();
+    for (std::size_t i = 0; mask.any(); ++i) {
+        if (mask[0]) {
+            auto &ast = ts.get_astack(
+                static_cast<alias *>(ts.istate->identmap[i])
+            );
+            auto &st = ts.idstack.emplace_back();
+            st.next = ast.node;
+            ast.node = ast.node->next;
+        }
+        mask >>= 1;
+    }
+    ident_link *prevstack = ts.callstack->next;
+    ident_link aliaslink = {
+        ts.callstack->id, ts.callstack,
+        prevstack ? prevstack->usedargs : argset{}
+    };
+    if (!prevstack) {
+        aliaslink.usedargs.set();
+    }
+    ts.callstack = &aliaslink;
+    auto cleanup = [](
+        auto &tss, ident_link *pstack, ident_link &alink, std::size_t offn
+    ) {
+        if (pstack) {
+            pstack->usedargs = alink.usedargs;
+        }
+        tss.callstack = alink.next;
+        auto mask2 = tss.callstack->usedargs;
+        for (std::size_t i = 0, nredo = 0; mask2.any(); ++i) {
+            if (mask2[0]) {
+                tss.get_astack(
+                    static_cast<alias *>(tss.istate->identmap[i])
+                ).node = tss.idstack[offn + nredo++].next;
+            }
+            mask2 >>= 1;
+        }
+    };
+    any_value ret;
+    try {
+        ret = body.call(*ts.pstate);
+    } catch (...) {
+        cleanup(ts, prevstack, aliaslink, noff);
+        ts.idstack.resize(noff);
+        throw;
+    }
+    cleanup(ts, prevstack, aliaslink, noff);
+    ts.idstack.resize(noff);
+    return ret;
+}
+
 static inline alias *get_lookup_id(
     thread_state &ts, std::uint32_t op, alias_stack *&ast
 ) {
@@ -412,16 +468,13 @@ std::uint32_t *vm_exec(
                 return code;
             }
 
-            case BC_INST_DO_ARGS:
-                call_with_args(ts, [](
-                    auto &css, std::uint32_t inst, auto &av, any_value &ret
-                ) {
-                    auto v = std::move(av.back());
-                    av.pop_back();
-                    ret = v.get_code().call(css);
-                    force_arg(css, ret, inst & BC_INST_RET_MASK);
-                }, cs, op, args, result);
+            case BC_INST_DO_ARGS: {
+                auto v = std::move(args.back());
+                args.pop_back();
+                result = exec_code_with_args(ts, v.get_code());
+                force_arg(cs, result, op & BC_INST_RET_MASK);
                 continue;
+            }
 
             case BC_INST_DO: {
                 auto v = std::move(args.back());

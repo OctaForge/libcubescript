@@ -6,7 +6,7 @@
 #include "cs_state.hh"
 #include "cs_thread.hh"
 #include "cs_strman.hh"
-#include "cs_vm.hh" // break/continue, call_with_args
+#include "cs_vm.hh"
 #include "cs_parser.hh"
 #include "cs_error.hh"
 
@@ -179,9 +179,7 @@ state::state(alloc_func func, void *data) {
     static_cast<command_impl *>(p)->p_type = ID_DO;
 
     p = &new_command("doargs", "b", [](auto &cs, auto args, auto &res) {
-        call_with_args(*cs.p_tstate, [&cs, &res, &args]() {
-            res = args[0].get_code().call(cs);
-        });
+        res = exec_code_with_args(*cs.p_tstate, args[0].get_code());
     });
     static_cast<command_impl *>(p)->p_type = ID_DOARGS;
 
