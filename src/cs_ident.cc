@@ -329,17 +329,16 @@ LIBCUBESCRIPT_EXPORT bool alias::is_arg() const {
 LIBCUBESCRIPT_EXPORT any_value alias::call(
     span_type<any_value> args, state &cs
 ) {
-    any_value ret{};
     auto &ts = state_p{cs}.ts();
     if (is_arg() && !ident_is_used_arg(this, ts)) {
-        return ret;
+        return any_value{};
     }
     auto nargs = args.size();
     auto &ast = ts.get_astack(this);
     if (ast.node->val_s.type() != value_type::NONE) {
-        exec_alias(ts, this, &args[0], ret, nargs, nargs, 0, 0, ast);
+        return exec_alias(ts, this, &args[0], nargs, ast);
     }
-    return ret;
+    return any_value{};
 }
 
 LIBCUBESCRIPT_EXPORT std::string_view command::args() const {

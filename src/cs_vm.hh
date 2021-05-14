@@ -22,10 +22,9 @@ void exec_command(
     any_value &res, std::size_t nargs, bool lookup = false
 );
 
-void exec_alias(
-    thread_state &ts, alias *a, any_value *args, any_value &result,
-    std::size_t callargs, std::size_t &nargs, std::size_t offset,
-    std::size_t skip, alias_stack &astack
+any_value exec_alias(
+    thread_state &ts, alias *a, any_value *args,
+    std::size_t callargs, alias_stack &astack
 );
 
 any_value exec_code_with_args(thread_state &ts, bcode_ref const &body);

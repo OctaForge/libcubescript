@@ -13,7 +13,7 @@ namespace cubescript {
 
 struct ident_level {
     ident &id;
-    std::bitset<MAX_ARGUMENTS> usedargs{};
+    argset usedargs{};
 
     ident_level(ident &i): id{i} {};
 };

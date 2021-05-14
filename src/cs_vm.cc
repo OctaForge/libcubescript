@@ -121,12 +121,12 @@ void exec_command(
     res.force_plain();
 }
 
-void exec_alias(
-    thread_state &ts, alias *a, any_value *args, any_value &result,
-    std::size_t callargs, std::size_t &nargs,
-    std::size_t offset, std::size_t skip, alias_stack &astack
+any_value exec_alias(
+    thread_state &ts, alias *a, any_value *args,
+    std::size_t callargs, alias_stack &astack
 ) {
     /* excess arguments get ignored (make error maybe?) */
+    any_value ret;
     callargs = std::min(callargs, MAX_ARGUMENTS);
     builtin_var *anargs = ts.istate->ivar_numargs;
     argset uargs{};
@@ -137,7 +137,7 @@ void exec_alias(
         );
         auto &st = ts.idstack.emplace_back();
         ast.push(st);
-        st.val_s = std::move(args[offset + i]);
+        st.val_s = std::move(args[i]);
         uargs[i] = true;
     }
     auto oldargs = anargs->value();
@@ -146,7 +146,8 @@ void exec_alias(
     any_value cv;
     cv.set_integer(integer_type(callargs));
     anargs->set_raw_value(*ts.pstate, std::move(cv));
-    ts.callstack.emplace_back(*a);
+    auto &lev = ts.callstack.emplace_back(*a);
+    lev.usedargs = std::move(uargs);
     if (!astack.node->code) {
         try {
             gen_state gs{ts};
@@ -181,16 +182,15 @@ void exec_alias(
         tss.idstack.resize(nids);
     };
     try {
-        vm_exec(ts, bcode_p{coderef}.get()->raw(), result);
+        vm_exec(ts, bcode_p{coderef}.get()->raw(), ret);
     } catch (...) {
         cleanup(ts, callargs, noff, oldflags);
         anargs->set_raw_value(*ts.pstate, std::move(oldargs));
-        nargs = offset - skip;
         throw;
     }
     cleanup(ts, callargs, noff, oldflags);
     anargs->set_raw_value(*ts.pstate, std::move(oldargs));
-    nargs = offset - skip;
+    return ret;
 }
 
 any_value exec_code_with_args(thread_state &ts, bcode_ref const &body) {
@@ -647,8 +647,7 @@ std::uint32_t *vm_exec(
                 result.force_none();
                 ident *id = ts.istate->identmap[op >> 8];
                 std::size_t callargs = *code++;
-                std::size_t nnargs = args.size();
-                std::size_t offset = nnargs - callargs;
+                std::size_t offset = args.size() - callargs;
                 auto *imp = static_cast<alias_impl *>(id);
                 if (imp->is_arg()) {
                     if (!ident_is_used_arg(id, ts)) {
@@ -662,17 +661,14 @@ std::uint32_t *vm_exec(
                         cs, "unknown command: %s", id->name().data()
                     );
                 }
-                exec_alias(
-                    ts, imp, &args[0], result, callargs, nnargs, offset, 0, ast
-                );
-                args.resize(nnargs);
+                result = exec_alias(ts, imp, &args[offset], callargs, ast);
+                args.resize(offset);
                 goto use_result;
             }
 
             case BC_INST_CALL_U: {
                 std::size_t callargs = op >> 8;
-                std::size_t nnargs = args.size();
-                std::size_t offset = nnargs - callargs;
+                std::size_t offset = args.size() - callargs;
                 any_value &idarg = args[offset - 1];
                 if (idarg.type() != value_type::STRING) {
 litval:
@@ -761,11 +757,10 @@ noid:
                         if (ast.node->val_s.type() == value_type::NONE) {
                             goto noid;
                         }
-                        exec_alias(
-                            ts, a, &args[0], result, callargs, nnargs,
-                            offset, 1, ast
+                        result = exec_alias(
+                            ts, a, &args[offset], callargs, ast
                         );
-                        args.resize(nnargs);
+                        args.resize(offset - 1);
                         goto use_result;
                     }
                 }
