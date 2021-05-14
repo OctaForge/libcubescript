@@ -25,7 +25,7 @@ void exec_command(
 bool exec_alias(
     thread_state &ts, alias *a, any_value *args, any_value &result,
     std::size_t callargs, std::size_t &nargs, std::size_t offset,
-    std::size_t skip, std::uint32_t op, bool ncheck = false
+    std::size_t skip, bool ncheck = false
 );
 
 any_value exec_code_with_args(thread_state &ts, bcode_ref const &body);

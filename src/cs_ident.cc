@@ -335,7 +335,7 @@ LIBCUBESCRIPT_EXPORT any_value alias::call(
         return ret;
     }
     auto nargs = args.size();
-    exec_alias(ts, this, &args[0], ret, nargs, nargs, 0, 0, BC_RET_NULL, true);
+    exec_alias(ts, this, &args[0], ret, nargs, nargs, 0, 0, true);
     return ret;
 }
 

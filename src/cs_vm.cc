@@ -31,20 +31,6 @@ static inline void pop_alias(thread_state &ts, ident &id) {
     }
 }
 
-static inline void force_arg(state &cs, any_value &v, int type) {
-    switch (type) {
-        case BC_RET_STRING:
-            v.force_string(cs);
-            break;
-        case BC_RET_INT:
-            v.force_integer();
-            break;
-        case BC_RET_FLOAT:
-            v.force_float();
-            break;
-    }
-}
-
 void exec_command(
     thread_state &ts, command_impl *id, ident *self, any_value *args,
     any_value &res, std::size_t nargs, bool lookup
@@ -138,7 +124,7 @@ void exec_command(
 bool exec_alias(
     thread_state &ts, alias *a, any_value *args, any_value &result,
     std::size_t callargs, std::size_t &nargs,
-    std::size_t offset, std::size_t skip, std::uint32_t op, bool ncheck
+    std::size_t offset, std::size_t skip, bool ncheck
 ) {
     auto &aast = ts.get_astack(a);
     if (ncheck) {
@@ -179,8 +165,8 @@ bool exec_alias(
     }
     bcode_ref coderef = aast.node->code;
     auto cleanup = [](
-        std::uint32_t inst, auto &tss, auto &alink, std::size_t cargs,
-        std::size_t nids, auto oflags, any_value &ret
+        auto &tss, auto &alink, std::size_t cargs,
+        std::size_t nids, auto oflags
     ) {
         tss.callstack = alink.next;
         tss.ident_flags = oflags;
@@ -200,17 +186,16 @@ bool exec_alias(
             }
         }
         tss.idstack.resize(nids);
-        force_arg(*tss.pstate, ret, inst & BC_INST_RET_MASK);
     };
     try {
         vm_exec(ts, bcode_p{coderef}.get()->raw(), result);
     } catch (...) {
-        cleanup(op, ts, aliaslink, callargs, noff, oldflags, result);
+        cleanup(ts, aliaslink, callargs, noff, oldflags);
         anargs->set_raw_value(*ts.pstate, std::move(oldargs));
         nargs = offset - skip;
         throw;
     }
-    cleanup(op, ts, aliaslink, callargs, noff, oldflags, result);
+    cleanup(ts, aliaslink, callargs, noff, oldflags);
     anargs->set_raw_value(*ts.pstate, std::move(oldargs));
     nargs = offset - skip;
     return true;
@@ -272,28 +257,6 @@ any_value exec_code_with_args(thread_state &ts, bcode_ref const &body) {
     return ret;
 }
 
-static inline alias *get_lookup_id(
-    thread_state &ts, std::uint32_t op, alias_stack *&ast
-) {
-    ident *id = ts.istate->identmap[op >> 8];
-    auto *a = static_cast<alias_impl *>(id);
-
-    if (a->is_arg()) {
-        if (!ident_is_used_arg(id, ts)) {
-            return nullptr;
-        }
-        ast = &ts.get_astack(static_cast<alias *>(id));
-    } else {
-        ast = &ts.get_astack(static_cast<alias *>(id));
-        if (ast->flags & IDENT_FLAG_UNKNOWN) {
-            throw error_p::make(
-                *ts.pstate, "unknown alias lookup: %s", id->name().data()
-            );
-        }
-    }
-    return static_cast<alias *>(id);
-}
-
 struct vm_guard {
     vm_guard(thread_state &s): ts{s}, oldtop{s.vmstack.size()} {
         if (s.max_call_depth && (s.call_depth >= s.max_call_depth)) {
@@ -322,6 +285,19 @@ std::uint32_t *vm_exec(
     if (chook) {
         chook(cs);
     }
+    auto force_val = [](state &s, any_value &v, int opn) {
+        switch (opn & BC_INST_RET_MASK) {
+            case BC_RET_STRING:
+                v.force_string(s);
+                break;
+            case BC_RET_INT:
+                v.force_integer();
+                break;
+            case BC_RET_FLOAT:
+                v.force_float();
+                break;
+        }
+    };
     for (;;) {
         std::uint32_t op = *code++;
         switch (op & BC_INST_OP_MASK) {
@@ -331,59 +307,52 @@ std::uint32_t *vm_exec(
 
             case BC_INST_NULL:
                 result.set_none();
-                force_arg(cs, result, op & BC_INST_RET_MASK);
-                continue;
+                goto use_result;
 
             case BC_INST_FALSE:
                 result.set_integer(0);
-                force_arg(cs, result, op & BC_INST_RET_MASK);
-                continue;
+                goto use_result;
 
             case BC_INST_TRUE:
                 result.set_integer(1);
-                force_arg(cs, result, op & BC_INST_RET_MASK);
-                continue;
+                goto use_result;
 
             case BC_INST_NOT:
                 result.set_integer(!args.back().get_bool());
-                force_arg(cs, result, op & BC_INST_RET_MASK);
                 args.pop_back();
-                continue;
+                goto use_result;
 
             case BC_INST_POP:
                 args.pop_back();
                 continue;
+
             case BC_INST_ENTER:
                 code = vm_exec(ts, code, args.emplace_back());
                 continue;
+
             case BC_INST_ENTER_RESULT:
                 code = vm_exec(ts, code, result);
                 continue;
 
             case BC_INST_EXIT:
-                force_arg(cs, result, op & BC_INST_RET_MASK);
-                return code;
+                goto use_exit;
 
             case BC_INST_RESULT:
                 result = std::move(args.back());
                 args.pop_back();
-                force_arg(cs, result, op & BC_INST_RET_MASK);
-                continue;
+                goto use_result;
 
             case BC_INST_RESULT_ARG:
-                force_arg(cs, result, op & BC_INST_RET_MASK);
                 args.emplace_back(std::move(result));
-                continue;
+                goto use_top;
 
             case BC_INST_FORCE:
-                force_arg(cs, args.back(), op & BC_INST_RET_MASK);
-                continue;
+                goto use_top;
 
             case BC_INST_DUP: {
                 auto &v = args.back();
                 args.emplace_back() = v;
-                force_arg(cs, args.back(), op & BC_INST_RET_MASK);
-                continue;
+                goto use_top;
             }
 
             case BC_INST_VAL:
@@ -472,16 +441,14 @@ std::uint32_t *vm_exec(
                 auto v = std::move(args.back());
                 args.pop_back();
                 result = exec_code_with_args(ts, v.get_code());
-                force_arg(cs, result, op & BC_INST_RET_MASK);
-                continue;
+                goto use_result;
             }
 
             case BC_INST_DO: {
                 auto v = std::move(args.back());
                 args.pop_back();
                 result = v.get_code().call(cs);
-                force_arg(cs, result, op & BC_INST_RET_MASK);
-                continue;
+                goto use_result;
             }
 
             case BC_INST_JUMP: {
@@ -618,17 +585,26 @@ std::uint32_t *vm_exec(
 
             case BC_INST_LOOKUP_U:
                 args.back() = cs.lookup_value(args.back().get_string(cs));
-                force_arg(cs, args.back(), op & BC_INST_RET_MASK);
-                continue;
+                goto use_top;
 
             case BC_INST_LOOKUP: {
-                alias_stack *ast;
-                auto &v = args.emplace_back();
-                if (get_lookup_id(ts, op, ast)) {
-                    v = ast->node->val_s;
+                ident *id = ts.istate->identmap[op >> 8];
+                if (static_cast<alias *>(id)->is_arg()) {
+                    auto &v = args.emplace_back();
+                    if (ident_is_used_arg(id, ts)) {
+                        v = ts.get_astack(static_cast<alias *>(id)).node->val_s;
+                    }
+                    goto use_top;
                 }
-                force_arg(cs, args.back(), op & BC_INST_RET_MASK);
-                continue;
+                auto &ast = ts.get_astack(static_cast<alias *>(id));
+                if (ast.flags & IDENT_FLAG_UNKNOWN) {
+                    throw error_p::make(
+                        *ts.pstate, "unknown alias lookup: %s",
+                        id->name().data()
+                    );
+                }
+                args.emplace_back() = ast.node->val_s;
+                goto use_top;
             }
 
             case BC_INST_CONC:
@@ -641,16 +617,14 @@ std::uint32_t *vm_exec(
                 );
                 args.resize(args.size() - numconc);
                 args.emplace_back().set_string(buf);
-                force_arg(cs, args.back(), op & BC_INST_RET_MASK);
-                continue;
+                goto use_top;
             }
 
             case BC_INST_VAR:
                 args.emplace_back() = static_cast<builtin_var *>(
                     ts.istate->identmap[op >> 8]
                 )->value();
-                force_arg(cs, args.back(), op & BC_INST_RET_MASK);
-                continue;
+                goto use_top;
 
             case BC_INST_ALIAS: {
                 auto *a = static_cast<alias *>(
@@ -665,6 +639,7 @@ std::uint32_t *vm_exec(
                 args.pop_back();
                 continue;
             }
+
             case BC_INST_ALIAS_U: {
                 auto v = std::move(args.back());
                 args.pop_back();
@@ -683,16 +658,14 @@ std::uint32_t *vm_exec(
                 if (imp->is_arg()) {
                     if (!ident_is_used_arg(id, ts)) {
                         args.resize(offset);
-                        force_arg(cs, result, op & BC_INST_RET_MASK);
-                        continue;
+                        goto use_result;
                     }
                 }
                 exec_alias(
-                    ts, imp, &args[0], result, callargs,
-                    nnargs, offset, 0, op
+                    ts, imp, &args[0], result, callargs, nnargs, offset, 0
                 );
                 args.resize(nnargs);
-                continue;
+                goto use_result;
             }
 
             case BC_INST_CALL_U: {
@@ -703,9 +676,8 @@ std::uint32_t *vm_exec(
                 if (idarg.type() != value_type::STRING) {
 litval:
                     result = std::move(idarg);
-                    force_arg(cs, result, op & BC_INST_RET_MASK);
                     args.resize(offset - 1);
-                    continue;
+                    goto use_result;
                 }
                 auto idn = idarg.get_string(cs);
                 auto id = cs.get_ident(idn);
@@ -714,8 +686,6 @@ noid:
                     if (!is_valid_name(idn)) {
                         goto litval;
                     }
-                    result.force_none();
-                    force_arg(cs, result, op & BC_INST_RET_MASK);
                     std::string_view ids{idn};
                     throw error_p::make(
                         cs, "unknown command: %s", ids.data()
@@ -726,8 +696,7 @@ noid:
                     default:
                         if (!ident_is_callable(&id->get())) {
                             args.resize(offset - 1);
-                            force_arg(cs, result, op & BC_INST_RET_MASK);
-                            continue;
+                            goto use_result;
                         }
                     /* fallthrough */
                     case ID_COMMAND: {
@@ -738,9 +707,8 @@ noid:
                         exec_command(
                             ts, cimp, cimp, &args[offset], result, callargs
                         );
-                        force_arg(cs, result, op & BC_INST_RET_MASK);
                         args.resize(offset - 1);
-                        continue;
+                        goto use_result;
                     }
                     case ID_LOCAL: {
                         std::size_t idstsz = ts.idstack.size();
@@ -779,25 +747,23 @@ noid:
                             ts, cimp, &id->get(), &args[offset],
                             result, callargs
                         );
-                        force_arg(cs, result, op & BC_INST_RET_MASK);
                         args.resize(offset - 1);
-                        continue;
+                        goto use_result;
                     }
                     case ID_ALIAS: {
                         alias *a = static_cast<alias *>(&id->get());
                         if (a->is_arg() && !ident_is_used_arg(a, ts)) {
                             args.resize(offset - 1);
-                            force_arg(cs, result, op & BC_INST_RET_MASK);
-                            continue;
+                            goto use_result;
                         }
                         if (!exec_alias(
                             ts, a, &args[0], result, callargs, nnargs,
-                            offset, 1, op, true
+                            offset, 1, true
                         )) {
                             goto noid;
                         }
                         args.resize(nnargs);
-                        continue;
+                        goto use_result;
                     }
                 }
             }
@@ -811,9 +777,8 @@ noid:
                 id->call(ts, span_type<any_value>{
                     &args[offset], std::size_t(id->arg_count())
                 }, result);
-                force_arg(cs, result, op & BC_INST_RET_MASK);
                 args.resize(offset);
-                continue;
+                goto use_result;
             }
 
             case BC_INST_COM_V: {
@@ -826,11 +791,20 @@ noid:
                 id->call(
                     ts, span_type<any_value>{&args[offset], callargs}, result
                 );
-                force_arg(cs, result, op & BC_INST_RET_MASK);
                 args.resize(offset);
-                continue;
+                goto use_result;
             }
         }
+        continue;
+use_result:
+        force_val(cs, result, op);
+        continue;
+use_top:
+        force_val(cs, args.back(), op);
+        continue;
+use_exit:
+        force_val(cs, result, op);
+        break;
     }
     return code;
 }
