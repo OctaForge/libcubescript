@@ -358,14 +358,19 @@ LIBCUBESCRIPT_EXPORT any_value command::call(
     auto nargs = args.size();
     auto &ts = state_p{cs}.ts();
     if (nargs < std::size_t(cimpl.arg_count())) {
-        stack_guard s{ts}; /* restore after call */
         auto &targs = ts.vmstack;
         auto osz = targs.size();
         targs.resize(osz + cimpl.arg_count());
-        for (std::size_t i = 0; i < nargs; ++i) {
-            targs[osz + i] = args[i];
+        try {
+            for (std::size_t i = 0; i < nargs; ++i) {
+                targs[osz + i] = args[i];
+            }
+            exec_command(ts, &cimpl, this, &targs[osz], ret, nargs, false);
+        } catch (...) {
+            targs.resize(osz);
+            throw;
         }
-        exec_command(ts, &cimpl, this, &targs[osz], ret, nargs, false);
+        targs.resize(osz);
     } else {
         exec_command(ts, &cimpl, this, &args[0], ret, nargs, false);
     }

@@ -17,33 +17,6 @@ struct break_exception {
 struct continue_exception {
 };
 
-struct call_depth_guard {
-    call_depth_guard() = delete;
-    call_depth_guard(thread_state &ts);
-    call_depth_guard(call_depth_guard const &) = delete;
-    call_depth_guard(call_depth_guard &&) = delete;
-    ~call_depth_guard();
-
-    thread_state *tsp;
-};
-
-struct stack_guard {
-    thread_state *tsp;
-    std::size_t oldtop;
-
-    stack_guard() = delete;
-    stack_guard(thread_state &ts):
-        tsp{&ts}, oldtop{ts.vmstack.size()}
-    {}
-
-    ~stack_guard() {
-        tsp->vmstack.resize(oldtop);
-    }
-
-    stack_guard(stack_guard const &) = delete;
-    stack_guard(stack_guard &&) = delete;
-};
-
 template<typename F, typename ...A>
 static void call_with_args(thread_state &ts, F body, A &&...args) {
     if (!ts.callstack) {

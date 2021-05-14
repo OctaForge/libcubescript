@@ -216,15 +216,6 @@ bool exec_alias(
     return true;
 }
 
-call_depth_guard::call_depth_guard(thread_state &ts): tsp(&ts) {
-    if (ts.max_call_depth && (ts.call_depth >= ts.max_call_depth)) {
-        throw error{*ts.pstate, "exceeded recursion limit"};
-    }
-    ++ts.call_depth;
-}
-
-call_depth_guard::~call_depth_guard() { --tsp->call_depth; }
-
 static inline alias *get_lookup_id(
     thread_state &ts, std::uint32_t op, alias_stack *&ast
 ) {
@@ -247,13 +238,29 @@ static inline alias *get_lookup_id(
     return static_cast<alias *>(id);
 }
 
+struct vm_guard {
+    vm_guard(thread_state &s): ts{s}, oldtop{s.vmstack.size()} {
+        if (s.max_call_depth && (s.call_depth >= s.max_call_depth)) {
+            throw error{*s.pstate, "exceeded recursion limit"};
+        }
+        ++s.call_depth;
+    }
+
+    ~vm_guard() {
+        --ts.call_depth;
+        ts.vmstack.resize(oldtop);
+    }
+
+    thread_state &ts;
+    std::size_t oldtop;
+};
+
 std::uint32_t *vm_exec(
     thread_state &ts, std::uint32_t *code, any_value &result
 ) {
     result.set_none();
     auto &cs = *ts.pstate;
-    call_depth_guard level{ts}; /* incr and decr on scope exit */
-    stack_guard guard{ts}; /* resize back to original */
+    vm_guard scope{ts}; /* keep track of recursion depth + manage stack */
     auto &args = ts.vmstack;
     auto &chook = cs.call_hook();
     if (chook) {

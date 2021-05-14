@@ -517,16 +517,19 @@ LIBCUBESCRIPT_EXPORT any_value state::lookup_value(std::string_view name) {
                 return static_cast<builtin_var *>(id)->value();
             case ident_type::COMMAND: {
                 any_value val{};
-                /* make sure value stack gets restored */
-                stack_guard s{*p_tstate};
                 auto *cimpl = static_cast<command_impl *>(id);
                 auto &args = p_tstate->vmstack;
                 auto osz = args.size();
                 /* pad with as many empty values as we need */
                 args.resize(osz + cimpl->arg_count());
-                exec_command(
-                    *p_tstate, cimpl, cimpl, &args[osz], val, 0, true
-                );
+                try {
+                    exec_command(
+                        *p_tstate, cimpl, cimpl, &args[osz], val, 0, true
+                    );
+                } catch (...) {
+                    args.resize(osz);
+                    throw;
+                }
                 args.resize(osz);
                 return val;
             }
