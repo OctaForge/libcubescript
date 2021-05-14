@@ -5,7 +5,7 @@
 namespace cubescript {
 
 thread_state::thread_state(internal_state *cs):
-    vmstack{cs}, idstack{cs}, astacks{cs}, errbuf{cs}
+    vmstack{cs}, idstack{cs}, callstack{cs}, astacks{cs}, errbuf{cs}
 {
     vmstack.reserve(32);
     idstack.reserve(MAX_ARGUMENTS);

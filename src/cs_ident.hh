@@ -43,12 +43,6 @@ struct alias_stack {
     void set_alias(alias *a, thread_state &ts, any_value &v);
 };
 
-struct ident_link {
-    ident const *id;
-    ident_link *next;
-    std::bitset<MAX_ARGUMENTS> usedargs;
-};
-
 struct ident_impl {
     ident_impl() = delete;
     ident_impl(ident_impl const &) = delete;

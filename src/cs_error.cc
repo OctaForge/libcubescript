@@ -11,16 +11,14 @@ namespace cubescript {
 static typename error::stack_node *save_stack(state &cs) {
     auto &ts = state_p{cs}.ts();
     builtin_var *dalias = ts.istate->ivar_dbgalias;
-    auto dval = std::clamp(
+    auto dval = std::size_t(std::clamp(
         dalias->value().get_integer(), integer_type(0), integer_type(1000)
-    );
+    ));
     if (!dval) {
         return nullptr;
     }
-    int total = 0, depth = 0;
-    for (ident_link *l = ts.callstack; l; l = l->next) {
-        total++;
-    }
+    std::size_t depth = 0;
+    std::size_t total = ts.callstack.size();
     if (!total) {
         return nullptr;
     }
@@ -29,21 +27,24 @@ static typename error::stack_node *save_stack(state &cs) {
     );
     typename error::stack_node *ret = st, *nd = st;
     ++st;
-    for (ident_link *l = ts.callstack; l; l = l->next) {
+    for (std::size_t i = total - 1;; --i) {
+        auto &lev = ts.callstack[i];
         ++depth;
         if (depth < dval) {
-            nd->id = l->id;
+            nd->id = &lev.id;
             nd->index = total - depth + 1;
-            if (!l->next) {
+            if (i == 0) {
                 nd->next = nullptr;
-            } else {
-                nd->next = st;
+                nd = st++;
+                break;
             }
+            nd->next = st;
             nd = st++;
-        } else if (!l->next) {
-            nd->id = l->id;
+        } else if (i == 0) {
+            nd->id = &lev.id;
             nd->index = 1;
             nd->next = nullptr;
+            break;
         }
     }
     return ret;

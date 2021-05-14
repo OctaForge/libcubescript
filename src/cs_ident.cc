@@ -114,10 +114,10 @@ void command_impl::call(
 }
 
 bool ident_is_used_arg(ident const *id, thread_state &ts) {
-    if (!ts.callstack) {
+    if (ts.callstack.empty()) {
         return true;
     }
-    return ts.callstack->usedargs[id->index()];
+    return ts.callstack.back().usedargs[id->index()];
 }
 
 void alias_stack::push(ident_stack &st) {
@@ -134,7 +134,7 @@ void alias_stack::set_arg(alias *a, thread_state &ts, any_value &v) {
         node->code = bcode_ref{};
     } else {
         push(ts.idstack.emplace_back());
-        ts.callstack->usedargs[a->index()] = true;
+        ts.callstack.back().usedargs[a->index()] = true;
     }
     node->val_s = std::move(v);
 }

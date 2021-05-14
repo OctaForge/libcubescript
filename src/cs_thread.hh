@@ -11,10 +11,15 @@
 
 namespace cubescript {
 
+struct ident_level {
+    ident &id;
+    std::bitset<MAX_ARGUMENTS> usedargs{};
+
+    ident_level(ident &i): id{i} {};
+};
+
 struct thread_state {
     using astack_allocator = std_allocator<std::pair<int const, alias_stack>>;
-    /* thread call stack */
-    ident_link *callstack{};
     /* the shared state pointer */
     internal_state *istate{};
     /* the public state interface */
@@ -23,6 +28,8 @@ struct thread_state {
     valbuf<any_value> vmstack;
     /* ident stack */
     valbuf<ident_stack> idstack;
+    /* call stack */
+    valbuf<ident_level> callstack;
     /* per-alias stack pointer */
     std::unordered_map<
         int, alias_stack, std::hash<int>, std::equal_to<int>, astack_allocator

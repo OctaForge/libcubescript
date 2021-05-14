@@ -146,21 +146,24 @@ void exec_alias(
     any_value cv;
     cv.set_integer(integer_type(callargs));
     anargs->set_raw_value(*ts.pstate, std::move(cv));
-    ident_link aliaslink = {a, ts.callstack, uargs};
-    ts.callstack = &aliaslink;
+    ts.callstack.emplace_back(*a);
     if (!astack.node->code) {
-        gen_state gs{ts};
-        gs.gen_main(astack.node->val_s.get_string(*ts.pstate));
-        astack.node->code = gs.steal_ref();
+        try {
+            gen_state gs{ts};
+            gs.gen_main(astack.node->val_s.get_string(*ts.pstate));
+            astack.node->code = gs.steal_ref();
+        } catch (...) {
+            ts.callstack.pop_back();
+            throw;
+        }
     }
     bcode_ref coderef = astack.node->code;
     auto cleanup = [](
-        auto &tss, auto &alink, std::size_t cargs,
-        std::size_t nids, auto oflags
+        auto &tss, std::size_t cargs, std::size_t nids, auto oflags
     ) {
-        tss.callstack = alink.next;
+        auto amask = tss.callstack.back().usedargs;
+        tss.callstack.pop_back();
         tss.ident_flags = oflags;
-        auto amask = alink.usedargs;
         for (std::size_t i = 0; i < cargs; i++) {
             tss.get_astack(
                 static_cast<alias *>(tss.istate->identmap[i])
@@ -180,21 +183,21 @@ void exec_alias(
     try {
         vm_exec(ts, bcode_p{coderef}.get()->raw(), result);
     } catch (...) {
-        cleanup(ts, aliaslink, callargs, noff, oldflags);
+        cleanup(ts, callargs, noff, oldflags);
         anargs->set_raw_value(*ts.pstate, std::move(oldargs));
         nargs = offset - skip;
         throw;
     }
-    cleanup(ts, aliaslink, callargs, noff, oldflags);
+    cleanup(ts, callargs, noff, oldflags);
     anargs->set_raw_value(*ts.pstate, std::move(oldargs));
     nargs = offset - skip;
 }
 
 any_value exec_code_with_args(thread_state &ts, bcode_ref const &body) {
-    if (!ts.callstack) {
+    if (ts.callstack.empty()) {
         return body.call(*ts.pstate);
     }
-    auto mask = ts.callstack->usedargs;
+    auto mask = ts.callstack.back().usedargs;
     std::size_t noff = ts.idstack.size();
     for (std::size_t i = 0; mask.any(); ++i) {
         if (mask[0]) {
@@ -207,23 +210,22 @@ any_value exec_code_with_args(thread_state &ts, bcode_ref const &body) {
         }
         mask >>= 1;
     }
-    ident_link *prevstack = ts.callstack->next;
-    ident_link aliaslink = {
-        ts.callstack->id, ts.callstack,
-        prevstack ? prevstack->usedargs : argset{}
-    };
-    if (!prevstack) {
-        aliaslink.usedargs.set();
+    ident_level *prevstack = nullptr;
+    if (ts.callstack.size() >= 2) {
+        prevstack = &ts.callstack[ts.callstack.size() - 2];
     }
-    ts.callstack = &aliaslink;
-    auto cleanup = [](
-        auto &tss, ident_link *pstack, ident_link &alink, std::size_t offn
-    ) {
+    auto &lev = ts.callstack.emplace_back(ts.callstack.back().id);
+    if (!prevstack) {
+        lev.usedargs.set();
+    } else {
+        lev.usedargs = prevstack->usedargs;
+    }
+    auto cleanup = [](auto &tss, ident_level *pstack, std::size_t offn) {
+        auto mask2 = tss.callstack.back().usedargs;
         if (pstack) {
-            pstack->usedargs = alink.usedargs;
+            pstack->usedargs = mask2;
         }
-        tss.callstack = alink.next;
-        auto mask2 = tss.callstack->usedargs;
+        tss.callstack.pop_back();
         for (std::size_t i = 0, nredo = 0; mask2.any(); ++i) {
             if (mask2[0]) {
                 tss.get_astack(
@@ -237,11 +239,11 @@ any_value exec_code_with_args(thread_state &ts, bcode_ref const &body) {
     try {
         ret = body.call(*ts.pstate);
     } catch (...) {
-        cleanup(ts, prevstack, aliaslink, noff);
+        cleanup(ts, prevstack, noff);
         ts.idstack.resize(noff);
         throw;
     }
-    cleanup(ts, prevstack, aliaslink, noff);
+    cleanup(ts, prevstack, noff);
     ts.idstack.resize(noff);
     return ret;
 }
@@ -554,7 +556,7 @@ std::uint32_t *vm_exec(
                 );
                 if (a->is_arg() && !ident_is_used_arg(a, ts)) {
                     ts.get_astack(a).push(ts.idstack.emplace_back());
-                    ts.callstack->usedargs[a->index()] = true;
+                    ts.callstack.back().usedargs[a->index()] = true;
                 }
                 args.emplace_back().set_ident(*a);
                 continue;
@@ -570,7 +572,7 @@ std::uint32_t *vm_exec(
                 alias *a = static_cast<alias *>(id);
                 if (a->is_arg() && !ident_is_used_arg(id, ts)) {
                     ts.get_astack(a).push(ts.idstack.emplace_back());
-                    ts.callstack->usedargs[id->index()] = true;
+                    ts.callstack.back().usedargs[id->index()] = true;
                 }
                 arg.set_ident(*id);
                 continue;
