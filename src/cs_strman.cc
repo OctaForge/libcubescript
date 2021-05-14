@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cstring>
 #include <cubescript/cubescript.hh>
 
 #include "cs_strman.hh"
@@ -13,9 +14,9 @@ struct string_ref_state {
 };
 
 inline string_ref_state *get_ref_state(char const *ptr) {
-    return const_cast<string_ref_state *>(
-        reinterpret_cast<string_ref_state const *>(ptr)
-    ) - 1;
+    string_ref_state *r;
+    std::memcpy(&r, &ptr, sizeof(r));
+    return r - 1;
 }
 
 char const *string_pool::add(std::string_view str) {
@@ -26,7 +27,10 @@ char const *string_pool::add(std::string_view str) {
         /* having a null pointer is the same as non-existence */
         if (st) {
             ++st->refcount;
-            return reinterpret_cast<char const *>(st + 1);
+            st += 1;
+            char const *r;
+            std::memcpy(&r, &st, sizeof(r));
+            return r;
         }
     }
     /* not present: allocate brand new data */
@@ -55,7 +59,10 @@ string_ref string_pool::steal(char *ptr) {
         if (st) {
             /* the buffer is superfluous now */
             cstate->alloc(ss, ss->length + sizeof(string_ref_state) + 1, 0);
-            return string_ref{reinterpret_cast<char const *>(st + 1)};
+            st += 1;
+            char const *rp;
+            std::memcpy(&rp, &st, sizeof(rp));
+            return string_ref{rp};
         }
     }
     ss->refcount = 0; /* string_ref will increment it */
@@ -91,7 +98,10 @@ char const *string_pool::find(std::string_view str) const {
     if (it == counts.end()) {
         return nullptr;
     }
-    return reinterpret_cast<char const *>(it->second + 1);
+    auto *sp = it->second + 1;
+    char const *rp;
+    std::memcpy(&rp, &sp, sizeof(rp));
+    return rp;
 }
 
 std::string_view string_pool::get(char const *ptr) const {
@@ -107,7 +117,9 @@ char *string_pool::alloc_buf(std::size_t len) const {
     sst->length = len;
     sst->refcount = 1;
     /* pre-terminate */
-    auto *strp = reinterpret_cast<char *>(sst + 1);
+    char *strp;
+    sst += 1;
+    std::memcpy(&strp, &sst, sizeof(strp));
     strp[len] = '\0';
     /* now the user can fill it */
     return strp;

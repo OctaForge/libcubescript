@@ -359,24 +359,27 @@ std::uint32_t *vm_exec(
                 switch (op & BC_INST_RET_MASK) {
                     case BC_RET_STRING: {
                         auto len = op >> 8;
-                        args.emplace_back().set_string(std::string_view{
-                            reinterpret_cast<char const *>(code), len
-                        }, cs);
+                        char const *str;
+                        std::memcpy(&str, &code, sizeof(str));
+                        std::string_view sv{str, len};
+                        args.emplace_back().set_string(sv, cs);
                         code += len / sizeof(std::uint32_t) + 1;
                         continue;
                     }
-                    case BC_RET_INT:
-                        args.emplace_back().set_integer(
-                            *reinterpret_cast<integer_type const *>(code)
-                        );
+                    case BC_RET_INT: {
+                        integer_type i;
+                        std::memcpy(&i, code, sizeof(i));
+                        args.emplace_back().set_integer(i);
                         code += bc_store_size<integer_type>;
                         continue;
-                    case BC_RET_FLOAT:
-                        args.emplace_back().set_float(
-                            *reinterpret_cast<float_type const *>(code)
-                        );
+                    }
+                    case BC_RET_FLOAT: {
+                        float_type f;
+                        std::memcpy(&f, code, sizeof(f));
+                        args.emplace_back().set_float(f);
                         code += bc_store_size<float_type>;
                         continue;
+                    }
                     default:
                         break;
                 }
@@ -501,10 +504,11 @@ std::uint32_t *vm_exec(
 
             case BC_INST_BLOCK: {
                 std::uint32_t len = op >> 8;
-                args.emplace_back().set_code(bcode_p::make_ref(
-                    reinterpret_cast<bcode *>(code + 1)
-                ));
-                code += len;
+                bcode *b;
+                code += 1;
+                std::memcpy(&b, &code, sizeof(b));
+                args.emplace_back().set_code(bcode_p::make_ref(b));
+                code += len - 1;
                 continue;
             }
 

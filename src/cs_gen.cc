@@ -27,7 +27,10 @@ std::uint32_t gen_state::peek(std::size_t idx) const {
 bcode_ref gen_state::steal_ref() {
     auto *cp = bcode_alloc(ts.istate, code.size());
     std::memcpy(cp, code.data(), code.size() * sizeof(std::uint32_t));
-    return bcode_p::make_ref(reinterpret_cast<bcode *>(cp + 1));
+    bcode *b;
+    cp += 1;
+    std::memcpy(&b, &cp, sizeof(b));
+    return bcode_p::make_ref(b);
 }
 
 void gen_state::gen_pop() {
@@ -179,8 +182,10 @@ void gen_state::gen_val_string(std::string_view v) {
         return;
     }
     code.push_back(BC_INST_VAL | BC_RET_STRING | std::uint32_t(vsz << 8));
-    auto it = reinterpret_cast<std::uint32_t const *>(v.data());
-    code.append(it, it + (v.size() / sizeof(std::uint32_t)));
+    std::uint32_t *wp;
+    auto *sp = v.data();
+    std::memcpy(&wp, &sp, sizeof(wp));
+    code.append(wp, wp + (v.size() / sizeof(std::uint32_t)));
     std::size_t esz = v.size() % sizeof(std::uint32_t);
     char c[sizeof(std::uint32_t)] = {0};
     std::memcpy(c, v.data() + v.size() - esz, esz);
@@ -208,7 +213,8 @@ static void gen_str_filter(
     memset(&buf[len], 0, sizeof(std::uint32_t) - len % sizeof(std::uint32_t));
     /* set the actual length */
     code.back() |= (len << 8);
-    auto *ubuf = reinterpret_cast<std::uint32_t *>(buf);
+    std::uint32_t *ubuf;
+    std::memcpy(&ubuf, &buf, sizeof(ubuf));
     code.append(ubuf, ubuf + ((len / sizeof(std::uint32_t)) + 1));
     al.deallocate(buf, nwords * sizeof(std::uint32_t));
 }

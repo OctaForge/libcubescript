@@ -90,7 +90,8 @@ std::uint32_t *bcode_alloc(internal_state *cs, std::size_t sz) {
     auto a = std_allocator<std::uint32_t>{cs};
     std::size_t hdrs = sizeof(bcode_hdr) / sizeof(std::uint32_t);
     auto p = a.allocate(sz + hdrs - 1);
-    bcode_hdr *hdr = reinterpret_cast<bcode_hdr *>(p);
+    bcode_hdr *hdr;
+    std::memcpy(&hdr, &p, sizeof(hdr));
     hdr->cs = cs;
     hdr->asize = sz + hdrs - 1;
     return p + hdrs - 1;
@@ -99,7 +100,8 @@ std::uint32_t *bcode_alloc(internal_state *cs, std::size_t sz) {
 /* bc's address must be the 'init' member of the header */
 static inline void bcode_free(std::uint32_t *bc) {
     auto *rp = bc + 1 - (sizeof(bcode_hdr) / sizeof(std::uint32_t));
-    bcode_hdr *hdr = reinterpret_cast<bcode_hdr *>(rp);
+    bcode_hdr *hdr;
+    std::memcpy(&hdr, &rp, sizeof(hdr));
     std_allocator<std::uint32_t>{hdr->cs}.deallocate(rp, hdr->asize);
 }
 
