@@ -121,21 +121,11 @@ void exec_command(
     res.force_plain();
 }
 
-bool exec_alias(
+void exec_alias(
     thread_state &ts, alias *a, any_value *args, any_value &result,
     std::size_t callargs, std::size_t &nargs,
-    std::size_t offset, std::size_t skip, bool ncheck
+    std::size_t offset, std::size_t skip, alias_stack &astack
 ) {
-    auto &aast = ts.get_astack(a);
-    if (ncheck) {
-        if (aast.node->val_s.type() == value_type::NONE) {
-            return false;
-        }
-    } else if (aast.flags & IDENT_FLAG_UNKNOWN) {
-        throw error_p::make(
-            *ts.pstate, "unknown command: %s", a->name().data()
-        );
-    }
     /* excess arguments get ignored (make error maybe?) */
     callargs = std::min(callargs, MAX_ARGUMENTS);
     builtin_var *anargs = ts.istate->ivar_numargs;
@@ -152,18 +142,18 @@ bool exec_alias(
     }
     auto oldargs = anargs->value();
     auto oldflags = ts.ident_flags;
-    ts.ident_flags = aast.flags;
+    ts.ident_flags = astack.flags;
     any_value cv;
     cv.set_integer(integer_type(callargs));
     anargs->set_raw_value(*ts.pstate, std::move(cv));
     ident_link aliaslink = {a, ts.callstack, uargs};
     ts.callstack = &aliaslink;
-    if (!aast.node->code) {
+    if (!astack.node->code) {
         gen_state gs{ts};
-        gs.gen_main(aast.node->val_s.get_string(*ts.pstate));
-        aast.node->code = gs.steal_ref();
+        gs.gen_main(astack.node->val_s.get_string(*ts.pstate));
+        astack.node->code = gs.steal_ref();
     }
-    bcode_ref coderef = aast.node->code;
+    bcode_ref coderef = astack.node->code;
     auto cleanup = [](
         auto &tss, auto &alink, std::size_t cargs,
         std::size_t nids, auto oflags
@@ -198,7 +188,6 @@ bool exec_alias(
     cleanup(ts, aliaslink, callargs, noff, oldflags);
     anargs->set_raw_value(*ts.pstate, std::move(oldargs));
     nargs = offset - skip;
-    return true;
 }
 
 any_value exec_code_with_args(thread_state &ts, bcode_ref const &body) {
@@ -665,8 +654,14 @@ std::uint32_t *vm_exec(
                         goto use_result;
                     }
                 }
+                auto &ast = ts.get_astack(imp);
+                if (ast.flags & IDENT_FLAG_UNKNOWN) {
+                    throw error_p::make(
+                        cs, "unknown command: %s", id->name().data()
+                    );
+                }
                 exec_alias(
-                    ts, imp, &args[0], result, callargs, nnargs, offset, 0
+                    ts, imp, &args[0], result, callargs, nnargs, offset, 0, ast
                 );
                 args.resize(nnargs);
                 goto use_result;
@@ -760,12 +755,14 @@ noid:
                             args.resize(offset - 1);
                             goto use_result;
                         }
-                        if (!exec_alias(
-                            ts, a, &args[0], result, callargs, nnargs,
-                            offset, 1, true
-                        )) {
+                        auto &ast = ts.get_astack(a);
+                        if (ast.node->val_s.type() == value_type::NONE) {
                             goto noid;
                         }
+                        exec_alias(
+                            ts, a, &args[0], result, callargs, nnargs,
+                            offset, 1, ast
+                        );
                         args.resize(nnargs);
                         goto use_result;
                     }

@@ -335,7 +335,10 @@ LIBCUBESCRIPT_EXPORT any_value alias::call(
         return ret;
     }
     auto nargs = args.size();
-    exec_alias(ts, this, &args[0], ret, nargs, nargs, 0, 0, true);
+    auto &ast = ts.get_astack(this);
+    if (ast.node->val_s.type() != value_type::NONE) {
+        exec_alias(ts, this, &args[0], ret, nargs, nargs, 0, 0, ast);
+    }
     return ret;
 }
 
