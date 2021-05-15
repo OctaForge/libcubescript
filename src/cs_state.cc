@@ -314,6 +314,10 @@ LIBCUBESCRIPT_EXPORT void *state::alloc(void *ptr, size_t os, size_t ns) {
     return p_tstate->istate->alloc(ptr, os, ns);
 }
 
+LIBCUBESCRIPT_EXPORT std::size_t state::ident_count() const {
+    return p_tstate->istate->identmap.size();
+}
+
 LIBCUBESCRIPT_EXPORT std::optional<
     std::reference_wrapper<ident>
 > state::get_ident(std::string_view name) {
@@ -323,6 +327,25 @@ LIBCUBESCRIPT_EXPORT std::optional<
     }
     return *id;
 }
+
+LIBCUBESCRIPT_EXPORT std::optional<
+    std::reference_wrapper<ident const>
+> state::get_ident(std::string_view name) const {
+    auto *id = p_tstate->istate->get_ident(name);
+    if (!id) {
+        return std::nullopt;
+    }
+    return *id;
+}
+
+LIBCUBESCRIPT_EXPORT ident &state::get_ident(std::size_t index) {
+    return *p_tstate->istate->identmap[index];
+}
+
+LIBCUBESCRIPT_EXPORT ident const &state::get_ident(std::size_t index) const {
+    return *p_tstate->istate->identmap[index];
+}
+
 
 LIBCUBESCRIPT_EXPORT span_type<ident *> state::get_idents() {
     return span_type<ident *>{

@@ -215,10 +215,36 @@ struct LIBCUBESCRIPT_EXPORT state {
      */
     ident &new_ident(std::string_view n);
 
+    /** @brief Get the number of idents in the state
+     *
+     * This returns the number of idents that the main state has stored. It
+     * does not matter which thread you call this on.
+     */
+    std::size_t ident_count() const;
+
     /** @brief Get a specific cubescript::ident */
     std::optional<std::reference_wrapper<ident>> get_ident(
         std::string_view name
     );
+
+    /** @brief Get a specific cubescript::ident */
+    std::optional<std::reference_wrapper<ident const>> get_ident(
+        std::string_view name
+    ) const;
+
+    /** @brief Get a specific cubescript::ident by index
+     *
+     * Keep in mind that no bounds checking is performed, so the index must
+     * be within range.
+     */
+    ident &get_ident(std::size_t index);
+
+    /** @brief Get a specific cubescript::ident by index
+     *
+     * Keep in mind that no bounds checking is performed, so the index must
+     * be within range.
+     */
+    ident const &get_ident(std::size_t index) const;
 
     /** @brief Assign a value to a name
      *

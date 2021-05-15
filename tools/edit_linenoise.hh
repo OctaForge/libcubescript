@@ -15,11 +15,12 @@ static cs::state *ln_cs = nullptr;
 
 inline void ln_complete(char const *buf, std::vector<std::string> &lc) {
     std::string_view cmd = get_complete_cmd(buf);
-    for (auto id: ln_cs->get_idents()) {
-        if (id->type() != cs::ident_type::COMMAND) {
+    for (std::size_t i = 0; i < ln_cs->ident_count(); ++i) {
+        auto &id = ln_cs->get_ident(i);
+        if (id.type() != cs::ident_type::COMMAND) {
             continue;
         }
-        std::string_view idname = id->name();
+        std::string_view idname = id.name();
         if (idname.size() <= cmd.size()) {
             continue;
         }
