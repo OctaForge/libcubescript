@@ -40,9 +40,12 @@ struct LIBCUBESCRIPT_EXPORT error {
      * index 1 and the one above it greater than 2). The gap is controlled
      * by the value of the `dbgalias` cubescript variable at the time of
      * creation of the error (the stack list will contain at most N nodes).
+     *
+     * When getting the stack state, it will be represented as a span with
+     * the first element being the topmost node and the last element being
+     * the bottommost (index 1).
      */
     struct stack_node {
-        stack_node const *next; /**< @brief Next level. */
         struct ident const &id; /**< @brief The ident of this level. */
         std::size_t index; /**< @brief The level index. */
     };
@@ -51,10 +54,12 @@ struct LIBCUBESCRIPT_EXPORT error {
     error(error const &) = delete;
 
     /** @brief Errors are move constructible. */
-    error(error &&v):
-        p_errbeg{v.p_errbeg}, p_errend{v.p_errend},
-        p_stack{std::move(v.p_stack)}, p_state{v.p_state}
-    {}
+    error(error &&v);
+
+    error &operator=(error const &) = delete;
+
+    /** @brief Errors are move assignable. */
+    error &operator=(error &&v);
 
     /** @brief Construct an error using a string. */
     error(state &cs, std::string_view msg);
@@ -63,26 +68,18 @@ struct LIBCUBESCRIPT_EXPORT error {
     ~error();
 
     /** @brief Get a view of the error message. */
-    std::string_view what() const {
-        return std::string_view{p_errbeg, std::size_t(p_errend - p_errbeg)};
-    }
+    std::string_view what() const;
 
-    /** @brief Get a reference to the call stack state. */
-    stack_node *stack() {
-        return p_stack;
-    }
+    /** @brief Get the call stack state at the point of error. */
+    span_type<stack_node const> stack() const;
 
-    /** @brief Get a reference to the call stack state. */
-    stack_node const *stack() const {
-        return p_stack;
-    }
 private:
     friend struct error_p;
 
     error(state &cs, char const *errbeg, char const *errend);
 
     char const *p_errbeg, *p_errend;
-    stack_node *p_stack;
+    stack_node *p_sbeg, *p_send;
     state *p_state;
 };
 

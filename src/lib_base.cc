@@ -84,19 +84,18 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
             auto tb = any_value{};
             val.set_string(e.what(), cs);
             ts.get_astack(ra).set_alias(ra, ts, val);
-            if (auto *snd = e.stack(); snd) {
+            if (auto nds = e.stack(); !nds.empty()) {
                 auto bc = args[4].get_code();
                 if (!bc.empty()) {
                     alias_local ist{cs, args[2].get_ident(cs)};
                     alias_local vst{cs, args[3].get_ident(cs)};
                     any_value idv{};
-                    while (snd) {
-                        idv.set_integer(integer_type(snd->index));
+                    for (auto &nd: nds) {
+                        idv.set_integer(integer_type(nd.index));
                         ist.set(idv);
-                        idv.set_string(snd->id.name().data(), cs);
+                        idv.set_string(nd.id.name().data(), cs);
                         vst.set(idv);
                         bc.call(cs);
-                        snd = snd->next;
                     }
                 }
             }

@@ -254,13 +254,13 @@ static bool do_call(cs::state &cs, std::string_view line, bool file = false) {
             "%s%s\n", !is_lnum ? "stdin: " : "stdin:", e.what().data()
         );
         std::size_t pindex = 1;
-        for (auto *nd = e.stack(); nd; nd = nd->next) {
+        for (auto &nd: e.stack()) {
             std::printf("  ");
-            if ((nd->index == 1) && (pindex > 2)) {
+            if ((nd.index == 1) && (pindex > 2)) {
                 std::printf("..");
             }
-            pindex = nd->index;
-            std::printf("%zu) %s\n", nd->index, nd->id.name().data());
+            pindex = nd.index;
+            std::printf("%zu) %s\n", nd.index, nd.id.name().data());
         }
         return false;
     }
