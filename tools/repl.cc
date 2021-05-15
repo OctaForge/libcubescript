@@ -260,7 +260,7 @@ static bool do_call(cs::state &cs, std::string_view line, bool file = false) {
                 std::printf("..");
             }
             pindex = nd->index;
-            std::printf("%zu) %s\n", nd->index, nd->id->name().data());
+            std::printf("%zu) %s\n", nd->index, nd->id.name().data());
         }
         return false;
     }

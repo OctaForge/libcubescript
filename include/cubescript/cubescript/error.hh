@@ -43,7 +43,7 @@ struct LIBCUBESCRIPT_EXPORT error {
      */
     struct stack_node {
         stack_node const *next; /**< @brief Next level. */
-        struct ident const *id; /**< @brief The ident of this level. */
+        struct ident const &id; /**< @brief The ident of this level. */
         std::size_t index; /**< @brief The level index. */
     };
 

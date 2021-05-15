@@ -22,28 +22,25 @@ static typename error::stack_node *save_stack(state &cs) {
     if (!total) {
         return nullptr;
     }
-    auto *st = ts.istate->create_array<typename error::stack_node>(
-        std::min(total, dval)
-    );
+    auto *st = static_cast<typename error::stack_node *>(ts.istate->alloc(
+        nullptr, 0, sizeof(typename error::stack_node) * std::min(total, dval)
+    ));
     typename error::stack_node *ret = st, *nd = st;
     ++st;
     for (std::size_t i = total - 1;; --i) {
         auto &lev = ts.callstack[i];
         ++depth;
         if (depth < dval) {
-            nd->id = &lev.id;
-            nd->index = total - depth + 1;
+            new (nd) typename error::stack_node{
+                nullptr, lev.id, total - depth + 1
+            };
             if (i == 0) {
-                nd->next = nullptr;
-                nd = st++;
                 break;
             }
             nd->next = st;
             nd = st++;
         } else if (i == 0) {
-            nd->id = &lev.id;
-            nd->index = 1;
-            nd->next = nullptr;
+            new (nd) typename error::stack_node{nullptr, lev.id, 1};
             break;
         }
     }

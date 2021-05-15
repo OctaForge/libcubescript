@@ -93,7 +93,7 @@ LIBCUBESCRIPT_EXPORT void std_init_base(state &gcs) {
                     while (snd) {
                         idv.set_integer(integer_type(snd->index));
                         ist.set(idv);
-                        idv.set_string(snd->id->name().data(), cs);
+                        idv.set_string(snd->id.name().data(), cs);
                         vst.set(idv);
                         bc.call(cs);
                         snd = snd->next;

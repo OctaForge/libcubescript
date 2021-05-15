@@ -78,15 +78,15 @@ struct internal_state {
     template<typename T, typename ...A>
     T *create(A &&...args) {
         T *ret = static_cast<T *>(alloc(nullptr, 0, sizeof(T)));
-        new (ret) T(std::forward<A>(args)...);
+        new (ret) T{std::forward<A>(args)...};
         return ret;
     }
 
-    template<typename T>
-    T *create_array(size_t len) {
+    template<typename T, typename ...A>
+    T *create_array(size_t len, A &&...args) {
         T *ret = static_cast<T *>(alloc(nullptr, 0, len * sizeof(T)));
         for (size_t i = 0; i < len; ++i) {
-            new (&ret[i]) T();
+            new (&ret[i]) T{std::forward<A>(args)...};
         }
         return ret;
     }
