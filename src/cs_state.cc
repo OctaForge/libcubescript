@@ -346,19 +346,6 @@ LIBCUBESCRIPT_EXPORT ident const &state::get_ident(std::size_t index) const {
     return *p_tstate->istate->identmap[index];
 }
 
-
-LIBCUBESCRIPT_EXPORT span_type<ident *> state::get_idents() {
-    return span_type<ident *>{
-        p_tstate->istate->identmap.data(),
-        p_tstate->istate->identmap.size()
-    };
-}
-
-LIBCUBESCRIPT_EXPORT span_type<ident const *> state::get_idents() const {
-    auto ptr = const_cast<ident const **>(p_tstate->istate->identmap.data());
-    return span_type<ident const *>{ptr, p_tstate->istate->identmap.size()};
-}
-
 LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
     if (!id.is_overridden(*this)) {
         return;

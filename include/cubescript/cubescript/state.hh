@@ -389,12 +389,6 @@ struct LIBCUBESCRIPT_EXPORT state {
         );
     }
 
-    /** @brief Get a span of all idents */
-    span_type<ident *> get_idents();
-
-    /** @brief Get a span of all idents */
-    span_type<ident const *> get_idents() const;
-
     /** @brief Compile a string.
      *
      * This compiles the given string, optionally using `source` as a filename
