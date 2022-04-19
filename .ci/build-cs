@@ -48,6 +48,7 @@ case "${expected_triplet}" in
                 # hack around std::mutex not existing with the default
                 export CC="${CC}-posix"
                 export CXX="${CXX}-posix"
+                export LDFLAGS="-static-libgcc -static-libstdc++ -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive"
                 ;;
             *)
                 qemu_cpu="x86_64"
@@ -175,6 +176,9 @@ cpu_family = '${meson_cpu_family}'
 cpu = '${meson_cpu}'
 endian = '${meson_endian}'
 EOF
+    if [ -n "$LDFLAGS" ]; then
+        echo "cpp_link_args = ${LDFLAGS}" >> crossfile
+    fi
     args="${args} --cross-file=crossfile"
 fi
 if [ -n "$BUILDTYPE" ]; then
