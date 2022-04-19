@@ -30,8 +30,7 @@ std::string_view str_managed_view(char const *str);
  * as a part of the string's memory, so it can be easily accessed using just
  * the pointer to the string, but also this is transparent for usage
  *
- * this is not thread-safe yet, and later on it should be made that,
- * for now we don't bother...
+ * the string manager is thread-safe, so it should be usable in any context
  */
 
 struct string_pool {
