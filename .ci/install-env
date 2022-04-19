@@ -30,7 +30,7 @@ mkdir -p host_tools
 
 echo ">> Updating package database..."
 
-[ -n "$is_linux" ] && sudo apt-get update
+[ -n "$is_linux" ] && sudo apt-get update && sudo apt-get install libc++-dev
 
 echo ">> Installing meson..."
 
