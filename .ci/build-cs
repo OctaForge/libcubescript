@@ -176,9 +176,6 @@ cpu_family = '${meson_cpu_family}'
 cpu = '${meson_cpu}'
 endian = '${meson_endian}'
 EOF
-    if [ -n "$LDFLAGS" ]; then
-        echo "cpp_link_args = ${LDFLAGS}" >> crossfile
-    fi
     args="${args} --cross-file=crossfile"
 fi
 if [ -n "$BUILDTYPE" ]; then
