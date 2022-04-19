@@ -45,6 +45,9 @@ case "${expected_triplet}" in
         case "${expected_triplet}" in
             *w64*)
                 meson_system="windows"
+                # hack around std::mutex not existing with the default
+                export CC="${CC}-posix"
+                export CXX="${CXX}-posix"
                 ;;
             *)
                 qemu_cpu="x86_64"
