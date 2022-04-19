@@ -20,17 +20,20 @@ inline string_ref_state *get_ref_state(char const *ptr) {
 }
 
 char const *string_pool::add(std::string_view str) {
-    auto it = counts.find(str);
-    /* already present: just increment ref */
-    if (it != counts.end()) {
-        auto *st = it->second;
-        /* having a null pointer is the same as non-existence */
-        if (st) {
-            ++st->refcount;
-            st += 1;
-            char const *r;
-            std::memcpy(&r, &st, sizeof(r));
-            return r;
+    {
+        std::lock_guard<std::mutex> l{p_mtx};
+        auto it = counts.find(str);
+        /* already present: just increment ref */
+        if (it != counts.end()) {
+            auto *st = it->second;
+            /* having a null pointer is the same as non-existence */
+            if (st) {
+                ++st->refcount;
+                st += 1;
+                char const *r;
+                std::memcpy(&r, &st, sizeof(r));
+                return r;
+            }
         }
     }
     /* not present: allocate brand new data */
@@ -39,40 +42,52 @@ char const *string_pool::add(std::string_view str) {
     /* write string data, it's already pre-terminated */
     memcpy(strp, str.data(), ss);
     /* store it */
-    counts.emplace(std::string_view{strp, ss}, get_ref_state(strp));
+    {
+        std::lock_guard<std::mutex> l{p_mtx};
+        counts.emplace(std::string_view{strp, ss}, get_ref_state(strp));
+    }
     return strp;
 }
 
-char const *string_pool::ref(char const *ptr) {
+char const *string_pool::internal_ref(char const *ptr) {
     auto *ss = get_ref_state(ptr);
-    ++ss->refcount;
+    {
+        std::lock_guard<std::mutex> l{p_mtx};
+        ++ss->refcount;
+    }
     return ptr;
 }
 
 string_ref string_pool::steal(char *ptr) {
     auto *ss = get_ref_state(ptr);
     auto sr = std::string_view{ptr, ss->length};
-    /* much like add(), but we already have memory */
-    auto it = counts.find(sr);
-    if (it != counts.end()) {
-        auto *st = it->second;
-        if (st) {
-            /* the buffer is superfluous now */
-            cstate->alloc(ss, ss->length + sizeof(string_ref_state) + 1, 0);
-            st += 1;
-            char const *rp;
-            std::memcpy(&rp, &st, sizeof(rp));
-            return string_ref{rp};
+    string_ref_state *st = nullptr;
+    {
+        std::lock_guard<std::mutex> l{p_mtx};
+        /* much like add(), but we already have memory */
+        auto it = counts.find(sr);
+        if (it != counts.end()) {
+            st = it->second;
         }
     }
-    ss->refcount = 0; /* string_ref will increment it */
-    counts.emplace(sr, ss);
+    if (st) {
+        /* the buffer is superfluous now */
+        cstate->alloc(ss, ss->length + sizeof(string_ref_state) + 1, 0);
+        st += 1;
+        char const *rp;
+        std::memcpy(&rp, &st, sizeof(rp));
+        return string_ref{rp};
+    } else {
+        std::lock_guard<std::mutex> l{p_mtx};
+        ss->refcount = 0; /* string_ref will increment it */
+        counts.emplace(sr, ss);
+    }
     return string_ref{ptr};
 }
 
-void string_pool::unref(char const *ptr) {
+void string_pool::internal_unref(char const *ptr) {
     auto *ss = get_ref_state(ptr);
-    if (!--ss->refcount) {
+    if (std::lock_guard<std::mutex> l{p_mtx}; !--ss->refcount) {
         /* refcount zero, so ditch it
          * this path is a little slow...
          */
@@ -88,17 +103,23 @@ void string_pool::unref(char const *ptr) {
 #endif
         /* we're freeing the key */
         counts.erase(it);
-        /* dealloc */
-        cstate->alloc(ss, ss->length + sizeof(string_ref_state) + 1, 0);
+    } else {
+        return;
     }
+    /* dealloc */
+    cstate->alloc(ss, ss->length + sizeof(string_ref_state) + 1, 0);
 }
 
 char const *string_pool::find(std::string_view str) const {
-    auto it = counts.find(str);
-    if (it == counts.end()) {
-        return nullptr;
+    string_ref_state *sp;
+    {
+        std::lock_guard<std::mutex> l{p_mtx};
+        auto it = counts.find(str);
+        if (it == counts.end()) {
+            return nullptr;
+        }
+        sp = it->second + 1;
     }
-    auto *sp = it->second + 1;
     char const *rp;
     std::memcpy(&rp, &sp, sizeof(rp));
     return rp;
@@ -126,11 +147,11 @@ char *string_pool::alloc_buf(std::size_t len) const {
 }
 
 char const *str_managed_ref(char const *str) {
-    return get_ref_state(str)->state->strman->ref(str);
+    return get_ref_state(str)->state->strman->internal_ref(str);
 }
 
 void str_managed_unref(char const *str) {
-    get_ref_state(str)->state->strman->unref(str);
+    get_ref_state(str)->state->strman->internal_unref(str);
 }
 
 std::string_view str_managed_view(char const *str) {
@@ -146,7 +167,7 @@ LIBCUBESCRIPT_EXPORT string_ref::string_ref(state &cs, std::string_view str) {
 LIBCUBESCRIPT_EXPORT string_ref::string_ref(string_ref const &ref):
     p_str{ref.p_str}
 {
-    get_ref_state(p_str)->state->strman->ref(p_str);
+    get_ref_state(p_str)->state->strman->internal_ref(p_str);
 }
 
 /* this can be used by friends to do quick string_ref creation */

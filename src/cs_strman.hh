@@ -5,6 +5,7 @@
 
 #include <unordered_map>
 #include <string_view>
+#include <mutex>
 
 #include "cs_std.hh"
 #include "cs_state.hh"
@@ -57,7 +58,7 @@ struct string_pool {
      * string, this is only safe when you know the pointer you are passing
      * is already managed the system
      */
-    char const *ref(char const *ptr);
+    char const *internal_ref(char const *ptr);
 
     /* this will use the provided memory, assuming it is a fresh string that
      * is yet to be added; the memory must be allocated with alloc_buf()
@@ -67,7 +68,7 @@ struct string_pool {
     /* decrements the reference count and removes it from the system if
      * that reaches zero; likewise, only safe with pointers that are managed
      */
-    void unref(char const *ptr);
+    void internal_unref(char const *ptr);
 
     /* just finds a managed pointer with the same contents
      * as the input, if not found then a null pointer is returned
@@ -83,6 +84,7 @@ struct string_pool {
     char *alloc_buf(std::size_t len) const;
 
     internal_state *cstate;
+    mutable std::mutex p_mtx{};
     std::unordered_map<
         std::string_view, string_ref_state *,
         std::hash<std::string_view>,
