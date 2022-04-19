@@ -1,4 +1,4 @@
-# libcubescript
+# libcubescript 1.0.0 alpha1
 
 [![Build Status](https://github.com/octaforge/libcubescript/actions/workflows/build.yaml/badge.svg)](https://github.com/octaforge/libcubescript/actions)
 
@@ -72,7 +72,7 @@ readiness. You are encouraged to test things and report bugs; contributions
 of any kind are also welcome (you can use pull requests in our Gitea instance
 as well as the GitHub mirror).
 
-Our primary means of communication is the `#octaforge` IRC channel on Freenode.
+Our primary means of communication is the `#octaforge` IRC channel on OFTC.
 
 ### Threads
 

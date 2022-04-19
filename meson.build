@@ -1,5 +1,5 @@
 project('libcubescript', ['cpp'],
-    version: '0.1.0',
+    version: '1.0.0',
     default_options: [
         'buildtype=debugoptimized', 'warning_level=3', 'cpp_rtti=false',
         'cpp_std=none'
