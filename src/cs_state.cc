@@ -62,8 +62,12 @@ std::size_t internal_state::get_identnum() const {
 void internal_state::foreach_ident(void (*f)(ident *, void *), void *data) {
     auto nids = get_identnum();
     for (std::size_t i = 0; i < nids; ++i) {
-        std::lock_guard<std::mutex> l{ident_mtx};
-        f(identmap[i], data);
+        ident *id;
+        {
+            std::lock_guard<std::mutex> l{ident_mtx};
+            id = identmap[i];
+        }
+        f(id, data);
     }
 }
 
