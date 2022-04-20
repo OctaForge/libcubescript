@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <string>
 #include <vector>
+#include <array>
 #include <mutex>
 
 #include "cs_bcode.hh"
