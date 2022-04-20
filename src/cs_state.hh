@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <string>
 #include <vector>
+#include <mutex>
 
 #include "cs_bcode.hh"
 #include "cs_ident.hh"
@@ -49,6 +50,7 @@ struct internal_state {
         allocator_type
     > idents;
     std::vector<ident *, std_allocator<ident *>> identmap;
+    mutable std::mutex ident_mtx;
 
     string_pool *strman;
     empty_block *empty;
@@ -68,6 +70,11 @@ struct internal_state {
     internal_state(alloc_func af, void *data);
 
     ~internal_state();
+
+    ident *lookup_ident(std::size_t idx);
+    ident const *lookup_ident(std::size_t idx) const;
+    std::size_t get_identnum() const;
+    void foreach_ident(void (*f)(ident *, void *), void *data);
 
     ident *add_ident(ident *id, ident_impl *impl);
     ident &new_ident(state &cs, std::string_view name, int flags);

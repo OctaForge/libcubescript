@@ -44,15 +44,41 @@ static void *default_alloc(void *, void *p, size_t, size_t ns) {
     return std::realloc(p, ns);
 }
 
+ident *internal_state::lookup_ident(std::size_t idx) {
+    std::lock_guard<std::mutex> l{ident_mtx};
+    return identmap[idx];
+}
+
+ident const *internal_state::lookup_ident(std::size_t idx) const {
+    std::lock_guard<std::mutex> l{ident_mtx};
+    return identmap[idx];
+}
+
+std::size_t internal_state::get_identnum() const {
+    std::lock_guard<std::mutex> l{ident_mtx};
+    return identmap.size();
+}
+
+void internal_state::foreach_ident(void (*f)(ident *, void *), void *data) {
+    auto nids = get_identnum();
+    for (std::size_t i = 0; i < nids; ++i) {
+        std::lock_guard<std::mutex> l{ident_mtx};
+        f(identmap[i], data);
+    }
+}
+
 ident *internal_state::add_ident(ident *id, ident_impl *impl) {
     if (!id) {
         return nullptr;
     }
     ident_p{*id}.impl(impl);
-    idents[id->name()] = id;
-    impl->p_index = int(identmap.size());
-    identmap.push_back(id);
-    return identmap.back();
+    {
+        std::lock_guard<std::mutex> l{ident_mtx};
+        idents[id->name()] = id;
+        impl->p_index = int(identmap.size());
+        identmap.push_back(id);
+        return identmap.back();
+    }
 }
 
 ident &internal_state::new_ident(state &cs, std::string_view name, int flags) {
@@ -72,6 +98,7 @@ ident &internal_state::new_ident(state &cs, std::string_view name, int flags) {
 }
 
 ident *internal_state::get_ident(std::string_view name) const {
+    std::lock_guard<std::mutex> l{ident_mtx};
     auto id = idents.find(name);
     if (id == idents.end()) {
         return nullptr;
@@ -315,7 +342,7 @@ LIBCUBESCRIPT_EXPORT void *state::alloc(void *ptr, size_t os, size_t ns) {
 }
 
 LIBCUBESCRIPT_EXPORT std::size_t state::ident_count() const {
-    return p_tstate->istate->identmap.size();
+    return p_tstate->istate->get_identnum();
 }
 
 LIBCUBESCRIPT_EXPORT std::optional<
@@ -339,11 +366,11 @@ LIBCUBESCRIPT_EXPORT std::optional<
 }
 
 LIBCUBESCRIPT_EXPORT ident &state::get_ident(std::size_t index) {
-    return *p_tstate->istate->identmap[index];
+    return *p_tstate->istate->lookup_ident(index);
 }
 
 LIBCUBESCRIPT_EXPORT ident const &state::get_ident(std::size_t index) const {
-    return *p_tstate->istate->identmap[index];
+    return *p_tstate->istate->lookup_ident(index);
 }
 
 LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
@@ -374,9 +401,9 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
 }
 
 LIBCUBESCRIPT_EXPORT void state::clear_overrides() {
-    for (auto &p: p_tstate->istate->idents) {
-        clear_override(*(p.second));
-    }
+    p_tstate->istate->foreach_ident([](ident *id, void *data) {
+        static_cast<state *>(data)->clear_override(*id);
+    }, this);
 }
 
 inline int var_flags(bool read_only, var_type vtp) {

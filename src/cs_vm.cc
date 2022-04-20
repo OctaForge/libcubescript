@@ -133,7 +133,7 @@ any_value exec_alias(
     std::size_t noff = ts.idstack.size();
     for(std::size_t i = 0; i < callargs; i++) {
         auto &ast = ts.get_astack(
-            static_cast<alias *>(ts.istate->identmap[i])
+            static_cast<alias *>(ts.istate->lookup_ident(i))
         );
         auto &st = ts.idstack.emplace_back();
         ast.push(st);
@@ -167,14 +167,14 @@ any_value exec_alias(
         tss.ident_flags = oflags;
         for (std::size_t i = 0; i < cargs; i++) {
             tss.get_astack(
-                static_cast<alias *>(tss.istate->identmap[i])
+                static_cast<alias *>(tss.istate->lookup_ident(i))
             ).pop();
             amask[i] = false;
         }
         for (; amask.any(); ++cargs) {
             if (amask[cargs]) {
                 tss.get_astack(
-                    static_cast<alias *>(tss.istate->identmap[cargs])
+                    static_cast<alias *>(tss.istate->lookup_ident(cargs))
                 ).pop();
                 amask[cargs] = false;
             }
@@ -202,7 +202,7 @@ any_value exec_code_with_args(thread_state &ts, bcode_ref const &body) {
     for (std::size_t i = 0; mask.any(); ++i) {
         if (mask[0]) {
             auto &ast = ts.get_astack(
-                static_cast<alias *>(ts.istate->identmap[i])
+                static_cast<alias *>(ts.istate->lookup_ident(i))
             );
             auto &st = ts.idstack.emplace_back();
             st.next = ast.node;
@@ -229,7 +229,7 @@ any_value exec_code_with_args(thread_state &ts, bcode_ref const &body) {
         for (std::size_t i = 0, nredo = 0; mask2.any(); ++i) {
             if (mask2[0]) {
                 tss.get_astack(
-                    static_cast<alias *>(tss.istate->identmap[i])
+                    static_cast<alias *>(tss.istate->lookup_ident(i))
                 ).node = tss.idstack[offn + nredo++].next;
             }
             mask2 >>= 1;
@@ -552,7 +552,7 @@ std::uint32_t *vm_exec(
 
             case BC_INST_IDENT: {
                 alias *a = static_cast<alias *>(
-                    ts.istate->identmap[op >> 8]
+                    ts.istate->lookup_ident(op >> 8)
                 );
                 if (a->is_arg() && !ident_is_used_arg(a, ts)) {
                     ts.get_astack(a).push(ts.idstack.emplace_back());
@@ -583,7 +583,7 @@ std::uint32_t *vm_exec(
                 goto use_top;
 
             case BC_INST_LOOKUP: {
-                ident *id = ts.istate->identmap[op >> 8];
+                ident *id = ts.istate->lookup_ident(op >> 8);
                 if (static_cast<alias *>(id)->is_arg()) {
                     auto &v = args.emplace_back();
                     if (ident_is_used_arg(id, ts)) {
@@ -617,13 +617,13 @@ std::uint32_t *vm_exec(
 
             case BC_INST_VAR:
                 args.emplace_back() = static_cast<builtin_var *>(
-                    ts.istate->identmap[op >> 8]
+                    ts.istate->lookup_ident(op >> 8)
                 )->value();
                 goto use_top;
 
             case BC_INST_ALIAS: {
                 auto *a = static_cast<alias *>(
-                    ts.istate->identmap[op >> 8]
+                    ts.istate->lookup_ident(op >> 8)
                 );
                 auto &ast = ts.get_astack(a);
                 if (a->is_arg()) {
@@ -645,7 +645,7 @@ std::uint32_t *vm_exec(
 
             case BC_INST_CALL: {
                 result.force_none();
-                ident *id = ts.istate->identmap[op >> 8];
+                ident *id = ts.istate->lookup_ident(op >> 8);
                 std::size_t callargs = *code++;
                 std::size_t offset = args.size() - callargs;
                 auto *imp = static_cast<alias_impl *>(id);
@@ -768,7 +768,7 @@ noid:
 
             case BC_INST_COM: {
                 command_impl *id = static_cast<command_impl *>(
-                    ts.istate->identmap[op >> 8]
+                    ts.istate->lookup_ident(op >> 8)
                 );
                 std::size_t offset = args.size() - id->arg_count();
                 result.force_none();
@@ -781,7 +781,7 @@ noid:
 
             case BC_INST_COM_V: {
                 command_impl *id = static_cast<command_impl *>(
-                    ts.istate->identmap[op >> 8]
+                    ts.istate->lookup_ident(op >> 8)
                 );
                 std::size_t callargs = *code++;
                 std::size_t offset = args.size() - callargs;
