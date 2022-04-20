@@ -133,7 +133,7 @@ any_value exec_alias(
     std::size_t noff = ts.idstack.size();
     for(std::size_t i = 0; i < callargs; i++) {
         auto &ast = ts.get_astack(
-            static_cast<alias *>(ts.istate->lookup_ident(i))
+            static_cast<alias *>(ts.istate->argmap[i])
         );
         auto &st = ts.idstack.emplace_back();
         ast.push(st);
@@ -167,14 +167,14 @@ any_value exec_alias(
         tss.ident_flags = oflags;
         for (std::size_t i = 0; i < cargs; i++) {
             tss.get_astack(
-                static_cast<alias *>(tss.istate->lookup_ident(i))
+                static_cast<alias *>(tss.istate->argmap[i])
             ).pop();
             amask[i] = false;
         }
         for (; amask.any(); ++cargs) {
             if (amask[cargs]) {
                 tss.get_astack(
-                    static_cast<alias *>(tss.istate->lookup_ident(cargs))
+                    static_cast<alias *>(tss.istate->argmap[cargs])
                 ).pop();
                 amask[cargs] = false;
             }
@@ -202,7 +202,7 @@ any_value exec_code_with_args(thread_state &ts, bcode_ref const &body) {
     for (std::size_t i = 0; mask.any(); ++i) {
         if (mask[0]) {
             auto &ast = ts.get_astack(
-                static_cast<alias *>(ts.istate->lookup_ident(i))
+                static_cast<alias *>(ts.istate->argmap[i])
             );
             auto &st = ts.idstack.emplace_back();
             st.next = ast.node;
@@ -229,7 +229,7 @@ any_value exec_code_with_args(thread_state &ts, bcode_ref const &body) {
         for (std::size_t i = 0, nredo = 0; mask2.any(); ++i) {
             if (mask2[0]) {
                 tss.get_astack(
-                    static_cast<alias *>(tss.istate->lookup_ident(i))
+                    static_cast<alias *>(tss.istate->argmap[i])
                 ).node = tss.idstack[offn + nredo++].next;
             }
             mask2 >>= 1;

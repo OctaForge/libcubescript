@@ -45,11 +45,17 @@ static void *default_alloc(void *, void *p, size_t, size_t ns) {
 }
 
 ident *internal_state::lookup_ident(std::size_t idx) {
+    if (idx < MAX_ARGUMENTS) {
+        return argmap[idx];
+    }
     std::lock_guard<std::mutex> l{ident_mtx};
     return identmap[idx];
 }
 
 ident const *internal_state::lookup_ident(std::size_t idx) const {
+    if (idx < MAX_ARGUMENTS) {
+        return argmap[idx];
+    }
     std::lock_guard<std::mutex> l{ident_mtx};
     return identmap[idx];
 }
@@ -141,7 +147,7 @@ state::state(alloc_func func, void *data) {
     for (std::size_t i = 0; i < MAX_ARGUMENTS; ++i) {
         char buf[16];
         snprintf(buf, sizeof(buf), "arg%zu", i + 1);
-        statep->new_ident(
+        statep->argmap[i] = &statep->new_ident(
             *this, static_cast<char const *>(buf), IDENT_FLAG_ARG
         );
     }
