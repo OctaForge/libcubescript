@@ -166,6 +166,7 @@ private:
  */
 struct LIBCUBESCRIPT_EXPORT string_ref {
     friend struct any_value;
+    friend struct var_value;
     friend struct string_pool;
 
     /** @brief String references are not default-constructible. */

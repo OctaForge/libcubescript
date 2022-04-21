@@ -53,6 +53,8 @@ namespace cubescript {
      * Define `LIBCUBESCRIPT_CONF_USER_FLOAT` in your custom conf file
      * to disable the builtin.
      *
+     * Must be at most as large as the largest standard integer type.
+     *
      * @see integer_type
      * @see FLOAT_FORMAT
      * @see ROUND_FLOAT_FORMAT
@@ -138,6 +140,9 @@ static_assert(
 );
 static_assert(
     std::is_floating_point_v<float_type>, "float_type must be floating point"
+);
+static_assert(
+    sizeof(float_type) <= sizeof(unsigned long long), "float_type is too large"
 );
 
 } /* namespace cubescript */

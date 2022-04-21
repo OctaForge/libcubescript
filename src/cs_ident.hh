@@ -4,11 +4,58 @@
 #include <cubescript/cubescript.hh>
 
 #include <bitset>
+#include <atomic>
+#include <memory>
 
 namespace cubescript {
 
 static constexpr std::size_t MAX_ARGUMENTS = 32;
 using argset = std::bitset<MAX_ARGUMENTS>;
+
+struct var_value {
+    /* ugly but does the trick */
+    using FS = std::conditional_t<
+        sizeof(float_type) == sizeof(unsigned char),
+        unsigned char,
+        std::conditional_t<
+            sizeof(float_type) == sizeof(unsigned short),
+            unsigned short,
+            std::conditional_t<
+                sizeof(float_type) == sizeof(unsigned long),
+                unsigned long,
+                unsigned long long
+            >
+        >
+    >;
+
+    var_value(integer_type v);
+    var_value(float_type v);
+    var_value(std::string_view const &v, state &cs);
+
+    ~var_value();
+
+    value_type type() const {
+        return p_type;
+    }
+
+    void save();
+    void restore();
+
+    void steal_value(any_value &v, state &cs);
+    any_value to_value() const;
+
+private:
+    using VU = union {
+        std::atomic<integer_type> i;
+        std::atomic<FS> f;
+        std::atomic<char const *> s;
+    };
+
+    /* fixed upon creation */
+    value_type p_type;
+    alignas(VU) unsigned char p_stor[sizeof(VU)];
+    alignas(VU) unsigned char p_ostor[sizeof(VU)];
+};
 
 enum {
     ID_UNKNOWN = -1, ID_VAR, ID_COMMAND, ID_ALIAS,
@@ -68,12 +115,13 @@ struct ident_impl {
 bool ident_is_callable(ident const *id);
 
 struct var_impl: ident_impl, builtin_var {
-    var_impl(string_ref name, int flags);
+    var_impl(string_ref name, int flags, integer_type v);
+    var_impl(string_ref name, int flags, float_type v);
+    var_impl(string_ref name, int flags, std::string_view const &v, state &cs);
 
     command *get_setter(thread_state &ts) const;
 
-    any_value p_storage{};
-    any_value p_override{};
+    var_value p_storage;
 };
 
 void var_changed(thread_state &ts, builtin_var &id, any_value &oldval);

@@ -4,8 +4,137 @@
 #include "cs_thread.hh"
 #include "cs_vm.hh"
 #include "cs_error.hh"
+#include "cs_strman.hh"
+
+#include <cstring>
 
 namespace cubescript {
+
+template<typename T>
+static inline T var_load(unsigned char const *base) noexcept {
+    std::atomic<T> const *p{};
+    std::memcpy(&p, &base, sizeof(void *));
+    return p->load();
+}
+
+template<typename T>
+static inline void var_store(unsigned char *base, T v) noexcept {
+    std::atomic<T> *p{};
+    std::memcpy(&p, &base, sizeof(void *));
+    p->store(v);
+}
+
+/* the ctors are non-atomic; that's okay, these are called during ident
+ * creation before anything is stored, so there is no chance of data race
+ */
+
+var_value::var_value(integer_type v): p_type{value_type::INTEGER} {
+    new (p_stor) std::atomic<integer_type>{v};
+    new (p_ostor) std::atomic<integer_type>{0};
+}
+
+var_value::var_value(float_type v): p_type{value_type::FLOAT} {
+    FS vs{};
+    std::memcpy(&vs, &v, sizeof(v));
+    new (p_stor) std::atomic<FS>{vs};
+    new (p_ostor) std::atomic<FS>{0};
+}
+
+var_value::var_value(std::string_view const &v, state &cs):
+    p_type{value_type::STRING}
+{
+    new (p_stor) std::atomic<char const *>{
+        state_p{cs}.ts().istate->strman->add(v)
+    };
+    new (p_ostor) std::atomic<char const *>{nullptr};
+}
+
+var_value::~var_value() {
+    if (type() == value_type::STRING) {
+        str_managed_unref(var_load<char const *>(p_stor));
+    }
+}
+
+static inline void var_save(
+    var_value const &v, unsigned char *top, unsigned char *fromp
+) noexcept {
+    switch (v.type()) {
+        case value_type::INTEGER:
+            var_store<integer_type>(top, var_load<integer_type>(fromp));
+            var_store<integer_type>(fromp, 0);
+            return;
+        case value_type::FLOAT: {
+            using FST = typename var_value::FS;
+            FST vs{};
+            float_type fv = 0;
+            std::memcpy(&vs, &fv, sizeof(fv));
+            var_store<FST>(top, var_load<FST>(fromp));
+            var_store<FST>(fromp, vs);
+            return;
+        }
+        case value_type::STRING: {
+            auto *p = var_load<char const *>(top);
+            if (p) {
+                str_managed_unref(p);
+            }
+            var_store<char const *>(top, var_load<char const *>(fromp));
+            var_store<char const *>(fromp, nullptr);
+        }
+        default:
+            break;
+    }
+    abort(); /* unreachable unless buggy */
+}
+
+void var_value::save() {
+    var_save(*this, p_ostor, p_stor);
+}
+
+void var_value::restore() {
+    var_save(*this, p_stor, p_ostor);
+}
+
+void var_value::steal_value(any_value &v, state &cs) {
+    switch (type()) {
+        case value_type::INTEGER:
+            var_store<integer_type>(p_stor, v.force_integer());
+            return;
+        case value_type::FLOAT: {
+            FS vs{};
+            float_type fv = v.force_float();
+            std::memcpy(&vs, &fv, sizeof(fv));
+            var_store<FS>(p_stor, vs);
+            return;
+        }
+        case value_type::STRING: {
+            auto sv = v.force_string(cs);
+            var_store<char const *>(p_stor, str_managed_ref(sv.data()));
+            return;
+        }
+        default:
+            break;
+    }
+    abort(); /* unreachable unless buggy */
+}
+
+any_value var_value::to_value() const {
+    switch (type()) {
+        case value_type::INTEGER:
+            return var_load<integer_type>(p_stor);
+        case value_type::FLOAT: {
+            float_type fv{};
+            FS vs = var_load<FS>(p_stor);
+            std::memcpy(&fv, &vs, sizeof(fv));
+            return fv;
+        }
+        case value_type::STRING:
+            return string_ref{var_load<char const *>(p_stor)};
+        default:
+            break;
+    }
+    abort(); /* unreachable unless buggy */
+    return any_value{};
+}
 
 ident_impl::ident_impl(ident_type tp, string_ref nm, int fl):
     p_name{nm}, p_type{int(tp)}, p_flags{fl}
@@ -19,8 +148,18 @@ bool ident_is_callable(ident const *id) {
     return !!static_cast<command_impl const *>(id)->p_cb_cftv;
 }
 
-var_impl::var_impl(string_ref name, int fl):
-    ident_impl{ident_type::VAR, name, fl}
+var_impl::var_impl(string_ref name, int fl, integer_type v):
+    ident_impl{ident_type::VAR, name, fl}, p_storage{v}
+{}
+
+var_impl::var_impl(string_ref name, int fl, float_type v):
+    ident_impl{ident_type::VAR, name, fl}, p_storage{v}
+{}
+
+var_impl::var_impl(
+    string_ref name, int fl, std::string_view const &v, state &cs
+):
+    ident_impl{ident_type::VAR, name, fl}, p_storage{v, cs}
 {}
 
 alias_impl::alias_impl(
@@ -237,7 +376,7 @@ LIBCUBESCRIPT_EXPORT void builtin_var::save(state &cs) {
         }
         if (!(p_impl->p_flags & IDENT_FLAG_OVERRIDDEN)) {
             auto *imp = static_cast<var_impl *>(p_impl);
-            imp->p_override = std::move(imp->p_storage);
+            imp->p_storage.save();
             p_impl->p_flags |= IDENT_FLAG_OVERRIDDEN;
         }
     } else {
@@ -267,27 +406,13 @@ LIBCUBESCRIPT_EXPORT any_value builtin_var::call(
 }
 
 LIBCUBESCRIPT_EXPORT any_value builtin_var::value() const {
-    return static_cast<var_impl const *>(p_impl)->p_storage;
+    return static_cast<var_impl const *>(p_impl)->p_storage.to_value();
 }
 
 LIBCUBESCRIPT_EXPORT void builtin_var::set_raw_value(
     state &cs, any_value val
 ) {
-    switch (static_cast<var_impl *>(p_impl)->p_storage.type()) {
-        case value_type::INTEGER:
-            val.force_integer();
-            break;
-        case value_type::FLOAT:
-            val.force_float();
-            break;
-        case value_type::STRING:
-            val.force_string(cs);
-            break;
-        default:
-            abort(); /* unreachable unless we have a bug */
-            break;
-    }
-    static_cast<var_impl *>(p_impl)->p_storage = std::move(val);
+    static_cast<var_impl *>(p_impl)->p_storage.steal_value(val, cs);
 }
 
 LIBCUBESCRIPT_EXPORT void builtin_var::set_value(

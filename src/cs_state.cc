@@ -398,7 +398,7 @@ LIBCUBESCRIPT_EXPORT void state::clear_override(ident &id) {
         case ident_type::VAR: {
             auto &v = static_cast<var_impl &>(id);
             any_value oldv = v.value();
-            v.p_storage = std::move(v.p_override);
+            v.p_storage.restore();
             var_changed(*p_tstate, v, oldv);
             static_cast<var_impl *>(
                 static_cast<builtin_var *>(&v)
@@ -453,9 +453,8 @@ LIBCUBESCRIPT_EXPORT builtin_var &state::new_var(
     std::string_view n, integer_type v, bool read_only, var_type vtp
 ) {
     auto *iv = p_tstate->istate->create<var_impl>(
-        string_ref{*this, n},var_flags(read_only, vtp)
+        string_ref{*this, n}, var_flags(read_only, vtp), v
     );
-    iv->p_storage.set_integer(v);
     try {
         var_name_check(*this, p_tstate->istate->get_ident(n), n);
     } catch (...) {
@@ -470,9 +469,8 @@ LIBCUBESCRIPT_EXPORT builtin_var &state::new_var(
     std::string_view n, float_type v, bool read_only, var_type vtp
 ) {
     auto *fv = p_tstate->istate->create<var_impl>(
-        string_ref{*this, n}, var_flags(read_only, vtp)
+        string_ref{*this, n}, var_flags(read_only, vtp), v
     );
-    fv->p_storage.set_float(v);
     try {
         var_name_check(*this, p_tstate->istate->get_ident(n), n);
     } catch (...) {
@@ -487,9 +485,8 @@ LIBCUBESCRIPT_EXPORT builtin_var &state::new_var(
     std::string_view n, std::string_view v, bool read_only, var_type vtp
 ) {
     auto *sv = p_tstate->istate->create<var_impl>(
-        string_ref{*this, n}, var_flags(read_only, vtp)
+        string_ref{*this, n}, var_flags(read_only, vtp), v, *this
     );
-    sv->p_storage.set_string(v, *this);
     try {
         var_name_check(*this, p_tstate->istate->get_ident(n), n);
     } catch (...) {
