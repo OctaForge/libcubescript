@@ -12,14 +12,14 @@ namespace cubescript {
 
 template<typename T>
 static inline T var_load(unsigned char const *base) noexcept {
-    std::atomic<T> const *p{};
+    atomic_type<T> const *p{};
     std::memcpy(&p, &base, sizeof(void *));
     return p->load();
 }
 
 template<typename T>
 static inline void var_store(unsigned char *base, T v) noexcept {
-    std::atomic<T> *p{};
+    atomic_type<T> *p{};
     std::memcpy(&p, &base, sizeof(void *));
     p->store(v);
 }
@@ -29,24 +29,24 @@ static inline void var_store(unsigned char *base, T v) noexcept {
  */
 
 var_value::var_value(integer_type v): p_type{value_type::INTEGER} {
-    new (p_stor) std::atomic<integer_type>{v};
-    new (p_ostor) std::atomic<integer_type>{0};
+    new (p_stor) atomic_type<integer_type>{v};
+    new (p_ostor) atomic_type<integer_type>{0};
 }
 
 var_value::var_value(float_type v): p_type{value_type::FLOAT} {
     FS vs{};
     std::memcpy(&vs, &v, sizeof(v));
-    new (p_stor) std::atomic<FS>{vs};
-    new (p_ostor) std::atomic<FS>{0};
+    new (p_stor) atomic_type<FS>{vs};
+    new (p_ostor) atomic_type<FS>{0};
 }
 
 var_value::var_value(std::string_view const &v, state &cs):
     p_type{value_type::STRING}
 {
-    new (p_stor) std::atomic<char const *>{
+    new (p_stor) atomic_type<char const *>{
         state_p{cs}.ts().istate->strman->add(v)
     };
-    new (p_ostor) std::atomic<char const *>{nullptr};
+    new (p_ostor) atomic_type<char const *>{nullptr};
 }
 
 var_value::~var_value() {

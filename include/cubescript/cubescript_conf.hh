@@ -23,6 +23,18 @@
 #  include <span>
 #endif
 
+#ifndef LIBCUBESCRIPT_CONF_THREAD_SAFE
+/** @brief Controls thread safety of the implementation.
+ *
+ * By default, libcubescript is thread safe. That means using locking where
+ * necessary as well as atomic variables where necessary. If you do not need
+ * that, you can disable this by overriding this macro to 0 in your user
+ * configuration. This does not make any difference in behavior when used
+ * in single-threaded scenarios, other than possibly better performance.
+ */
+#define LIBCUBESCRIPT_CONF_THREAD_SAFE 1
+#endif
+
 namespace cubescript {
 #if !defined(LIBCUBESCRIPT_CONF_USER_INTEGER)
     /** @brief The integer type used.

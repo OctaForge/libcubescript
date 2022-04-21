@@ -9,6 +9,7 @@
 #include "cs_vm.hh"
 #include "cs_parser.hh"
 #include "cs_error.hh"
+#include "cs_lock.hh"
 
 namespace cubescript {
 
@@ -48,7 +49,7 @@ ident *internal_state::lookup_ident(std::size_t idx) {
     if (idx < MAX_ARGUMENTS) {
         return argmap[idx];
     }
-    std::lock_guard<std::mutex> l{ident_mtx};
+    mtx_guard l{ident_mtx};
     return identmap[idx];
 }
 
@@ -56,12 +57,12 @@ ident const *internal_state::lookup_ident(std::size_t idx) const {
     if (idx < MAX_ARGUMENTS) {
         return argmap[idx];
     }
-    std::lock_guard<std::mutex> l{ident_mtx};
+    mtx_guard l{ident_mtx};
     return identmap[idx];
 }
 
 std::size_t internal_state::get_identnum() const {
-    std::lock_guard<std::mutex> l{ident_mtx};
+    mtx_guard l{ident_mtx};
     return identmap.size();
 }
 
@@ -70,7 +71,7 @@ void internal_state::foreach_ident(void (*f)(ident *, void *), void *data) {
     for (std::size_t i = 0; i < nids; ++i) {
         ident *id;
         {
-            std::lock_guard<std::mutex> l{ident_mtx};
+            mtx_guard l{ident_mtx};
             id = identmap[i];
         }
         f(id, data);
@@ -83,7 +84,7 @@ ident *internal_state::add_ident(ident *id, ident_impl *impl) {
     }
     ident_p{*id}.impl(impl);
     {
-        std::lock_guard<std::mutex> l{ident_mtx};
+        mtx_guard l{ident_mtx};
         idents[id->name()] = id;
         impl->p_index = int(identmap.size());
         identmap.push_back(id);
@@ -108,7 +109,7 @@ ident &internal_state::new_ident(state &cs, std::string_view name, int flags) {
 }
 
 ident *internal_state::get_ident(std::string_view name) const {
-    std::lock_guard<std::mutex> l{ident_mtx};
+    mtx_guard l{ident_mtx};
     auto id = idents.find(name);
     if (id == idents.end()) {
         return nullptr;

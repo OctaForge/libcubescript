@@ -4,6 +4,7 @@
 
 #include "cs_strman.hh"
 #include "cs_thread.hh"
+#include "cs_lock.hh"
 
 namespace cubescript {
 
@@ -21,7 +22,7 @@ inline string_ref_state *get_ref_state(char const *ptr) {
 
 char const *string_pool::add(std::string_view str) {
     {
-        std::lock_guard<std::mutex> l{p_mtx};
+        mtx_guard l{p_mtx};
         auto it = counts.find(str);
         /* already present: just increment ref */
         if (it != counts.end()) {
@@ -43,7 +44,7 @@ char const *string_pool::add(std::string_view str) {
     memcpy(strp, str.data(), ss);
     /* store it */
     {
-        std::lock_guard<std::mutex> l{p_mtx};
+        mtx_guard l{p_mtx};
         counts.emplace(std::string_view{strp, ss}, get_ref_state(strp));
     }
     return strp;
@@ -52,7 +53,7 @@ char const *string_pool::add(std::string_view str) {
 char const *string_pool::internal_ref(char const *ptr) {
     auto *ss = get_ref_state(ptr);
     {
-        std::lock_guard<std::mutex> l{p_mtx};
+        mtx_guard l{p_mtx};
         ++ss->refcount;
     }
     return ptr;
@@ -63,7 +64,7 @@ string_ref string_pool::steal(char *ptr) {
     auto sr = std::string_view{ptr, ss->length};
     string_ref_state *st = nullptr;
     {
-        std::lock_guard<std::mutex> l{p_mtx};
+        mtx_guard l{p_mtx};
         /* much like add(), but we already have memory */
         auto it = counts.find(sr);
         if (it != counts.end()) {
@@ -78,7 +79,7 @@ string_ref string_pool::steal(char *ptr) {
         std::memcpy(&rp, &st, sizeof(rp));
         return string_ref{rp};
     } else {
-        std::lock_guard<std::mutex> l{p_mtx};
+        mtx_guard l{p_mtx};
         ss->refcount = 0; /* string_ref will increment it */
         counts.emplace(sr, ss);
     }
@@ -87,7 +88,7 @@ string_ref string_pool::steal(char *ptr) {
 
 void string_pool::internal_unref(char const *ptr) {
     auto *ss = get_ref_state(ptr);
-    if (std::lock_guard<std::mutex> l{p_mtx}; !--ss->refcount) {
+    if (mtx_guard l{p_mtx}; !--ss->refcount) {
         /* refcount zero, so ditch it
          * this path is a little slow...
          */
@@ -113,7 +114,7 @@ void string_pool::internal_unref(char const *ptr) {
 char const *string_pool::find(std::string_view str) const {
     string_ref_state *sp;
     {
-        std::lock_guard<std::mutex> l{p_mtx};
+        mtx_guard l{p_mtx};
         auto it = counts.find(str);
         if (it == counts.end()) {
             return nullptr;

@@ -3,8 +3,9 @@
 
 #include <cubescript/cubescript.hh>
 
+#include "cs_lock.hh"
+
 #include <bitset>
-#include <atomic>
 #include <memory>
 
 namespace cubescript {
@@ -46,9 +47,9 @@ struct var_value {
 
 private:
     using VU = union {
-        std::atomic<integer_type> i;
-        std::atomic<FS> f;
-        std::atomic<char const *> s;
+        atomic_type<integer_type> i;
+        atomic_type<FS> f;
+        atomic_type<char const *> s;
     };
 
     /* fixed upon creation */

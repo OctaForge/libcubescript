@@ -7,10 +7,10 @@
 #include <string>
 #include <vector>
 #include <array>
-#include <mutex>
 
 #include "cs_bcode.hh"
 #include "cs_ident.hh"
+#include "cs_lock.hh"
 
 namespace cubescript {
 
@@ -52,7 +52,7 @@ struct internal_state {
     > idents;
     std::vector<ident *, std_allocator<ident *>> identmap;
     std::array<ident *, MAX_ARGUMENTS> argmap;
-    mutable std::mutex ident_mtx;
+    mutable mutex_type ident_mtx;
 
     string_pool *strman;
     empty_block *empty;

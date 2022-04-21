@@ -5,10 +5,10 @@
 
 #include <unordered_map>
 #include <string_view>
-#include <mutex>
 
 #include "cs_std.hh"
 #include "cs_state.hh"
+#include "cs_lock.hh"
 
 namespace cubescript {
 
@@ -83,7 +83,7 @@ struct string_pool {
     char *alloc_buf(std::size_t len) const;
 
     internal_state *cstate;
-    mutable std::mutex p_mtx{};
+    mutable mutex_type p_mtx{};
     std::unordered_map<
         std::string_view, string_ref_state *,
         std::hash<std::string_view>,
