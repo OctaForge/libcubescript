@@ -45,6 +45,7 @@ There's a variety of things that set this implementation apart:
   uses is allocated through it; that gives you complete control over its
   memory (for tracking, sandboxing, limits, etc.)
 * A large degree of memory safety, with no manual management
+* Thread-safe by default
 * Strings are interned, with a single reference counted instance of any
   string existing at a time, which lowers memory usage and simplifies its
   management
@@ -65,7 +66,6 @@ More features and enhancements are planned, such as:
 
 * Improved support for debugging information (line information tracking
   at runtime rather than just compile-time)
-* Thread safety
 
 Right now, the codebase is unstable, but quickly approaching production
 readiness. You are encouraged to test things and report bugs; contributions
@@ -81,25 +81,24 @@ thread, which owns all variables and most state. Based on the main thread
 you can create side threads, which share a lot of state with the main thread
 but have their own call stack.
 
-In the future, accesses to "global" state (the state shared between threads)
-will be made thread safe.
+These threads are not thread-safe by themselves, but as long as you ensure
+that concurrent access to them is protected, libcubescript is thread-safe,
+i.e. any internal shared state between libcubescript threads is synchronized.
+That means you can simply create several libcubescript threads, use them from
+different OS threads, and you won't run into any trouble.
 
-That means you will be able to use the library in multithreaded contexts, as
-long as you make sure to only use any Cubescript thread from at most one
-real thread at a time (accesses to thread state will not be thread-safe).
+Additionally, this means libcubescript threads are coroutine-safe; if you
+call into one from a coroutine and yield somewhere mid-command, you can still
+access and run code on other libcubescript threads completely safely. Once
+you resume the coroutine, it will continue where it left off (though global
+variables may have changed).
 
-Right now, this at least means the library is coroutine-safe. You can call
-into a Cubescript thread inside a coroutine, yield somewhere mid-command,
-and still be able to access the state safely through other Cubescript
-threads. Once you resume the coroutine, it will continue where it left
-off, without anything being wrong.
-
-Since strings are interned and reference counted, this is also geared
-towards thread safety - any API returning a string will give you your own
-reference, which means nothing can free it while you are still using it.
-Similarly, things taking string references will generally increment the
-count for their own purposes. This all happens automatically thanks to
-C++'s scoped value handling.
+Since strings are interned and reference counted, string references returned
+by libcubescript are also safe, as you get your own reference and nothing
+can touch it. Things taking strings will have their own references, and
+the code will ensure that strings live for as long as a reference exists
+somewhere. Thanks to C++'s scoped value handling, this is mostly seamless
+for the user.
 
 ## Building and usage
 

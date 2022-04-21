@@ -49,6 +49,8 @@ endif
 
 build_root = meson.current_build_dir()
 
+thr_dep = dependency('threads')
+
 subdir('include')
 subdir('src')
 subdir('tools')

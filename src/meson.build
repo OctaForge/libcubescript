@@ -36,11 +36,13 @@ if os_uses_dlls and get_option('default_library') == 'both'
     # do that other than making two different targets...
     libcubescript_static = static_library('cubescript',
         libcubescript_src, include_directories: lib_incdirs,
+        dependencies: thr_dep,
         cpp_args: lib_cxxflags,
         install: true
     )
     libcubescript_dynamic = shared_library('cubescript',
         libcubescript_src, include_directories: lib_incdirs,
+        dependencies: thr_dep,
         cpp_args: dyn_cxxflags,
         install: true,
         version: meson.project_version()
@@ -49,6 +51,7 @@ if os_uses_dlls and get_option('default_library') == 'both'
 else
     libcubescript_target = library('cubescript',
         libcubescript_src, include_directories: lib_incdirs,
+        dependencies: thr_dep,
         cpp_args: dyn_cxxflags,
         install: true,
         version: meson.project_version()

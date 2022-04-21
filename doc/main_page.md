@@ -43,6 +43,7 @@ There's a variety of things that set this implementation apart:
   uses is allocated through it; that gives you complete control over its
   memory (for tracking, sandboxing, limits, etc.)
 * A large degree of memory safety, with no manual management
+* Thread-safe by default
 * Strings are interned, with a single reference counted instance of any
   string existing at a time, which lowers memory usage and simplifies its
   management
