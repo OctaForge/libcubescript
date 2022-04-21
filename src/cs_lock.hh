@@ -6,6 +6,8 @@
 #if LIBCUBESCRIPT_CONF_THREAD_SAFE
 #include <mutex>
 #include <atomic>
+#else
+#include <utility>
 #endif
 
 namespace cubescript {
@@ -26,6 +28,9 @@ struct atomic_type {
     }
     void store(T v) {
         p_v = v;
+    }
+    T exchange(T v) {
+        return std::exchange(p_v, v);
     }
 };
 

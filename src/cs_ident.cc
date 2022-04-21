@@ -24,6 +24,13 @@ static inline void var_store(unsigned char *base, T v) noexcept {
     p->store(v);
 }
 
+template<typename T>
+static inline T var_exchange(unsigned char const *base, T v) noexcept {
+    atomic_type<T> *p{};
+    std::memcpy(&p, &base, sizeof(void *));
+    return p->exchange(v);
+}
+
 /* the ctors are non-atomic; that's okay, these are called during ident
  * creation before anything is stored, so there is no chance of data race
  */
@@ -60,16 +67,14 @@ static inline void var_save(
 ) noexcept {
     switch (v.type()) {
         case value_type::INTEGER:
-            var_store<integer_type>(top, var_load<integer_type>(fromp));
-            var_store<integer_type>(fromp, 0);
+            var_store<integer_type>(top, var_exchange<integer_type>(fromp, 0));
             return;
         case value_type::FLOAT: {
             using FST = typename var_value::FS;
             FST vs{};
             float_type fv = 0;
             std::memcpy(&vs, &fv, sizeof(fv));
-            var_store<FST>(top, var_load<FST>(fromp));
-            var_store<FST>(fromp, vs);
+            var_store<FST>(top, var_exchange<FST>(fromp, vs));
             return;
         }
         case value_type::STRING: {
@@ -77,8 +82,9 @@ static inline void var_save(
             if (p) {
                 str_managed_unref(p);
             }
-            var_store<char const *>(top, var_load<char const *>(fromp));
-            var_store<char const *>(fromp, nullptr);
+            var_store<char const *>(
+                top, var_exchange<char const *>(fromp, nullptr)
+            );
         }
         default:
             break;
