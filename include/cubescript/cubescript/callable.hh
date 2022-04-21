@@ -61,7 +61,7 @@ private:
         size_t asize;
     };
 
-    std::aligned_storage_t<sizeof(void *) * 4> p_stor;
+    alignas(std::max_align_t) unsigned char p_stor[sizeof(void *) * 4];
     base *p_func;
 
     static inline base *as_base(void *p) {
@@ -170,7 +170,7 @@ public:
     }
 
     void swap(callable &f) noexcept {
-        std::aligned_storage_t<sizeof(p_stor)> tmp_stor;
+        alignas(std::max_align_t) unsigned char tmp_stor[sizeof(p_stor)];
         if (small_storage() && f.small_storage()) {
             auto *t = as_base(&tmp_stor);
             p_func->move_to(t);
