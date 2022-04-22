@@ -1,6 +1,7 @@
 libcubescript_headers = [
     'cubescript/cubescript.hh',
     'cubescript/cubescript_conf.hh',
+    'cubescript/cubescript_conf_user.hh',
     'cubescript/cubescript/callable.hh',
     'cubescript/cubescript/error.hh',
     'cubescript/cubescript/ident.hh',

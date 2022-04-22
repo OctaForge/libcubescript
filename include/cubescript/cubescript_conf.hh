@@ -15,9 +15,7 @@
 
 #include <type_traits>
 
-#if __has_include("cubescript_conf_user.hh")
-#  include "cubescript_conf_user.hh"
-#endif
+#include "cubescript_conf_user.hh"
 
 #if !defined(LIBCUBESCRIPT_CONF_USER_SPAN)
 #  include <span>

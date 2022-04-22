@@ -49,7 +49,27 @@ endif
 
 build_root = meson.current_build_dir()
 
-thr_dep = dependency('threads')
+thr_prog = '''
+#include <cubescript/cubescript.hh>
+
+#if ! LIBCUBESCRIPT_CONF_THREAD_SAFE
+#error "not thread-safe"
+#endif
+
+int main() {}
+'''
+
+if cxx.compiles(
+    thr_prog,
+    include_directories: libcubescript_includes,
+    args: extra_cxxflags
+)
+    message('libcubescript: using threads...')
+    thr_dep = dependency('threads')
+else
+    message('libcubescript: not using threads...')
+    thr_dep = dependency('', required: false)
+endif
 
 subdir('include')
 subdir('src')
