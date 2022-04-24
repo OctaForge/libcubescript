@@ -16,12 +16,15 @@ namespace cubescript {
 internal_state::internal_state(alloc_func af, void *data):
     allocf{af}, aptr{data},
     idents{allocator_type{this}},
-    identmap{allocator_type{this}},
+    identmap{nullptr},
+    identcap{1024}, /* realistic initial space */
     argmap{},
     identnum{0},
     strman{create<string_pool>(this)},
     empty{bcode_init_empty(this)}
-{}
+{
+    identmap = create_array<ident *>(identcap);
+}
 
 internal_state::~internal_state() {
     for (auto &p: idents) {
@@ -29,6 +32,7 @@ internal_state::~internal_state() {
     }
     bcode_free_empty(this, empty);
     destroy(strman);
+    destroy_array(identmap, identcap);
 }
 
 void *internal_state::alloc(void *ptr, size_t os, size_t ns) {
@@ -83,10 +87,18 @@ ident *internal_state::add_ident(ident *id, ident_impl *impl) {
     {
         mtx_guard l{ident_mtx};
         idents[id->name()] = id;
-        impl->p_index = int(identmap.size());
-        identmap.push_back(id);
-        ++identnum;
-        return identmap.back();
+        impl->p_index = identnum++;
+        if (identnum > identcap) {
+            /* if we've run out of space, double it */
+            identcap *= 2;
+            auto *oldmap = identmap;
+            auto *newmap = create_array<ident *>(identcap);
+            std::memcpy(newmap, oldmap, sizeof(ident *) * impl->p_index);
+            identmap = newmap;
+            destroy_array(oldmap, identcap / 2);
+        }
+        identmap[impl->p_index] = id;
+        return id;
     }
 }
 

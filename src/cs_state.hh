@@ -50,7 +50,8 @@ struct internal_state {
         std::equal_to<std::string_view>,
         allocator_type
     > idents;
-    std::vector<ident *, std_allocator<ident *>> identmap;
+    ident **identmap;
+    std::size_t identcap;
     std::array<ident *, MAX_ARGUMENTS> argmap;
     atomic_type<std::size_t> identnum;
     mutable mutex_type ident_mtx;
