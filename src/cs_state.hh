@@ -76,7 +76,6 @@ struct internal_state {
 
     ident *lookup_ident(std::size_t idx);
     ident const *lookup_ident(std::size_t idx) const;
-    std::size_t get_identnum() const;
     void foreach_ident(void (*f)(ident *, void *), void *data);
 
     ident *add_ident(ident *id, ident_impl *impl);
