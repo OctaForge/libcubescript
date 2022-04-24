@@ -52,6 +52,7 @@ struct internal_state {
     > idents;
     std::vector<ident *, std_allocator<ident *>> identmap;
     std::array<ident *, MAX_ARGUMENTS> argmap;
+    atomic_type<std::size_t> identnum;
     mutable mutex_type ident_mtx;
 
     string_pool *strman;

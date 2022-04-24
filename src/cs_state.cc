@@ -17,6 +17,8 @@ internal_state::internal_state(alloc_func af, void *data):
     allocf{af}, aptr{data},
     idents{allocator_type{this}},
     identmap{allocator_type{this}},
+    argmap{},
+    identnum{0},
     strman{create<string_pool>(this)},
     empty{bcode_init_empty(this)}
 {}
@@ -61,13 +63,8 @@ ident const *internal_state::lookup_ident(std::size_t idx) const {
     return identmap[idx];
 }
 
-std::size_t internal_state::get_identnum() const {
-    mtx_guard l{ident_mtx};
-    return identmap.size();
-}
-
 void internal_state::foreach_ident(void (*f)(ident *, void *), void *data) {
-    auto nids = get_identnum();
+    auto nids = identnum.load();
     for (std::size_t i = 0; i < nids; ++i) {
         ident *id;
         {
@@ -88,6 +85,7 @@ ident *internal_state::add_ident(ident *id, ident_impl *impl) {
         idents[id->name()] = id;
         impl->p_index = int(identmap.size());
         identmap.push_back(id);
+        ++identnum;
         return identmap.back();
     }
 }
@@ -353,7 +351,7 @@ LIBCUBESCRIPT_EXPORT void *state::alloc(void *ptr, size_t os, size_t ns) {
 }
 
 LIBCUBESCRIPT_EXPORT std::size_t state::ident_count() const {
-    return p_tstate->istate->get_identnum();
+    return p_tstate->istate->identnum.load();
 }
 
 LIBCUBESCRIPT_EXPORT std::optional<
