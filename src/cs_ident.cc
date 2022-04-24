@@ -143,7 +143,7 @@ any_value var_value::to_value() const {
 }
 
 ident_impl::ident_impl(ident_type tp, string_ref nm, int fl):
-    p_name{nm}, p_type{int(tp)}, p_flags{fl}
+    p_name{nm}, p_flags{fl}, p_type{int(tp)}
 {}
 
 bool ident_is_callable(ident const *id) {

@@ -105,10 +105,11 @@ struct ident_impl {
     ident_impl(ident_type tp, string_ref name, int flags = 0);
 
     string_ref p_name;
+    atomic_type<int> p_flags;
     /* represents the ident_type above, but internally it has a wider
      * variety of values, so it's an int here (maps to an internal enum)
      */
-    int p_type, p_flags;
+    int p_type;
 
     int p_index = -1;
 };

@@ -26,11 +26,34 @@ struct atomic_type {
     T load() const {
         return p_v;
     }
+
     void store(T v) {
         p_v = v;
     }
+
     T exchange(T v) {
         return std::exchange(p_v, v);
+    }
+
+    atomic_type<T> &operator=(T v) {
+        p_v = v;
+        return *this;
+    }
+
+    operator T() const {
+        return p_v;
+    }
+
+    T operator|=(T v) {
+        return (p_v |= v);
+    }
+
+    T operator&=(T v) {
+        return (p_v &= v);
+    }
+
+    T operator++(int) {
+        return p_v++;
     }
 };
 
