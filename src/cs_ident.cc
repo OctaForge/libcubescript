@@ -225,7 +225,7 @@ void var_changed(thread_state &ts, builtin_var &id, any_value &oldval) {
     val[0].set_ident(id);
     val[1] = std::move(oldval);
     val[2] = id.value();
-    cimp->call(ts, span_type<any_value>{
+    cimp->call_id(ts, span_type<any_value>{
         static_cast<any_value *>(val), 3
     }, val[0]);
 }
@@ -245,7 +245,7 @@ command *var_impl::get_setter(thread_state &ts) const {
     return nullptr; /* not reached */
 }
 
-void command_impl::call(
+void command_impl::call_id(
     thread_state &ts, span_type<any_value> args, any_value &ret
 ) const {
     auto idstsz = ts.idstack.size();

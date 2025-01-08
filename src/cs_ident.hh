@@ -144,7 +144,7 @@ struct command_impl: ident_impl, command {
         string_ref name, string_ref args, int numargs, command_func func
     );
 
-    void call(
+    void call_id(
         thread_state &ts, span_type<any_value> args, any_value &ret
     ) const;
 

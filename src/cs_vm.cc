@@ -103,7 +103,7 @@ void exec_command(
                 break;
             case '.':
                 i = std::max(i + 1, numargs);
-                id->call(ts, span_type<any_value>{args, std::size_t(i)}, res);
+                id->call_id(ts, span_type<any_value>{args, std::size_t(i)}, res);
                 return;
             case '1':
             case '2':
@@ -117,7 +117,7 @@ void exec_command(
         }
     }
     ++i;
-    id->call(ts, span_type<any_value>{args, std::size_t(i)}, res);
+    id->call_id(ts, span_type<any_value>{args, std::size_t(i)}, res);
     res.force_plain();
 }
 
@@ -772,7 +772,7 @@ noid:
                 );
                 std::size_t offset = args.size() - id->arg_count();
                 result.force_none();
-                id->call(ts, span_type<any_value>{
+                id->call_id(ts, span_type<any_value>{
                     &args[offset], std::size_t(id->arg_count())
                 }, result);
                 args.resize(offset);
@@ -786,7 +786,7 @@ noid:
                 std::size_t callargs = *code++;
                 std::size_t offset = args.size() - callargs;
                 result.force_none();
-                id->call(
+                id->call_id(
                     ts, span_type<any_value>{&args[offset], callargs}, result
                 );
                 args.resize(offset);
