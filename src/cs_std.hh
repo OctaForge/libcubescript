@@ -60,11 +60,11 @@ struct valbuf {
 
     void clear() { buf.clear(); }
 
-    T &operator[](std::size_t i) { return buf[i]; }
-    T const &operator[](std::size_t i) const { return buf[i]; }
+    T &operator[](std::size_t i) { return buf.data()[i]; }
+    T const &operator[](std::size_t i) const { return buf.data()[i]; }
 
-    T *data() { return &buf[0]; }
-    T const *data() const { return &buf[0]; }
+    T *data() { return buf.data(); }
+    T const *data() const { return buf.data(); }
 
     std::vector<T, std_allocator<T>> buf;
 };
@@ -81,7 +81,7 @@ struct charbuf: valbuf<char> {
     }
 
     void append(std::string_view v) {
-        append(&v[0], &v[v.size()]);
+        append(v.begin(), v.end());
     }
 
     std::string_view str() {
