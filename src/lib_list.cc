@@ -225,9 +225,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         alias_local st{cs, args[0]};
         any_value idv{};
         auto body = args[2].get_code();
-        int n = -1;
         for (list_parser p{cs, args[1].get_string(cs)}; p.parse();) {
-            ++n;
             idv.set_string(p.raw_item(), cs);
             st.set(std::move(idv));
             if (body.call(cs).get_bool()) {
@@ -290,8 +288,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         alias_local st{cs, args[0]};
         any_value idv{};
         auto body = args[2].get_code();
-        int n = 0;
-        for (list_parser p{cs, args[1].get_string(cs)}; p.parse(); ++n) {
+        for (list_parser p{cs, args[1].get_string(cs)}; p.parse();) {
             idv.set_string(p.get_item());
             st.set(std::move(idv));
             switch (body.call_loop(cs)) {
@@ -308,8 +305,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         alias_local st2{cs, args[1]};
         any_value idv{};
         auto body = args[3].get_code();
-        int n = 0;
-        for (list_parser p{cs, args[2].get_string(cs)}; p.parse(); n += 2) {
+        for (list_parser p{cs, args[2].get_string(cs)}; p.parse();) {
             idv.set_string(p.get_item());
             st1.set(std::move(idv));
             if (p.parse()) {
@@ -333,8 +329,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         alias_local st3{cs, args[2]};
         any_value idv{};
         auto body = args[4].get_code();
-        int n = 0;
-        for (list_parser p{cs, args[3].get_string(cs)}; p.parse(); n += 3) {
+        for (list_parser p{cs, args[3].get_string(cs)}; p.parse();) {
             idv.set_string(p.get_item());
             st1.set(std::move(idv));
             if (p.parse()) {
@@ -383,8 +378,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         any_value idv{};
         auto body = args[2].get_code();
         charbuf r{cs};
-        int n = 0;
-        for (list_parser p{cs, args[1].get_string(cs)}; p.parse(); ++n) {
+        for (list_parser p{cs, args[1].get_string(cs)}; p.parse();) {
             idv.set_string(p.raw_item(), cs);
             st.set(std::move(idv));
             if (body.call(cs).get_bool()) {
@@ -401,8 +395,8 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
         alias_local st{cs, args[0]};
         any_value idv{};
         auto body = args[2].get_code();
-        int n = 0, r = 0;
-        for (list_parser p{cs, args[1].get_string(cs)}; p.parse(); ++n) {
+        int r = 0;
+        for (list_parser p{cs, args[1].get_string(cs)}; p.parse();) {
             idv.set_string(p.raw_item(), cs);
             st.set(std::move(idv));
             if (body.call(cs).get_bool()) {
