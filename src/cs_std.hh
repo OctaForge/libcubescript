@@ -81,7 +81,7 @@ struct charbuf: valbuf<char> {
     }
 
     void append(std::string_view v) {
-        append(static_cast<char const *>(v.begin()), static_cast<char const *>(v.end()));
+        append(v.data(), v.data() + v.size());
     }
 
     std::string_view str() {

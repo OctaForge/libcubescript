@@ -200,7 +200,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
             return;
         }
         auto quote = p.quoted_item();
-        auto *qend = quote.end();
+        auto *qend = quote.data() + quote.size();
         res.set_string(make_str_view(list, qend), cs);
     });
 
@@ -467,7 +467,7 @@ LIBCUBESCRIPT_EXPORT void std_init_list(state &gcs) {
             }
         }
         std::string_view quote = p.quoted_item();
-        char const *qend = !quote.empty() ? quote.end() : list;
+        char const *qend = !quote.empty() ? quote.data() + quote.size() : list;
         charbuf buf{cs};
         if (qend > list) {
             buf.append(list, qend);
